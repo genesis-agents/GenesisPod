@@ -3,203 +3,268 @@
 /**
  * DeepInsightMissionDetail（L4）— 深度洞察能力的唯一对外成品入口。
  *
- * 规范：docs/architecture/frontend/mission-ui-capability-architecture.md §2 L4。
+ * ★ 蓝本 = PLAYGROUND 真实详情页（app/agent-playground/team/[missionId]/page.tsx）：
+ *   - 外壳：canonical MissionDetailFrame。
+ *   - 左栏：TeamRosterPanel（SVG 阵型图 + 任务进度 + 共识质量 + 研究维度 + 运行配置卡 +
+ *     开始/更新/取消按钮）。
+ *   - 右侧 6 tab：tasks→MissionTodoBoard · collab→MissionFlowView · report→ArtifactReader ·
+ *     references→ReferencesPanel · graph→MissionGraphTab · cost→ComputeUsagePanel(+
+ *     CapabilityMeters + MemoryIndexPanel)。
  *
- * 只吃归一契约 DeepInsightMissionView（由 fromCompanyMissionResult /
- * fromPlaygroundMissionView 产出），用 canonical MissionDetailFrame 组装：
- *   左栏  → DeepInsightTeamPanel（拓扑 + 评分 + 维度 + 评审 + 操作）
- *   右栏  → 5 tab：任务列表 / 输出报告 / 参考文献 / 事实表 / 算力消耗
+ * 视觉/结构与 playground 详情页一致：这些 playground 面板按 §22 「kit import 复用、不
+ * 物理迁出」直接 import，由 L4 把归一契约 DeepInsightMissionView 喂进各面板（运行态
+ * 强耦合字段 events / canonical view / graph API 在 company 无 live 数据时合理降级）。
  *
- * 应用页退化成「取数 → adapter → <DeepInsightMissionDetail data />」。
- * 富 artifact 三视图（playground ArtifactReader）走可选 reportSlot 旁路注入，
- * 不传则报告 tab 用契约 report markdown 的简版 ReportPanel。
+ * 本组件**只吃 DeepInsightMissionView 契约**（唯一对外入口）。契约的 DI* 运行态镜像
+ * 类型与 playground `mission-presentation.types` 结构兼容，喂面板时做结构化窄化转换
+ * （数组 → Map、unknown[] → PlaygroundEvent[]、reportArtifact 富对象判定）。
  */
 
 import { useMemo, useState } from 'react';
 import {
-  ListChecks,
-  FileText,
-  Layers,
+  Activity,
+  ClipboardList,
   Coins,
   Database,
+  FileText,
+  Layers,
+  ListChecks,
+  Network,
   type LucideIcon,
 } from 'lucide-react';
-import { cn } from '@/lib/utils/common';
-import { StatusBadge, type BadgeTone } from '@/components/ui/badges';
+import { MissionDetailFrame } from '@/components/common/mission-detail';
 import {
-  MissionDetailFrame,
-  MissionTaskList,
-  type MissionTaskColumn,
-} from '@/components/common/mission-detail';
-import { MODULE_THEMES } from '@/lib/design/module-themes';
-import { DeepInsightTeamPanel } from './left/DeepInsightTeamPanel';
-import {
-  ReportPanel,
-  ReferencesPanel,
-  FactTablePanel,
+  CapabilityMeters,
   ComputeUsagePanel,
-} from './panels';
-import type { DeepInsightMissionView, MissionStep } from './contract';
+  MemoryIndexPanel,
+  MissionFlowView,
+  MissionTodoBoard,
+  ReferencesPanel,
+  TeamRosterPanel,
+} from '@/components/agent-playground';
+import { MissionGraphTab } from '@/components/agent-playground/MissionGraphTab';
+import {
+  ArtifactReader,
+  ArtifactMarkdown,
+} from '@/components/agent-playground/artifact';
+import {
+  isReportArtifact,
+  type ArtifactCitation,
+  type ReportArtifact,
+} from '@/lib/features/agent-playground/report-artifact.types';
+import type {
+  AgentLiveState,
+  CostState,
+  DimensionPipelineState,
+  MemoryIndexState,
+  StageState,
+} from '@/lib/features/agent-playground/mission-presentation.types';
+import type { MissionTodo } from '@/lib/features/agent-playground/mission-todo.types';
+import type { MissionDetailView } from '@/services/agent-playground/api';
+import type { PlaygroundEvent } from '@/hooks/features/useAgentPlaygroundStream';
+import { MODULE_THEMES } from '@/lib/design/module-themes';
+import type {
+  DeepInsightMissionView,
+  DICostState,
+  DIDimensionPipelineState,
+  MissionStep,
+} from './contract';
 
-type TabKey = 'tasks' | 'report' | 'references' | 'facts' | 'cost';
+type TabKey = 'tasks' | 'collab' | 'report' | 'references' | 'graph' | 'cost';
 
-const TABS: { key: TabKey; label: string; Icon: LucideIcon }[] = [
+const ALL_TABS: { key: TabKey; label: string; Icon: LucideIcon }[] = [
   { key: 'tasks', label: '任务列表', Icon: ListChecks },
+  { key: 'collab', label: '协作动态', Icon: Activity },
   { key: 'report', label: '输出报告', Icon: FileText },
   { key: 'references', label: '参考文献', Icon: Layers },
-  { key: 'facts', label: '事实表', Icon: Database },
+  { key: 'graph', label: '图谱分析', Icon: Network },
   { key: 'cost', label: '算力消耗', Icon: Coins },
 ];
 
-const STEP_STATUS: Record<
-  MissionStep['status'],
-  { tone: BadgeTone; label: string; bar: string }
-> = {
-  done: { tone: 'success', label: '已完成', bar: 'border-l-emerald-400' },
-  failed: { tone: 'danger', label: '失败', bar: 'border-l-rose-400' },
-  skipped: { tone: 'neutral', label: '跳过', bar: 'border-l-gray-300' },
-};
+// Deep-insight brand icon — 沿用 playground 的 ClipboardList（文档/任务感）
+const BrandIcon = ClipboardList;
 
-const STATUS_PILL: Record<
-  DeepInsightMissionView['status'],
-  { dot: string; bg: string; text: string; label: string }
-> = {
-  running: {
-    dot: 'bg-blue-500 animate-pulse',
-    bg: 'bg-blue-50',
-    text: 'text-blue-700',
-    label: '进行中',
-  },
-  done: {
-    dot: 'bg-emerald-500',
-    bg: 'bg-emerald-50',
-    text: 'text-emerald-700',
-    label: '已完成',
-  },
-  failed: {
-    dot: 'bg-rose-500',
-    bg: 'bg-rose-50',
-    text: 'text-rose-700',
-    label: '失败',
-  },
-};
+const EMPTY_COST: CostState = { tokensUsed: 0, costUsd: 0, byStage: [] };
 
 export interface DeepInsightMissionDetailProps {
   data: DeepInsightMissionView;
   onBack?: () => void;
-  /**
-   * 报告 tab 富 artifact 旁路（规范 playgroundWire §③ 路 b）：playground 可注入
-   * ArtifactReader 以保留三视图/版本切换；不传则用契约 report markdown 简版。
-   */
-  reportSlot?: React.ReactNode;
-  /** 参考文献锚点 id 生成器（playground citationNavigation 用）。 */
-  getReferenceAnchorId?: (
-    ref: DeepInsightMissionView['references'][number],
-    index: number
-  ) => string | undefined;
 }
 
 export function DeepInsightMissionDetail({
   data,
   onBack,
-  reportSlot,
-  getReferenceAnchorId,
 }: DeepInsightMissionDetailProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('tasks');
   const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [selectedTaskKey, setSelectedTaskKey] = useState<string | null>(null);
 
-  const taskColumns: MissionTaskColumn<MissionStep>[] = useMemo(
-    () => [
-      {
-        key: 'index',
-        label: '#',
-        className: 'w-10 text-center',
-        render: (_s, i) => <span className="text-gray-400">{i + 1}</span>,
-      },
-      {
-        key: 'label',
-        label: '任务',
-        className: 'w-[42%]',
-        render: (s) => (
-          <span className="font-medium text-gray-800">{s.label}</span>
-        ),
-      },
-      {
-        key: 'role',
-        label: '负责人',
-        className: 'w-[18%]',
-        render: (s) => <span className="text-gray-600">{s.role}</span>,
-      },
-      {
-        key: 'dimension',
-        label: '维度',
-        className: 'w-[22%]',
-        render: (s) => (
-          <span className="text-gray-500">{s.dimension ?? '—'}</span>
-        ),
-      },
-      {
-        key: 'status',
-        label: '状态',
-        className: 'w-[18%]',
-        render: (s) => {
-          const m = STEP_STATUS[s.status];
-          return <StatusBadge tone={m.tone} label={m.label} />;
-        },
-      },
-    ],
-    []
+  // ── 契约 DI* 镜像 → playground 面板原生类型（结构兼容，仅做窄化 cast）──
+  const agents = data.agents as unknown as AgentLiveState[];
+  const stages = data.stages as unknown as StageState[];
+  const cost: CostState = data.cost
+    ? (data.cost as unknown as CostState)
+    : EMPTY_COST;
+
+  // dimensionPipelines：契约是数组 → 面板要 Map<string, ...>
+  const dimensionPipelines = useMemo<
+    Map<string, DimensionPipelineState>
+  >(() => {
+    const m = new Map<string, DimensionPipelineState>();
+    for (const p of data.dimensionPipelines) {
+      m.set(p.dimension, p as unknown as DimensionPipelineState);
+    }
+    return m;
+  }, [data.dimensionPipelines]);
+
+  // events：契约是 unknown[]（company 无 → 空数组）→ collab tab 用 PlaygroundEvent[]
+  const events = data.events as unknown as PlaygroundEvent[];
+  const hasEvents = events.length > 0;
+
+  // memory：契约 DIMemoryIndexState | undefined → 面板要 MemoryIndexState | null
+  const memory = (data.memory as MemoryIndexState | undefined) ?? null;
+
+  // missionTerminal：missionStatus 非 running 即终态
+  const missionTerminal = data.missionStatus !== 'running';
+
+  // ── tasks：MissionTodoBoard 需 MissionTodo[]；company 仅有 steps → 派生最小子集 ──
+  const todos = useMemo<MissionTodo[]>(
+    () => buildTodosFromSteps(data.steps),
+    [data.steps]
   );
 
+  // ── report：富 ReportArtifact 判定（有 → ArtifactReader 三视图；无 → markdown 兜底）──
+  const reportArtifact: ReportArtifact | null = useMemo(() => {
+    const raw = data.reportArtifact;
+    if (raw && typeof raw === 'object' && isReportArtifact(raw)) {
+      return raw;
+    }
+    return null;
+  }, [data.reportArtifact]);
+
+  // ── references：富 citations 优先（来自 reportArtifact），缺则 references.source 兜底 ──
+  const richCitations = useMemo<readonly ArtifactCitation[] | undefined>(() => {
+    const raw = data.reportArtifact;
+    if (
+      raw &&
+      typeof raw === 'object' &&
+      isReportArtifact(raw) &&
+      Array.isArray(raw.citations) &&
+      raw.citations.length > 0
+    ) {
+      return raw.citations as readonly ArtifactCitation[];
+    }
+    return undefined;
+  }, [data.reportArtifact]);
+  const fallbackSources = useMemo<string[]>(
+    () => data.references.map((r) => r.source).filter((s) => !!s),
+    [data.references]
+  );
+
+  // ── canonical view（collab / CapabilityMeters 需要；company 无 → undefined）──
+  // company 侧 fromCompanyMissionResult 不产出 canonical view；playground 侧 adapter
+  // 可在 reportArtifact / events 之外携带原始 view。契约未直接承载 MissionDetailView，
+  // collab/CapabilityMeters 仅在 events 存在（= playground live）时才有意义 → 用 events
+  // 有无作为 live 闸门，无 live 数据时这两处降级隐藏。
+  const canonicalView = data.reportArtifact as MissionDetailView | undefined;
+
+  // ── 可见 tab：company 无 live → 隐藏 collab；无 graph API → 隐藏 graph ──
+  const tabs = useMemo(
+    () =>
+      ALL_TABS.filter((t) => {
+        if (t.key === 'collab') return hasEvents;
+        if (t.key === 'graph') return data.hasGraph;
+        return true;
+      }),
+    [hasEvents, data.hasGraph]
+  );
+
+  // 当前 tab 不在可见集合（数据降级）→ 落回 tasks
+  const safeActiveTab = tabs.some((t) => t.key === activeTab)
+    ? activeTab
+    : 'tasks';
+
+  // ── 左栏 TeamRosterPanel（吃 DeepInsightMissionView）──
   const leftPanel = (
-    <DeepInsightTeamPanel
-      team={data.team}
-      score={data.score}
-      dimensions={data.dimensions}
-      reviewNotes={data.reviewNotes}
-      referenceCount={data.references.length}
-      factCount={data.facts.length}
-      actions={data.actions}
+    <TeamRosterPanel
+      agents={agents}
+      stages={stages}
+      finalScore={data.finalScore}
+      topic={data.topic}
+      dimensions={data.dimensionDetails}
+      taskProgress={data.taskProgress}
+      missionStatus={data.missionStatus}
+      depth={data.depth}
+      language={data.language}
+      maxCredits={data.maxCredits}
+      isResumable={data.isResumable}
       onCollapse={() => setLeftCollapsed(true)}
-      patternId={`deep-insight-${data.id || 'mission'}`}
     />
   );
 
-  const pill = STATUS_PILL[data.status];
-  const statusPill = (
-    <div
-      className={cn(
-        'flex items-center gap-2 rounded-full px-3 py-1.5',
-        pill.bg
-      )}
-    >
-      <span className={cn('h-2 w-2 rounded-full', pill.dot)} />
-      <span className={cn('text-sm font-medium', pill.text)}>
-        {data.statusDetail ?? pill.label}
-      </span>
+  // ── 折叠态左栏装饰（playground 特色：垂直 Team 文字 + running pulse）──
+  const collapsedLeftView = (
+    <div className="flex h-full flex-col items-center py-4">
+      <button
+        type="button"
+        onClick={() => setLeftCollapsed(false)}
+        className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+        title="展开团队面板"
+        aria-label="展开团队面板"
+      >
+        <svg
+          className="h-5 w-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 5l7 7-7 7"
+          />
+        </svg>
+      </button>
+      <div className="mt-4 flex flex-col items-center gap-2">
+        {data.missionStatus === 'running' && (
+          <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+        )}
+        <span
+          className="text-xs uppercase tracking-wide text-gray-500"
+          style={{ writingMode: 'vertical-rl' }}
+        >
+          Team
+        </span>
+      </div>
     </div>
   );
 
+  // ── Header status pill ──
+  const statusPill = <StatusPill view={data} />;
+
   const subtitle = (
     <>
+      {data.depth && <span>{data.depth}</span>}
+      {data.language && (
+        <>
+          <span>·</span>
+          <span>{data.language}</span>
+        </>
+      )}
+      <span>·</span>
       <span>{data.dimensions.length} 维度</span>
       <span>·</span>
       <span>{data.references.length} 引用</span>
-      {data.createdAt ? (
-        <>
-          <span>·</span>
-          <span>{new Date(data.createdAt).toLocaleString()}</span>
-        </>
-      ) : null}
     </>
   );
 
   return (
     <MissionDetailFrame<TabKey>
       onBack={() => onBack?.()}
-      backTitle="返回任务列表"
+      backTitle="返回 Mission 列表"
       brandGradient={MODULE_THEMES.ask.gradient}
-      HeaderIcon={FileText}
+      HeaderIcon={BrandIcon}
       title={
         <span title={typeof data.title === 'string' ? data.title : undefined}>
           {data.title}
@@ -207,44 +272,112 @@ export function DeepInsightMissionDetail({
       }
       subtitle={subtitle}
       statusPill={statusPill}
-      tabs={TABS}
-      activeTab={activeTab}
-      onTabChange={setActiveTab}
+      tabs={tabs}
+      activeTab={safeActiveTab}
+      onTabChange={(k) => setActiveTab(k as TabKey)}
       leftPanel={leftPanel}
       leftCollapsed={leftCollapsed}
       onLeftCollapseToggle={() => setLeftCollapsed((v) => !v)}
+      leftCollapsedView={collapsedLeftView}
     >
       <div className="px-6 py-5">
-        {activeTab === 'tasks' && (
-          <MissionTaskList<MissionStep>
-            items={data.steps}
-            columns={taskColumns}
-            getRowKey={(s) => `${s.role}-${s.label}`}
-            getRowClassName={(s) => cn('border-l-4', STEP_STATUS[s.status].bar)}
-            emptyTitle="暂无执行步骤"
-            emptyDescription="该任务未记录逐步骤执行轨迹"
+        {safeActiveTab === 'tasks' && (
+          <MissionTodoBoard
+            todos={todos}
+            themeSummary={data.statusDetail}
+            selectedKey={selectedTaskKey}
+            onSelect={(id) => setSelectedTaskKey(id)}
+            missionFailed={data.missionStatus === 'failed'}
+            missionCancelled={data.missionStatus === 'cancelled'}
+            missionQualityFailed={data.statusDetail === 'quality-failed'}
+            agents={agents}
+            dimensionPipelines={dimensionPipelines}
+            missionId={data.id}
+            missionTerminal={missionTerminal}
           />
         )}
 
-        {activeTab === 'report' &&
-          (reportSlot ?? <ReportPanel report={data.report} />)}
+        {safeActiveTab === 'collab' && hasEvents && canonicalView && (
+          <MissionFlowView
+            view={canonicalView}
+            events={events}
+            todoLedger={todos}
+          />
+        )}
 
-        {activeTab === 'references' && (
+        {safeActiveTab === 'report' && (
+          <div className="space-y-4">
+            {reportArtifact ? (
+              <ArtifactReader
+                artifact={reportArtifact}
+                missionId={data.id}
+                defaultView="continuous"
+                reconciliationReport={
+                  data.reconciliationReport as Parameters<
+                    typeof ArtifactReader
+                  >[0]['reconciliationReport']
+                }
+                dimensionPipelines={
+                  data.missionStatus === 'running'
+                    ? dimensionPipelines
+                    : new Map()
+                }
+              />
+            ) : data.report ? (
+              <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+                <ArtifactMarkdown
+                  markdown={data.report}
+                  citations={[]}
+                  figures={[]}
+                />
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-gray-100 bg-white p-10 text-center text-sm text-gray-500 shadow-sm">
+                暂无报告内容
+              </div>
+            )}
+          </div>
+        )}
+
+        {safeActiveTab === 'references' && (
           <ReferencesPanel
-            references={data.references}
-            getAnchorId={getReferenceAnchorId}
+            citations={richCitations}
+            fallbackSources={fallbackSources}
           />
         )}
 
-        {activeTab === 'facts' && (
-          <FactTablePanel
-            facts={data.facts}
-            reconciliationReport={data.reconciliationReport}
-          />
+        {safeActiveTab === 'graph' && data.hasGraph && (
+          <MissionGraphTab missionId={data.id} />
         )}
 
-        {activeTab === 'cost' && (
-          <ComputeUsagePanel steps={data.steps} usage={data.usage} />
+        {safeActiveTab === 'cost' && (
+          <div className="space-y-4">
+            {canonicalView && (
+              <CapabilityMeters
+                view={canonicalView}
+                wallTimeMs={0}
+                cost={cost}
+                memory={memory}
+              />
+            )}
+            <ComputeUsagePanel
+              cost={cost}
+              agents={agents}
+              todos={todos}
+              dimensionPipelines={dimensionPipelines}
+            />
+            <MemoryIndexPanel
+              memory={memory}
+              missionPhase={
+                data.missionStatus === 'failed' ||
+                data.missionStatus === 'cancelled'
+                  ? 'aborted'
+                  : data.missionStatus === 'completed'
+                    ? 'completed-noindex'
+                    : 'running'
+              }
+            />
+          </div>
         )}
       </div>
     </MissionDetailFrame>
@@ -252,3 +385,102 @@ export function DeepInsightMissionDetail({
 }
 
 export default DeepInsightMissionDetail;
+
+// ── helpers ────────────────────────────────────────────────────────────
+
+/**
+ * Header 状态 pill（对齐 playground statusPill 的色彩语义）。
+ * running=blue · completed=emerald · failed=red · cancelled=gray ·
+ * quality-failed(statusDetail)=amber。
+ */
+function StatusPill({ view }: { view: DeepInsightMissionView }) {
+  if (view.missionStatus === 'running') {
+    return (
+      <div className="flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5">
+        <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+        <span className="text-sm font-medium text-blue-700">研究中</span>
+      </div>
+    );
+  }
+  if (view.missionStatus === 'cancelled') {
+    return (
+      <div className="flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5">
+        <span className="h-2 w-2 rounded-full bg-gray-500" />
+        <span className="text-sm font-medium text-gray-700">已取消</span>
+      </div>
+    );
+  }
+  if (view.missionStatus === 'failed') {
+    return (
+      <div className="flex items-center gap-2 rounded-full bg-red-50 px-3 py-1.5">
+        <span className="h-2 w-2 rounded-full bg-red-500" />
+        <span className="text-sm font-medium text-red-700">已失败</span>
+      </div>
+    );
+  }
+  if (view.statusDetail === 'quality-failed') {
+    return (
+      <div className="flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5">
+        <span className="h-2 w-2 rounded-full bg-amber-500" />
+        <span
+          className="text-sm font-medium text-amber-700"
+          title="Leader 拒签，但报告仍可阅读"
+        >
+          质量未达标
+        </span>
+      </div>
+    );
+  }
+  if (view.missionStatus === 'completed') {
+    return (
+      <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5">
+        <span className="h-2 w-2 rounded-full bg-emerald-500" />
+        <span className="text-sm font-medium text-emerald-700">已完成</span>
+      </div>
+    );
+  }
+  return null;
+}
+
+const STEP_STATUS_TO_TODO: Record<
+  MissionStep['status'],
+  MissionTodo['status']
+> = {
+  done: 'done',
+  failed: 'failed',
+  skipped: 'cancelled',
+};
+
+/**
+ * company 静态 steps → 最小 MissionTodo[]（无 live trace / narrativeLog）。
+ * 供 MissionTodoBoard / ComputeUsagePanel 在 company 降级场景下渲染静态任务列表。
+ * playground 侧 adapter 已直接携带富 todoBoard items（走 steps 投影），此 helper
+ * 仅在 company 静态结果（无 todoBoard）下产生兜底。
+ */
+function buildTodosFromSteps(steps: MissionStep[]): MissionTodo[] {
+  return steps.map((s, i) => ({
+    id: `step-${i}`,
+    origin: 'leader-plan',
+    createdBy: 'leader',
+    createdAt: 0,
+    reasonText: '',
+    scope: 'mission',
+    title: s.label,
+    assignee: { role: normalizeTodoRole(s.role) },
+    status: STEP_STATUS_TO_TODO[s.status],
+    artifacts: [],
+    narrativeLog: [],
+    dimensionRef: s.dimension,
+  })) as unknown as MissionTodo[];
+}
+
+/** step.role 字符串 → MissionTodoAssignee.role（未知 → 'mission' 兜底）。 */
+function normalizeTodoRole(role: string): MissionTodo['assignee']['role'] {
+  const r = role.toLowerCase();
+  if (r === 'leader') return 'leader';
+  if (r === 'researcher') return 'researcher';
+  if (r === 'analyst') return 'analyst';
+  if (r === 'writer') return 'writer';
+  if (r === 'reviewer') return 'reviewer';
+  return 'mission';
+}

@@ -23,4 +23,16 @@ export type {
   Verdict,
   CompanyMissionInput,
   MissionReportResultLike,
+  // playground 运行态结构镜像（TeamRosterPanel / 各 tab 面板喂数用）
+  DIStageId,
+  DIStageStatus,
+  DIStageState,
+  DIAgentRole,
+  DIAgentPhase,
+  DIAgentTraceItem,
+  DIAgentLiveState,
+  DICostState,
+  DIDimensionPipelineState,
+  DIMemoryIndexState,
+  DIVerifierVerdict,
 } from './contract';

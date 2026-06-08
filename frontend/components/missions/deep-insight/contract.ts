@@ -1,17 +1,27 @@
 /**
- * Deep-Insight Mission UI — 归一化数据契约（L2 BaseMissionView + L3 DeepInsightMissionView）
+ * Deep-Insight Mission UI — 归一化数据契约（DeepInsightMissionView）
  *
- * 规范：docs/architecture/frontend/mission-ui-capability-architecture.md §3。
+ * ★ 蓝本 = PLAYGROUND 真实实现（app/agent-playground/team/[missionId]/page.tsx）：
+ *   左栏 TeamRosterPanel + 右侧 6 tab（tasks/collab/report/references/graph/cost）。
+ *   本契约**忠实于 playground 的 MissionView 形状**：把 TeamRosterPanel 与各 tab
+ *   面板真正吃的字段（agents / stages / taskProgress / finalScore / topic /
+ *   dimensions / depth / language / maxCredits / missionStatus，以及 events /
+ *   cost / dimensionPipelines / reportArtifact / memory / verdicts）摊平到一个 view。
  *
- * 这一层是「乐高的凸点」：把两种异构数据源（公司 deepdive 静态 result /
- * playground WebSocket 事件流派生的 MissionView）归一成同一套 view，喂给 L4
- * <DeepInsightMissionDetail data />。
+ * 这一层是「乐高的凸点」：把两种异构数据源归一成同一套 view，喂给 L4 详情壳：
+ *   - PLAYGROUND：WebSocket 事件流派生的 MissionPresentationView + canonical
+ *     MissionDetailView + raw events（live，全字段齐）。
+ *   - COMPANY（deepdive 静态 result）：MissionReportResult，缺失字段按
+ *     companyDataGap 降级（collab/graph 隐藏、tasks/report/cost 汇总/静态）。
  *
- * 设计约束：
- * - 本文件**零** playground 私有运行态依赖（不 import WS hook / MissionDetailView /
- *   ReportArtifactV2 等）。playground 形状只在 adapter 内通过 `unknown` + 收窄消费，
- *   保持契约层可被任意页面接入。
- * - 复用的类型来自 canonical 壳层（team-topology / mission-detail），不重造。
+ * 设计约束（保持契约层可被任意页面接入）：
+ * - 本文件**不 import** playground 私有运行态符号（WS hook / MissionDetailView /
+ *   ReportArtifactV2 等）。playground 形状只在 adapter 内通过 `unknown` + 收窄消费。
+ * - playground 侧 AgentLiveState / StageState / CostState / DimensionPipelineState
+ *   等运行态 shape 在本文件**结构镜像**重声明（前缀 DI*），与 playground
+ *   `lib/features/agent-playground/mission-presentation.types` 结构兼容 —— kit 接线时
+ *   可把 `view.agents` / `view.stages` 等直接透传给 TeamRosterPanel，不引入反向依赖。
+ * - 复用的纯渲染类型来自 canonical 壳层（team-topology），不重造。
  */
 
 import { Crown, Search, PenLine, Gavel } from 'lucide-react';
@@ -20,12 +30,122 @@ import type {
   TeamTopologyConnection,
 } from '@/components/common/team-topology';
 
+// ── playground 运行态结构镜像（DI* 前缀，与 mission-presentation.types 结构兼容）──
+//
+// 这些是 TeamRosterPanel / MissionTodoBoard / ComputeUsagePanel 等面板真正吃的
+// 形状。company 侧没有这些（无 trace / 无 WS）→ adapter 给空数组/兜底；playground
+// 侧 kit 接线时把 view.agents / view.stages / view.cost 原样喂入（结构兼容）。
+
+/** 5 个 frontend 高层 StageId（leader/researchers/analyst/writer/reviewer）。 */
+export type DIStageId =
+  | 'leader'
+  | 'researchers'
+  | 'analyst'
+  | 'writer'
+  | 'reviewer';
+
+export type DIStageStatus = 'pending' | 'running' | 'done' | 'failed';
+
+/** 喂给 TeamRosterPanel 的 stage（结构镜像 StageState 子集）。 */
+export interface DIStageState {
+  id: DIStageId;
+  status: DIStageStatus;
+  startedAt?: number;
+  endedAt?: number;
+  detail?: string;
+  attempts?: number;
+}
+
+export type DIAgentRole =
+  | 'leader'
+  | 'researcher'
+  | 'analyst'
+  | 'writer'
+  | 'reviewer';
+
+export type DIAgentPhase = 'pending' | 'running' | 'completed' | 'failed';
+
+/** 单条 react trace（latency/token 派生用；company 无 trace → 空数组）。 */
+export interface DIAgentTraceItem {
+  kind: 'thought' | 'action' | 'observation' | 'reflection' | 'error';
+  ts: number;
+  text?: string;
+  toolId?: string;
+  output?: unknown;
+  latencyMs?: number;
+  tokensUsed?: number;
+  error?: string;
+}
+
+/** 喂给 TeamRosterPanel 拓扑 + AgentInspector 的 agent（结构镜像 AgentLiveState 子集）。 */
+export interface DIAgentLiveState {
+  agentId: string;
+  role: DIAgentRole;
+  phase: DIAgentPhase;
+  startedAt?: number;
+  endedAt?: number;
+  wallTimeMs?: number;
+  iterations?: number;
+  attempt?: number;
+  dimension?: string;
+  modelId?: string;
+  failureMessage?: string;
+  retryCount?: number;
+  trace: DIAgentTraceItem[];
+  tokensUsed?: number;
+  toolCallCount?: number;
+  costUsd?: number;
+}
+
+/** 算力 by-stage 明细（ComputeUsagePanel 吃；company 无 → 空数组）。 */
+export interface DICostState {
+  tokensUsed: number;
+  costUsd: number;
+  byStage: { stage: string; tokensUsed: number; costUsd: number }[];
+}
+
+/** 维度章节子状态机（ArtifactReader / MissionTodoBoard / ComputeUsagePanel 吃）。 */
+export interface DIDimensionPipelineState {
+  dimension: string;
+  chapters: {
+    index: number;
+    heading: string;
+    status: string;
+    attempts: number;
+    wordCount?: number;
+    score?: number;
+  }[];
+  totalWordCount?: number;
+  grade?: {
+    overall: number;
+    grade: string;
+    summary: string;
+  };
+}
+
+/** 记忆索引（MemoryIndexPanel 吃；company 无 → undefined）。 */
+export interface DIMemoryIndexState {
+  chunks: number;
+  namespace?: string;
+  tags?: string[];
+}
+
+/** verifier 裁决（评分卡 / collab 吃；company 用 review 兜底单条）。 */
+export interface DIVerifierVerdict {
+  verifierId: string;
+  score: number;
+  critique?: string;
+  criteria?: Record<string, number>;
+  modelId?: string;
+}
+
 // ── 复用 / 归一的子类型 ────────────────────────────────────────────────
 
 /**
  * 喂给 canonical TeamTopologyCanvas 的归一拓扑视图。
- * 两端拓扑构造逻辑不同（company 由 dimensions+steps 现算；playground 由 roster
- * 派生），契约层只暴露归一后的结果。
+ * playground 侧 TeamRosterPanel 自带从 agents+stages 现算拓扑（不吃此字段）；
+ * company 侧无 live agent → 用 buildDeepInsightTopology(dimensions,true) 造静态全
+ * completed 拓扑，喂给静态左栏 / TeamTopologyCanvas 直渲。
  */
 export interface TeamTopologyView {
   nodes: TeamTopologyNode[];
@@ -37,7 +157,7 @@ export interface TeamTopologyView {
   agentCount: number;
 }
 
-/** 喂给 canonical MissionTaskList 的单步骤（已是 MissionReportView 导出形状）。 */
+/** 喂给 canonical MissionTaskList / MissionTodoBoard 降级版的单步骤。 */
 export interface MissionStep {
   label: string;
   role: string;
@@ -47,7 +167,7 @@ export interface MissionStep {
   costCents?: number;
 }
 
-/** 算力消耗归一（company cents / playground USD 在 adapter 内换算成 cents）。 */
+/** 算力消耗汇总归一（company cents / playground USD 在 adapter 内换算成 cents）。 */
 export interface ComputeUsage {
   totalTokens?: number;
   totalCostCents?: number;
@@ -66,7 +186,7 @@ export interface MissionAction {
   onClick: () => void;
 }
 
-/** 参考文献归一（复用 MissionReportView 的 MissionReference 形状）。 */
+/** 参考文献归一（ReferencesPanel 吃）。 */
 export interface Reference {
   source: string;
   title?: string;
@@ -76,7 +196,7 @@ export interface Reference {
   claim?: string;
 }
 
-/** 事实表条目归一（复用 MissionReportView 的 MissionFact 形状）。 */
+/** 事实表条目归一（FactTablePanel 吃）。 */
 export interface Fact {
   id?: string;
   entity?: string;
@@ -88,7 +208,7 @@ export interface Fact {
 /** 评审裁决归一三态（开放 verdict 字符串在 adapter 内收窄）。 */
 export type Verdict = 'approve' | 'revise' | 'reject';
 
-// ── L2 契约：所有 mission 通用（壳层吃）────────────────────────────────
+// ── L2 契约：所有 mission 通用（详情壳吃）────────────────────────────────
 
 export interface BaseMissionView {
   id: string;
@@ -105,31 +225,91 @@ export interface BaseMissionView {
   actions?: MissionAction[];
 }
 
-// ── L3 契约：深度洞察扩展（深度洞察面板吃）────────────────────────────
+// ── L3 契约：深度洞察扩展（忠实 playground MissionView 形状）──────────────
 
+/**
+ * DeepInsightMissionView —— 忠实于 playground MissionView 的归一视图。
+ *
+ * 字段分组（对照 TeamRosterPanel props + page.tsx 6 tab dataNeeds）：
+ *  ① 左栏 TeamRosterPanel：agents / stages / taskProgress / finalScore / topic /
+ *     dimensionDetails / depth / language / maxCredits / missionStatus / isResumable。
+ *  ② tasks（MissionTodoBoard）：steps（降级）/ dimensionPipelines / agents。
+ *  ③ collab（MissionFlowView）：events（raw WS 流；company 无 → 空，tab 隐藏）。
+ *  ④ report（ArtifactReader）：reportArtifact（富）/ report（markdown 兜底）/
+ *     dimensionPipelines / reconciliationReport。
+ *  ⑤ references（ReferencesPanel）：references。
+ *  ⑥ graph（MissionGraphTab）：hasGraph（company 无 graph API → false，tab 隐藏）。
+ *  ⑦ cost（ComputeUsagePanel）：cost / agents / dimensionPipelines / memory / usage。
+ */
 export interface DeepInsightMissionView extends BaseMissionView {
-  score?: { value: number; verdict: Verdict };
+  // ── 左栏 TeamRosterPanel 直喂 ──
+  /** live agent 状态（拓扑节点 + AgentInspector + per-agent token/latency）。 */
+  agents: DIAgentLiveState[];
+  /** 5 个高层 stage 状态（拓扑节点 status + 进度兜底）。 */
+  stages: DIStageState[];
+  /** 「任务进度」真实任务计数（与 tasks tab 的 workTodos 过滤同源）。 */
+  taskProgress?: { completed: number; total: number };
+  /** 共识质量分（底部「共识质量 N/100」）。 */
+  finalScore?: number;
+  /** 原始 topic（透传；title 是清洗后的展示名）。 */
+  topic?: string;
+  /** 维度名列表（subtitle「N 维度」+ 拓扑 fan-out 兜底）。 */
   dimensions: string[];
-  /** markdown 正文（company 裸 string / playground 由 artifact.fullMarkdown 抽出）。 */
-  report?: string;
+  /** 维度详情（researcher fan-out 节点 + 「研究维度 N 个」+ 任务列表）。 */
+  dimensionDetails: { id?: string; name: string; rationale?: string }[];
+  /** 研究深度（3 卡选择器 + tier 联动；company 无 → undefined）。 */
+  depth?: 'quick' | 'standard' | 'deep' | string;
+  /** 运行语言（运行配置卡）。 */
+  language?: string;
+  /** 预算上限 credits（运行配置卡）。 */
+  maxCredits?: number;
+  /** 6 态运行状态（状态 pill + 按钮 disabled + 拓扑 idle promote）。 */
+  missionStatus: 'running' | 'completed' | 'failed' | 'cancelled' | 'idle';
+  /** checkpoint 可续跑（「更新」→「继续上次」+ hint banner；company 无 → false）。 */
+  isResumable?: boolean;
+
+  // ── 右侧 tab 数据 ──
   /**
-   * 富 artifact 旁路（规范 playgroundWire §③ 路 b）：playground 注入结构化
-   * ReportArtifactV2 以保留三视图/版本切换，company 留空走 report markdown。
-   * 契约层不约束其形状，L4 报告 tab 决定是否消费。
+   * collab（MissionFlowView）原始 WS 事件流。company 无 → 空数组，tab 隐藏。
+   * 契约层不约束元素形状（PlaygroundEvent 是 playground 私有），L4 决定消费。
+   */
+  events: unknown[];
+  /**
+   * report（ArtifactReader）富结构化 artifact（ReportArtifactV2|EmptyArtifactSentinel）。
+   * company 只有 markdown → 留空走 report 兜底。契约层不约束形状。
    */
   reportArtifact?: unknown;
-  references: Reference[];
-  facts: Fact[];
-  reviewNotes: string[];
-  /** 对账报告（两端都有，FactTablePanel 消费）。 */
+  /** report markdown 正文（company 裸 string / playground artifact.fullMarkdown 抽出）。 */
+  report?: string;
+  /** 维度章节子状态机（report live 旁路 + tasks 维度子状态 + cost 维度明细）。 */
+  dimensionPipelines: DIDimensionPipelineState[];
+  /** 对账报告（FactTablePanel / report 消费）。 */
   reconciliationReport?: string;
+  /** references（ReferencesPanel）。 */
+  references: Reference[];
+  /** 事实表（FactTablePanel）。 */
+  facts: Fact[];
+  /** cost（ComputeUsagePanel）by-stage 明细。 */
+  cost?: DICostState;
+  /** 记忆索引（MemoryIndexPanel；company 无 → undefined）。 */
+  memory?: DIMemoryIndexState;
+  /** verifier 裁决列表（评分卡 / collab）。 */
+  verdicts: DIVerifierVerdict[];
+  /** graph（MissionGraphTab）是否可用（company 无 graph API → false，tab 隐藏）。 */
+  hasGraph: boolean;
+
+  // ── 旧契约可选承载（不再是主结构，仅兼容既有简版左栏 / 评审意见）──
+  /** @deprecated 用 finalScore + verdicts。仍保留供简版评分环。 */
+  score?: { value: number; verdict: Verdict };
+  /** @deprecated 用 verdicts[].critique。company review.notes 兜底。 */
+  reviewNotes: string[];
 }
 
 // ── 公共构造：归一拓扑（Leader → N Researcher → Writer / Reviewer DAG）──
 
 /**
- * 由维度名列表构造 deep-insight 标准拓扑。两端共用：company 传 dimensions /
- * 兜底从 steps 推；playground adapter 传归一后的 dimension 名。
+ * 由维度名列表构造 deep-insight 标准拓扑。company 用（playground 侧 TeamRosterPanel
+ * 自带 live 拓扑）：传 dimensions / 兜底从 steps 推。
  * @param allCompleted 静态结果 → true（全节点 completed）；live → false（idle）。
  */
 function buildDeepInsightTopology(
@@ -201,7 +381,40 @@ function buildDeepInsightTopology(
   };
 }
 
-/** 开放 verdict 字符串 → 归一三态（approve / reject / 其余→revise，对齐 verdictTheme）。 */
+/** 由维度名构造 company 侧静态全 completed agents（喂 TeamRosterPanel 拓扑）。 */
+function buildStaticAgents(dimensionNames: string[]): DIAgentLiveState[] {
+  const agents: DIAgentLiveState[] = [
+    { agentId: 'leader', role: 'leader', phase: 'completed', trace: [] },
+  ];
+  dimensionNames.forEach((d, i) => {
+    agents.push({
+      agentId: `researcher#${i}`,
+      role: 'researcher',
+      phase: 'completed',
+      dimension: d,
+      trace: [],
+    });
+  });
+  agents.push(
+    { agentId: 'writer', role: 'writer', phase: 'completed', trace: [] },
+    { agentId: 'reviewer', role: 'reviewer', phase: 'completed', trace: [] }
+  );
+  return agents;
+}
+
+/** 5 个高层 stage 全 done（company 静态左栏进度兜底）。 */
+function buildStaticStages(): DIStageState[] {
+  const ids: DIStageId[] = [
+    'leader',
+    'researchers',
+    'analyst',
+    'writer',
+    'reviewer',
+  ];
+  return ids.map((id) => ({ id, status: 'done' as const }));
+}
+
+/** 开放 verdict 字符串 → 归一三态（approve / reject / 其余→revise）。 */
 function normalizeVerdict(verdict: string | undefined | null): Verdict {
   if (verdict === 'approve') return 'approve';
   if (verdict === 'reject') return 'reject';
@@ -210,7 +423,7 @@ function normalizeVerdict(verdict: string | undefined | null): Verdict {
 
 // ── company adapter（静态结果）────────────────────────────────────────
 
-/** company mission.result 形状（mirror MissionReportView.MissionReportResult）。 */
+/** company mission.result 形状（mirror MissionReportResult）。 */
 export interface MissionReportResultLike {
   summary?: string;
   review?: { score?: number; verdict?: string; notes?: string[] } | null;
@@ -226,7 +439,7 @@ export interface MissionReportResultLike {
 export interface CompanyMissionInput {
   id: string;
   title: string;
-  /** company 原始 status；STATUS_MAP 收敛到三态。 */
+  /** company 原始 status；companyStatus 收敛到三态。 */
   status?: string;
   createdAt?: number;
   result?: MissionReportResultLike;
@@ -247,9 +460,30 @@ function companyStatus(status: string | undefined): BaseMissionView['status'] {
   }
 }
 
+/** company status → TeamRosterPanel missionStatus（6 态子集）。 */
+function companyMissionStatus(
+  status: string | undefined
+): DeepInsightMissionView['missionStatus'] {
+  switch (status) {
+    case 'done':
+      return 'completed';
+    case 'failed':
+      return 'failed';
+    case 'queued':
+    case 'running':
+    case 'review':
+      return 'running';
+    default:
+      return 'idle';
+  }
+}
+
 /**
  * company deepdive 静态结果 → DeepInsightMissionView。
- * 拓扑、verdict 收窄、维度兜底全部对齐 MissionReportView 既有逻辑。
+ *
+ * 按 companyDataGap 降级：缺 live agent/stage/events/graph → 造静态全 completed
+ * 拓扑、空 events（collab 隐藏）、hasGraph=false（graph 隐藏）；
+ * cost.byStage / memory / dimensionPipelines 留空（cost tab 显汇总条）。
  */
 export function fromCompanyMissionResult(
   input: CompanyMissionInput
@@ -268,31 +502,89 @@ export function fromCompanyMissionResult(
           .filter((s) => s.role === 'Researcher')
           .map((s, i) => s.dimension ?? `维度 ${i + 1}`);
 
+  const dimensionDetails = dimNames.map((name) => ({ name }));
+
   const score =
     typeof review?.score === 'number'
       ? { value: review.score, verdict: normalizeVerdict(review.verdict) }
       : undefined;
 
+  const finalScore =
+    typeof review?.score === 'number' ? review.score : undefined;
+
+  // task 计数：用 steps 计 done / total（与降级 tasks 列表同源）。
+  const completedSteps = steps.filter((s) => s.status === 'done').length;
+  const taskProgress =
+    steps.length > 0
+      ? { completed: completedSteps, total: steps.length }
+      : undefined;
+
+  // verdicts：company 只有单条 review → 派生单条 verifier verdict 兜底。
+  const verdicts: DIVerifierVerdict[] =
+    typeof review?.score === 'number'
+      ? [
+          {
+            verifierId: 'review',
+            score: review.score,
+            critique: review.notes?.join('\n'),
+          },
+        ]
+      : [];
+
+  // cost：company usage 只有汇总 → byStage 留空（cost tab 显总条）。
+  const cost: DICostState | undefined = result.usage
+    ? {
+        tokensUsed: result.usage.totalTokens ?? 0,
+        costUsd:
+          result.usage.totalCostCents != null
+            ? result.usage.totalCostCents / 100
+            : 0,
+        byStage: [],
+      }
+    : undefined;
+
   return {
     id: input.id,
     title: input.title,
     status: companyStatus(input.status),
+    statusDetail: undefined,
     createdAt: input.createdAt,
     team: buildDeepInsightTopology(dimNames, true),
     steps,
     usage: result.usage,
     actions: input.actions,
-    score,
-    dimensions,
+    // 左栏 TeamRosterPanel
+    agents: buildStaticAgents(dimNames),
+    stages: buildStaticStages(),
+    taskProgress,
+    finalScore,
+    topic: input.title,
+    dimensions: dimNames,
+    dimensionDetails,
+    depth: undefined,
+    language: undefined,
+    maxCredits: undefined,
+    missionStatus: companyMissionStatus(input.status),
+    isResumable: false,
+    // 右侧 tab
+    events: [],
+    reportArtifact: undefined,
     report: result.summary,
+    dimensionPipelines: [],
+    reconciliationReport: result.reconciliationReport,
     references,
     facts,
+    cost,
+    memory: undefined,
+    verdicts,
+    hasGraph: false,
+    // 旧契约兼容承载
+    score,
     reviewNotes: review?.notes ?? [],
-    reconciliationReport: result.reconciliationReport,
   };
 }
 
-// ── playground adapter（live，最小可用映射）──────────────────────────
+// ── playground adapter（live MissionView）──────────────────────────────
 
 /** 安全取对象属性（unknown 收窄基元，禁 any）。 */
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -335,15 +627,91 @@ function playgroundStatus(raw: string | undefined): {
   }
 }
 
+/** playground raw status → TeamRosterPanel missionStatus（6 态）。 */
+function playgroundMissionStatus(
+  raw: string | undefined
+): DeepInsightMissionView['missionStatus'] {
+  switch (raw) {
+    case 'completed':
+    case 'quality-failed':
+      return 'completed';
+    case 'cancelled':
+      return 'cancelled';
+    case 'failed':
+    case 'rejected':
+      return 'failed';
+    case 'running':
+    case 'starting':
+      return 'running';
+    default:
+      return 'idle';
+  }
+}
+
+/** narrow agent role string → DIAgentRole（未知 → researcher 兜底）。 */
+function asAgentRole(role: string | undefined): DIAgentRole {
+  switch (role) {
+    case 'leader':
+    case 'researcher':
+    case 'analyst':
+    case 'writer':
+    case 'reviewer':
+      return role;
+    default:
+      return 'researcher';
+  }
+}
+
+/** narrow agent phase string → DIAgentPhase。 */
+function asAgentPhase(phase: string | undefined): DIAgentPhase {
+  switch (phase) {
+    case 'running':
+    case 'completed':
+    case 'failed':
+      return phase;
+    default:
+      return 'pending';
+  }
+}
+
+/** narrow stage id string → DIStageId | null。 */
+function asStageId(id: string | undefined): DIStageId | null {
+  switch (id) {
+    case 'leader':
+    case 'researchers':
+    case 'analyst':
+    case 'writer':
+    case 'reviewer':
+      return id;
+    default:
+      return null;
+  }
+}
+
+/** narrow stage status string → DIStageStatus。 */
+function asStageStatus(s: string | undefined): DIStageStatus {
+  switch (s) {
+    case 'running':
+    case 'done':
+    case 'failed':
+      return s;
+    default:
+      return 'pending';
+  }
+}
+
 /**
  * playground MissionView（WS 事件流派生）→ DeepInsightMissionView。
  *
- * 最小可用映射：从 `unknown` 安全收窄出 mission/dimensions/cost/citations/
- * factTable/report 等字段，缺失即兜底。**不** import playground 私有类型，
- * 形状通过 isRecord/getX 收窄消费，保持契约层解耦。
+ * 从 `unknown` 安全收窄出 playground 两层数据（mission/agents/stages/cost/
+ * reportArtifact/dimensionPipelines/...），保持契约层与 playground 私有类型解耦。
  *
- * 完整 live 接线（reportArtifact 三视图旁路、todoBoard→steps 降维、
- * citationNavigation 锚点）留 P2/P3 下沉面板时补强。
+ * 入参约定（kit 接线时传入归一过的对象，**键名对齐 playground 形状**）：
+ *  - `view.mission`：MissionState（topic/depth/language/finalScore/dimensions/...）。
+ *  - `view.agents`：AgentLiveState[]（结构兼容 DIAgentLiveState）。
+ *  - `view.stages`：StageState[]（结构兼容 DIStageState）。
+ *  - `view.cost`：CostState；`view.memory`/`view.verdicts`/`view.dimensionPipelines`。
+ *  - `view.reportArtifact` / `view.events` / `view.taskProgress` / `view.missionStatus`。
  */
 export function fromPlaygroundMissionView(
   view: unknown
@@ -357,25 +725,114 @@ export function fromPlaygroundMissionView(
     getStr(root, 'id') ??
     '';
 
-  // title：清洗 topic（去掉 \n 与 [Re-run focus] 之后的部分）。
+  // topic / title：清洗 topic（去掉 \n 与 [Re-run focus] 之后的部分）。
   const rawTopic = getStr(mission, 'topic') ?? getStr(root, 'title') ?? '';
   const title = rawTopic.split('\n')[0].split('[Re-run focus]')[0].trim();
 
-  const { status, statusDetail } = playgroundStatus(
-    getStr(mission, 'status') ?? getStr(root, 'status')
+  const rawStatus = getStr(mission, 'status') ?? getStr(root, 'status');
+  const { status, statusDetail } = playgroundStatus(rawStatus);
+  const missionStatus = playgroundMissionStatus(
+    getStr(root, 'missionStatus') ?? rawStatus
   );
 
-  // createdAt：ISO startedAt → ms。
-  const startedAt = getStr(mission, 'startedAt') ?? getStr(root, 'startedAt');
-  const createdAtMs = startedAt ? Date.parse(startedAt) : NaN;
-  const createdAt = Number.isNaN(createdAtMs) ? undefined : createdAtMs;
+  // createdAt：number ms 优先，否则 ISO startedAt → ms。
+  const startedAtNum =
+    getNum(mission, 'startedAt') ?? getNum(root, 'startedAt');
+  const startedAtIso =
+    getStr(mission, 'startedAt') ?? getStr(root, 'startedAt');
+  let createdAt: number | undefined = startedAtNum;
+  if (createdAt === undefined && startedAtIso) {
+    const ms = Date.parse(startedAtIso);
+    createdAt = Number.isNaN(ms) ? undefined : ms;
+  }
 
-  // dimensions：playground 为 {id;name;rationale?}[] → map(name)。
-  const dimensions = getArr(mission, 'dimensions')
-    .map((d) => (isRecord(d) ? getStr(d, 'name') : undefined))
-    .filter((n): n is string => typeof n === 'string' && n.length > 0);
+  // dimensionDetails：playground {id;name;rationale?}[]。
+  const dimensionDetails = getArr(mission, 'dimensions')
+    .map((d): { id?: string; name: string; rationale?: string } | undefined => {
+      if (!isRecord(d)) return undefined;
+      const name = getStr(d, 'name');
+      if (!name) return undefined;
+      return {
+        id: getStr(d, 'id'),
+        name,
+        rationale: getStr(d, 'rationale'),
+      };
+    })
+    .filter(
+      (d): d is { id?: string; name: string; rationale?: string } =>
+        d !== undefined
+    );
+  const dimensions = dimensionDetails.map((d) => d.name);
 
-  // score：finalScore + leaderVerdict。
+  // agents：结构兼容收窄。
+  const agents: DIAgentLiveState[] = getArr(root, 'agents')
+    .map((a): DIAgentLiveState | undefined => {
+      if (!isRecord(a)) return undefined;
+      const agentId = getStr(a, 'agentId') ?? getStr(a, 'id');
+      if (!agentId) return undefined;
+      const traceRaw = getArr(a, 'trace');
+      const trace: DIAgentTraceItem[] = traceRaw
+        .map((t): DIAgentTraceItem | undefined => {
+          if (!isRecord(t)) return undefined;
+          const kindRaw = getStr(t, 'kind');
+          const kind: DIAgentTraceItem['kind'] =
+            kindRaw === 'action' ||
+            kindRaw === 'observation' ||
+            kindRaw === 'reflection' ||
+            kindRaw === 'error'
+              ? kindRaw
+              : 'thought';
+          return {
+            kind,
+            ts: getNum(t, 'ts') ?? 0,
+            text: getStr(t, 'text'),
+            toolId: getStr(t, 'toolId'),
+            output: t.output,
+            latencyMs: getNum(t, 'latencyMs'),
+            tokensUsed: getNum(t, 'tokensUsed'),
+            error: getStr(t, 'error'),
+          };
+        })
+        .filter((t): t is DIAgentTraceItem => t !== undefined);
+      return {
+        agentId,
+        role: asAgentRole(getStr(a, 'role')),
+        phase: asAgentPhase(getStr(a, 'phase')),
+        startedAt: getNum(a, 'startedAt'),
+        endedAt: getNum(a, 'endedAt'),
+        wallTimeMs: getNum(a, 'wallTimeMs'),
+        iterations: getNum(a, 'iterations'),
+        attempt: getNum(a, 'attempt'),
+        dimension: getStr(a, 'dimension'),
+        modelId: getStr(a, 'modelId'),
+        failureMessage: getStr(a, 'failureMessage'),
+        retryCount: getNum(a, 'retryCount'),
+        trace,
+        tokensUsed: getNum(a, 'tokensUsed'),
+        toolCallCount: getNum(a, 'toolCallCount'),
+        costUsd: getNum(a, 'costUsd'),
+      };
+    })
+    .filter((a): a is DIAgentLiveState => a !== undefined);
+
+  // stages：结构兼容收窄（只保留 5 个高层 stage）。
+  const stages: DIStageState[] = getArr(root, 'stages')
+    .map((s): DIStageState | undefined => {
+      if (!isRecord(s)) return undefined;
+      const sid = asStageId(getStr(s, 'id'));
+      if (!sid) return undefined;
+      return {
+        id: sid,
+        status: asStageStatus(getStr(s, 'status')),
+        startedAt: getNum(s, 'startedAt'),
+        endedAt: getNum(s, 'endedAt'),
+        detail: getStr(s, 'detail'),
+        attempts: getNum(s, 'attempts'),
+      };
+    })
+    .filter((s): s is DIStageState => s !== undefined);
+
+  // finalScore / score。
   const finalScore = getNum(mission, 'finalScore');
   const score =
     typeof finalScore === 'number'
@@ -385,24 +842,53 @@ export function fromPlaygroundMissionView(
         }
       : undefined;
 
-  // usage：cost.tokensUsed(string|null) / costUsd(USD) → cents。
-  const cost = isRecord(root.cost) ? root.cost : {};
-  const tokensRaw = cost.tokensUsed;
-  const totalTokens =
-    typeof tokensRaw === 'number'
-      ? tokensRaw
-      : typeof tokensRaw === 'string' && tokensRaw.trim() !== ''
-        ? Number(tokensRaw) || undefined
-        : undefined;
-  const costUsd = getNum(cost, 'costUsd');
-  const usage: ComputeUsage | undefined =
-    totalTokens !== undefined || costUsd !== undefined
-      ? {
-          totalTokens,
-          totalCostCents:
-            costUsd !== undefined ? Math.round(costUsd * 100) : undefined,
-        }
+  // taskProgress：root 直传优先。
+  const tpRaw = root.taskProgress;
+  const taskProgress =
+    isRecord(tpRaw) &&
+    typeof tpRaw.completed === 'number' &&
+    typeof tpRaw.total === 'number'
+      ? { completed: tpRaw.completed, total: tpRaw.total }
       : undefined;
+
+  // cost（CostState）→ DICostState + usage 汇总。
+  const costRaw = isRecord(root.cost) ? root.cost : undefined;
+  let cost: DICostState | undefined;
+  if (costRaw) {
+    const tokensRaw = costRaw.tokensUsed;
+    const tokensUsed =
+      typeof tokensRaw === 'number'
+        ? tokensRaw
+        : typeof tokensRaw === 'string' && tokensRaw.trim() !== ''
+          ? Number(tokensRaw) || 0
+          : 0;
+    const byStage = getArr(costRaw, 'byStage')
+      .map((b) => {
+        if (!isRecord(b)) return undefined;
+        return {
+          stage: getStr(b, 'stage') ?? '',
+          tokensUsed: getNum(b, 'tokensUsed') ?? 0,
+          costUsd: getNum(b, 'costUsd') ?? 0,
+        };
+      })
+      .filter(
+        (b): b is { stage: string; tokensUsed: number; costUsd: number } =>
+          b !== undefined
+      );
+    cost = {
+      tokensUsed,
+      costUsd: getNum(costRaw, 'costUsd') ?? 0,
+      byStage,
+    };
+  }
+  const usage: ComputeUsage | undefined = cost
+    ? {
+        totalTokens: cost.tokensUsed || undefined,
+        totalCostCents: cost.costUsd
+          ? Math.round(cost.costUsd * 100)
+          : undefined,
+      }
+    : undefined;
 
   // report + reportArtifact：结构化 artifact 抽 fullMarkdown，富 artifact 旁路保留。
   const reportArtifact = root.reportArtifact ?? mission.reportArtifact;
@@ -410,6 +896,7 @@ export function fromPlaygroundMissionView(
   if (isRecord(reportArtifact)) {
     const content = reportArtifact.content;
     if (isRecord(content)) report = getStr(content, 'fullMarkdown');
+    if (report === undefined) report = getStr(reportArtifact, 'fullMarkdown');
   }
   if (report === undefined) {
     const finalReport = isRecord(root.finalReport)
@@ -464,18 +951,60 @@ export function fromPlaygroundMissionView(
     })
     .filter((f): f is Fact => f !== undefined);
 
-  // steps：todoBoard.items → MissionStep 降维（最小映射，富字段 P2 补）。
+  // dimensionPipelines：Map | Record | Array → DIDimensionPipelineState[]。
+  const dimensionPipelines = normalizeDimensionPipelines(
+    root.dimensionPipelines
+  );
+
+  // memory（MemoryIndexState）。
+  const memoryRaw = isRecord(root.memory) ? root.memory : undefined;
+  const memory: DIMemoryIndexState | undefined = memoryRaw
+    ? {
+        chunks: getNum(memoryRaw, 'chunks') ?? 0,
+        namespace: getStr(memoryRaw, 'namespace'),
+        tags: Array.isArray(memoryRaw.tags)
+          ? memoryRaw.tags.filter((t): t is string => typeof t === 'string')
+          : undefined,
+      }
+    : undefined;
+
+  // verdicts（VerifierVerdict[]）。
+  const verdicts: DIVerifierVerdict[] = getArr(root, 'verdicts')
+    .map((v): DIVerifierVerdict | undefined => {
+      if (!isRecord(v)) return undefined;
+      const verifierId = getStr(v, 'verifierId');
+      const sc = getNum(v, 'score');
+      if (!verifierId || sc === undefined) return undefined;
+      const criteriaRaw = v.criteria;
+      const criteria: Record<string, number> | undefined = isRecord(criteriaRaw)
+        ? Object.fromEntries(
+            Object.entries(criteriaRaw).filter(
+              ([, val]) => typeof val === 'number'
+            ) as [string, number][]
+          )
+        : undefined;
+      return {
+        verifierId,
+        score: sc,
+        critique: getStr(v, 'critique'),
+        criteria,
+        modelId: getStr(v, 'modelId'),
+      };
+    })
+    .filter((v): v is DIVerifierVerdict => v !== undefined);
+
+  // steps：todoBoard.items → MissionStep 降维（tasks 降级用）。
   const todoBoard = isRecord(root.todoBoard) ? root.todoBoard : {};
   const steps: MissionStep[] = getArr(todoBoard, 'items')
     .map((it): MissionStep | undefined => {
       if (!isRecord(it)) return undefined;
       const label = getStr(it, 'label') ?? getStr(it, 'title');
       if (!label) return undefined;
-      const rawStatus = getStr(it, 'status');
+      const itStatus = getStr(it, 'status');
       const stepStatus: MissionStep['status'] =
-        rawStatus === 'failed'
+        itStatus === 'failed'
           ? 'failed'
-          : rawStatus === 'skipped'
+          : itStatus === 'skipped'
             ? 'skipped'
             : 'done';
       return {
@@ -489,6 +1018,16 @@ export function fromPlaygroundMissionView(
 
   const reconciliationReport = getStr(mission, 'reconciliationReport');
 
+  // taskProgress 兜底：root 未传 → 用 steps 计数。
+  const taskProgressResolved =
+    taskProgress ??
+    (steps.length > 0
+      ? {
+          completed: steps.filter((s) => s.status === 'done').length,
+          total: steps.length,
+        }
+      : undefined);
+
   return {
     id,
     title,
@@ -499,13 +1038,84 @@ export function fromPlaygroundMissionView(
     steps,
     usage,
     actions: undefined,
-    score,
+    // 左栏
+    agents,
+    stages,
+    taskProgress: taskProgressResolved,
+    finalScore,
+    topic: rawTopic || undefined,
     dimensions,
-    report,
+    dimensionDetails,
+    depth: getStr(mission, 'depth'),
+    language: getStr(mission, 'language'),
+    maxCredits: getNum(mission, 'maxCredits'),
+    missionStatus,
+    isResumable:
+      mission.resumable === true || root.isResumable === true || undefined,
+    // 右侧 tab
+    events: getArr(root, 'events'),
     reportArtifact: reportArtifact ?? undefined,
+    report,
+    dimensionPipelines,
+    reconciliationReport,
     references,
     facts,
+    cost,
+    memory,
+    verdicts,
+    hasGraph: root.hasGraph === true,
+    // 旧契约兼容
+    score,
     reviewNotes: [],
-    reconciliationReport,
   };
+}
+
+/** dimensionPipelines（Map | Record | Array）→ DIDimensionPipelineState[]。 */
+function normalizeDimensionPipelines(raw: unknown): DIDimensionPipelineState[] {
+  let entries: unknown[] = [];
+  if (raw instanceof Map) {
+    entries = Array.from(raw.values());
+  } else if (Array.isArray(raw)) {
+    entries = raw;
+  } else if (isRecord(raw)) {
+    entries = Object.values(raw);
+  }
+  return entries
+    .map((p): DIDimensionPipelineState | undefined => {
+      if (!isRecord(p)) return undefined;
+      const dimension = getStr(p, 'dimension');
+      if (!dimension) return undefined;
+      type DIChapter = DIDimensionPipelineState['chapters'][number];
+      const chapters: DIChapter[] = getArr(p, 'chapters')
+        .map((c): DIChapter | undefined => {
+          if (!isRecord(c)) return undefined;
+          return {
+            index: getNum(c, 'index') ?? 0,
+            heading: getStr(c, 'heading') ?? '',
+            status: getStr(c, 'status') ?? 'pending',
+            attempts: getNum(c, 'attempts') ?? 0,
+            wordCount: getNum(c, 'wordCount'),
+            score: getNum(c, 'score'),
+          };
+        })
+        .filter((c): c is DIChapter => c !== undefined);
+      const gradeRaw = isRecord(p.grade) ? p.grade : undefined;
+      const grade =
+        gradeRaw &&
+        typeof gradeRaw.overall === 'number' &&
+        typeof gradeRaw.grade === 'string'
+          ? {
+              overall: gradeRaw.overall,
+              grade: gradeRaw.grade,
+              summary: getStr(gradeRaw, 'summary') ?? '',
+            }
+          : undefined;
+      return {
+        dimension,
+        chapters,
+        totalWordCount: getNum(p, 'totalWordCount'),
+        grade,
+      };
+    })
+    .filter((p): p is DIDimensionPipelineState => p !== undefined);
 }
