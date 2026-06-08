@@ -22,24 +22,34 @@ describe("MarketplaceCatalogService.getAgents — sedimented 投影", () => {
   const byId = new Map(agents.map((a) => [a.id, a]));
 
   const SEDIMENTED_IDS = [
+    "playground.leader",
     "playground.researcher",
-    "playground.reconciler",
     "playground.analyst",
+    "playground.writer.outline-planner",
     "playground.writer",
+    "playground.dimension-integrator",
     "playground.reviewer",
+    "playground.critic",
     "playground.verifier",
+    "playground.reconciler",
+    "playground.steward",
   ];
 
-  it("6 个已沉淀角色都进货架，id === spec id（契约②）", () => {
+  it("11 个原子角色都进货架，id === spec id（契约②）", () => {
     for (const id of SEDIMENTED_IDS) {
       expect(byId.has(id)).toBe(true);
       expect(byId.get(id)!.id).toBe(id);
     }
   });
 
-  it("Leader/Steward 不单独上架（粒度法）", () => {
-    expect(byId.has("playground.leader")).toBe(false);
-    expect(byId.has("playground.steward")).toBe(false);
+  it("Leader/Steward 作为原子角色上架（编排者 / 资源守门档位）", () => {
+    expect(byId.has("playground.leader")).toBe(true);
+    expect(byId.has("playground.steward")).toBe(true);
+  });
+
+  it("旧 app persona 已弃用：货架只剩沉淀原子 Agent", () => {
+    expect(agents.length).toBe(SEDIMENTED_IDS.length);
+    expect(agents.every((a) => a.category === "深度研究团队")).toBe(true);
   });
 
   it("红线③：researcher 投影带出真 skillIds + toolIds", () => {

@@ -18,8 +18,11 @@ describe("agent-spec-catalog（市场 agent 沉淀单一源）", () => {
     expect(resolveAgentSpec("playground.researcher")).toBe(ResearcherAgent);
   });
 
-  it("未沉淀 id 返回 undefined", () => {
-    expect(resolveAgentSpec("playground.leader")).toBeUndefined();
+  it("原子角色已沉淀；scope 变体 / 未登记 id 返回 undefined", () => {
+    // Leader 是原子角色（编排者档位），已登记
+    expect(resolveAgentSpec("playground.leader")).toBeDefined();
+    // scope 变体（chapter 粒度的 writer）被折叠到代表类，不单独登记
+    expect(resolveAgentSpec("playground.chapter-writer")).toBeUndefined();
     expect(resolveAgentSpec("nope")).toBeUndefined();
   });
 

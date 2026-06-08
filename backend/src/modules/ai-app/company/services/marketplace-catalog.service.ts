@@ -17,10 +17,6 @@ import {
   readDefineAgentMeta,
 } from "@/modules/ai-harness/facade";
 import { SkillRegistry } from "@/modules/ai-engine/facade";
-import {
-  PLATFORM_AGENT_IDS,
-  PLATFORM_AGENT_METAS,
-} from "@/modules/ai-app/contracts/agent-catalog";
 import { readPipelineCatalogMeta } from "@/modules/ai-app/contracts/pipeline-catalog.contract";
 import { SEDIMENTED_AGENT_SPECS } from "@/modules/ai-app/contracts/agent-spec-catalog";
 import type {
@@ -128,27 +124,10 @@ export class MarketplaceCatalogService {
   }
 
   getAgents(): AgentCatalogItem[] {
-    // Source 1: app-level platform agents (PLATFORM_AGENT_METAS).
-    const platform = PLATFORM_AGENT_IDS.map((id) => {
-      const meta = PLATFORM_AGENT_METAS[id];
-      return {
-        id: meta.id,
-        name: meta.name,
-        description: meta.description,
-        role: meta.name,
-        category: "平台",
-        tags: meta.capabilities,
-        capabilities: meta.capabilities,
-        skillIds: [],
-        toolIds: [],
-        defaultModel: "",
-      } satisfies AgentCatalogItem;
-    });
-
-    // Source 2: sedimented mission-role agents（单一源 = SEDIMENTED_AGENT_SPECS）。
-    //   SKU = 真 @DefineAgent 类，id/role/description/skills/tools 全部 readDefineAgentMeta
-    //   派生（非手写台账）。SKU id === spec id === 执行层 resolveAgentSpec 的解析键。
-    return [...platform, ...this.getSedimentedAgents()];
+    // Agent 货架 = 11 个原子 Agent（单一源 = SEDIMENTED_AGENT_SPECS，readDefineAgentMeta 派生）。
+    // 旧的 8 个 app-level persona（PLATFORM_AGENT_METAS）已弃用：它们是空壳（无 skills/tools/
+    // workflow 关联）。待 phase-2 各 app 按沉淀范本重新成形后再回归；保留在 agent-catalog.ts 作 legacy。
+    return this.getSedimentedAgents();
   }
 
   private getSedimentedAgents(): AgentCatalogItem[] {

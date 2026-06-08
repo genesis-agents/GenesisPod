@@ -10,38 +10,47 @@
  *   2. 执行解析（company mission runner）：resolveAgentSpec(listingId) → 类 →
  *      AgentRunner.run(类, input) 真跑（与 playground 同一执行路径，tool-recall/env/BYOK 全保留）。
  *
- * 设计原则（标准沿用 agent-catalog.ts 同范式）：
- *   • 只登记「脱离原 pipeline 仍可独立复用」的角色（标准 28 §3 粒度法）。
- *     Leader/Steward 死绑 mission 上下文 → 不登记、不单独上架。
+ * 设计原则（按"原子性"沉淀，2026-06 与用户锁定）：
+ *   • 登记 playground 的 11 个**原子角色**（同能力的 mission/dim/chapter 粒度变体折叠成
+ *     一个代表类；不同能力 = 不同 Agent）。Leader 作"编排者"档位、Steward 作"资源守门"
+ *     档位也登记——它们是原子 Agent，由工作流喂输入，不是必须能从一句话独立跑。
  *   • ai-app → harness 只经 facade（readDefineAgentMeta / AgentSpec），单向不穿透。
  *   • 这是「id → 可跑类」的解析表，不是展示台账：展示字段一律 readDefineAgentMeta 派生。
  */
 import type { z } from "zod";
 import type { AgentSpec } from "@/modules/ai-harness/facade";
+import { LeaderAgent } from "../playground/mission/agents/leader/leader.agent";
 import { ResearcherAgent } from "../playground/mission/agents/researcher/researcher.agent";
-import { ReconcilerAgent } from "../playground/mission/agents/reconciler/reconciler.agent";
 import { AnalystAgent } from "../playground/mission/agents/analyst/analyst.agent";
+import { MissionOutlinePlannerAgent } from "../playground/mission/agents/writer/mission-outline-planner.agent";
 import { SingleShotWriterAgent } from "../playground/mission/agents/writer/single-shot-writer.agent";
+import { DimensionIntegratorAgent } from "../playground/mission/agents/writer/dimension-integrator.agent";
 import { MissionReviewerAgent } from "../playground/mission/agents/reviewer/mission-reviewer.agent";
+import { MissionCriticAgent } from "../playground/mission/agents/reviewer/mission-critic.agent";
 import { VerifierAgent } from "../playground/mission/agents/verifier/verifier.agent";
+import { ReconcilerAgent } from "../playground/mission/agents/reconciler/reconciler.agent";
+import { StewardAgent } from "../playground/mission/agents/steward/steward.agent";
 
 /** 一个可被 AgentRunner.run 直接执行的 @DefineAgent 类。 */
 export type AgentSpecClass = new () => AgentSpec<z.ZodType, z.ZodType>;
 
 /**
- * 已沉淀的 playground 角色（spec id → 类）。
- * 只登记「脱离 mission pipeline 仍可独立复用」的 6 个通用角色（标准 28 §3）。
- * Leader/Steward 死绑 mission 上下文 → 不登记。
+ * 已沉淀的 playground 11 个原子角色（spec id → 类）。
  * 每个 key 必须 === 对应类 @DefineAgent 的 id（契约②，spec 守护）。
  */
 export const PLAYGROUND_AGENT_SPECS: Readonly<Record<string, AgentSpecClass>> =
   {
+    "playground.leader": LeaderAgent,
     "playground.researcher": ResearcherAgent,
-    "playground.reconciler": ReconcilerAgent,
     "playground.analyst": AnalystAgent,
+    "playground.writer.outline-planner": MissionOutlinePlannerAgent,
     "playground.writer": SingleShotWriterAgent,
+    "playground.dimension-integrator": DimensionIntegratorAgent,
     "playground.reviewer": MissionReviewerAgent,
+    "playground.critic": MissionCriticAgent,
     "playground.verifier": VerifierAgent,
+    "playground.reconciler": ReconcilerAgent,
+    "playground.steward": StewardAgent,
   };
 
 /** 所有已沉淀 agent 的解析表（未来其他模块的角色并入此处）。 */
