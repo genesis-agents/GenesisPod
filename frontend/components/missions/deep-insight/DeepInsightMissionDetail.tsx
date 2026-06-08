@@ -89,11 +89,15 @@ const EMPTY_COST: CostState = { tokensUsed: 0, costUsd: 0, byStage: [] };
 export interface DeepInsightMissionDetailProps {
   data: DeepInsightMissionView;
   onBack?: () => void;
+  /** 「开始/重新下发」—— 透传给左栏 TeamRosterPanel 的按钮区（与 playground 一致）。 */
+  onRerun?: () => void;
+  onDelete?: () => void;
 }
 
 export function DeepInsightMissionDetail({
   data,
   onBack,
+  onRerun,
 }: DeepInsightMissionDetailProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('tasks');
   const [leftCollapsed, setLeftCollapsed] = useState(false);
@@ -168,16 +172,8 @@ export function DeepInsightMissionDetail({
   // 有无作为 live 闸门，无 live 数据时这两处降级隐藏。
   const canonicalView = data.reportArtifact as MissionDetailView | undefined;
 
-  // ── 可见 tab：company 无 live → 隐藏 collab；无 graph API → 隐藏 graph ──
-  const tabs = useMemo(
-    () =>
-      ALL_TABS.filter((t) => {
-        if (t.key === 'collab') return hasEvents;
-        if (t.key === 'graph') return data.hasGraph;
-        return true;
-      }),
-    [hasEvents, data.hasGraph]
-  );
+  // ── 全部 6 个 tab 都显示（与 playground 完全一致）；无 live 数据的 collab/graph 走空态 ──
+  const tabs = ALL_TABS;
 
   // 当前 tab 不在可见集合（数据降级）→ 落回 tasks
   const safeActiveTab = tabs.some((t) => t.key === activeTab)
@@ -198,6 +194,7 @@ export function DeepInsightMissionDetail({
       language={data.language}
       maxCredits={data.maxCredits}
       isResumable={data.isResumable}
+      onRerun={onRerun}
       onCollapse={() => setLeftCollapsed(true)}
     />
   );
@@ -297,13 +294,18 @@ export function DeepInsightMissionDetail({
           />
         )}
 
-        {safeActiveTab === 'collab' && hasEvents && canonicalView && (
-          <MissionFlowView
-            view={canonicalView}
-            events={events}
-            todoLedger={todos}
-          />
-        )}
+        {safeActiveTab === 'collab' &&
+          (hasEvents && canonicalView ? (
+            <MissionFlowView
+              view={canonicalView}
+              events={events}
+              todoLedger={todos}
+            />
+          ) : (
+            <div className="rounded-2xl border border-gray-100 bg-white p-10 text-center text-sm text-gray-500 shadow-sm">
+              暂无协作动态（本任务无实时事件流）
+            </div>
+          ))}
 
         {safeActiveTab === 'report' && (
           <div className="space-y-4">
@@ -346,9 +348,14 @@ export function DeepInsightMissionDetail({
           />
         )}
 
-        {safeActiveTab === 'graph' && data.hasGraph && (
-          <MissionGraphTab missionId={data.id} />
-        )}
+        {safeActiveTab === 'graph' &&
+          (data.hasGraph ? (
+            <MissionGraphTab missionId={data.id} />
+          ) : (
+            <div className="rounded-2xl border border-gray-100 bg-white p-10 text-center text-sm text-gray-500 shadow-sm">
+              暂无图谱数据
+            </div>
+          ))}
 
         {safeActiveTab === 'cost' && (
           <div className="space-y-4">

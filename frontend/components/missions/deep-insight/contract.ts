@@ -561,7 +561,8 @@ export function fromCompanyMissionResult(
     topic: input.title,
     dimensions: dimNames,
     dimensionDetails,
-    depth: undefined,
+    // 公司 deepdive 是深度洞察任务 —— 给左栏运行配置卡一个可显示的研究深度。
+    depth: 'deep',
     language: undefined,
     maxCredits: undefined,
     missionStatus: companyMissionStatus(input.status),

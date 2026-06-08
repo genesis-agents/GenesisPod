@@ -230,6 +230,18 @@ export function MissionRunView() {
       <DeepInsightMissionDetail
         data={detailView}
         onBack={() => setReportMissionId(null)}
+        onRerun={() => {
+          void createMission(reportMission.teamId, reportMission.title).then(
+            (id) => {
+              if (id) setActiveMissionId(id);
+            }
+          );
+          setReportMissionId(null);
+        }}
+        onDelete={() => {
+          void deleteMission(reportMission.id);
+          setReportMissionId(null);
+        }}
       />
     );
   }
