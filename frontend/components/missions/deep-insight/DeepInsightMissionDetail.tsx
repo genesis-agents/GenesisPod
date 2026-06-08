@@ -86,6 +86,53 @@ const BrandIcon = ClipboardList;
 
 const EMPTY_COST: CostState = { tokensUsed: 0, costUsd: 0, byStage: [] };
 
+/** URL → 裸域名（去协议/www）。 */
+function domainOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return (url.replace(/^https?:\/\//, '').split('/')[0] ?? url) || url;
+  }
+}
+
+/** 域名 → ArtifactCitation.sourceType（粗分类，给 ReferencesPanel 的来源分组/筛选）。 */
+function sourceTypeOf(domain: string): ArtifactCitation['sourceType'] {
+  const d = domain.toLowerCase();
+  if (/(\.gov)|congress|whitehouse|federal/.test(d)) return 'gov';
+  if (/arxiv|semanticscholar|pubmed|openalex|scholar|(\.edu)/.test(d))
+    return 'academic';
+  if (/github|hackernews|news\.ycombinator|reddit|stackoverflow/.test(d))
+    return 'community';
+  if (/news|times|reuters|bloomberg|techcrunch|verge/.test(d)) return 'news';
+  return 'other';
+}
+
+/**
+ * company 的归一 Reference（source/title/snippet/publishedAt）→ 富 ArtifactCitation，
+ * 让 ReferencesPanel 渲染与 playground 一致的富卡片（标题 + 摘要 + 来源类型），
+ * 而不是裸 URL 兜底列表。
+ */
+function citationFromReference(
+  r: { source: string; title?: string; snippet?: string; publishedAt?: string },
+  i: number
+): ArtifactCitation {
+  const url = r.source;
+  const domain = domainOf(url);
+  return {
+    index: i + 1,
+    uuid: `ref-${i}`,
+    title: r.title || domain,
+    url,
+    domain,
+    snippet: r.snippet,
+    publishedAt: r.publishedAt,
+    accessedAt: '',
+    sourceType: sourceTypeOf(domain),
+    credibilityScore: 0,
+    occurrences: [],
+  };
+}
+
 export interface DeepInsightMissionDetailProps {
   data: DeepInsightMissionView;
   onBack?: () => void;
@@ -158,8 +205,12 @@ export function DeepInsightMissionDetail({
     ) {
       return raw.citations as readonly ArtifactCitation[];
     }
+    // company：无 reportArtifact，但 references 自带 title/snippet → 映成富卡片
+    if (data.references.length > 0) {
+      return data.references.map((r, i) => citationFromReference(r, i));
+    }
     return undefined;
-  }, [data.reportArtifact]);
+  }, [data.reportArtifact, data.references]);
   const fallbackSources = useMemo<string[]>(
     () => data.references.map((r) => r.source).filter((s) => !!s),
     [data.references]
