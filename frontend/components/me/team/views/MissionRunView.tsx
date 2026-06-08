@@ -109,11 +109,12 @@ export function MissionRunView() {
 
   const { events: wsEvents } = useCompanyMissionStream(activeMissionId);
 
-  // 首次加载已有任务
-  const { loadMissions } = useCompanyStore();
+  // 首次加载：公司快照（团队/成员）+ 已有任务（独立路由 /missions 需自行加载）
+  const { loadMissions, loadCompany } = useCompanyStore();
   useEffect(() => {
+    void loadCompany();
     void loadMissions();
-  }, [loadMissions]);
+  }, [loadCompany, loadMissions]);
 
   // 同步第一个团队 id（避免初始渲染时 teams 为空）
   useEffect(() => {

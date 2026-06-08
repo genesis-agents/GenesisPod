@@ -1,14 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  LayoutDashboard,
-  Network,
-  Users2,
-  Contact,
-  Crown,
-  Send,
-} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { LayoutDashboard, Network, Users2, Contact, Crown } from 'lucide-react';
 import { Tabs } from '@/components/ui/tabs';
 import { LoadingState } from '@/components/ui/states/LoadingState';
 import { ManagementOrgChart } from './team-shared';
@@ -16,10 +10,9 @@ import { DashboardView } from './views/DashboardView';
 import { ComposerView } from './views/ComposerView';
 import { TalentPoolView } from './views/TalentPoolView';
 import { AppointCeoView } from './views/AppointCeoView';
-import { MissionRunView } from './views/MissionRunView';
 import { useCompanyStore } from '@/stores/company/companyStore';
 
-type TeamTab = 'dashboard' | 'org' | 'compose' | 'talent' | 'ceo' | 'mission';
+type TeamTab = 'dashboard' | 'org' | 'compose' | 'talent' | 'ceo';
 
 /**
  * Agent 团队 —— 一人公司 OS（个人中心「我的团队」分组下的核心 section）。
@@ -27,6 +20,7 @@ type TeamTab = 'dashboard' | 'org' | 'compose' | 'talent' | 'ceo' | 'mission';
  * 会挤占所有 tab 的呈现），且组织图节点支持跳转到对应团队（→ 组队 tab 并聚焦）。
  */
 export function AgentTeamSection() {
+  const router = useRouter();
   const [tab, setTab] = useState<TeamTab>('dashboard');
   const [focusTeamId, setFocusTeamId] = useState<string | null>(null);
   const { loading, loadCompany } = useCompanyStore();
@@ -54,7 +48,6 @@ export function AgentTeamSection() {
           { key: 'compose', label: '组队', icon: Users2 },
           { key: 'talent', label: '人才库', icon: Contact },
           { key: 'ceo', label: '任命 CEO', icon: Crown },
-          { key: 'mission', label: '任务', icon: Send },
         ]}
         value={tab}
         onChange={(k) => setTab(k as TeamTab)}
@@ -62,13 +55,12 @@ export function AgentTeamSection() {
 
       <div>
         {tab === 'dashboard' && (
-          <DashboardView onGoMission={() => setTab('mission')} />
+          <DashboardView onGoMission={() => router.push('/missions')} />
         )}
         {tab === 'org' && <ManagementOrgChart onSelectTeam={gotoTeam} />}
         {tab === 'compose' && <ComposerView focusTeamId={focusTeamId} />}
         {tab === 'talent' && <TalentPoolView />}
         {tab === 'ceo' && <AppointCeoView />}
-        {tab === 'mission' && <MissionRunView />}
       </div>
     </div>
   );

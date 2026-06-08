@@ -320,16 +320,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.aiAsk')}</span>}
           </Link>
 
-          {/* Section: Knowledge Hub */}
-          {showExpanded && (
-            <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-              {t('nav.sections.materialsKnowledge')}
-            </div>
-          )}
-          {!showExpanded && (
-            <div className="my-1 border-t border-gray-200/60" />
-          )}
-
+          {/* AI 探索 — 置顶（与 AI 问答 / 智能体市场 同列，无组名） */}
           <Link
             href="/explore"
             onClick={(e) => {
@@ -361,6 +352,42 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.aiExplore')}</span>}
           </Link>
 
+          {/* 智能体市场 — 置顶（平台共享货架） */}
+          <Link
+            href="/marketplace"
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
+              pathname?.startsWith('/marketplace')
+                ? `${MODULE_THEMES.market.activeBg} ${MODULE_THEMES.market.text}`
+                : 'text-gray-700 hover:bg-gray-50'
+            }`}
+            title={t('nav.marketplace')}
+          >
+            <svg
+              className="h-5 w-5 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 9l1.5-4.5h15L21 9M3 9h18M3 9v10a1 1 0 001 1h16a1 1 0 001-1V9M9 13h6"
+              />
+            </svg>
+            {showExpanded && <span>{t('nav.marketplace')}</span>}
+          </Link>
+
+          {/* Section: 我的工作台 */}
+          {showExpanded && (
+            <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              我的工作台
+            </div>
+          )}
+          {!showExpanded && (
+            <div className="my-1 border-t border-gray-200/60" />
+          )}
+
           <Link
             href="/library"
             onClick={(e) => {
@@ -390,6 +417,58 @@ export default function Sidebar({ className = '' }: SidebarProps) {
               />
             </svg>
             {showExpanded && <span>{t('nav.myLibrary')}</span>}
+          </Link>
+
+          {/* 我的 Agent 团队 — 个人设置里 Agent 团队的主菜单入口（同内容） */}
+          <Link
+            href="/agents"
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
+              pathname?.startsWith('/agents')
+                ? 'bg-gray-100 text-gray-900'
+                : 'text-gray-700 hover:bg-gray-50'
+            }`}
+            title="我的 Agent 团队"
+          >
+            <svg
+              className="h-5 w-5 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M17 20h5v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75M9 20H4v-2a4 4 0 013-3.87m6 5.87v-2a4 4 0 00-3-3.87M9 7a4 4 0 108 0 4 4 0 00-8 0z"
+              />
+            </svg>
+            {showExpanded && <span>我的 Agent 团队</span>}
+          </Link>
+
+          {/* 我的团队任务 — 从 Agent 团队剥离的独立任务区 */}
+          <Link
+            href="/missions"
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
+              pathname?.startsWith('/missions')
+                ? 'bg-gray-100 text-gray-900'
+                : 'text-gray-700 hover:bg-gray-50'
+            }`}
+            title="我的团队任务"
+          >
+            <svg
+              className="h-5 w-5 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+              />
+            </svg>
+            {showExpanded && <span>我的团队任务</span>}
           </Link>
 
           {/* Section: Insights Hub */}
@@ -748,34 +827,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.playground')}</span>}
           </Link>
 
-          {/* 智能体市场 — 平台共享货架（Agent/技能/工具/工作流），详见
-              docs/features/one-person-company-os/design.md §4.1 */}
-          <Link
-            href="/marketplace"
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
-              pathname?.startsWith('/marketplace')
-                ? `${MODULE_THEMES.market.activeBg} ${MODULE_THEMES.market.text}`
-                : 'text-gray-700 hover:bg-gray-50'
-            }`}
-            title={t('nav.marketplace')}
-          >
-            <svg
-              className="h-5 w-5 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 9l1.5-4.5h15L21 9M3 9h18M3 9v10a1 1 0 001 1h16a1 1 0 001-1V9M9 13h6"
-              />
-            </svg>
-            {showExpanded && <span>{t('nav.marketplace')}</span>}
-          </Link>
-
-          {/* AI 商店 / 工具市场 — 暂时不要 */}
+          {/* 智能体市场已移到顶部「置顶区」；AI 商店 / 工具市场暂时不要 */}
 
           {/* Section: 我的 Agent ★ 2026-05-05 R-CA: 动态列出 PUBLISHED custom agents */}
           {sidebarAgents.length > 0 && (
