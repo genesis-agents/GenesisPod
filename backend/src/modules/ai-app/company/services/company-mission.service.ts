@@ -197,7 +197,11 @@ export class CompanyMissionService {
         status: "started",
       });
 
-      const planningResult = await this.runPlanning(mission.title, team);
+      const planningResult = await this.runPlanning(
+        mission.title,
+        team,
+        userId,
+      );
 
       await this.updateMission(missionId, { progress: 33 });
       await this.emit("company.stage:lifecycle", missionId, userId, {
@@ -235,6 +239,7 @@ export class CompanyMissionService {
         planningResult,
         executionResults,
         team,
+        userId,
       );
 
       // 4. 完成
@@ -301,7 +306,10 @@ export class CompanyMissionService {
   }
 
   /** 规划：把 topic 拆成 2–4 个研究维度（结构化 LLM 调用，喂 researcher / reconciler）。 */
-  private async planDimensions(topic: string): Promise<{
+  private async planDimensions(
+    topic: string,
+    userId: string,
+  ): Promise<{
     themeSummary: string;
     dimensions: { id: string; name: string; rationale: string }[];
     tokens: number;
@@ -317,6 +325,12 @@ export class CompanyMissionService {
       taskProfile: { creativity: "low", outputLength: "short" },
       modelType: AIModelType.CHAT,
       operationName: "company-deepdive-plan",
+      // ★ 后台 mission 无 RequestContext → 必须显式带 billing.userId（严格 BYOK 防呆）。
+      billing: {
+        userId,
+        moduleType: "company",
+        operationType: "company-deepdive-plan",
+      },
     });
 
     const parsed = this.safeParseJson(res.content);
@@ -445,7 +459,7 @@ export class CompanyMissionService {
       costCents: number;
     }> = [];
 
-    const plan = await this.planDimensions(topic);
+    const plan = await this.planDimensions(topic, userId);
     steps.push({
       label: "拆解研究维度",
       role: "Leader",
@@ -678,6 +692,7 @@ export class CompanyMissionService {
   private async runPlanning(
     missionTitle: string,
     team: CompanyTeamForMission | null,
+    userId: string,
   ): Promise<string> {
     const leader = this.resolveLeader(team);
 
@@ -712,6 +727,7 @@ export class CompanyMissionService {
       leader,
       { creativity: "medium", outputLength: "medium" },
       "company-mission-planning",
+      userId,
     );
 
     const result = await this.chatFacade.chat(req);
@@ -782,6 +798,7 @@ export class CompanyMissionService {
         member,
         { creativity: "medium", outputLength: "long" },
         `company-mission-execution-${stageName}`,
+        userId,
       );
 
       const result = await this.chatFacade.chat(req);
@@ -857,6 +874,7 @@ export class CompanyMissionService {
     planningOutput: string,
     executionOutputs: string[],
     team: CompanyTeamForMission | null,
+    userId: string,
   ): Promise<string> {
     const leader = this.resolveLeader(team);
 
@@ -886,6 +904,7 @@ export class CompanyMissionService {
       leader,
       { creativity: "low", outputLength: "long" },
       "company-mission-review",
+      userId,
     );
 
     const result = await this.chatFacade.chat(req);
@@ -909,6 +928,7 @@ export class CompanyMissionService {
     agent: CompanyHiredAgent | null,
     taskProfile: TaskProfile,
     operationName: string,
+    userId: string,
   ): Parameters<ChatFacade["chat"]>[0] {
     // 成员模型偏好 = 用户「我的模型」里选的真实 model id（fallback 链取主模型）。
     // 旧档位名（Opus/Sonnet/Haiku）仅作向后兼容：识别为档位则走 modelType，不当真实 id 传。
@@ -925,6 +945,13 @@ export class CompanyMissionService {
       // 真实 model id 优先；为空时由 modelType + TaskProfile 解析（符合"fallback 用空串"红线）
       ...(model ? { model } : {}),
       modelType,
+      // ★ 后台 mission 任务无 RequestContext → 必须显式带 billing.userId，
+      //   否则下游 AiChatService 严格 BYOK 防呆会抛 "[chat] Refused: no userId"。
+      billing: {
+        userId,
+        moduleType: "company",
+        operationType: operationName,
+      },
     };
   }
 

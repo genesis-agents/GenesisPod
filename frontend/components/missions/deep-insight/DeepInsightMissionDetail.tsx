@@ -336,6 +336,7 @@ export function DeepInsightMissionDetail({
             selectedKey={selectedTaskKey}
             onSelect={(id) => setSelectedTaskKey(id)}
             missionFailed={data.missionStatus === 'failed'}
+            missionFailedMessage={data.failedMessage}
             missionCancelled={data.missionStatus === 'cancelled'}
             missionQualityFailed={data.statusDetail === 'quality-failed'}
             agents={agents}

@@ -267,6 +267,8 @@ export interface DeepInsightMissionView extends BaseMissionView {
   missionStatus: 'running' | 'completed' | 'failed' | 'cancelled' | 'idle';
   /** checkpoint 可续跑（「更新」→「继续上次」+ hint banner；company 无 → false）。 */
   isResumable?: boolean;
+  /** 失败时的真实错误信息（喂 MissionTodoBoard 失败空态；非失败 → undefined）。 */
+  failedMessage?: string;
 
   // ── 右侧 tab 数据 ──
   /**
@@ -434,6 +436,8 @@ export interface MissionReportResultLike {
   reconciliationReport?: string;
   steps?: MissionStep[];
   usage?: ComputeUsage;
+  /** 失败时后端写入的真实错误信息（runMission catch → result.error）。 */
+  error?: string;
 }
 
 export interface CompanyMissionInput {
@@ -567,6 +571,8 @@ export function fromCompanyMissionResult(
     maxCredits: undefined,
     missionStatus: companyMissionStatus(input.status),
     isResumable: false,
+    failedMessage:
+      companyStatus(input.status) === 'failed' ? result.error : undefined,
     // 右侧 tab
     events: [],
     reportArtifact: undefined,
