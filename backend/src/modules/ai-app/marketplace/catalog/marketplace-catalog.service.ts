@@ -26,7 +26,7 @@ import type {
   WorkflowCatalogItem,
   TeamCatalogItem,
   MarketplaceCatalog,
-} from "../api/dto/marketplace.dto";
+} from "./marketplace.dto";
 
 /** 截断长文本（技能指令正文），保留可读预览。 */
 function truncate(text: string | undefined, max: number): string {

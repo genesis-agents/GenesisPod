@@ -5,10 +5,8 @@ import { JwtModule } from "@nestjs/jwt";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { PrismaModule } from "@/common/prisma/prisma.module";
 import { EventRegistry } from "@/modules/ai-harness/facade";
-import { MarketplaceController } from "./api/controller/marketplace.controller";
 import { CompanyController } from "./api/controller/company.controller";
 import { CompanyMissionGateway } from "./api/controller/company-mission.gateway";
-import { MarketplaceCatalogService } from "./services/marketplace-catalog.service";
 import { CompanyRepository } from "./services/company.repository";
 import { CompanyService } from "./services/company.service";
 import { CompanyMissionService } from "./services/company-mission.service";
@@ -37,15 +35,14 @@ import { COMPANY_MISSION_EVENTS } from "./events/company.events";
       inject: [ConfigService],
     }),
   ],
-  controllers: [MarketplaceController, CompanyController],
+  controllers: [CompanyController],
   providers: [
-    MarketplaceCatalogService,
     CompanyRepository,
     CompanyService,
     CompanyMissionService,
     CompanyMissionGateway,
   ],
-  exports: [MarketplaceCatalogService],
+  exports: [],
 })
 export class CompanyModule implements OnModuleInit {
   constructor(private readonly eventRegistry: EventRegistry) {}

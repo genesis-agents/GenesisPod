@@ -34,7 +34,7 @@ import {
 } from "@/modules/ai-app/contracts/agent-spec-catalog";
 // ★ 能力化执行：团队套用的 workflow → 市场 SKU → CapabilityRegistry 解析到平台共享能力
 //   runner，在 harness 上真跑（零 playground 依赖）。design.md §4.3 + 能力 manifest/port。
-import { MarketplaceCatalogService } from "./marketplace-catalog.service";
+import { MarketplaceCatalogService } from "@/modules/ai-app/marketplace/catalog/marketplace-catalog.service";
 import {
   CapabilityRegistry,
   type ICapabilityRunner,

@@ -12,14 +12,14 @@
 import { Controller, Get, UseGuards } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
-import { MarketplaceCatalogService } from "../../services/marketplace-catalog.service";
+import { MarketplaceCatalogService } from "./marketplace-catalog.service";
 import type {
   AgentCatalogItem,
   MarketplaceCatalog,
   SkillCatalogItem,
   ToolCatalogItem,
   WorkflowCatalogItem,
-} from "../dto/marketplace.dto";
+} from "./marketplace.dto";
 
 @ApiTags("Company / Marketplace")
 @ApiBearerAuth()

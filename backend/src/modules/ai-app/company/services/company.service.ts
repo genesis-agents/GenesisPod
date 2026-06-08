@@ -11,7 +11,7 @@
 
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { CompanyRepository } from "./company.repository";
-import { MarketplaceCatalogService } from "./marketplace-catalog.service";
+import { MarketplaceCatalogService } from "@/modules/ai-app/marketplace/catalog/marketplace-catalog.service";
 import type {
   CompanyProfile,
   CompanyHiredAgent,
