@@ -271,6 +271,112 @@ function FactTablePanel({
   );
 }
 
+/** 团队流程 DAG：deepdive 6 个 Agent 的协作链路 + 真实数据标注。 */
+function MissionFlowPanel({
+  dimensionCount,
+  referencesCount,
+  factsCount,
+  score,
+}: {
+  dimensionCount: number;
+  referencesCount: number;
+  factsCount: number;
+  score?: number;
+}) {
+  const nodes: {
+    role: string;
+    agent: string;
+    desc: string;
+    stat: string;
+    tools?: string[];
+  }[] = [
+    {
+      role: '规划',
+      agent: 'Leader',
+      desc: '拆解研究维度，制定执行计划',
+      stat: `${dimensionCount || '—'} 个维度`,
+    },
+    {
+      role: '研究',
+      agent: `Researcher ×${dimensionCount || 'N'}`,
+      desc: '每维度并发，真实 web 搜证产出结构化 findings',
+      stat: `${referencesCount} 条来源`,
+      tools: ['web-search', 'rag-search', 'academic-search'],
+    },
+    {
+      role: '对账',
+      agent: 'Reconciler',
+      desc: '跨维度事实核对、冲突消解',
+      stat: `${factsCount} 条事实`,
+    },
+    {
+      role: '综合',
+      agent: 'Analyst',
+      desc: '提炼跨维洞察、识别矛盾',
+      stat: '洞察成形',
+    },
+    {
+      role: '写作',
+      agent: 'Writer',
+      desc: '结构化成稿（ResearchReport）',
+      stat: '报告成稿',
+    },
+    {
+      role: '评审',
+      agent: 'Reviewer',
+      desc: '多维质量评分与结论',
+      stat: score != null ? `评 ${score} 分` : '已评审',
+    },
+  ];
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-4">
+      <ol>
+        {nodes.map((node, i) => (
+          <li key={node.role} className="flex gap-3">
+            {/* 左侧 rail：序号 + 连接线 */}
+            <div className="flex flex-col items-center">
+              <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+                {i + 1}
+              </span>
+              {i < nodes.length - 1 && (
+                <div className="my-1 w-px flex-1 bg-gray-200" />
+              )}
+            </div>
+            {/* 节点卡 */}
+            <div className="mb-3 flex-1 rounded-lg border border-gray-200 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-gray-900">
+                    {node.role}
+                  </span>
+                  <span className="text-xs text-gray-400">{node.agent}</span>
+                </div>
+                <span className="flex-shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                  {node.stat}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-gray-500">{node.desc}</p>
+              {node.tools && (
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {node.tools.map((t) => (
+                    <span
+                      key={t}
+                      className="font-mono rounded bg-green-50 px-1.5 py-0.5 text-xs text-green-700"
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 export function MissionReportView({
   title,
   createdAt,
@@ -286,11 +392,14 @@ export function MissionReportView({
   const summary = result?.summary ?? '';
   const references = result?.references ?? [];
   const facts = result?.factTable ?? [];
-  const [tab, setTab] = useState<'report' | 'references' | 'facts'>('report');
+  const [tab, setTab] = useState<'report' | 'references' | 'facts' | 'flow'>(
+    'report'
+  );
   const tabItems = [
     { key: 'report', label: '研究报告' },
     { key: 'references', label: '引用', count: references.length },
     { key: 'facts', label: '事实表', count: facts.length },
+    { key: 'flow', label: '团队流程' },
   ];
 
   return (
@@ -354,6 +463,14 @@ export function MissionReportView({
               <FactTablePanel
                 facts={facts}
                 reconciliationReport={result?.reconciliationReport}
+              />
+            )}
+            {tab === 'flow' && (
+              <MissionFlowPanel
+                dimensionCount={dimensions.length}
+                referencesCount={references.length}
+                factsCount={facts.length}
+                score={review?.score}
               />
             )}
           </div>
