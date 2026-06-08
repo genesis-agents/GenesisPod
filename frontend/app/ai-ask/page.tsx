@@ -1809,9 +1809,13 @@ export default function AskPage() {
     setStreamStage(null);
   };
 
-  // Build model options: only CHAT models + Mixture + Self-Driven Team (pseudo-models)
+  // Build model options: 只呈现「默认聊天 Key」+ Mixture + Self-Driven Team。
+  // 默认 Key = pickPreferredModel(chatModels)（用户 BYOK 里 isDefault 的 CHAT/CHAT_FAST 模型）。
+  // 其余具体模型不在下拉罗列；默认 Key 不可用时由后端内部自主切换（TaskProfile/选举/fallback）兜底。
+  // 注：chatModels 本身保持完整，Mixture 仍按需并发调用多个模型。
+  const defaultChatModel = pickPreferredModel(chatModels);
   const modelOptions = [
-    ...chatModels,
+    ...(defaultChatModel ? [defaultChatModel] : []),
     {
       id: 'mixture',
       name: 'Mixture',
