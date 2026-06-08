@@ -25,6 +25,7 @@ import {
 import { useTranslation } from '@/lib/i18n';
 import AppShell from '@/components/layout/AppShell';
 import LibraryHeader from '@/components/library/header/LibraryHeader';
+import LibrarySearchBar from '@/components/library/header/LibrarySearchBar';
 import LibraryTabs, {
   type LibraryTabItem,
 } from '@/components/library/nav/LibraryTabs';
@@ -1472,18 +1473,16 @@ function LibraryPageContent() {
     <AppShell>
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto bg-gray-50">
-        {/* Unified Header: 标题 + 副标题 + 搜索框 — hidden in wiki detail */}
+        {/* Unified Header: 标题 + 副标题 — hidden in wiki detail */}
         {!inWikiDetail && (
           <LibraryHeader
             title={t('library.title') || '知识库'}
             subtitle={t('library.subtitle') || '管理你的资源、笔记与团队知识'}
-            searchPlaceholder={t('library.search.resources')}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
           />
         )}
 
-        {/* Unified Tabs: 中性灰底 + 紫色下划线 indicator — hidden in wiki detail */}
+        {/* Unified Tabs: 中性灰底 + 紫色下划线 indicator — hidden in wiki detail.
+            学习 Agent 市场范式：Tab 在上、搜索在下。 */}
         {!inWikiDetail && (
           <LibraryTabs
             tabs={libraryTabs}
@@ -1494,6 +1493,17 @@ function LibraryPageContent() {
               )
             }
           />
+        )}
+
+        {/* Search bar — 放在 Tab 下方（数据源 tab 有自己的子导航/内容，不挂全局搜索）。 */}
+        {!inWikiDetail && activeTab !== 'data-sources' && (
+          <div className="px-8 pt-4">
+            <LibrarySearchBar
+              placeholder={t('library.search.resources')}
+              value={searchQuery}
+              onChange={setSearchQuery}
+            />
+          </div>
         )}
 
         {/* Main content area — wiki detail owns its own padding via subheader */}
