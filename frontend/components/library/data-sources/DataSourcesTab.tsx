@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   HardDrive,
@@ -26,10 +26,11 @@ import {
   CONNECTOR_STATUS_TOKENS,
   type ConnectorState,
 } from '../_design/tokens';
-import { VerticalNavMenu, type VerticalNavGroup } from '../../ui/nav';
+import { type VerticalNavGroup } from '../../ui/nav';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { useTranslation } from '@/lib/i18n';
+import { cn } from '@/lib/utils/common';
 
 import { logger } from '@/lib/utils/logger';
 
@@ -644,18 +645,18 @@ export default function DataSourcesTab({
             title="即将支持"
             description="更多协作平台正在路上"
           />
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="flex flex-wrap gap-2">
             {['Slack', 'GitHub', 'Linear', 'Confluence', 'Dropbox', 'Jira'].map(
               (label) => (
-                <div
+                <span
                   key={label}
-                  className="flex h-20 flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-gray-200 bg-gray-50/40 text-center"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-gray-200 bg-gray-50/60 px-3 py-1.5 text-xs font-medium text-gray-500"
                 >
-                  <p className="text-sm font-medium text-gray-500">{label}</p>
-                  <span className="rounded-full bg-gray-200/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                  {label}
+                  <span className="rounded-full bg-gray-200/70 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-gray-500">
                     即将
                   </span>
-                </div>
+                </span>
               )
             )}
           </div>
@@ -665,20 +666,52 @@ export default function DataSourcesTab({
   };
 
   return (
-    <div className="flex flex-col gap-6 md:flex-row md:gap-8">
-      {/* 左侧竖向分组菜单 */}
-      <aside className="md:w-48 md:flex-shrink-0 md:border-r md:border-gray-100 md:pr-6">
-        <div className="md:sticky md:top-6">
-          <VerticalNavMenu
-            groups={navGroups}
-            value={activeSubTab}
-            onChange={(key) => setActiveSubTab(key as DataSourceSubTab)}
-          />
-        </div>
-      </aside>
+    <div className="space-y-6">
+      {/* 顶部子 tab chips（横向，学 Agent 市场分类条；取代左侧竖向导航占位，内容拉满整宽） */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-4">
+        {navGroups.map((group, gi) => (
+          <Fragment key={gi}>
+            {gi > 0 && (
+              <span className="mx-1 h-5 w-px bg-gray-200" aria-hidden />
+            )}
+            {group.items.map((item) => {
+              const active = activeSubTab === item.key;
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.key}
+                  onClick={() => setActiveSubTab(item.key as DataSourceSubTab)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors',
+                    active
+                      ? 'border-violet-300 bg-violet-50 text-violet-700'
+                      : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                  )}
+                >
+                  {Icon && <Icon className="h-4 w-4" />}
+                  <span>{item.label}</span>
+                  {typeof item.count === 'number' && (
+                    <span
+                      className={cn(
+                        'rounded-full px-1.5 text-[11px] font-semibold',
+                        active
+                          ? 'bg-violet-100 text-violet-700'
+                          : 'bg-gray-100 text-gray-500'
+                      )}
+                    >
+                      {item.count}
+                    </span>
+                  )}
+                  {item.trailing}
+                </button>
+              );
+            })}
+          </Fragment>
+        ))}
+      </div>
 
-      {/* 右侧内容区 */}
-      <div className="min-w-0 flex-1">{renderSubTabContent()}</div>
+      {/* 内容区（整宽） */}
+      <div className="min-w-0">{renderSubTabContent()}</div>
     </div>
   );
 }
