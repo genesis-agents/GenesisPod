@@ -86,6 +86,11 @@ export interface WorkflowListing extends BaseListing {
   roles: string[];
   /** 阶段名（pipeline 概览） */
   stages: string[];
+  /**
+   * 跑完用哪个前端 MissionKit 呈现（如 'deep-insight'）。
+   * 后续详情/采用处可 resolveMissionKit(missionType)?.DetailComponent 渲染配套界面。
+   */
+  missionType?: string;
 }
 
 export interface TeamListing extends BaseListing {

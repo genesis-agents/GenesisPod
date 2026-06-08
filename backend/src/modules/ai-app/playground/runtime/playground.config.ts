@@ -85,6 +85,8 @@ const PLAYGROUND_CATALOG: PipelineCatalogMeta = {
     "Leader 序言签发",
     "最终持久化",
   ],
+  // 呈现面绑定：跑完用前端 deep-insight MissionKit 渲染（resolveMissionKit）。
+  missionType: "deep-insight",
 };
 
 /**

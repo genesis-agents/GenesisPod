@@ -50,6 +50,12 @@ export interface WorkflowCatalogItem {
   teamSize: number;
   roles: string[];
   stages: string[];
+  /**
+   * 该工作流跑完用哪个前端 MissionKit 呈现（如 'deep-insight'）。
+   * 仅 mission pipeline 携带（声明于其 meta.catalog.missionType）；
+   * 团队阵型一般留空。前端 resolveMissionKit(missionType) 解析呈现面。
+   */
+  missionType?: string;
 }
 
 /**

@@ -22,6 +22,11 @@ export interface PipelineCatalogMeta {
   category: string;
   /** 人类可读阶段标签，顺序 = 执行顺序；数量应与 config.steps 对齐（drift spec 校验）。 */
   stages: string[];
+  /**
+   * 该 pipeline 跑完用哪个前端 MissionKit 呈现（如 'deep-insight'）。
+   * 缺省 = 暂无配套呈现面。前端 resolveMissionKit(missionType) 解析 L4 详情组件。
+   */
+  missionType?: string;
 }
 
 /** 从 config.meta 安全取出 catalog 展示元数据（缺省 undefined）。 */

@@ -11,10 +11,13 @@ import { useCompanyStore } from '@/stores/company/companyStore';
 import type { CompanyMission } from '@/stores/company/companyStore';
 import { useCompanyMissionStream } from '@/hooks/features/useCompanyMissionStream';
 import {
-  MissionReportView,
-  type MissionReportResult,
-  type LiveStageStatus,
-} from '@/components/me/team/mission/MissionReportView';
+  DeepInsightMissionDetail,
+  fromCompanyMissionResult,
+  type MissionReportResultLike,
+} from '@/components/missions/deep-insight';
+
+/** 运行中实时阶段三态（WS 事件驱动详情页 live rail；纯运行态，不入 kit 契约）。 */
+type LiveStageStatus = 'pending' | 'active' | 'done';
 
 /** 后端阶段 id → 进度百分比计算用。 */
 const STAGE_LABELS: Record<string, string> = {
@@ -187,27 +190,46 @@ export function MissionRunView() {
     return useCompanyStore.getState().missions.map(toListItem);
   }, []);
 
-  // ── 详情态：整页 MissionDetailFrame（与 playground 同款，整屏铺满）─────
+  // ── 详情态：整页 DeepInsightMissionDetail（L4 kit，吃归一契约）─────────
   const reportMission = missions.find((m) => m.id === reportMissionId) ?? null;
   if (reportMission) {
+    const detailView = fromCompanyMissionResult({
+      id: reportMission.id,
+      title: reportMission.title,
+      status: reportMission.status,
+      createdAt: reportMission.createdAt,
+      result: reportMission.result as MissionReportResultLike | undefined,
+      actions: [
+        {
+          variant: 'primary',
+          emoji: '▶',
+          label: '重新下发',
+          title: '用相同团队 + 任务标题起一个新 mission',
+          onClick: () => {
+            void createMission(reportMission.teamId, reportMission.title).then(
+              (id) => {
+                if (id) setActiveMissionId(id);
+              }
+            );
+            setReportMissionId(null);
+          },
+        },
+        {
+          variant: 'danger',
+          emoji: '⏹',
+          label: '删除',
+          title: '删除该任务及其报告',
+          onClick: () => {
+            void deleteMission(reportMission.id);
+            setReportMissionId(null);
+          },
+        },
+      ],
+    });
     return (
-      <MissionReportView
-        title={reportMission.title}
-        createdAt={reportMission.createdAt}
-        result={reportMission.result as MissionReportResult}
+      <DeepInsightMissionDetail
+        data={detailView}
         onBack={() => setReportMissionId(null)}
-        onRerun={() => {
-          void createMission(reportMission.teamId, reportMission.title).then(
-            (id) => {
-              if (id) setActiveMissionId(id);
-            }
-          );
-          setReportMissionId(null);
-        }}
-        onDelete={() => {
-          void deleteMission(reportMission.id);
-          setReportMissionId(null);
-        }}
       />
     );
   }

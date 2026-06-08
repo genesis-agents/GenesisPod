@@ -77,6 +77,7 @@ interface WorkflowCatalogItem {
   teamSize: number;
   roles: string[];
   stages: string[];
+  missionType?: string;
 }
 
 interface TeamCatalogItem {
@@ -192,6 +193,8 @@ function adaptWorkflow(item: WorkflowCatalogItem): WorkflowListing {
     teamSize: item.teamSize,
     roles: item.roles,
     stages: item.stages,
+    // 呈现面绑定透传：消费方可 resolveMissionKit(missionType) 渲染配套 mission UI。
+    missionType: item.missionType,
   };
 }
 

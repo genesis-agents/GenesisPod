@@ -316,6 +316,8 @@ export class MarketplaceCatalogService {
           teamSize: config.roles.length,
           roles: config.roles.map((r) => r.id),
           stages: catalog?.stages ?? config.steps.map((s) => s.id),
+          // 呈现面绑定：声明则透传（如 playground → 'deep-insight'），缺省留空。
+          missionType: catalog?.missionType,
         } satisfies WorkflowCatalogItem);
       }
     } catch (err) {
