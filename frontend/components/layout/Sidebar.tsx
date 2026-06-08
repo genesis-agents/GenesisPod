@@ -320,10 +320,10 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.aiAsk')}</span>}
           </Link>
 
-          {/* Section: 能力广场（发现 / 购买 / 试用能力）—— 探索 + 市场 + 实验场 */}
+          {/* Section: AI 广场（发现 / 购买 / 试用能力）—— 探索 + 市场 + 实验场 */}
           {showExpanded && (
             <div className="px-3 pb-0.5 pt-1.5 text-xs font-semibold uppercase tracking-wider text-gray-400">
-              能力广场
+              AI 广场
             </div>
           )}
           {!showExpanded && (
@@ -387,7 +387,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.marketplace')}</span>}
           </Link>
 
-          {/* AI 实验场 — 能力广场组（试能力） */}
+          {/* AI 实验场 — AI 广场组（试能力） */}
           <Link
             href="/agent-playground"
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
@@ -831,7 +831,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             </>
           )}
 
-          {/* AI 实验场已并入顶部「能力广场」组；智能体市场亦在该组；AI 商店暂不要 */}
+          {/* AI 实验场已并入顶部「AI 广场」组；智能体市场亦在该组；AI 商店暂不要 */}
 
           {/* Section: 我的 Agent ★ 2026-05-05 R-CA: 动态列出 PUBLISHED custom agents */}
           {sidebarAgents.length > 0 && (
