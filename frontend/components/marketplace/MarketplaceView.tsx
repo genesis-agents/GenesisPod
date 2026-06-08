@@ -98,7 +98,7 @@ export function MarketplaceView() {
       <PageHeaderHero
         module="market"
         icon={<Store className="h-7 w-7 text-white" />}
-        title="智能体市场"
+        title="Agent 市场"
         subtitle="平台共享货架 —— 招 Agent、配技能与工具、套用工作流，带回「我的团队」"
         actions={
           <Link

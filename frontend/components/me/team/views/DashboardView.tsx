@@ -9,9 +9,9 @@ import {
 } from 'lucide-react';
 import { StatCard } from '@/components/ui/cards/StatCard';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table/Table';
 import { cn } from '@/lib/utils/common';
 import { useCompanyStore } from '@/stores/company/companyStore';
-import { AgentAvatar } from '../team-shared';
 
 const STATUS_META: Record<
   string,
@@ -30,10 +30,6 @@ export function DashboardView({ onGoMission }: { onGoMission: () => void }) {
     (m) => m.status === 'running' || m.status === 'review'
   );
   const done = missions.filter((m) => m.status === 'done');
-
-  // 团队成员数：按可解析的已雇 Agent 计（去重），避免悬空 id 虚高
-  const memberCountOf = (memberIds: string[]) =>
-    memberIds.filter((id) => hired.some((h) => h.instanceId === id)).length;
 
   return (
     <div className="space-y-6">
@@ -79,72 +75,72 @@ export function DashboardView({ onGoMission }: { onGoMission: () => void }) {
           </button>
         </div>
 
-        {teams.length === 0 ? (
+        {missions.length === 0 ? (
           <EmptyState
             type="default"
-            title="还没有团队"
-            description="去「组队」建第一个 Team"
+            title="暂无任务"
+            description="去「我的任务」给团队下达第一个任务"
             size="sm"
           />
         ) : (
-          <div className="space-y-3">
-            {teams.map((team) => {
-              const leader = hired.find((h) => h.instanceId === team.leaderId);
-              const wf = teamWorkflows.find((w) => w.id === team.workflowId);
-              const teamMissions = missions.filter((m) => m.teamId === team.id);
-              return (
-                <div
-                  key={team.id}
-                  className="rounded-xl border border-gray-200 bg-white p-4"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {leader && <AgentAvatar agent={leader} size="sm" />}
-                      <div className="leading-tight">
-                        <div className="text-sm font-semibold text-gray-900">
-                          {team.name}
-                        </div>
-                        <div className="text-xs text-gray-400">
-                          {memberCountOf(team.memberIds)} 名成员
-                          {wf ? ` · ${wf.name}` : ''}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 space-y-2">
-                    {teamMissions.length === 0 ? (
-                      <p className="text-xs text-gray-400">暂无任务</p>
-                    ) : (
-                      teamMissions.map((m) => {
-                        const sm = STATUS_META[m.status];
-                        return (
-                          <div key={m.id}>
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="truncate text-gray-700">
-                                {m.title}
-                              </span>
-                              <span className={cn('flex-shrink-0', sm.text)}>
-                                {sm.label} {m.progress}%
-                              </span>
-                            </div>
-                            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-100">
-                              <div
-                                className={cn(
-                                  'h-full rounded-full transition-all',
-                                  sm.bar
-                                )}
-                                style={{ width: `${m.progress}%` }}
-                              />
-                            </div>
+          <div className="overflow-hidden rounded-xl border border-gray-200">
+            <Table className="text-left text-sm">
+              <THead className="bg-gray-50 text-xs text-gray-500">
+                <Tr>
+                  <Th className="px-4 py-2.5 font-medium">任务</Th>
+                  <Th className="px-4 py-2.5 font-medium">团队</Th>
+                  <Th className="px-4 py-2.5 font-medium">工作流</Th>
+                  <Th className="px-4 py-2.5 font-medium">状态</Th>
+                  <Th className="px-4 py-2.5 font-medium">进度</Th>
+                </Tr>
+              </THead>
+              <TBody>
+                {missions.map((m) => {
+                  const team = teams.find((t) => t.id === m.teamId);
+                  const wf = team
+                    ? teamWorkflows.find((w) => w.id === team.workflowId)
+                    : null;
+                  const sm = STATUS_META[m.status] ?? STATUS_META.queued;
+                  return (
+                    <Tr key={m.id} className="border-t border-gray-100">
+                      <Td className="px-4 py-2.5">
+                        <button
+                          type="button"
+                          onClick={onGoMission}
+                          className="font-medium text-primary hover:underline"
+                        >
+                          {m.title}
+                        </button>
+                      </Td>
+                      <Td className="px-4 py-2.5 text-gray-600">
+                        {team?.name ?? '—'}
+                      </Td>
+                      <Td className="px-4 py-2.5 text-gray-500">
+                        {wf?.name ?? '—'}
+                      </Td>
+                      <Td className="px-4 py-2.5">
+                        <span className={cn('text-xs font-medium', sm.text)}>
+                          {sm.label}
+                        </span>
+                      </Td>
+                      <Td className="px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <div className="h-1.5 w-20 overflow-hidden rounded-full bg-gray-100">
+                            <div
+                              className={cn('h-full rounded-full', sm.bar)}
+                              style={{ width: `${m.progress}%` }}
+                            />
                           </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                          <span className="text-xs text-gray-400">
+                            {m.progress}%
+                          </span>
+                        </div>
+                      </Td>
+                    </Tr>
+                  );
+                })}
+              </TBody>
+            </Table>
           </div>
         )}
       </div>

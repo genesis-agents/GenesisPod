@@ -24,7 +24,7 @@ export function TalentPoolView() {
             href="/marketplace"
             className="mx-1 font-medium text-primary hover:underline"
           >
-            智能体市场
+            Agent 市场
           </Link>
           招更多人。
         </p>
@@ -40,7 +40,7 @@ export function TalentPoolView() {
         <EmptyState
           type="default"
           title="人才库是空的"
-          description="先去智能体市场招聘 Agent"
+          description="先去 Agent 市场招聘 Agent"
           action={{
             label: '去招人',
             onClick: () => {

@@ -231,7 +231,7 @@
     "aiWriting": "AI 写作",
     "aiSocial": "AI 社媒",
     "playground": "AI 实验场",
-    "marketplace": "智能体市场",
+    "marketplace": "Agent 市场",
     "labs": "实验室",
     "aiLabs": "AI 实验室",
     "admin": "管理后台",
@@ -246,7 +246,7 @@
     "appTitle": "Raven AI Engine",
     "sections": {
       "materialsKnowledge": "知识中心",
-      "researchAnalysis": "行业洞察",
+      "researchAnalysis": "深度洞察",
       "planningDecision": "推演决策",
       "creativeWriting": "内容工坊",
       "collabLab": "实验广场",

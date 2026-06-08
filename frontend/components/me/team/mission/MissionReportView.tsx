@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Check, ListChecks, Layers, ExternalLink } from 'lucide-react';
+import { Check, ListChecks, Layers, ExternalLink, Network } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { Tabs } from '@/components/ui/tabs';
@@ -601,47 +601,112 @@ export function MissionReportView({
   const facts = result?.factTable ?? [];
   const steps = result?.steps ?? [];
   const [tab, setTab] = useState<
-    'steps' | 'report' | 'references' | 'facts' | 'flow' | 'cost'
+    'steps' | 'report' | 'references' | 'facts' | 'cost'
   >('steps');
   const tabItems = [
     { key: 'steps', label: '执行步骤', count: steps.length },
     { key: 'report', label: '研究报告' },
     { key: 'references', label: '引用', count: references.length },
     { key: 'facts', label: '事实表', count: facts.length },
-    { key: 'flow', label: '团队流程' },
     { key: 'cost', label: '算力消耗' },
   ];
 
   return (
-    <div className="space-y-5">
-      {/* 头部：标题 + 评审分 */}
-      <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-200 bg-white p-5">
-        <div className="min-w-0">
-          <h2 className="truncate text-lg font-bold text-gray-900">{title}</h2>
-          <p className="mt-1 text-sm text-gray-500">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+      {/* 左：团队构成 + 评分 + 维度 + 评审（类 playground 左栏） */}
+      <aside className="space-y-4 lg:col-span-1">
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <h2 className="text-base font-bold text-gray-900">{title}</h2>
+          <p className="mt-1 text-xs text-gray-500">
             {result?.themeSummary || '深度研究报告'}
           </p>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-400">
-            <span className="inline-flex items-center gap-1">
-              <Layers className="h-3.5 w-3.5" />
-              {dimensions.length} 个研究维度
-            </span>
-            {createdAt ? (
-              <span>· 完成于 {new Date(createdAt).toLocaleString()}</span>
-            ) : null}
+          {typeof review?.score === 'number' && (
+            <div className="mt-3 flex justify-center">
+              <ScoreRing score={review.score} verdict={review.verdict} />
+            </div>
+          )}
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+            <div>
+              <div className="text-base font-bold text-gray-900">
+                {dimensions.length}
+              </div>
+              <div className="text-xs text-gray-400">维度</div>
+            </div>
+            <div>
+              <div className="text-base font-bold text-gray-900">
+                {references.length}
+              </div>
+              <div className="text-xs text-gray-400">引用</div>
+            </div>
+            <div>
+              <div className="text-base font-bold text-gray-900">
+                {facts.length}
+              </div>
+              <div className="text-xs text-gray-400">事实</div>
+            </div>
           </div>
+          {createdAt ? (
+            <div className="mt-2 text-center text-xs text-gray-400">
+              完成于 {new Date(createdAt).toLocaleString()}
+            </div>
+          ) : null}
         </div>
-        {typeof review?.score === 'number' && (
-          <ScoreRing score={review.score} verdict={review.verdict} />
+
+        <div>
+          <SectionHeader icon={<Network className="h-4 w-4 text-primary" />}>
+            团队构成
+          </SectionHeader>
+          <MissionFlowPanel
+            dimensionCount={dimensions.length}
+            referencesCount={references.length}
+            factsCount={facts.length}
+            score={review?.score}
+          />
+        </div>
+
+        {dimensions.length > 0 && (
+          <div>
+            <SectionHeader
+              icon={<Layers className="h-4 w-4 text-violet-500" />}
+            >
+              研究维度
+            </SectionHeader>
+            <div className="flex flex-wrap gap-1.5">
+              {dimensions.map((d) => (
+                <span
+                  key={d}
+                  className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700"
+                >
+                  {d}
+                </span>
+              ))}
+            </div>
+          </div>
         )}
-      </div>
 
-      {/* 流水线 rail */}
-      <PipelineRail />
+        {review?.notes && review.notes.length > 0 && (
+          <div>
+            <SectionHeader
+              icon={<ListChecks className="h-4 w-4 text-amber-500" />}
+            >
+              评审意见
+            </SectionHeader>
+            <ul className="space-y-1.5 rounded-xl border border-gray-200 bg-gray-50/60 p-3 text-xs text-gray-600">
+              {review.notes.map((n, i) => (
+                <li key={i} className="flex gap-1.5">
+                  <span className="mt-0.5 text-amber-400">•</span>
+                  <span>{n}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </aside>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {/* 主体：报告 / 引用 / 事实表（tab 切换） */}
-        <div className="lg:col-span-2">
+      {/* 右：阶段条 + tabs（类 playground 右栏） */}
+      <div className="space-y-3 lg:col-span-2">
+        <PipelineRail />
+        <div>
           <Tabs
             items={tabItems}
             value={tab}
@@ -651,7 +716,7 @@ export function MissionReportView({
             {tab === 'steps' && <StepTablePanel steps={steps} />}
             {tab === 'report' &&
               (summary.trim() ? (
-                <div className="max-h-[58vh] overflow-auto rounded-xl border border-gray-200 bg-white p-6 text-sm leading-relaxed text-gray-800">
+                <div className="max-h-[64vh] overflow-auto rounded-xl border border-gray-200 bg-white p-6 text-sm leading-relaxed text-gray-800">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={mdComponents}
@@ -676,61 +741,8 @@ export function MissionReportView({
                 reconciliationReport={result?.reconciliationReport}
               />
             )}
-            {tab === 'flow' && (
-              <MissionFlowPanel
-                dimensionCount={dimensions.length}
-                referencesCount={references.length}
-                factsCount={facts.length}
-                score={review?.score}
-              />
-            )}
             {tab === 'cost' && (
               <CostPanel steps={steps} usage={result?.usage} />
-            )}
-          </div>
-        </div>
-
-        {/* 侧栏：维度 + 评审意见 */}
-        <div className="space-y-4">
-          <div>
-            <SectionHeader
-              icon={<Layers className="h-4 w-4 text-violet-500" />}
-            >
-              研究维度
-            </SectionHeader>
-            {dimensions.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {dimensions.map((d) => (
-                  <span
-                    key={d}
-                    className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700"
-                  >
-                    {d}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-gray-400">—</p>
-            )}
-          </div>
-
-          <div>
-            <SectionHeader
-              icon={<ListChecks className="h-4 w-4 text-amber-500" />}
-            >
-              评审意见
-            </SectionHeader>
-            {review?.notes && review.notes.length > 0 ? (
-              <ul className="space-y-1.5 rounded-xl border border-gray-200 bg-gray-50/60 p-3 text-xs text-gray-600">
-                {review.notes.map((n, i) => (
-                  <li key={i} className="flex gap-1.5">
-                    <span className="mt-0.5 text-amber-400">•</span>
-                    <span>{n}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-xs text-gray-400">暂无评审意见</p>
             )}
           </div>
         </div>
