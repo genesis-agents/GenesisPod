@@ -320,7 +320,16 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.aiAsk')}</span>}
           </Link>
 
-          {/* AI 探索 — 置顶（与 AI 问答 / 智能体市场 同列，无组名） */}
+          {/* Section: 能力广场（发现 / 购买 / 试用能力）—— 探索 + 市场 + 实验场 */}
+          {showExpanded && (
+            <div className="px-3 pb-0.5 pt-1.5 text-xs font-semibold uppercase tracking-wider text-gray-400">
+              能力广场
+            </div>
+          )}
+          {!showExpanded && (
+            <div className="my-1 border-t border-gray-200/60" />
+          )}
+
           <Link
             href="/explore"
             onClick={(e) => {
@@ -378,6 +387,32 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.marketplace')}</span>}
           </Link>
 
+          {/* AI 实验场 — 能力广场组（试能力） */}
+          <Link
+            href="/agent-playground"
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
+              pathname?.startsWith('/agent-playground')
+                ? `${MODULE_THEMES.playground.activeBg} ${MODULE_THEMES.playground.text}`
+                : 'text-gray-700 hover:bg-gray-50'
+            }`}
+            title={t('nav.playground')}
+          >
+            <svg
+              className="h-5 w-5 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"
+              />
+            </svg>
+            {showExpanded && <span>{t('nav.playground')}</span>}
+          </Link>
+
           {/* Section: 我的工作台 */}
           {showExpanded && (
             <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
@@ -419,7 +454,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.myLibrary')}</span>}
           </Link>
 
-          {/* 我的 Agent 团队 — 个人设置里 Agent 团队的主菜单入口（同内容） */}
+          {/* 我的团队 — 个人设置里 Agent 团队的主菜单入口（同内容） */}
           <Link
             href="/agents"
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
@@ -427,7 +462,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 ? 'bg-gray-100 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
-            title="我的 Agent 团队"
+            title="我的团队"
           >
             <svg
               className="h-5 w-5 flex-shrink-0"
@@ -442,10 +477,10 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 d="M17 20h5v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75M9 20H4v-2a4 4 0 013-3.87m6 5.87v-2a4 4 0 00-3-3.87M9 7a4 4 0 108 0 4 4 0 00-8 0z"
               />
             </svg>
-            {showExpanded && <span>我的 Agent 团队</span>}
+            {showExpanded && <span>我的团队</span>}
           </Link>
 
-          {/* 我的团队任务 — 从 Agent 团队剥离的独立任务区 */}
+          {/* 我的任务 — 从 Agent 团队剥离的独立任务区 */}
           <Link
             href="/missions"
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
@@ -453,7 +488,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 ? 'bg-gray-100 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
-            title="我的团队任务"
+            title="我的任务"
           >
             <svg
               className="h-5 w-5 flex-shrink-0"
@@ -468,7 +503,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
               />
             </svg>
-            {showExpanded && <span>我的团队任务</span>}
+            {showExpanded && <span>我的任务</span>}
           </Link>
 
           {/* Section: Insights Hub */}
@@ -796,43 +831,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             </>
           )}
 
-          {/* Section: AI Lab */}
-          {showExpanded && (
-            <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-              {t('nav.sections.collabLab')}
-            </div>
-          )}
-          {!showExpanded && (
-            <div className="my-1 border-t border-gray-200/60" />
-          )}
-
-          <Link
-            href="/agent-playground"
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
-              pathname?.startsWith('/agent-playground')
-                ? `${MODULE_THEMES.playground.activeBg} ${MODULE_THEMES.playground.text}`
-                : 'text-gray-700 hover:bg-gray-50'
-            }`}
-            title={t('nav.playground')}
-          >
-            {/* 2026-05-12: 烧瓶图标（实验场语义），与 AI Ask 的 lightbulb 区分。 */}
-            <svg
-              className="h-5 w-5 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"
-              />
-            </svg>
-            {showExpanded && <span>{t('nav.playground')}</span>}
-          </Link>
-
-          {/* 智能体市场已移到顶部「置顶区」；AI 商店 / 工具市场暂时不要 */}
+          {/* AI 实验场已并入顶部「能力广场」组；智能体市场亦在该组；AI 商店暂不要 */}
 
           {/* Section: 我的 Agent ★ 2026-05-05 R-CA: 动态列出 PUBLISHED custom agents */}
           {sidebarAgents.length > 0 && (
