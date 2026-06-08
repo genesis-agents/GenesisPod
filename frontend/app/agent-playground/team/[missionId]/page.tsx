@@ -169,8 +169,8 @@ const TABS: { key: TabKey; label: string; Icon: typeof Activity }[] = [
   { key: 'collab', label: '协作动态', Icon: Activity },
   { key: 'report', label: '输出报告', Icon: FileText },
   { key: 'references', label: '参考文献', Icon: Layers },
-  { key: 'cost', label: '算力消耗', Icon: Coins },
   { key: 'graph', label: '图谱分析', Icon: Network },
+  { key: 'cost', label: '算力消耗', Icon: Coins },
 ];
 
 // Mission brand icon — playground 沿用 Lucide ClipboardList（文档/任务感）
