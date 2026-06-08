@@ -27,12 +27,19 @@ import {
   CompanyRepository,
   type CompanyTeamForMission,
 } from "./company.repository";
-// ★ ⑤ 真用（工具/ReAct 级）：把招进来的 playground 叶子 agent 解析回真 @DefineAgent 类，
-//   用 AgentRunner 真跑（researcher 带真 web-search），而非仅注入技能文本。
+// ★ 通用路径 ⑤ 真用：成员若是可独立跑的叶子 agent，用 AgentRunner 真跑（非能力化团队）。
 import {
   resolveAgentSpec,
   STANDALONE_RUNNABLE_AGENT_IDS,
 } from "@/modules/ai-app/contracts/agent-spec-catalog";
+// ★ 能力化执行：团队套用的 workflow → 市场 SKU → CapabilityRegistry 解析到平台共享能力
+//   runner，在 harness 上真跑（零 playground 依赖）。design.md §4.3 + 能力 manifest/port。
+import { MarketplaceCatalogService } from "./marketplace-catalog.service";
+import {
+  CapabilityRegistry,
+  type ICapabilityRunner,
+  type CapabilityRunEvent,
+} from "@/modules/ai-app/marketplace/capability";
 
 // ── local type alias so we don't need to import ChatRequest from facade types ─
 
@@ -70,6 +77,8 @@ export class CompanyMissionService {
     private readonly companyRepository: CompanyRepository,
     private readonly skillRegistry: SkillRegistry,
     private readonly agentRunner: AgentRunner,
+    private readonly capabilityRegistry: CapabilityRegistry,
+    private readonly catalogService: MarketplaceCatalogService,
   ) {}
 
   /**
@@ -183,11 +192,13 @@ export class CompanyMissionService {
     });
 
     try {
-      // ★ 深度研究团队 → 真实类型化流水线（researcher→reconciler→analyst→writer→reviewer，
-      //   上游 typed 产物串接进下游 typed 入参，全程真跑 Agent + 真工具）。
-      //   非深度研究团队 → 走下方通用 chat 三阶段。
-      if (this.teamRunsDeepdive(team)) {
-        await this.runDeepdiveMission(missionId, userId, mission.title, team);
+      // ★ 采用引用 → 共享能力 → 在 harness 上真跑（design.md §4.3 + 能力 manifest/port）。
+      //   团队套用的 workflow.sourceListingId → 市场 SKU.missionType → CapabilityRegistry
+      //   解析到平台共享的能力 runner（用同一批共享 agent，纯执行）。解析到 → 真跑该能力；
+      //   解析不到 → 退回下方通用 chat 三阶段（非能力化团队）。
+      const runner = this.resolveCapabilityRunner(team);
+      if (runner) {
+        await this.runViaCapability(missionId, userId, mission.title, runner);
         return;
       }
 
@@ -283,403 +294,123 @@ export class CompanyMissionService {
     }
   }
 
-  // ── 真实深度研究流水线（typed 串接）─────────────────────────────────────────
+  // ── 能力化执行（采用引用 → 共享能力 runner → 在 harness 真跑）──────────────────
 
-  /** 团队是否为"深度研究"阵型（含 researcher 叶子）→ 走真实流水线。 */
-  private teamRunsDeepdive(team: CompanyTeamForMission | null): boolean {
-    if (!team) return false;
-    return team.members.some(
-      (m) => m.hiredAgent?.listingId === "playground.researcher",
-    );
-  }
-
-  /** 从文本里抽第一段 JSON 对象，解析失败返回 null。 */
-  private safeParseJson(
-    text: string,
-  ): { themeSummary?: unknown; dimensions?: unknown } | null {
-    try {
-      const m = text.match(/\{[\s\S]*\}/);
-      return m ? (JSON.parse(m[0]) as Record<string, unknown>) : null;
-    } catch {
-      return null;
+  /**
+   * 把团队套用的 workflow（sourceListingId → 市场 SKU.missionType）解析到平台共享的
+   * 能力 runner（CapabilityRegistry）。解析不到（非能力化团队 / 能力未注册）→ undefined，
+   * 退回通用 chat 三阶段。这就是"采用=存引用 → 执行=按引用解析共享能力"的执行端闭环。
+   */
+  private resolveCapabilityRunner(
+    team: CompanyTeamForMission | null,
+  ): ICapabilityRunner | undefined {
+    // 1) 正道：团队套用的 workflow → 市场 SKU.missionType → 能力。
+    const sourceListingId = team?.workflow?.sourceListingId;
+    if (sourceListingId) {
+      const sku = this.catalogService
+        .getWorkflows()
+        .find((w) => w.id === sourceListingId);
+      if (sku?.missionType) {
+        const runner = this.capabilityRegistry.resolve(sku.missionType);
+        if (runner) return runner;
+      }
     }
-  }
-
-  /** 规划：把 topic 拆成 2–4 个研究维度（结构化 LLM 调用，喂 researcher / reconciler）。 */
-  private async planDimensions(
-    topic: string,
-    userId: string,
-  ): Promise<{
-    themeSummary: string;
-    dimensions: { id: string; name: string; rationale: string }[];
-    tokens: number;
-  }> {
-    const systemPrompt = [
-      "You are a research lead. Break the topic into 2-4 distinct, non-overlapping research dimensions.",
-      'Respond ONLY with JSON: {"themeSummary": string, "dimensions": [{"id": string, "name": string, "rationale": string}]}.',
-    ].join(" ");
-
-    const res = await this.chatFacade.chat({
-      messages: [{ role: "user", content: `Topic: ${topic}` }],
-      systemPrompt,
-      taskProfile: { creativity: "low", outputLength: "short" },
-      modelType: AIModelType.CHAT,
-      operationName: "company-deepdive-plan",
-      // ★ 后台 mission 无 RequestContext → 必须显式带 billing.userId（严格 BYOK 防呆）。
-      billing: {
-        userId,
-        moduleType: "company",
-        operationType: "company-deepdive-plan",
-      },
-    });
-
-    const parsed = this.safeParseJson(res.content);
-    const rawDims = Array.isArray(parsed?.dimensions) ? parsed.dimensions : [];
-    const dimensions = rawDims
-      .filter(
-        (d): d is { id?: unknown; name: string; rationale?: unknown } =>
-          !!d && typeof (d as { name?: unknown }).name === "string",
+    // 2) 兼容兜底（不退化）：未绑 workflow 但花名册含 researcher 叶子的团队，等价于旧
+    //    teamRunsDeepdive 触发——映射到深度洞察能力，保证存量深度研究团队照常能力化执行。
+    if (
+      team?.members.some(
+        (m) => m.hiredAgent?.listingId === "playground.researcher",
       )
-      .slice(0, 4)
-      .map((d, i) => ({
-        id: typeof d.id === "string" ? d.id : `dim-${i + 1}`,
-        name: String(d.name),
-        rationale: typeof d.rationale === "string" ? d.rationale : "",
-      }));
-    if (dimensions.length === 0) {
-      dimensions.push({ id: "dim-1", name: topic, rationale: "" });
+    ) {
+      return this.capabilityRegistry.resolve("deep-insight");
     }
-    return {
-      themeSummary:
-        typeof parsed?.themeSummary === "string" ? parsed.themeSummary : topic,
-      dimensions,
-      tokens: res.tokensUsed ?? 0,
-    };
-  }
-
-  /** 从 researcher findings 聚合去重的引用列表（供前端引用面板）。 */
-  private extractReferences(researcherResults: unknown[]): Array<{
-    source: string;
-    title?: string;
-    snippet?: string;
-    publishedAt?: string;
-    dimension?: string;
-    claim?: string;
-  }> {
-    const seen = new Set<string>();
-    const refs: Array<{
-      source: string;
-      title?: string;
-      snippet?: string;
-      publishedAt?: string;
-      dimension?: string;
-      claim?: string;
-    }> = [];
-    for (const rr of researcherResults) {
-      const r = rr as {
-        dimension?: string;
-        findings?: Array<{
-          source?: string;
-          sourceTitle?: string;
-          sourceSnippet?: string;
-          sourcePublishedAt?: string;
-          claim?: string;
-        }>;
-      };
-      for (const f of r.findings ?? []) {
-        const src = f.source;
-        if (!src || seen.has(src)) continue;
-        seen.add(src);
-        refs.push({
-          source: src,
-          title: f.sourceTitle,
-          snippet: f.sourceSnippet,
-          publishedAt: f.sourcePublishedAt,
-          dimension: r.dimension,
-          claim: f.claim,
-        });
-      }
-    }
-    return refs;
-  }
-
-  /** 把 Writer 的 ResearchReportSchema 产物拼成 markdown（兜底 JSON 串）。 */
-  private assembleReport(report: unknown): string {
-    const r = report as {
-      title?: string;
-      sections?: { heading?: string; body?: string }[];
-    } | null;
-    if (r?.sections && Array.isArray(r.sections)) {
-      const parts: string[] = [];
-      if (r.title) parts.push(`# ${r.title}`);
-      for (const s of r.sections) {
-        if (s.heading) parts.push(`## ${s.heading}`);
-        if (s.body) parts.push(s.body);
-      }
-      if (parts.length) return parts.join("\n\n");
-    }
-    return this.stringifyAgentOutput(report);
+    return undefined;
   }
 
   /**
-   * 真实深度研究流水线：规划 → 并发研究 → 对账 → 综合 → 写作 → 评审。
-   * 每个 worker 都是真 @DefineAgent 经 AgentRunner 真跑（researcher 带真 web-search），
-   * 上游 typed 产物直接串接进下游 typed 入参；映射到 planning/execution/review 三个
-   * 前端已知 stage 事件。reconciler / reviewer 失败可降级（不阻断 mission）。
+   * 经能力 runner 真跑：runner 是平台共享、纯执行（用共享 agent，产出结果 + 流式事件），
+   * **company 负责持久化 + 把事件桥到 company.* WS**。零 playground 依赖、零山寨重实现。
    */
-  private async runDeepdiveMission(
+  private async runViaCapability(
     missionId: string,
     userId: string,
     topic: string,
-    _team: CompanyTeamForMission | null,
+    runner: ICapabilityRunner,
   ): Promise<void> {
-    const Researcher = resolveAgentSpec("playground.researcher");
-    const Reconciler = resolveAgentSpec("playground.reconciler");
-    const Analyst = resolveAgentSpec("playground.analyst");
-    const Writer = resolveAgentSpec("playground.writer");
-    const Reviewer = resolveAgentSpec("playground.reviewer");
-    if (!Researcher || !Analyst || !Writer) {
-      throw new Error("deepdive core agents unavailable");
-    }
-    const language = "zh-CN" as const;
-    const depth = "standard" as const;
-
-    // ── planning: 拆维度 + 并发研究 ───────────────────────────────────────────
-    await this.emit("company.stage:lifecycle", missionId, userId, {
-      stage: "planning",
-      status: "started",
-    });
-    // 逐步骤执行记录（前端任务详情的"执行步骤"表）
-    const steps: Array<{
-      label: string;
-      role: string;
-      dimension?: string;
-      status: "done" | "failed" | "skipped";
-      tokens: number;
-      costCents: number;
-    }> = [];
-
-    const plan = await this.planDimensions(topic, userId);
-    steps.push({
-      label: "拆解研究维度",
-      role: "Leader",
-      status: "done",
-      tokens: plan.tokens,
-      costCents: 0,
-    });
-
-    const researchOutcomes = await Promise.all(
-      plan.dimensions.map(async (d) => {
-        try {
-          const r = await this.agentRunner.run(
-            Researcher,
-            { topic, dimension: d.name, language, withFigures: false },
-            { userId },
-          );
-          return {
-            dimension: d.name,
-            output: r.output,
-            ok: true,
-            tokens: r.tokensUsed.total,
-            costCents: r.costCents,
-          };
-        } catch (err: unknown) {
-          this.log.warn(
-            `deepdive researcher "${d.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
-          );
-          return {
-            dimension: d.name,
-            output: null,
-            ok: false,
-            tokens: 0,
-            costCents: 0,
-          };
-        }
-      }),
-    );
-    for (const o of researchOutcomes) {
-      steps.push({
-        label: `研究：${o.dimension}`,
-        role: "Researcher",
-        dimension: o.dimension,
-        status: o.ok ? "done" : "failed",
-        tokens: o.tokens,
-        costCents: o.costCents,
-      });
-    }
-    const researcherResults = researchOutcomes
-      .filter((o) => o.ok)
-      .map((o) => o.output);
-    if (researcherResults.length === 0) {
-      throw new Error("deepdive: all researchers failed");
-    }
-    await this.updateMission(missionId, { progress: 40 });
-    await this.emit("company.stage:lifecycle", missionId, userId, {
-      stage: "planning",
-      status: "completed",
-    });
-
-    // ── execution: 对账 + 综合 + 写作 ─────────────────────────────────────────
-    await this.emit("company.stage:lifecycle", missionId, userId, {
-      stage: "execution",
-      status: "started",
-    });
-
-    let reconciliation: unknown = null;
-    let recTokens = 0;
-    let recCost = 0;
-    if (Reconciler) {
-      try {
-        const r = await this.agentRunner.run(
-          Reconciler,
-          { topic, language, plan, researcherResults },
-          { userId },
-        );
-        reconciliation = r.output;
-        recTokens = r.tokensUsed.total;
-        recCost = r.costCents;
-      } catch (err: unknown) {
-        this.log.warn(
-          `deepdive reconciler failed (degrade): ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-    }
-    const rec = reconciliation as {
-      reconciliationReport?: string;
-      factTable?: unknown[];
-      overlaps?: unknown[];
-      gaps?: unknown[];
-    } | null;
-    steps.push({
-      label: "跨维事实对账",
-      role: "Reconciler",
-      status: reconciliation ? "done" : "skipped",
-      tokens: recTokens,
-      costCents: recCost,
-    });
-
-    const analystRes = await this.agentRunner.run(
-      Analyst,
+    const result = await runner.run(
+      { topic },
       {
-        topic,
-        language,
-        researcherResults,
-        reconciliationReport: {
-          reconciliationReport: rec?.reconciliationReport ?? "",
-          factTable: rec?.factTable ?? [],
-          overlaps: rec?.overlaps ?? [],
-          gaps: rec?.gaps ?? [],
+        userId,
+        missionId,
+        onEvent: (e) => {
+          void this.bridgeCapabilityEvent(missionId, userId, e);
         },
       },
-      { userId },
     );
-    const analysis = analystRes.output as {
-      insights: unknown[];
-      themeSummary?: string;
-      contradictions?: unknown[];
-    };
-    steps.push({
-      label: "综合洞察",
-      role: "Analyst",
-      status: "done",
-      tokens: analystRes.tokensUsed.total,
-      costCents: analystRes.costCents,
-    });
 
-    const writerRes = await this.agentRunner.run(
-      Writer,
-      {
-        topic,
-        depth,
-        language,
-        insights: analysis.insights,
-        themeSummary: analysis.themeSummary ?? plan.themeSummary,
-        ...(analysis.contradictions
-          ? { contradictions: analysis.contradictions }
-          : {}),
-      },
-      { userId },
-    );
-    const report = writerRes.output;
-    steps.push({
-      label: "撰写研究报告",
-      role: "Writer",
-      status: "done",
-      tokens: writerRes.tokensUsed.total,
-      costCents: writerRes.costCents,
-    });
-    await this.updateMission(missionId, { progress: 80 });
-    await this.emit("company.stage:lifecycle", missionId, userId, {
-      stage: "execution",
-      status: "completed",
-    });
-
-    // ── review ────────────────────────────────────────────────────────────────
-    await this.emit("company.stage:lifecycle", missionId, userId, {
-      stage: "review",
-      status: "started",
-    });
-    let review: unknown = null;
-    let revTokens = 0;
-    let revCost = 0;
-    if (Reviewer) {
-      try {
-        const r = await this.agentRunner.run(
-          Reviewer,
-          { topic, language, draftReport: report },
-          { userId },
-        );
-        review = r.output;
-        revTokens = r.tokensUsed.total;
-        revCost = r.costCents;
-      } catch (err: unknown) {
-        this.log.warn(
-          `deepdive reviewer failed (degrade): ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-    }
-    steps.push({
-      label: "质量评审",
-      role: "Reviewer",
-      status: review ? "done" : "skipped",
-      tokens: revTokens,
-      costCents: revCost,
-    });
-
-    // agent 产物是 Zod 校验过的 JSON；JSON-clone 成 Prisma 可存的 JsonValue
     const toJson = (v: unknown): Prisma.InputJsonValue =>
       JSON.parse(JSON.stringify(v ?? null)) as Prisma.InputJsonValue;
-    await this.updateMission(missionId, {
-      status: "done",
-      progress: 100,
-      result: {
-        summary: this.assembleReport(report),
-        report: toJson(report),
-        review: toJson(review),
-        // Tier 2 展示数据：引用（来自 researcher findings）+ 事实表 + 对账小结（来自 reconciler）
-        references: toJson(this.extractReferences(researcherResults)),
-        factTable: toJson(rec?.factTable ?? []),
-        reconciliationReport: rec?.reconciliationReport ?? "",
-        // 逐步骤执行表（前端任务详情）
-        steps: toJson(steps),
-        // 算力消耗汇总（token / 估算成本，来自各 Agent RunResult）
-        usage: {
-          totalTokens: steps.reduce((s, st) => s + st.tokens, 0),
-          totalCostCents: steps.reduce((s, st) => s + st.costCents, 0),
+
+    if (result.status === "completed") {
+      await this.updateMission(missionId, {
+        status: "done",
+        progress: 100,
+        result: {
+          summary: result.report ?? "",
+          references: toJson(result.references ?? []),
+          usage: {
+            totalTokens: result.usage?.totalTokens ?? 0,
+            totalCostCents: result.usage?.totalCostCents ?? 0,
+          },
+          capabilityId: runner.manifest.id,
+          completedAt: new Date().toISOString(),
         },
-        themeSummary: analysis.themeSummary ?? plan.themeSummary,
-        dimensions: plan.dimensions.map((d) => d.name),
-        completedAt: new Date().toISOString(),
-      },
+      });
+      await this.emit("company.mission:completed", missionId, userId, {
+        missionId,
+      });
+      this.log.log(
+        `CompanyMission ${missionId} completed via capability "${runner.manifest.id}"`,
+      );
+      return;
+    }
+
+    // failed —— 不伪装成功：真实 error 落库 + emit（前端失败空态据此显示真因）。
+    const message = result.error ?? "capability run failed";
+    await this.updateMission(missionId, {
+      status: "failed",
+      result: { error: message, failedAt: new Date().toISOString() },
     });
-    await this.emit("company.stage:lifecycle", missionId, userId, {
-      stage: "review",
-      status: "completed",
-    });
-    await this.emit("company.mission:completed", missionId, userId, {
+    await this.emit("company.mission:failed", missionId, userId, {
       missionId,
+      message,
     });
-    this.log.log(`CompanyMission ${missionId} completed (real deepdive)`);
+  }
+
+  /** 能力执行流事件 → company.stage:lifecycle + 进度（前端任务详情 WS 实时呈现）。 */
+  private async bridgeCapabilityEvent(
+    missionId: string,
+    userId: string,
+    event: CapabilityRunEvent,
+  ): Promise<void> {
+    const stageMap: Record<string, "planning" | "execution" | "review"> = {
+      plan: "planning",
+      research: "execution",
+      reconcile: "execution",
+      analyze: "execution",
+      write: "execution",
+      review: "review",
+    };
+    if (event.type === "stage:started" || event.type === "stage:completed") {
+      const stage = event.stepId ? stageMap[event.stepId] : undefined;
+      if (stage) {
+        await this.emit("company.stage:lifecycle", missionId, userId, {
+          stage,
+          status: event.type === "stage:started" ? "started" : "completed",
+          label: event.label,
+        });
+      }
+    }
   }
 
   // ── Stage implementations ──────────────────────────────────────────────────
