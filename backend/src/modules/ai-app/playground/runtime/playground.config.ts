@@ -28,8 +28,17 @@ import type { PipelineCatalogMeta } from "@/modules/ai-app/contracts/pipeline-ca
  */
 // P9c (2026-05-24): SKILL.md loader 上提到 ai-engine,callers 传 agentsRootDir。
 // 2026-05-24 night (P21): playground.config.ts 从 root 移到 runtime/,__dirname 深一层。
-// runtime/ → ../mission/agents/ 绝对路径
-const AGENTS_ROOT_DIR = path.resolve(__dirname, "..", "mission", "agents");
+// ★ 2026-06-08 上架沉淀(P1)：agent 包(含 SKILL.md)已挪到 marketplace 能力家。playground
+//   作为消费方从能力家加载 SKILL.md。runtime/ → ../../marketplace/.../deep-insight/agents/。
+const AGENTS_ROOT_DIR = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "marketplace",
+  "capabilities",
+  "deep-insight",
+  "agents",
+);
 
 function buildSkillSpecFromMd(agentDir: string): ResolvedRole["skillSpec"] {
   const skillPath = path.resolve(AGENTS_ROOT_DIR, agentDir, "SKILL.md");
