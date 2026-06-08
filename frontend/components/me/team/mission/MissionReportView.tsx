@@ -37,6 +37,8 @@ export interface MissionStep {
   role: string;
   dimension?: string;
   status: 'done' | 'failed' | 'skipped';
+  tokens?: number;
+  costCents?: number;
 }
 
 export interface MissionReportResult {
@@ -48,6 +50,7 @@ export interface MissionReportResult {
   factTable?: MissionFact[];
   reconciliationReport?: string;
   steps?: MissionStep[];
+  usage?: { totalTokens?: number; totalCostCents?: number };
 }
 
 /** 深度研究流水线固定 6 阶段（展示用 rail）。 */
@@ -401,6 +404,80 @@ function StepTablePanel({ steps }: { steps: MissionStep[] }) {
   );
 }
 
+/** 算力消耗：各 Agent 步骤的真实 token 用量 + 估算成本（来自 RunResult）。 */
+function CostPanel({
+  steps,
+  usage,
+}: {
+  steps: MissionStep[];
+  usage?: { totalTokens?: number; totalCostCents?: number };
+}) {
+  const totalTokens =
+    usage?.totalTokens ?? steps.reduce((s, st) => s + (st.tokens ?? 0), 0);
+  const totalCostCents =
+    usage?.totalCostCents ??
+    steps.reduce((s, st) => s + (st.costCents ?? 0), 0);
+  if (totalTokens === 0) {
+    return (
+      <EmptyState
+        type="default"
+        size="sm"
+        title="暂无算力数据"
+        description="该任务未记录 token 用量（旧任务或执行未产生计量）"
+      />
+    );
+  }
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-xl border border-gray-200 bg-white p-3">
+          <div className="text-xs text-gray-400">总 Token</div>
+          <div className="mt-0.5 text-xl font-bold text-gray-900">
+            {totalTokens.toLocaleString()}
+          </div>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-3">
+          <div className="text-xs text-gray-400">估算成本</div>
+          <div className="mt-0.5 text-xl font-bold text-gray-900">
+            ¥{(totalCostCents / 100).toFixed(2)}
+          </div>
+        </div>
+      </div>
+      <div className="max-h-[48vh] overflow-auto rounded-xl border border-gray-200">
+        <Table className="text-left text-xs">
+          <THead className="sticky top-0 bg-gray-50 text-gray-500">
+            <Tr>
+              <Th className="px-3 py-2 font-medium">步骤</Th>
+              <Th className="px-3 py-2 font-medium">负责人</Th>
+              <Th className="px-3 py-2 text-right font-medium">Token</Th>
+              <Th className="px-3 py-2 text-right font-medium">占比</Th>
+            </Tr>
+          </THead>
+          <TBody>
+            {steps.map((s, i) => {
+              const t = s.tokens ?? 0;
+              const pct =
+                totalTokens > 0 ? Math.round((t / totalTokens) * 100) : 0;
+              return (
+                <Tr key={i} className="border-t border-gray-100">
+                  <Td className="px-3 py-2 font-medium text-gray-800">
+                    {s.label}
+                  </Td>
+                  <Td className="px-3 py-2 text-gray-600">{s.role}</Td>
+                  <Td className="px-3 py-2 text-right text-gray-700">
+                    {t.toLocaleString()}
+                  </Td>
+                  <Td className="px-3 py-2 text-right text-gray-400">{pct}%</Td>
+                </Tr>
+              );
+            })}
+          </TBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
 /** 团队流程 DAG：deepdive 6 个 Agent 的协作链路 + 真实数据标注。 */
 function MissionFlowPanel({
   dimensionCount,
@@ -524,7 +601,7 @@ export function MissionReportView({
   const facts = result?.factTable ?? [];
   const steps = result?.steps ?? [];
   const [tab, setTab] = useState<
-    'steps' | 'report' | 'references' | 'facts' | 'flow'
+    'steps' | 'report' | 'references' | 'facts' | 'flow' | 'cost'
   >('steps');
   const tabItems = [
     { key: 'steps', label: '执行步骤', count: steps.length },
@@ -532,6 +609,7 @@ export function MissionReportView({
     { key: 'references', label: '引用', count: references.length },
     { key: 'facts', label: '事实表', count: facts.length },
     { key: 'flow', label: '团队流程' },
+    { key: 'cost', label: '算力消耗' },
   ];
 
   return (
@@ -605,6 +683,9 @@ export function MissionReportView({
                 factsCount={facts.length}
                 score={review?.score}
               />
+            )}
+            {tab === 'cost' && (
+              <CostPanel steps={steps} usage={result?.usage} />
             )}
           </div>
         </div>

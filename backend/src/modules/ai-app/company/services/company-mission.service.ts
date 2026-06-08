@@ -285,6 +285,7 @@ export class CompanyMissionService {
   private async planDimensions(topic: string): Promise<{
     themeSummary: string;
     dimensions: { id: string; name: string; rationale: string }[];
+    tokens: number;
   }> {
     const systemPrompt = [
       "You are a research lead. Break the topic into 2-4 distinct, non-overlapping research dimensions.",
@@ -319,6 +320,7 @@ export class CompanyMissionService {
       themeSummary:
         typeof parsed?.themeSummary === "string" ? parsed.themeSummary : topic,
       dimensions,
+      tokens: res.tokensUsed ?? 0,
     };
   }
 
@@ -420,27 +422,45 @@ export class CompanyMissionService {
       role: string;
       dimension?: string;
       status: "done" | "failed" | "skipped";
+      tokens: number;
+      costCents: number;
     }> = [];
 
     const plan = await this.planDimensions(topic);
-    steps.push({ label: "拆解研究维度", role: "Leader", status: "done" });
+    steps.push({
+      label: "拆解研究维度",
+      role: "Leader",
+      status: "done",
+      tokens: plan.tokens,
+      costCents: 0,
+    });
 
     const researchOutcomes = await Promise.all(
       plan.dimensions.map(async (d) => {
         try {
-          const out = (
-            await this.agentRunner.run(
-              Researcher,
-              { topic, dimension: d.name, language, withFigures: false },
-              { userId },
-            )
-          ).output;
-          return { dimension: d.name, output: out, ok: true };
+          const r = await this.agentRunner.run(
+            Researcher,
+            { topic, dimension: d.name, language, withFigures: false },
+            { userId },
+          );
+          return {
+            dimension: d.name,
+            output: r.output,
+            ok: true,
+            tokens: r.tokensUsed.total,
+            costCents: r.costCents,
+          };
         } catch (err: unknown) {
           this.log.warn(
             `deepdive researcher "${d.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
           );
-          return { dimension: d.name, output: null, ok: false };
+          return {
+            dimension: d.name,
+            output: null,
+            ok: false,
+            tokens: 0,
+            costCents: 0,
+          };
         }
       }),
     );
@@ -450,6 +470,8 @@ export class CompanyMissionService {
         role: "Researcher",
         dimension: o.dimension,
         status: o.ok ? "done" : "failed",
+        tokens: o.tokens,
+        costCents: o.costCents,
       });
     }
     const researcherResults = researchOutcomes
@@ -471,15 +493,18 @@ export class CompanyMissionService {
     });
 
     let reconciliation: unknown = null;
+    let recTokens = 0;
+    let recCost = 0;
     if (Reconciler) {
       try {
-        reconciliation = (
-          await this.agentRunner.run(
-            Reconciler,
-            { topic, language, plan, researcherResults },
-            { userId },
-          )
-        ).output;
+        const r = await this.agentRunner.run(
+          Reconciler,
+          { topic, language, plan, researcherResults },
+          { userId },
+        );
+        reconciliation = r.output;
+        recTokens = r.tokensUsed.total;
+        recCost = r.costCents;
       } catch (err: unknown) {
         this.log.warn(
           `deepdive reconciler failed (degrade): ${err instanceof Error ? err.message : String(err)}`,
@@ -496,48 +521,60 @@ export class CompanyMissionService {
       label: "跨维事实对账",
       role: "Reconciler",
       status: reconciliation ? "done" : "skipped",
+      tokens: recTokens,
+      costCents: recCost,
     });
 
-    const analysis = (
-      await this.agentRunner.run(
-        Analyst,
-        {
-          topic,
-          language,
-          researcherResults,
-          reconciliationReport: {
-            reconciliationReport: rec?.reconciliationReport ?? "",
-            factTable: rec?.factTable ?? [],
-            overlaps: rec?.overlaps ?? [],
-            gaps: rec?.gaps ?? [],
-          },
+    const analystRes = await this.agentRunner.run(
+      Analyst,
+      {
+        topic,
+        language,
+        researcherResults,
+        reconciliationReport: {
+          reconciliationReport: rec?.reconciliationReport ?? "",
+          factTable: rec?.factTable ?? [],
+          overlaps: rec?.overlaps ?? [],
+          gaps: rec?.gaps ?? [],
         },
-        { userId },
-      )
-    ).output as {
+      },
+      { userId },
+    );
+    const analysis = analystRes.output as {
       insights: unknown[];
       themeSummary?: string;
       contradictions?: unknown[];
     };
-    steps.push({ label: "综合洞察", role: "Analyst", status: "done" });
+    steps.push({
+      label: "综合洞察",
+      role: "Analyst",
+      status: "done",
+      tokens: analystRes.tokensUsed.total,
+      costCents: analystRes.costCents,
+    });
 
-    const report = (
-      await this.agentRunner.run(
-        Writer,
-        {
-          topic,
-          depth,
-          language,
-          insights: analysis.insights,
-          themeSummary: analysis.themeSummary ?? plan.themeSummary,
-          ...(analysis.contradictions
-            ? { contradictions: analysis.contradictions }
-            : {}),
-        },
-        { userId },
-      )
-    ).output;
-    steps.push({ label: "撰写研究报告", role: "Writer", status: "done" });
+    const writerRes = await this.agentRunner.run(
+      Writer,
+      {
+        topic,
+        depth,
+        language,
+        insights: analysis.insights,
+        themeSummary: analysis.themeSummary ?? plan.themeSummary,
+        ...(analysis.contradictions
+          ? { contradictions: analysis.contradictions }
+          : {}),
+      },
+      { userId },
+    );
+    const report = writerRes.output;
+    steps.push({
+      label: "撰写研究报告",
+      role: "Writer",
+      status: "done",
+      tokens: writerRes.tokensUsed.total,
+      costCents: writerRes.costCents,
+    });
     await this.updateMission(missionId, { progress: 80 });
     await this.emit("company.stage:lifecycle", missionId, userId, {
       stage: "execution",
@@ -550,15 +587,18 @@ export class CompanyMissionService {
       status: "started",
     });
     let review: unknown = null;
+    let revTokens = 0;
+    let revCost = 0;
     if (Reviewer) {
       try {
-        review = (
-          await this.agentRunner.run(
-            Reviewer,
-            { topic, language, draftReport: report },
-            { userId },
-          )
-        ).output;
+        const r = await this.agentRunner.run(
+          Reviewer,
+          { topic, language, draftReport: report },
+          { userId },
+        );
+        review = r.output;
+        revTokens = r.tokensUsed.total;
+        revCost = r.costCents;
       } catch (err: unknown) {
         this.log.warn(
           `deepdive reviewer failed (degrade): ${err instanceof Error ? err.message : String(err)}`,
@@ -569,6 +609,8 @@ export class CompanyMissionService {
       label: "质量评审",
       role: "Reviewer",
       status: review ? "done" : "skipped",
+      tokens: revTokens,
+      costCents: revCost,
     });
 
     // agent 产物是 Zod 校验过的 JSON；JSON-clone 成 Prisma 可存的 JsonValue
@@ -587,6 +629,11 @@ export class CompanyMissionService {
         reconciliationReport: rec?.reconciliationReport ?? "",
         // 逐步骤执行表（前端任务详情）
         steps: toJson(steps),
+        // 算力消耗汇总（token / 估算成本，来自各 Agent RunResult）
+        usage: {
+          totalTokens: steps.reduce((s, st) => s + st.tokens, 0),
+          totalCostCents: steps.reduce((s, st) => s + st.costCents, 0),
+        },
         themeSummary: analysis.themeSummary ?? plan.themeSummary,
         dimensions: plan.dimensions.map((d) => d.name),
         completedAt: new Date().toISOString(),
