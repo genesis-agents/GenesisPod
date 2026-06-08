@@ -280,8 +280,7 @@ describe("Branch: budget-exhausted — abort signal is sent", () => {
   });
 
   it("budget:exhausted event type is registered in event schemas", () => {
-    const eventsFile =
-      "ai-app/playground/events/playground.events.ts";
+    const eventsFile = "ai-app/playground/events/playground.events.ts";
     const src = readSrc(eventsFile);
     expect(src).toContain("budget:exhausted");
   });
@@ -293,9 +292,7 @@ describe("Branch: budget-exhausted — abort signal is sent", () => {
 
 describe("Branch: stage-degraded — markStageDegraded emits narrative", () => {
   it("markStageDegraded is defined in CommonDeps", () => {
-    const src = readSrc(
-      "ai-app/playground/mission/context/mission-deps.ts",
-    );
+    const src = readSrc("ai-app/playground/mission/context/mission-deps.ts");
     expect(src).toContain("markStageDegraded");
   });
 
@@ -329,8 +326,7 @@ describe("Branch: stage-degraded — markStageDegraded emits narrative", () => {
 
 describe("Branch: chapter-revision — chapter:revision event handling", () => {
   it("chapter:revision event type exists in event enums", () => {
-    const eventsFile =
-      "ai-app/playground/events/playground.events.ts";
+    const eventsFile = "ai-app/playground/events/playground.events.ts";
     const src = readSrc(eventsFile);
     expect(src).toContain("chapter:revision");
   });
@@ -342,8 +338,7 @@ describe("Branch: chapter-revision — chapter:revision event handling", () => {
 
 describe("Branch: dim-retry — leader-assess retry signals", () => {
   it("dimension:retrying event type exists", () => {
-    const eventsFile =
-      "ai-app/playground/events/playground.events.ts";
+    const eventsFile = "ai-app/playground/events/playground.events.ts";
     const src = readSrc(eventsFile);
     expect(src).toContain("retrying");
   });
@@ -494,14 +489,14 @@ describe("RunMissionInputSchema refine — quick depth + epic/mega forbidden", (
 describe("RESEARCHER_MAX_ITERATIONS_HARD_CAP — P1 runaway fix", () => {
   it("constant is defined in researcher agent", () => {
     const src = readSrc(
-      "ai-app/playground/mission/agents/researcher/researcher.agent.ts",
+      "ai-app/marketplace/capabilities/deep-insight/agents/researcher/researcher.agent.ts",
     );
     expect(src).toContain("RESEARCHER_MAX_ITERATIONS_HARD_CAP");
   });
 
   it("maxIterationsHardCap is wired into agent config", () => {
     const src = readSrc(
-      "ai-app/playground/mission/agents/researcher/researcher.agent.ts",
+      "ai-app/marketplace/capabilities/deep-insight/agents/researcher/researcher.agent.ts",
     );
     expect(src).toContain("maxIterationsHardCap");
   });
