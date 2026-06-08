@@ -5,8 +5,9 @@ import { Send, Play, CircleDot, CheckCircle2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { useCompanyStore } from '@/stores/company/companyStore';
+import { useCompanyMissionStream } from '@/hooks/features/useCompanyMissionStream';
 
-type Tone = 'info' | 'leader' | 'member' | 'success';
+type Tone = 'info' | 'leader' | 'member' | 'success' | 'error';
 interface StreamEvent {
   id: number;
   role: string;
@@ -19,7 +20,54 @@ const TONE_DOT: Record<Tone, string> = {
   leader: 'text-amber-500',
   member: 'text-blue-500',
   success: 'text-green-500',
+  error: 'text-red-500',
 };
+
+/** 将后端阶段 id 转为可读中文标签 */
+const STAGE_LABELS: Record<string, string> = {
+  planning: '规划',
+  execution: '执行',
+  review: '评审',
+};
+function stageLabel(id: string): string {
+  return STAGE_LABELS[id] ?? id;
+}
+
+/** 将 WS 事件类型 + payload 映射为流事件行 */
+let eid = 0;
+function eventToStreamItems(
+  type: string,
+  payload: unknown
+): Omit<StreamEvent, 'id'>[] | null {
+  if (type === 'company.mission:started') {
+    return [{ role: '系统', tone: 'info', text: '任务已启动，开始执行...' }];
+  }
+  if (type === 'company.stage:lifecycle') {
+    const p = payload as { stage?: string; status?: string };
+    const label = stageLabel(p.stage ?? '');
+    if (p.status === 'started') {
+      return [{ role: '执行器', tone: 'member', text: `开始「${label}」` }];
+    }
+    if (p.status === 'completed') {
+      return [{ role: '执行器', tone: 'leader', text: `完成「${label}」` }];
+    }
+    return null;
+  }
+  if (type === 'company.mission:completed') {
+    return [{ role: '系统', tone: 'success', text: '任务全部完成 ✓' }];
+  }
+  if (type === 'company.mission:failed') {
+    const p = payload as { message?: string };
+    return [
+      {
+        role: '系统',
+        tone: 'error',
+        text: `任务失败：${p.message ?? '未知错误'}`,
+      },
+    ];
+  }
+  return null;
+}
 
 export function MissionRunView() {
   const {
@@ -35,81 +83,96 @@ export function MissionRunView() {
   const [title, setTitle] = useState('');
   const [events, setEvents] = useState<StreamEvent[]>([]);
   const [running, setRunning] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // 当前正在监听的 missionId（null = 未下达）
+  const [activeMissionId, setActiveMissionId] = useState<string | null>(null);
+  // 用 ref 跟踪最新 running 状态，避免 stale closure 影响 WS 回调
+  const runningRef = useRef(false);
 
-  // 卸载时清理定时器（避免泄漏 / 重入）
+  const { events: wsEvents } = useCompanyMissionStream(activeMissionId);
+
+  // 首次加载已有任务
+  const { loadMissions } = useCompanyStore();
   useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
+    void loadMissions();
+  }, [loadMissions]);
+
+  // 同步第一个团队 id（避免初始渲染时 teams 为空）
+  useEffect(() => {
+    if (teams.length > 0 && !teamId) {
+      setTeamId(teams[0].id);
+    }
+  }, [teams, teamId]);
+
+  // 处理 WS 事件 → 更新 UI 流 + store 进度
+  const processedTsRef = useRef<number>(0);
+  useEffect(() => {
+    if (!activeMissionId) return;
+    const newEvents = wsEvents.filter(
+      (e) => e.timestamp > processedTsRef.current
+    );
+    if (!newEvents.length) return;
+    processedTsRef.current = newEvents[newEvents.length - 1].timestamp;
+
+    for (const e of newEvents) {
+      const items = eventToStreamItems(e.type, e.payload);
+      if (items) {
+        setEvents((prev) => [
+          ...prev,
+          ...items.map((item) => ({ id: eid++, ...item })),
+        ]);
+      }
+
+      // 更新 store 进度
+      if (e.type === 'company.mission:started') {
+        setMissionProgress(activeMissionId, 0, 'running');
+      } else if (e.type === 'company.stage:lifecycle') {
+        const p = e.payload as { stage?: string; status?: string };
+        if (p.status === 'completed') {
+          const stageIndex = Object.keys(STAGE_LABELS).indexOf(p.stage ?? '');
+          const total = Object.keys(STAGE_LABELS).length;
+          const progress =
+            stageIndex >= 0
+              ? Math.round(((stageIndex + 1) / total) * 100)
+              : undefined;
+          if (progress !== undefined) {
+            setMissionProgress(activeMissionId, progress, 'running');
+          }
+        }
+      } else if (e.type === 'company.mission:completed') {
+        setMissionProgress(activeMissionId, 100, 'done');
+        if (runningRef.current) {
+          setRunning(false);
+          runningRef.current = false;
+        }
+      } else if (e.type === 'company.mission:failed') {
+        setMissionProgress(activeMissionId, 0, 'failed');
+        if (runningRef.current) {
+          setRunning(false);
+          runningRef.current = false;
+        }
+      }
+    }
+  }, [wsEvents, activeMissionId, setMissionProgress]);
 
   const activeTeam = teams.find((t) => t.id === teamId) ?? null;
 
-  const buildScript = (): Omit<StreamEvent, 'id'>[] => {
-    if (!activeTeam) return [];
-    const leader =
-      hired.find((h) => h.instanceId === activeTeam.leaderId)?.name ?? 'Leader';
-    const members = activeTeam.memberIds
-      .map((id) => hired.find((h) => h.instanceId === id))
-      .filter(Boolean)
-      .map((m) => m!.name);
-    const wf = teamWorkflows.find((w) => w.id === activeTeam.workflowId);
-    const stages = wf ? wf.stages : ['规划', '执行', '评审', '汇总'];
-
-    const script: Omit<StreamEvent, 'id'>[] = [];
-    script.push({ role: leader, tone: 'leader', text: `接到任务，开始拆解` });
-    script.push({
-      role: leader,
-      tone: 'leader',
-      text: `按「${wf?.name ?? '默认流程'}」分派给 ${members.length} 名成员`,
-    });
-    stages.forEach((stage, si) => {
-      const who = members[si % Math.max(members.length, 1)] ?? leader;
-      script.push({ role: who, tone: 'member', text: `开始「${stage}」` });
-      script.push({ role: who, tone: 'member', text: `完成「${stage}」` });
-      if (si < stages.length - 1)
-        script.push({
-          role: leader,
-          tone: 'leader',
-          text: `评审通过，进入下一阶段`,
-        });
-    });
-    script.push({
-      role: leader,
-      tone: 'success',
-      text: `综合产出，签字完成 ✓`,
-    });
-    return script;
-  };
-
-  const dispatch = () => {
+  const dispatch = async () => {
     if (!activeTeam || !title.trim() || running) return;
-    const script = buildScript();
-    const missionId = createMission(activeTeam.id, title.trim());
-    setEvents([]);
-    setRunning(true);
-
-    let i = 0;
-    let eid = 0;
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      const step = script[i];
-      setEvents((prev) => [...prev, { id: eid++, ...step }]);
-      const progress = Math.round(((i + 1) / script.length) * 100);
-      setMissionProgress(
-        missionId,
-        progress,
-        i + 1 >= script.length ? 'done' : 'running'
-      );
-      i += 1;
-      if (i >= script.length) {
-        if (timerRef.current) clearInterval(timerRef.current);
-        timerRef.current = null;
-        setRunning(false);
-      }
-    }, 850);
+    const taskTitle = title.trim();
     setTitle('');
+    setEvents([]);
+    setActiveMissionId(null);
+    processedTsRef.current = 0;
+    setRunning(true);
+    runningRef.current = true;
+
+    const missionId = await createMission(activeTeam.id, taskTitle);
+    if (!missionId) {
+      setRunning(false);
+      runningRef.current = false;
+      return;
+    }
+    setActiveMissionId(missionId);
   };
 
   if (teams.length === 0) {
@@ -150,13 +213,15 @@ export function MissionRunView() {
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && dispatch()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void dispatch();
+              }}
               placeholder="例如：调研 Q3 竞品定价并给出建议"
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
           <button
-            onClick={dispatch}
+            onClick={() => void dispatch()}
             disabled={!title.trim() || running}
             className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
           >
@@ -189,10 +254,13 @@ export function MissionRunView() {
           </h3>
           <div className="min-h-[220px] rounded-xl border border-gray-200 bg-white p-4">
             {events.length === 0 ? (
-              <div className="flex h-full min-h-[180px] flex-col items-center justify-center text-center text-gray-400">
-                <Play className="mb-2 h-8 w-8" />
-                <p className="text-sm">下达任务后，这里实时显示团队协作过程</p>
-              </div>
+              <EmptyState
+                type="default"
+                size="sm"
+                title="等待任务"
+                description="下达任务后，这里实时显示团队协作过程"
+                icon={<Play className="h-8 w-8" />}
+              />
             ) : (
               <ol className="space-y-3">
                 {events.map((e) => {
@@ -222,38 +290,51 @@ export function MissionRunView() {
         {/* 任务列表 */}
         <div>
           <h3 className="mb-2 text-sm font-semibold text-gray-900">近期任务</h3>
-          <div className="space-y-2">
-            {missions.slice(0, 8).map((m) => {
-              const team = teams.find((t) => t.id === m.teamId);
-              return (
-                <div
-                  key={m.id}
-                  className="rounded-lg border border-gray-200 bg-white p-3"
-                >
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="truncate font-medium text-gray-900">
-                      {m.title}
-                    </span>
-                    <span className="flex-shrink-0 text-xs text-gray-400">
-                      {m.progress}%
-                    </span>
+          {missions.length === 0 ? (
+            <EmptyState
+              type="default"
+              size="sm"
+              title="暂无任务"
+              description="还没有提交过任务"
+            />
+          ) : (
+            <div className="space-y-2">
+              {missions.slice(0, 8).map((m) => {
+                const team = teams.find((t) => t.id === m.teamId);
+                return (
+                  <div
+                    key={m.id}
+                    className="rounded-lg border border-gray-200 bg-white p-3"
+                  >
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="truncate font-medium text-gray-900">
+                        {m.title}
+                      </span>
+                      <span className="flex-shrink-0 text-xs text-gray-400">
+                        {m.progress}%
+                      </span>
+                    </div>
+                    <div className="mt-0.5 text-xs text-gray-400">
+                      {team?.name ?? '—'}
+                    </div>
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-gray-100">
+                      <div
+                        className={cn(
+                          'h-full rounded-full transition-all',
+                          m.status === 'done'
+                            ? 'bg-green-500'
+                            : m.status === 'failed'
+                              ? 'bg-red-500'
+                              : 'bg-blue-500'
+                        )}
+                        style={{ width: `${m.progress}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="mt-0.5 text-xs text-gray-400">
-                    {team?.name ?? '—'}
-                  </div>
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-gray-100">
-                    <div
-                      className={cn(
-                        'h-full rounded-full transition-all',
-                        m.status === 'done' ? 'bg-green-500' : 'bg-blue-500'
-                      )}
-                      style={{ width: `${m.progress}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -72,6 +72,19 @@ export interface CompanyMission {
   createdAt: number;
 }
 
+/** 后端 CompanyMission 原始形状（Prisma 返回，createdAt 为 ISO 字符串） */
+interface BackendMission {
+  id: string;
+  userId: string;
+  teamId: string;
+  title: string;
+  status: string;
+  progress: number;
+  result: unknown;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** 后端原始形状（与前端 UI 形状不同，loadCompany/写操作经 adapt* 映射补齐 UI 字段） */
 interface BackendHired {
   id: string;
@@ -149,6 +162,29 @@ function adaptWorkflow(w: BackendWorkflow): TeamWorkflow {
   };
 }
 
+function adaptMission(m: BackendMission): CompanyMission {
+  const validStatuses: MissionStatus[] = [
+    'queued',
+    'running',
+    'review',
+    'done',
+    'failed',
+  ];
+  const status: MissionStatus = validStatuses.includes(
+    m.status as MissionStatus
+  )
+    ? (m.status as MissionStatus)
+    : 'queued';
+  return {
+    id: m.id,
+    teamId: m.teamId,
+    title: m.title,
+    status,
+    progress: m.progress,
+    createdAt: new Date(m.createdAt).getTime(),
+  };
+}
+
 interface CompanyState {
   loading: boolean;
   ceoId: string | null;
@@ -191,17 +227,15 @@ interface CompanyState {
   setAgentModels: (instanceId: string, models: string[]) => Promise<void>;
   setAgentAutoFallback: (instanceId: string, value: boolean) => Promise<void>;
 
-  // ―― 任务（本地，暂未接后端）――
-  createMission: (teamId: string, title: string) => string;
+  // ―― 任务 ――
+  loadMissions: (teamId?: string) => Promise<void>;
+  createMission: (teamId: string, title: string) => Promise<string | null>;
   setMissionProgress: (
     missionId: string,
     progress: number,
     status?: MissionStatus
   ) => void;
 }
-
-let seq = 0;
-const uid = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${seq++}`;
 
 export const useCompanyStore = create<CompanyState>((set, get) => ({
   loading: false,
@@ -585,18 +619,39 @@ export const useCompanyStore = create<CompanyState>((set, get) => ({
     }
   },
 
-  // ―― 任务（本地，暂未接后端）――
-  createMission: (teamId, title) => {
-    const mission: CompanyMission = {
-      id: uid('ms'),
-      teamId,
-      title,
-      status: 'running',
-      progress: 0,
-      createdAt: Date.now(),
-    };
-    set((s) => ({ missions: [mission, ...s.missions] }));
-    return mission.id;
+  // ―― 任务 ――
+  loadMissions: async (teamId?: string) => {
+    try {
+      const path = teamId
+        ? `/company/missions?teamId=${encodeURIComponent(teamId)}`
+        : '/company/missions';
+      const raw = await apiClient.get<
+        BackendMission[] | { items?: BackendMission[] }
+      >(path);
+      // apiClient 已自动解包 { success, data } envelope；
+      // 后端直接返回数组（ResponseTransformInterceptor 包裹后 data = array）
+      const arr: BackendMission[] = Array.isArray(raw)
+        ? raw
+        : ((raw as { items?: BackendMission[] }).items ?? []);
+      set({ missions: arr.map(adaptMission) });
+    } catch {
+      toast.error('加载任务列表失败，请稍后重试');
+    }
+  },
+
+  createMission: async (teamId, title) => {
+    try {
+      const raw = await apiClient.post<BackendMission>(
+        `/company/teams/${encodeURIComponent(teamId)}/missions`,
+        { title }
+      );
+      const mission = adaptMission(raw);
+      set((s) => ({ missions: [mission, ...s.missions] }));
+      return mission.id;
+    } catch {
+      toast.error('创建任务失败，请稍后重试');
+      return null;
+    }
   },
 
   setMissionProgress: (missionId, progress, status) =>
