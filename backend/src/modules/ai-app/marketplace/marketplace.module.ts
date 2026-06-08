@@ -10,10 +10,16 @@
  */
 import { Global, Module } from "@nestjs/common";
 import { CapabilityRegistry } from "./capability/capability-registry";
+import { DeepInsightDefaultRunner } from "./capabilities/deep-insight/deep-insight.runner";
 
 @Global()
 @Module({
-  providers: [CapabilityRegistry],
+  providers: [
+    CapabilityRegistry,
+    // 上架能力的默认执行实现（onModuleInit 自注册进 CapabilityRegistry）。
+    // 依赖 AgentRunner / ChatFacade 由 @Global HarnessApiModule 提供。
+    DeepInsightDefaultRunner,
+  ],
   exports: [CapabilityRegistry],
 })
 export class MarketplaceModule {}

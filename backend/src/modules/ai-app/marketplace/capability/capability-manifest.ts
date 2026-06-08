@@ -10,8 +10,14 @@
  * OCI 镜像(digest pin)。本 manifest 是这些范式在本平台的最小落点。
  */
 
-/** 四货架原语之一。 */
-export type CapabilityKind = "workflow" | "agent" | "skill" | "tool";
+/**
+ * 市场可采用的能力类型。
+ * 四货架基元：agent / skill / tool / workflow。
+ * ★ 2026-06-08（用户拍板）：team 升为一等市场单元——一支预组好的完整团队（多 agent
+ *   花名册 + Leader + 绑定 workflow）可整体发布/采用，"套用为我的团队"。它不是基元，
+ *   而是基元的预组合捆绑，但作为可采用单元与四货架平级登记。
+ */
+export type CapabilityKind = "workflow" | "agent" | "skill" | "tool" | "team";
 
 export interface CapabilityManifest {
   /** 稳定 id —— 市场 listingId 的解析键（如 "deep-insight"）。 */
