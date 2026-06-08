@@ -19,7 +19,7 @@ const WORKFLOW = path.resolve(
 );
 const ARTIFACTS = path.resolve(
   __dirname,
-  "../../../modules/ai-app/playground/mission/artifacts",
+  "../../../modules/ai-app/marketplace/capabilities/deep-insight/contract",
 );
 
 function read(rel: string): string {

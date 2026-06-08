@@ -17,8 +17,7 @@ import {
   coercedEnum,
 } from "@/common/utils/schema-coercion.utils";
 // ★ 2026-05-21 P2：引用下限走单一权威，避免与 EvidenceBudget 的公式漂移
-// TODO(P2): evidence-budget 随能力下沉，切断对 playground 的过渡依赖
-import { deriveCitationFloor } from "@/modules/ai-app/playground/mission/artifacts/evidence-budget";
+import { deriveCitationFloor } from "../../contract/evidence-budget";
 
 const Input = z.object({
   topic: z.string(),
