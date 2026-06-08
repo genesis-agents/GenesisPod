@@ -143,7 +143,20 @@ export class CompanyRepository {
   async deleteHired(id: string, userId: string): Promise<boolean> {
     const existing = await this.findHiredById(id, userId);
     if (!existing) return false;
-    await this.prisma.companyHiredAgent.delete({ where: { id } });
+    // companyTeamMember.hiredAgentId 是松散字符串（无 FK 级联），必须手动清理，
+    // 否则解雇 Agent 后团队留下孤儿成员行 → 成员数虚高、组织架构悬空。
+    await this.prisma.$transaction([
+      this.prisma.companyTeamMember.deleteMany({ where: { hiredAgentId: id } }),
+      this.prisma.companyTeam.updateMany({
+        where: { userId, leaderId: id },
+        data: { leaderId: null },
+      }),
+      this.prisma.companyProfile.updateMany({
+        where: { userId, ceoHiredAgentId: id },
+        data: { ceoHiredAgentId: null },
+      }),
+      this.prisma.companyHiredAgent.delete({ where: { id } }),
+    ]);
     return true;
   }
 
