@@ -52,6 +52,8 @@ interface SkillCatalogItem {
   category: string;
   tags: string[];
   activatesFor: string[];
+  instructionsPreview: string;
+  allowedTools: string[];
 }
 
 interface ToolCatalogItem {
@@ -61,6 +63,7 @@ interface ToolCatalogItem {
   category: string;
   tags: string[];
   source: 'builtin' | 'mcp' | 'openapi';
+  sideEffect: 'none' | 'idempotent' | 'destructive';
 }
 
 interface WorkflowCatalogItem {
@@ -135,6 +138,8 @@ function adaptSkill(item: SkillCatalogItem): SkillListing {
     installs: 0,
     rating: 0,
     activatesFor: item.activatesFor,
+    instructionsPreview: item.instructionsPreview,
+    allowedTools: item.allowedTools,
   };
 }
 
@@ -151,7 +156,7 @@ function adaptTool(item: ToolCatalogItem): ToolListing {
     installs: 0,
     rating: 0,
     source: item.source,
-    sideEffect: 'none',
+    sideEffect: item.sideEffect,
   };
 }
 

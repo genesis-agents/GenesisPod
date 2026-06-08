@@ -72,6 +72,10 @@ export interface SkillListing extends BaseListing {
   kind: 'skill';
   /** 适用角色（激活语义） */
   activatesFor: string[];
+  /** 技能原始指令正文预览（.skill.md body） */
+  instructionsPreview?: string;
+  /** 技能声明可用的工具白名单 */
+  allowedTools?: string[];
 }
 
 export interface WorkflowListing extends BaseListing {

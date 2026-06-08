@@ -25,6 +25,10 @@ export interface SkillCatalogItem {
   category: string;
   tags: string[];
   activatesFor: string[];
+  /** 技能原始指令正文预览（.skill.md body，截断），让市场详情看到"教什么" */
+  instructionsPreview: string;
+  /** 技能声明可用的工具白名单（frontmatter.allowedTools） */
+  allowedTools: string[];
 }
 
 export interface ToolCatalogItem {
@@ -34,6 +38,8 @@ export interface ToolCatalogItem {
   category: string;
   tags: string[];
   source: "builtin" | "mcp" | "openapi";
+  /** 真实副作用（ITool.sideEffect）：none=只读 / idempotent=幂等写 / destructive=破坏性 */
+  sideEffect: "none" | "idempotent" | "destructive";
 }
 
 export interface WorkflowCatalogItem {

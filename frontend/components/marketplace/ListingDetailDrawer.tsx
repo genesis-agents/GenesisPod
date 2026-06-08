@@ -169,7 +169,18 @@ export function ListingDetailDrawer({
             </>
           )}
           {listing.kind === 'skill' && (
-            <Row label="适用角色">{listing.activatesFor.join(' / ')}</Row>
+            <>
+              <Row label="适用角色">
+                {listing.activatesFor.length > 0
+                  ? listing.activatesFor.join(' / ')
+                  : '通用'}
+              </Row>
+              {listing.allowedTools && listing.allowedTools.length > 0 && (
+                <Row label="可用工具">
+                  <ChipList ids={listing.allowedTools} />
+                </Row>
+              )}
+            </>
           )}
           {listing.kind === 'workflow' && (
             <>
@@ -192,6 +203,25 @@ export function ListingDetailDrawer({
             </>
           )}
         </div>
+
+        {/* 技能指令正文预览（教什么）—— 来自原始 .skill.md body */}
+        {listing.kind === 'skill' &&
+          listing.instructionsPreview &&
+          listing.instructionsPreview.trim().length > 0 && (
+            <div>
+              <div className="mb-2 flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-700">
+                  技能指令
+                </span>
+                <span className="text-xs text-gray-400">
+                  装配后将作为方法论注入 Agent 的系统提示
+                </span>
+              </div>
+              <pre className="font-mono max-h-72 overflow-auto whitespace-pre-wrap rounded-xl border border-gray-200 bg-gray-50/60 px-4 py-3 text-xs leading-relaxed text-gray-600">
+                {listing.instructionsPreview}
+              </pre>
+            </div>
+          )}
       </div>
     </Modal>
   );

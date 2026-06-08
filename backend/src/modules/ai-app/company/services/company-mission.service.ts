@@ -18,7 +18,11 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { EventBus, ChatFacade } from "@/modules/ai-harness/facade";
+import {
+  EventBus,
+  ChatFacade,
+  BuiltinSkillCatalog,
+} from "@/modules/ai-harness/facade";
 import type { CompanyMission, Prisma } from "@prisma/client";
 import { AIModelType } from "@prisma/client";
 import type { CompanyHiredAgent } from "@prisma/client";
@@ -61,7 +65,28 @@ export class CompanyMissionService {
     private readonly eventBus: EventBus,
     private readonly chatFacade: ChatFacade,
     private readonly companyRepository: CompanyRepository,
+    private readonly skillCatalog: BuiltinSkillCatalog,
   ) {}
+
+  /**
+   * 把 Agent 装配的技能（skillIds）解析回真实 ISkill，注入其 instructions 正文。
+   * 这才让"选了技能"真生效——LLM 拿到的是方法论正文，不是技术 id 字符串。
+   */
+  private buildSkillInstructions(skillIds: string[]): string {
+    if (!skillIds.length) return "";
+    const blocks: string[] = [];
+    for (const id of skillIds) {
+      const skill = this.skillCatalog.get(id);
+      if (skill?.instructions) {
+        blocks.push(`## Skill: ${id}\n${skill.instructions.trim()}`);
+      }
+    }
+    if (!blocks.length) {
+      // 装配了技能但加载不到正文（如来自 SkillRegistry）：至少声明名字
+      return `You are equipped with skills: ${skillIds.join(", ")}.`;
+    }
+    return `You are equipped with the following skills. Apply their methodology rigorously:\n\n${blocks.join("\n\n")}`;
+  }
 
   // ── create + dispatch ──────────────────────────────────────────────────────
 
@@ -229,12 +254,17 @@ export class CompanyMissionService {
     const leader = this.resolveLeader(team);
 
     const systemPrompt = [
-      "You are the CEO and team leader of a consulting firm.",
-      "Your task is to analyze the given mission and break it down into a structured execution plan.",
-      "Identify 2–4 concrete subtasks for the team members, each with a clear objective and expected deliverable.",
-      "If a workflow is defined, align subtasks to those stages.",
-      "Output a concise plan in plain text or lightweight JSON.",
-    ].join(" ");
+      [
+        "You are the CEO and team leader of a consulting firm.",
+        "Your task is to analyze the given mission and break it down into a structured execution plan.",
+        "Identify 2–4 concrete subtasks for the team members, each with a clear objective and expected deliverable.",
+        "If a workflow is defined, align subtasks to those stages.",
+        "Output a concise plan in plain text or lightweight JSON.",
+      ].join(" "),
+      this.buildSkillInstructions(leader?.skillIds ?? []),
+    ]
+      .filter(Boolean)
+      .join("\n\n");
 
     const userContent = [
       `Mission: ${missionTitle}`,
@@ -289,14 +319,12 @@ export class CompanyMissionService {
         member
           ? `You are a ${member.role} on a consulting team.`
           : "You are a specialist consultant.",
-        member?.skillIds.length
-          ? `Your expertise includes: ${member.skillIds.join(", ")}.`
-          : "",
         `Your goal is to execute the "${stageName}" stage of the mission.`,
         "Be specific, thorough, and professional.",
+        this.buildSkillInstructions(member?.skillIds ?? []),
       ]
         .filter(Boolean)
-        .join(" ");
+        .join("\n\n");
 
       const userContent = [
         `Mission: ${missionTitle}`,
@@ -337,11 +365,16 @@ export class CompanyMissionService {
     const leader = this.resolveLeader(team);
 
     const systemPrompt = [
-      "You are the CEO reviewing your team's work.",
-      "Synthesize all stage outputs into a cohesive final deliverable.",
-      "Evaluate completeness, quality, and alignment with the original mission goal.",
-      "Produce a clear, professional final summary and any key recommendations.",
-    ].join(" ");
+      [
+        "You are the CEO reviewing your team's work.",
+        "Synthesize all stage outputs into a cohesive final deliverable.",
+        "Evaluate completeness, quality, and alignment with the original mission goal.",
+        "Produce a clear, professional final summary and any key recommendations.",
+      ].join(" "),
+      this.buildSkillInstructions(leader?.skillIds ?? []),
+    ]
+      .filter(Boolean)
+      .join("\n\n");
 
     const userContent = [
       `Mission: ${missionTitle}`,

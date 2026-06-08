@@ -27,6 +27,13 @@ import type {
   MarketplaceCatalog,
 } from "../api/dto/marketplace.dto";
 
+/** 截断长文本（技能指令正文），保留可读预览。 */
+function truncate(text: string | undefined, max: number): string {
+  if (!text) return "";
+  const t = text.trim();
+  return t.length > max ? t.slice(0, max) + "…" : t;
+}
+
 @Injectable()
 export class MarketplaceCatalogService {
   private readonly logger = new Logger(MarketplaceCatalogService.name);
@@ -79,6 +86,9 @@ export class MarketplaceCatalogService {
           category: "general",
           tags: fm.tags ? [...fm.tags] : [],
           activatesFor: fm.activateFor ? [...fm.activateFor] : [],
+          // 取技能真正"教什么"的指令正文（截断，避免目录响应过大）
+          instructionsPreview: truncate(skill.instructions, 1200),
+          allowedTools: fm.allowedTools ? [...fm.allowedTools] : [],
         });
       }
     } catch (err) {
@@ -97,6 +107,8 @@ export class MarketplaceCatalogService {
           category: skill.domain ?? "general",
           tags: skill.tags ? [...skill.tags] : [],
           activatesFor: [],
+          instructionsPreview: "",
+          allowedTools: [],
         });
       }
     } catch (err) {
@@ -121,6 +133,7 @@ export class MarketplaceCatalogService {
         category: String(tool.category),
         tags: tool.tags ? [...tool.tags] : [],
         source: "builtin" as const,
+        sideEffect: tool.sideEffect ?? "none",
       }));
     } catch (err) {
       this.logger.warn(`ToolRegistry enumeration failed: ${String(err)}`);
