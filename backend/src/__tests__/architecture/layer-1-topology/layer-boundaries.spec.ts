@@ -311,14 +311,9 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
         // facade (mirrors kb-query pattern). One public entry: LibraryExportService.
         // Internals (google-drive integration) remain encapsulated inside library.
         { targetApp: "library", subPathPrefix: "export/" },
-        // ★ 2026-06-08 [P2 过渡债，P2c 清零] deep-insight 能力上架沉淀。researcher 仍过渡性
-        //   依赖 playground 的私有运行配置取 minFindingsThreshold——属真实耦合点，待 P2c 把
-        //   researcher 改为从 hook 入参接收该配置后删除此条。仅这条窄路径放行。
-        //   （evidence-budget 已于 P2 下沉到能力家，对应条目已清零。）
-        {
-          targetApp: "playground",
-          subPathPrefix: "runtime/playground-runtime.config",
-        },
+        // （deep-insight 能力的 P1/P2 过渡债已全部清零：evidence-budget 已下沉能力家、
+        //   researcher 的 minFindings 已改走能力级 research-tuning；marketplace 不再反依赖
+        //   playground 任何内部路径。）
       ];
       const violations: string[] = [];
       for (const file of ALL_FILES) {

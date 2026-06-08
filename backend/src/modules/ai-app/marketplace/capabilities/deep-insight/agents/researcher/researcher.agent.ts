@@ -31,8 +31,7 @@ import {
   SEARCH_TIME_RANGE_VALUES,
 } from "@/common/search/search-time-range";
 // ★ 2026-05-13: route min-findings business-rule floor through typed runtime config
-// TODO(P2): playground-runtime.config 属 playground 私有运行配置，应抽出能力级配置端口，切断过渡依赖
-import { loadPlaygroundRuntimeConfig } from "@/modules/ai-app/playground/runtime/playground-runtime.config";
+import { resolveMinFindings } from "../../contract/research-tuning";
 
 const Input = z.object({
   topic: z.string(),
@@ -436,12 +435,9 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
   validateBusinessRules(output: z.infer<typeof Output>): void {
     const issues: string[] = [];
     const findings = output?.findings ?? [];
-    // ★ 2026-05-13 (root-fix): threshold from typed runtime config. Local
-    // reasoning models plateau at 3 findings; hardcoded 4 forced spurious
-    // self-heal retries that the model couldn't satisfy. The profile
-    // (`local-reasoning` / `local-quantized` → 3) and per-knob env var
-    // (`MIN_FINDINGS_THRESHOLD`) both flow through here.
-    const minFindings = loadPlaygroundRuntimeConfig().minFindingsThreshold;
+    // ★ 阈值走能力级单一源（env MIN_FINDINGS_THRESHOLD，缺省 5）。本地推理模型常 plateau
+    //   在 3 findings，故可经 env 调低，避免逼模型做不到的 self-heal 重试。
+    const minFindings = resolveMinFindings();
     if (!Array.isArray(findings) || findings.length < minFindings) {
       issues.push(
         `findings.length=${findings.length} (要求 ≥${minFindings}，请用已搜到的工具结果补到至少 ${minFindings} 条)`,
