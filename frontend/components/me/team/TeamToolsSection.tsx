@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FlaskConical, KeyRound, SendHorizonal } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { StatusBadge } from '@/components/ui/badges';
+import { useCompanyStore } from '@/stores/company/companyStore';
 import { useUserTools, type UserToolItem } from '@/hooks/features/useUserTools';
 import { useUserSecrets } from '@/hooks/features/useUserSecrets';
 import {
@@ -25,11 +26,14 @@ const BTN = {
 };
 
 /**
- * 团队工具 —— 接真实后端（/user/tools）的工具库，按分类分组的卡片呈现。
- * 卡片上带 BYOK 操作：测试 / 使用我的 Key / 配置 Key / 申请授权（语义同原 UserToolsTab）。
+ * 团队工具 —— 团队工具池（= 默认入队的平台共享工具 + 已雇 Agent 自带 + 市场加购）。
+ * 数据源归一：用 companyStore.acquiredToolIds 过滤出"属于本团队"的工具，
+ * 再用 /user/tools 的真实 BYOK 状态叠加每张卡的操作（测试 / 用我的 Key / 配置 Key /
+ * 申请授权）。需配 key 的工具从工具市场选入后即出现在这里再配 key（正常流程）。
  */
 export function TeamToolsSection() {
   const { t } = useTranslation();
+  const { acquiredToolIds, loadCompany } = useCompanyStore();
   const { tools, loading, error, refresh } = useUserTools();
   const { secrets, testSecret, testingId } = useUserSecrets();
   const [configureTarget, setConfigureTarget] = useState<UserToolItem | null>(
@@ -37,15 +41,26 @@ export function TeamToolsSection() {
   );
   const [requestTarget, setRequestTarget] = useState<UserToolItem | null>(null);
 
+  // 独立路由（/me/tools），需自行加载公司快照拿到团队工具池。
+  useEffect(() => {
+    void loadCompany();
+  }, [loadCompany]);
+
   const secretIdByName = useMemo(() => {
     const map = new Map<string, string>();
     for (const s of secrets) map.set(s.name, s.id);
     return map;
   }, [secrets]);
 
+  // 只展示团队池里的工具（acquiredToolIds）；其余去工具市场选入。
+  const teamTools = useMemo(() => {
+    const pool = new Set(acquiredToolIds);
+    return tools.filter((tl) => pool.has(tl.toolId));
+  }, [tools, acquiredToolIds]);
+
   const cards: TeamResourceCard[] = useMemo(
     () =>
-      tools.map((tl) => {
+      teamTools.map((tl) => {
         const sid = secretIdByName.get(tl.secretName);
         return {
           id: tl.toolId,
@@ -123,7 +138,7 @@ export function TeamToolsSection() {
             ),
         };
       }),
-    [tools, secretIdByName, testSecret, testingId, t]
+    [teamTools, secretIdByName, testSecret, testingId, t]
   );
 
   return (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useCompanyStore } from '@/stores/company/companyStore';
 import { useMarketplaceCatalog } from '@/hooks/features/useMarketplaceCatalog';
 import {
@@ -21,8 +21,14 @@ function formatCategory(raw: string): string {
  * 不再读 `/user/skills` 授权系统（skills BYOK 实际未使用）—— 与团队工作流同源同构。
  */
 export function TeamSkillsSection() {
-  const { acquiredSkillIds } = useCompanyStore();
+  const { acquiredSkillIds, loadCompany } = useCompanyStore();
   const { catalog, loading, error, refresh } = useMarketplaceCatalog();
+
+  // 该页是独立路由（/me/skills），不经 AgentTeamSection，需自行加载公司快照，
+  // 否则 acquiredSkillIds 为空 → 页面空白。
+  useEffect(() => {
+    void loadCompany();
+  }, [loadCompany]);
 
   const cards: TeamResourceCard[] = useMemo(() => {
     const byId = new Map(catalog.skill.map((s) => [s.id, s]));
