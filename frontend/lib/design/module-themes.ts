@@ -26,7 +26,6 @@ export type ModuleKey =
   | 'writing'
   | 'social'
   | 'playground'
-  | 'customAgents'
   | 'market'
   | 'company';
 
@@ -199,20 +198,6 @@ export const MODULE_THEMES: Record<ModuleKey, ModuleTheme> = {
     gradient: 'from-violet-500 to-purple-600',
     primaryHsl: '262.1 83.3% 57.8%',
   },
-  // customAgents：Agent CRUD/工厂域。pink 与 social(rose) 视觉相邻但
-  // 色相不同（pink 偏品红，rose 偏红粉），既留出"Agent 系列"的暖色脉络
-  // 又不让两个相邻模块撞色。primaryHsl = Tailwind pink-600 精确值。
-  customAgents: {
-    hue: 'pink',
-    activeBg: 'bg-pink-50',
-    text: 'text-pink-700',
-    icon: 'text-pink-600',
-    softBg: 'bg-pink-50',
-    ring: 'ring-pink-200',
-    dot: 'bg-pink-500',
-    gradient: 'from-pink-500 to-fuchsia-600',
-    primaryHsl: '333.3 71.4% 50.6%',
-  },
   // market：智能体市场（平台共享货架）。翡翠绿=交易/市集；emerald 已被 report 占用，
   // 故用 green，与 report(emerald) 色相相邻但不撞。primaryHsl = Tailwind green-600。
   market: {
@@ -259,7 +244,6 @@ const ROUTE_MODULE: { prefix: string; key: ModuleKey }[] = [
   { prefix: '/ai-writing', key: 'writing' },
   { prefix: '/ai-social', key: 'social' },
   { prefix: '/agent-playground', key: 'playground' },
-  { prefix: '/custom-agents', key: 'customAgents' },
   { prefix: '/marketplace', key: 'market' },
 ];
 

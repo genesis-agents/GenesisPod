@@ -12,7 +12,6 @@ import { config } from '@/lib/utils/config';
 import { MODULE_THEMES } from '@/lib/design/module-themes';
 import { useUnreadNotificationCount } from '@/hooks/domain/useNotifications';
 import { useNotificationSocket } from '@/hooks/domain/useNotificationSocket';
-import { usePublishedCustomAgents } from '@/components/custom-agents/usePublishedCustomAgents';
 
 // Sidebar Panel Toggle Icon - left narrow, right wide
 // Fill shows current visible state: expanded = right filled, collapsed = left filled
@@ -67,37 +66,6 @@ interface SidebarProps {
   className?: string;
 }
 
-// ★ R-CA 风险#2 清零：每个 custom agent 用首字 + hash 颜色 chip，
-//   collapsed 状态下也能区分。
-const AGENT_COLORS: Array<{ bg: string; text: string }> = [
-  { bg: 'bg-rose-100', text: 'text-rose-700' },
-  { bg: 'bg-violet-100', text: 'text-violet-700' },
-  { bg: 'bg-amber-100', text: 'text-amber-700' },
-  { bg: 'bg-emerald-100', text: 'text-emerald-700' },
-  { bg: 'bg-sky-100', text: 'text-sky-700' },
-  { bg: 'bg-fuchsia-100', text: 'text-fuchsia-700' },
-  { bg: 'bg-indigo-100', text: 'text-indigo-700' },
-  { bg: 'bg-teal-100', text: 'text-teal-700' },
-];
-
-function agentInitial(displayName: string): string {
-  const trimmed = (displayName ?? '').trim();
-  if (!trimmed) return '?';
-  // 中文取第一个字符；英文取首字大写（数字 / emoji 也直接取第一）
-  return trimmed.codePointAt(0)
-    ? String.fromCodePoint(trimmed.codePointAt(0)!).toUpperCase()
-    : '?';
-}
-
-function hashAgentColor(id: string): number {
-  // 简单 djb2 哈希取色板索引
-  let hash = 5381;
-  for (let i = 0; i < id.length; i++) {
-    hash = ((hash << 5) + hash + id.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash) % AGENT_COLORS.length;
-}
-
 export default function Sidebar({ className = '' }: SidebarProps) {
   // 三种状态: expanded(默认展开), collapsed(收起), pinned(固定)
   const [sidebarState, setSidebarState] = useState<
@@ -121,9 +89,6 @@ export default function Sidebar({ className = '' }: SidebarProps) {
   });
 
   // ★ 2026-05-05 R-CA: 我自定义的 PUBLISHED agents（动态侧栏菜单项，截 5 个）
-  const { items: publishedAgents } = usePublishedCustomAgents();
-  const sidebarAgents = publishedAgents.slice(0, 5);
-  const hasMoreAgents = publishedAgents.length > sidebarAgents.length;
 
   // 展开逻辑：pinned时始终展开，collapsed时hover展开，expanded时展开
   const showExpanded =
@@ -832,84 +797,6 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           )}
 
           {/* AI 实验场已并入顶部「AI 广场」组；智能体市场亦在该组；AI 商店暂不要 */}
-
-          {/* Section: 我的 Agent ★ 2026-05-05 R-CA: 动态列出 PUBLISHED custom agents */}
-          {sidebarAgents.length > 0 && (
-            <>
-              {showExpanded && (
-                <div className="px-3 pb-0.5 pt-1.5 text-xs font-semibold uppercase tracking-wider text-gray-400">
-                  {t('nav.sections.myAgents')}
-                </div>
-              )}
-              {!showExpanded && (
-                <div className="my-1 border-t border-gray-200/60" />
-              )}
-              {sidebarAgents.map((agent) => {
-                const href = `/custom-agents/${agent.id}`;
-                const isActive = pathname === href;
-                // ★ R-CA 风险#2 清零：首字 + 按 agent.id hash 取颜色，
-                //   collapsed 状态下也能区分多个 agent（不再都是同一 sparkles 图标）
-                const initial = agentInitial(agent.displayName);
-                const colorIdx = hashAgentColor(agent.id);
-                const palette = AGENT_COLORS[colorIdx];
-                return (
-                  <Link
-                    key={agent.id}
-                    href={href}
-                    className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
-                      isActive
-                        ? 'bg-rose-50 text-rose-700'
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                    title={agent.displayName}
-                  >
-                    <span
-                      className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md text-[10px] font-semibold ${palette.bg} ${palette.text}`}
-                      aria-hidden="true"
-                    >
-                      {initial}
-                    </span>
-                    {showExpanded && (
-                      <span className="line-clamp-1">{agent.displayName}</span>
-                    )}
-                  </Link>
-                );
-              })}
-              {showExpanded && hasMoreAgents && (
-                <Link
-                  href="/me/agents"
-                  className="flex items-center gap-3 rounded-lg px-3 py-1 text-xs text-gray-500 hover:text-gray-700"
-                  title={t('nav.myAgentsViewAll')}
-                >
-                  <span className="ml-8">
-                    {t('nav.myAgentsViewAll')}（{publishedAgents.length}）
-                  </span>
-                </Link>
-              )}
-              {showExpanded && (
-                <Link
-                  href="/me/agents"
-                  className="flex items-center gap-3 rounded-lg px-3 py-1 text-xs text-gray-500 hover:text-gray-700"
-                  title={t('nav.myAgentsManage')}
-                >
-                  <svg
-                    className="ml-1 h-3.5 w-3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                  <span>{t('nav.myAgentsManage')}</span>
-                </Link>
-              )}
-            </>
-          )}
 
           {/* 管理后台已挪到底部 (UserProfileButton 下方)，统一"账号/系统/语言"
               收纳到底部分区，主导航只承载内容性入口。2026-05-12 用户反馈 Screenshot_57。 */}
