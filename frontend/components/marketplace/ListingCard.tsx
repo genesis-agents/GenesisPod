@@ -67,7 +67,7 @@ export function ListingCard({
             </h3>
             <span
               className={cn(
-                'flex-shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium',
+                'flex-shrink-0 rounded px-1.5 py-0.5 text-xs font-medium',
                 meta.soft,
                 meta.text
               )}
@@ -89,23 +89,23 @@ export function ListingCard({
       {/* 类型专属小标签 */}
       <div className="mt-3 flex flex-wrap gap-1.5">
         {listing.kind === 'agent' && (
-          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">
+          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
             {SENIORITY_LABEL[listing.seniority]} · {listing.skillIds.length}{' '}
             技能 / {listing.toolIds.length} 工具
           </span>
         )}
         {listing.kind === 'tool' && (
-          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">
+          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
             来自 {TOOL_SOURCE_LABEL[listing.source]}
           </span>
         )}
         {listing.kind === 'workflow' && (
-          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">
+          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
             {listing.teamSize} 人阵型 · {listing.stages.length} 阶段
           </span>
         )}
         {listing.kind === 'skill' && (
-          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">
+          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
             适用 {listing.activatesFor.join(' / ')}
           </span>
         )}

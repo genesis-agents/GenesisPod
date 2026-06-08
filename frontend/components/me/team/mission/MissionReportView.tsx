@@ -107,7 +107,7 @@ function ScoreRing({
         <span className={cn('text-2xl font-bold leading-none', theme.text)}>
           {score}
         </span>
-        <span className="mt-0.5 text-[10px] text-gray-400">/ 100</span>
+        <span className="mt-0.5 text-xs text-gray-400">/ 100</span>
       </div>
       <span className={cn('mt-1.5 text-xs font-medium', theme.text)}>
         {theme.label}
@@ -244,7 +244,7 @@ function ReferencesPanel({ references }: { references: MissionReference[] }) {
           className="rounded-xl border border-gray-200 bg-white p-3"
         >
           <div className="flex items-start gap-2">
-            <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 text-[11px] font-medium text-gray-500">
+            <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-medium text-gray-500">
               {i + 1}
             </span>
             <div className="min-w-0 flex-1">
@@ -268,7 +268,7 @@ function ReferencesPanel({ references }: { references: MissionReference[] }) {
                   {r.snippet}
                 </p>
               )}
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-gray-400">
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-gray-400">
                 {r.dimension && (
                   <span className="rounded bg-violet-50 px-1.5 py-0.5 text-violet-600">
                     {r.dimension}

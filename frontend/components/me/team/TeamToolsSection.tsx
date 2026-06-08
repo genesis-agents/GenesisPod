@@ -17,12 +17,12 @@ import {
 } from './TeamResourceSection';
 
 const BTN = {
-  test: 'inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50',
+  test: 'inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50',
   ghost:
-    'inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-gray-500 hover:bg-gray-100',
+    'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100',
   primary:
-    'inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-[11px] font-medium text-blue-700 hover:bg-blue-100',
-  soft: 'inline-flex items-center gap-1 rounded-md bg-gray-50 px-2 py-1 text-[11px] font-medium text-gray-600 hover:bg-gray-100',
+    'inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100',
+  soft: 'inline-flex items-center gap-1 rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100',
 };
 
 /**
@@ -81,9 +81,7 @@ export function TeamToolsSection() {
             />
           ),
           usage: (
-            <code className="font-mono text-[11px] text-gray-400">
-              {tl.toolId}
-            </code>
+            <code className="font-mono text-xs text-gray-400">{tl.toolId}</code>
           ),
           actions:
             tl.source === 'user' ? (

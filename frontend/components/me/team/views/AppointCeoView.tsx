@@ -37,7 +37,7 @@ export function AppointCeoView() {
                       {a.name}
                     </h3>
                     {isCeo && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-700 px-2 py-0.5 text-[10px] font-medium text-white">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-700 px-2 py-0.5 text-xs font-medium text-white">
                         <Crown className="h-3 w-3" /> 现任 CEO
                       </span>
                     )}

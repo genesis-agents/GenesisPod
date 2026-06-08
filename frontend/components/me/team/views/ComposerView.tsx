@@ -196,7 +196,7 @@ export function ComposerView({
                       </div>
                     </div>
 
-                    <div className="mt-2.5 flex items-center gap-1 text-[11px] text-gray-500">
+                    <div className="mt-2.5 flex items-center gap-1 text-xs text-gray-500">
                       <Sparkles className="h-3 w-3 text-amber-500" />
                       {m.skillIds.length}
                       <Wrench className="ml-1.5 h-3 w-3 text-blue-500" />

@@ -171,7 +171,7 @@ function CapabilityPicker({
               className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground"
             >
               {ordered && (
-                <span className="rounded bg-white/25 px-1 text-[10px]">
+                <span className="rounded bg-white/25 px-1 text-xs">
                   {idx === 0 ? '主' : `备${idx}`}
                 </span>
               )}

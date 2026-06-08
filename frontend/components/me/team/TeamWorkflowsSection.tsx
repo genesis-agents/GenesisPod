@@ -17,11 +17,11 @@ import {
 
 function OriginBadge({ origin }: { origin: WorkflowOrigin }) {
   return origin === 'custom' ? (
-    <span className="flex-shrink-0 rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
+    <span className="flex-shrink-0 rounded bg-violet-100 px-1.5 py-0.5 text-xs font-medium text-violet-700">
       自建
     </span>
   ) : (
-    <span className="flex-shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">
+    <span className="flex-shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500">
       市场
     </span>
   );
@@ -54,7 +54,7 @@ export function TeamWorkflowsSection() {
     badge: <OriginBadge origin={wf.origin} />,
     meta: wf.stages.map((s, i) => (
       <span key={`${s}-${i}`} className="inline-flex items-center gap-1.5">
-        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">
+        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
           {s}
         </span>
         {i < wf.stages.length - 1 && <span className="text-gray-300">→</span>}
@@ -182,7 +182,7 @@ function WorkflowEditModal({
                 key={`${s}-${i}`}
                 className="inline-flex items-center gap-1.5"
               >
-                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
                   {s}
                 </span>
                 {i < wf.stages.length - 1 && (

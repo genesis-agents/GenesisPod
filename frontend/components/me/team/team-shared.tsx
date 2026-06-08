@@ -42,18 +42,18 @@ export function AgentAvatar({
 export function RoleTag({ kind }: { kind: 'ceo' | 'leader' | 'member' }) {
   if (kind === 'ceo')
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-slate-700 px-2 py-0.5 text-[10px] font-medium text-white">
+      <span className="inline-flex items-center gap-1 rounded-full bg-slate-700 px-2 py-0.5 text-xs font-medium text-white">
         <Crown className="h-3 w-3" /> CEO
       </span>
     );
   if (kind === 'leader')
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
         <Star className="h-3 w-3" /> Leader
       </span>
     );
   return (
-    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
       成员
     </span>
   );
@@ -148,10 +148,10 @@ export function ManagementOrgChart({
                   {leader ? leader.name : '未指定 Leader'}
                   {leader && <RoleTag kind="leader" />}
                 </div>
-                <div className="mt-0.5 truncate text-[11px] text-gray-400">
+                <div className="mt-0.5 truncate text-xs text-gray-400">
                   {team.name}
                 </div>
-                <div className="text-[11px] text-gray-300">
+                <div className="text-xs text-gray-300">
                   {memberCount} 名成员
                 </div>
               </button>
