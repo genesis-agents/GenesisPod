@@ -11,9 +11,6 @@ import { toast } from '@/stores/core/toastStore';
 import type { Seniority } from '@/components/marketplace/marketplace.types';
 import { AVATAR_GRADIENTS } from '@/lib/design/tokens';
 
-/** 可为 Agent 配置的模型档位（展示名；真实走 TaskProfile/模型选择，不硬编码 provider）。 */
-export const MODEL_OPTIONS = ['Opus', 'Sonnet', 'Haiku'] as const;
-
 export interface HiredAgent {
   /** 每次招聘生成的唯一实例 id（同一 listing 可招多个） */
   instanceId: string;

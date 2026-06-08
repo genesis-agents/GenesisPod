@@ -493,17 +493,20 @@ export class CompanyMissionService {
     taskProfile: TaskProfile,
     operationName: string,
   ): Parameters<ChatFacade["chat"]>[0] {
-    // 用成员偏好档位映射到 modelType（不传档位名当真实 model id）；无偏好→CHAT
-    const tier = agent?.models?.[0];
-    const modelType: AIModelType = tier
-      ? (TIER_TO_MODEL_TYPE[tier] ?? AIModelType.CHAT)
-      : AIModelType.CHAT;
+    // 成员模型偏好 = 用户「我的模型」里选的真实 model id（fallback 链取主模型）。
+    // 旧档位名（Opus/Sonnet/Haiku）仅作向后兼容：识别为档位则走 modelType，不当真实 id 传。
+    const pref = agent?.models?.[0] ?? "";
+    const legacyType = TIER_TO_MODEL_TYPE[pref];
+    const model = legacyType ? "" : pref;
+    const modelType: AIModelType = legacyType ?? AIModelType.CHAT;
 
     return {
       messages: [{ role: "user" as const, content: userContent }],
       systemPrompt,
       taskProfile,
       operationName,
+      // 真实 model id 优先；为空时由 modelType + TaskProfile 解析（符合"fallback 用空串"红线）
+      ...(model ? { model } : {}),
       modelType,
     };
   }

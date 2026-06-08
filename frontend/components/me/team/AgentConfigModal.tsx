@@ -5,7 +5,8 @@ import { Sparkles, Wrench, Cpu, X } from 'lucide-react';
 import { Modal } from '@/components/ui/dialogs/Modal';
 import { Button } from '@/components/ui/primitives/button';
 import { cn } from '@/lib/utils/common';
-import { useCompanyStore, MODEL_OPTIONS } from '@/stores/company/companyStore';
+import { useCompanyStore } from '@/stores/company/companyStore';
+import { useAIModels } from '@/hooks/features/useAIModels';
 import { findListing } from '@/components/marketplace/marketplace.mock';
 
 const CONTROL_CLS =
@@ -38,10 +39,17 @@ export function AgentConfigModal({
     setAgentModels,
     setAgentAutoFallback,
   } = useCompanyStore();
+  // 模型来自用户「我的模型」（BYOK 真实模型），不再硬编码 Opus/Sonnet/Haiku 档位
+  const { models: aiModels } = useAIModels();
   const agent = hired.find((h) => h.instanceId === instanceId);
   if (!agent) return null;
 
-  const modelOptions: Option[] = MODEL_OPTIONS.map((m) => ({ id: m, name: m }));
+  const modelOptions: Option[] = aiModels
+    .filter(
+      (m) =>
+        m.modelType !== 'IMAGE_GENERATION' && m.modelType !== 'IMAGE_EDITING'
+    )
+    .map((m) => ({ id: m.modelId, name: m.name }));
   const skillOptions: Option[] = acquiredSkillIds.map((id) => ({
     id,
     name: findListing(id)?.name ?? id,
