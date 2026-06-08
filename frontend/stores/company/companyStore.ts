@@ -11,6 +11,24 @@ import { toast } from '@/stores/core/toastStore';
 import type { Seniority } from '@/components/marketplace/marketplace.types';
 import { AVATAR_GRADIENTS } from '@/lib/design/tokens';
 
+/**
+ * 平台共享可用的工具 id —— source ∈ platform/granted/user 且 usable=true。
+ * 这些工具有可用的 key（平台兜底 / 被授权 / 用户自有），默认 seed 进团队工具池，
+ * 让团队开箱即用；需用户自配 key（source=none）的不默认加入，避免塞一堆不能用的。
+ */
+async function fetchPlatformUsableToolIds(): Promise<string[]> {
+  try {
+    const res = await apiClient.get<{
+      items: { toolId: string; usable: boolean; source: string }[];
+    }>('/user/tools');
+    return res.items
+      .filter((t) => t.usable && t.source !== 'none')
+      .map((t) => t.toolId);
+  } catch {
+    return [];
+  }
+}
+
 export interface HiredAgent {
   /** 每次招聘生成的唯一实例 id（同一 listing 可招多个） */
   instanceId: string;
@@ -251,14 +269,19 @@ export const useCompanyStore = create<CompanyState>((set, get) => ({
       const snap = await apiClient.get<BackendSnapshot>('/company');
       const hired = snap.hired.map(adaptHired);
       const allSkillIds = Array.from(new Set(hired.flatMap((a) => a.skillIds)));
-      const allToolIds = Array.from(new Set(hired.flatMap((a) => a.toolIds)));
+      const hiredToolIds = hired.flatMap((a) => a.toolIds);
+      // 默认入队：平台共享可用的工具（有平台/授权/自有 key 且 usable）默认进团队工具池，
+      // 开箱即用，无需手动加购；与已雇 Agent 自带工具并集。
+      const platformToolIds = await fetchPlatformUsableToolIds();
       set({
         ceoId: snap.profile.ceoHiredAgentId ?? null,
         hired,
         teams: snap.teams.map(adaptTeam),
         teamWorkflows: snap.workflows.map(adaptWorkflow),
         acquiredSkillIds: allSkillIds,
-        acquiredToolIds: allToolIds,
+        acquiredToolIds: Array.from(
+          new Set([...hiredToolIds, ...platformToolIds])
+        ),
         loading: false,
       });
     } catch {
