@@ -16,6 +16,12 @@ export interface CapabilityRunInput {
   readonly description?: string;
   readonly depth?: "quick" | "standard" | "deep";
   readonly language?: "zh-CN" | "en-US";
+  /**
+   * 用户选定的真实 model id（透传到 agentRunner.run RunOptions.preferredModelId）。
+   * 命中 resolvePreferredModel 第一优先，bypass election，走用户 BYOK 默认解析链。
+   * 不传时与 playground 默认行为一致（按 TaskProfile + BYOK 选模型）。
+   */
+  readonly preferredModelId?: string;
 }
 
 /** 执行流事件（消费方桥到自己的 WS / 进度）。 */
@@ -25,11 +31,14 @@ export interface CapabilityRunEvent {
     | "stage:started"
     | "stage:completed"
     | "stage:failed"
+    | "agent-lifecycle"
     | "completed"
     | "failed";
   readonly stepId?: string;
   readonly label?: string;
   readonly timestamp: number;
+  /** agent-lifecycle 事件的补充载荷（含 agentId / tokensUsed / costCents / modelTrail 等）。 */
+  readonly payload?: Record<string, unknown>;
 }
 
 /** 执行上下文（归属 + 关联 + 流式回调 + 取消）。 */
@@ -59,6 +68,31 @@ export interface CapabilityRunResult {
   /** 算力汇总。 */
   readonly usage?: { totalTokens: number; totalCostCents: number };
   readonly error?: string;
+  /** 各维度研究流水线状态（按 dimension id 索引，可选富产出）。 */
+  readonly dimensionPipelines?: Readonly<
+    Record<
+      string,
+      {
+        agentId: string;
+        state: string;
+        tokensUsed?: number;
+        costCents?: number;
+        modelTrail?: readonly {
+          modelId: string;
+          promptTokens: number;
+          completionTokens: number;
+        }[];
+      }
+    >
+  >;
+  /** reviewer 抽取的质量评审结论（可选）。 */
+  readonly verdicts?: ReadonlyArray<{
+    dimension?: string;
+    score?: number;
+    comment?: string;
+  }>;
+  /** 各阶段富输出快照（by step id）。 */
+  readonly byStage?: Readonly<Record<string, unknown>>;
 }
 
 /**

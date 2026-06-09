@@ -226,18 +226,32 @@ export function MissionRunView() {
         },
       ],
     });
+
+    const handleRerun = () => {
+      void createMission(reportMission.teamId, reportMission.title).then(
+        (id) => {
+          if (id) setActiveMissionId(id);
+        }
+      );
+      setReportMissionId(null);
+    };
+
     return (
       <DeepInsightMissionDetail
         data={detailView}
         onBack={() => setReportMissionId(null)}
-        onRerun={() => {
-          void createMission(reportMission.teamId, reportMission.title).then(
-            (id) => {
-              if (id) setActiveMissionId(id);
-            }
-          );
+        onRerun={handleRerun}
+        // onUpdate: 用相同 topic 进入新建弹窗，预填 title
+        onUpdate={() => {
+          setTitle(reportMission.title);
           setReportMissionId(null);
+          setDispatchOpen(true);
         }}
+        // onCancel: company 侧暂无取消接口，提供 noop
+        onCancel={undefined}
+        // onLeaderClick / onResearchTeamClick: 暂无弹窗，提供 noop
+        onLeaderClick={undefined}
+        onResearchTeamClick={undefined}
         onDelete={() => {
           void deleteMission(reportMission.id);
           setReportMissionId(null);

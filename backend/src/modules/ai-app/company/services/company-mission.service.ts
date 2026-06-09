@@ -195,10 +195,25 @@ export class CompanyMissionService {
       // ★ 采用引用 → 共享能力 → 在 harness 上真跑（design.md §4.3 + 能力 manifest/port）。
       //   团队套用的 workflow.sourceListingId → 市场 SKU.missionType → CapabilityRegistry
       //   解析到平台共享的能力 runner（用同一批共享 agent，纯执行）。解析到 → 真跑该能力；
-      //   解析不到 → 退回下方通用 chat 三阶段（非能力化团队）。
+      //   解析不到（非能力化团队）→ 退回下方通用 chat 三阶段。
+      //   深度研究团队（含 researcher 成员）强制走能力 runner，不降级（见 resolveCapabilityRunner）。
       const runner = this.resolveCapabilityRunner(team);
       if (runner) {
-        await this.runViaCapability(missionId, userId, mission.title, runner);
+        // 从 leader（或首个成员）取真实 model id 作为 preferredModelId：
+        //   - 用户在 UI 选了具体模型（非档位名）→ 直接透传，bypass election，BYOK 解析链生效
+        //   - 未选 / 档位名 → 空字符串，AgentRunner 按 TaskProfile + BYOK 默认选模型（正确）
+        const leader = this.resolveLeader(team);
+        const pref = leader?.models?.[0] ?? "";
+        const preferredModelId = TIER_TO_MODEL_TYPE[pref]
+          ? undefined
+          : pref || undefined;
+        await this.runViaCapability(
+          missionId,
+          userId,
+          mission.title,
+          runner,
+          preferredModelId,
+        );
         return;
       }
 
@@ -298,8 +313,12 @@ export class CompanyMissionService {
 
   /**
    * 把团队套用的 workflow（sourceListingId → 市场 SKU.missionType）解析到平台共享的
-   * 能力 runner（CapabilityRegistry）。解析不到（非能力化团队 / 能力未注册）→ undefined，
-   * 退回通用 chat 三阶段。这就是"采用=存引用 → 执行=按引用解析共享能力"的执行端闭环。
+   * 能力 runner（CapabilityRegistry）。
+   *
+   * 深度研究团队（含 researcher 成员 / 绑 deep-insight workflow）强制走能力 runner，
+   * **不降级**到通用三阶段 chat——降级是模型用错（qwen3-max 偷跑）的根因。
+   * 若 deep-insight runner 尚未注册（onModuleInit 未触发）→ warn + throw，
+   * 而非静默 fallback，让问题可观测。
    */
   private resolveCapabilityRunner(
     team: CompanyTeamForMission | null,
@@ -313,16 +332,30 @@ export class CompanyMissionService {
       if (sku?.missionType) {
         const runner = this.capabilityRegistry.resolve(sku.missionType);
         if (runner) return runner;
+        // workflow 绑定了 missionType 但 runner 未注册：硬失败，不降级
+        this.log.error(
+          `resolveCapabilityRunner: missionType "${sku.missionType}" for listing "${sourceListingId}" not found in CapabilityRegistry — deep-insight runner may not have initialized`,
+        );
+        throw new Error(
+          `capability runner "${sku.missionType}" not registered; ensure DeepInsightDefaultRunner.onModuleInit ran`,
+        );
       }
     }
-    // 2) 兼容兜底（不退化）：未绑 workflow 但花名册含 researcher 叶子的团队，等价于旧
-    //    teamRunsDeepdive 触发——映射到深度洞察能力，保证存量深度研究团队照常能力化执行。
+    // 2) 存量兼容：未绑 workflow 但花名册含 researcher 叶子的团队 → 硬路由到 deep-insight。
+    //    强制不降级：找不到 runner 抛错（可观测），不静默 fallback 到通用三阶段。
     if (
       team?.members.some(
         (m) => m.hiredAgent?.listingId === "playground.researcher",
       )
     ) {
-      return this.capabilityRegistry.resolve("deep-insight");
+      const runner = this.capabilityRegistry.resolve("deep-insight");
+      if (runner) return runner;
+      this.log.error(
+        `resolveCapabilityRunner: deep-insight runner not found in CapabilityRegistry — cannot run deep-research team`,
+      );
+      throw new Error(
+        `capability runner "deep-insight" not registered; ensure DeepInsightDefaultRunner.onModuleInit ran`,
+      );
     }
     return undefined;
   }
@@ -330,15 +363,19 @@ export class CompanyMissionService {
   /**
    * 经能力 runner 真跑：runner 是平台共享、纯执行（用共享 agent，产出结果 + 流式事件），
    * **company 负责持久化 + 把事件桥到 company.* WS**。零 playground 依赖、零山寨重实现。
+   *
+   * preferredModelId 透传到 CapabilityRunInput，最终到达 agentRunner.run RunOptions，
+   * 命中 resolvePreferredModel 第一优先，bypass election，走用户 BYOK 默认解析链。
    */
   private async runViaCapability(
     missionId: string,
     userId: string,
     topic: string,
     runner: ICapabilityRunner,
+    preferredModelId?: string,
   ): Promise<void> {
     const result = await runner.run(
-      { topic },
+      { topic, ...(preferredModelId ? { preferredModelId } : {}) },
       {
         userId,
         missionId,
@@ -410,6 +447,13 @@ export class CompanyMissionService {
           label: event.label,
         });
       }
+    } else if (event.type === "agent-lifecycle") {
+      // agent 级生命周期事件：桥转到 company.agent:lifecycle 供前端实时展示 token/model 进度
+      await this.emit("company.agent:lifecycle", missionId, userId, {
+        stepId: event.stepId,
+        label: event.label,
+        ...(event.payload ?? {}),
+      });
     }
   }
 

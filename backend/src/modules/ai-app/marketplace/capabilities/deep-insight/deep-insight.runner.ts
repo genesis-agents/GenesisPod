@@ -88,6 +88,9 @@ export class DeepInsightDefaultRunner
     const language = input.language ?? "zh-CN";
     const depth = input.depth ?? "standard";
     const { userId } = ctx;
+    // 用户选定的 model id 透传到每个 agentRunner.run，与 playground 共享同一
+    // resolvePreferredModel 路径（第一优先，bypass election，走 BYOK 默认解析链）
+    const preferredModelId = input.preferredModelId;
     const billing = (operationType: string) => ({
       userId,
       moduleType: "marketplace-deep-insight",
@@ -97,7 +100,8 @@ export class DeepInsightDefaultRunner
       type: Parameters<NonNullable<CapabilityRunContext["onEvent"]>>[0]["type"],
       stepId?: string,
       label?: string,
-    ) => ctx.onEvent?.({ type, stepId, label, timestamp: Date.now() });
+      payload?: Record<string, unknown>,
+    ) => ctx.onEvent?.({ type, stepId, label, timestamp: Date.now(), payload });
 
     const Researcher = resolveAgentSpec("playground.researcher");
     const Reconciler = resolveAgentSpec("playground.reconciler");
@@ -124,7 +128,11 @@ export class DeepInsightDefaultRunner
 
       // ── plan：拆解研究维度 ───────────────────────────────────────────────────
       void emit("stage:started", "plan", "拆解维度");
-      const plan = await this.planDimensions(topic, billing("plan"));
+      const plan = await this.planDimensions(
+        topic,
+        billing("plan"),
+        preferredModelId,
+      );
       totalTokens += plan.tokens;
       void emit("stage:completed", "plan", "拆解维度");
 
@@ -136,8 +144,16 @@ export class DeepInsightDefaultRunner
             const r = await this.agentRunner.run(
               Researcher,
               { topic, dimension: d.name, language, withFigures: false },
-              { userId },
+              { userId, ...(preferredModelId ? { preferredModelId } : {}) },
             );
+            void emit("agent-lifecycle", "research", d.name, {
+              agentId: "researcher",
+              dimension: d.name,
+              state: r.state,
+              tokensUsed: r.tokensUsed.total,
+              costCents: r.costCents,
+              modelTrail: r.modelTrail,
+            });
             return { dimension: d.name, output: r.output, ok: true, t: r };
           } catch (err) {
             this.log.warn(
@@ -170,10 +186,17 @@ export class DeepInsightDefaultRunner
           const r = await this.agentRunner.run(
             Reconciler,
             { topic, language, plan, researcherResults },
-            { userId },
+            { userId, ...(preferredModelId ? { preferredModelId } : {}) },
           );
           rec = r.output as ReconResult;
           tally(r.tokensUsed, r.costCents);
+          void emit("agent-lifecycle", "reconcile", "跨维对账", {
+            agentId: "reconciler",
+            state: r.state,
+            tokensUsed: r.tokensUsed.total,
+            costCents: r.costCents,
+            modelTrail: r.modelTrail,
+          });
         } catch (err) {
           this.log.warn(
             `reconciler failed (degrade): ${err instanceof Error ? err.message : String(err)}`,
@@ -197,9 +220,16 @@ export class DeepInsightDefaultRunner
             gaps: rec?.gaps ?? [],
           },
         },
-        { userId },
+        { userId, ...(preferredModelId ? { preferredModelId } : {}) },
       );
       tally(analystRes.tokensUsed, analystRes.costCents);
+      void emit("agent-lifecycle", "analyze", "综合分析", {
+        agentId: "analyst",
+        state: analystRes.state,
+        tokensUsed: analystRes.tokensUsed.total,
+        costCents: analystRes.costCents,
+        modelTrail: analystRes.modelTrail,
+      });
       const analysis = analystRes.output as {
         insights: unknown[];
         themeSummary?: string;
@@ -221,22 +251,38 @@ export class DeepInsightDefaultRunner
             ? { contradictions: analysis.contradictions }
             : {}),
         },
-        { userId },
+        { userId, ...(preferredModelId ? { preferredModelId } : {}) },
       );
       tally(writerRes.tokensUsed, writerRes.costCents);
+      void emit("agent-lifecycle", "write", "撰写报告", {
+        agentId: "writer",
+        state: writerRes.state,
+        tokensUsed: writerRes.tokensUsed.total,
+        costCents: writerRes.costCents,
+        modelTrail: writerRes.modelTrail,
+      });
       const report = writerRes.output;
       void emit("stage:completed", "write", "撰写报告");
 
       // ── review：质量评审（可降级）────────────────────────────────────────────
       void emit("stage:started", "review", "质量评审");
+      let reviewerOutput: unknown = null;
       if (Reviewer) {
         try {
           const r = await this.agentRunner.run(
             Reviewer,
             { topic, language, draftReport: report },
-            { userId },
+            { userId, ...(preferredModelId ? { preferredModelId } : {}) },
           );
           tally(r.tokensUsed, r.costCents);
+          reviewerOutput = r.output;
+          void emit("agent-lifecycle", "review", "质量评审", {
+            agentId: "reviewer",
+            state: r.state,
+            tokensUsed: r.tokensUsed.total,
+            costCents: r.costCents,
+            modelTrail: r.modelTrail,
+          });
         } catch (err) {
           this.log.warn(
             `reviewer failed (degrade): ${err instanceof Error ? err.message : String(err)}`,
@@ -246,6 +292,37 @@ export class DeepInsightDefaultRunner
       void emit("stage:completed", "review", "质量评审");
 
       void emit("completed");
+
+      // 组装各维度 pipeline 状态（按 dimension id 索引）
+      const dimensionPipelines: Record<
+        string,
+        {
+          agentId: string;
+          state: string;
+          tokensUsed?: number;
+          costCents?: number;
+          modelTrail?: readonly {
+            modelId: string;
+            promptTokens: number;
+            completionTokens: number;
+          }[];
+        }
+      > = {};
+      for (const o of outcomes) {
+        if (o.ok && o.t) {
+          dimensionPipelines[o.dimension] = {
+            agentId: "researcher",
+            state: o.t.state,
+            tokensUsed: o.t.tokensUsed.total,
+            costCents: o.t.costCents,
+            modelTrail: o.t.modelTrail,
+          };
+        }
+      }
+
+      // 从 reviewer 产出中抽取 verdicts（结构不定，保持容错）
+      const verdicts = this.extractVerdicts(reviewerOutput);
+
       return {
         status: "completed",
         report: this.assembleReport(report),
@@ -257,6 +334,14 @@ export class DeepInsightDefaultRunner
           analysis,
         },
         usage: { totalTokens, totalCostCents },
+        dimensionPipelines,
+        verdicts,
+        byStage: {
+          plan,
+          reconciliation: rec,
+          analysis,
+          review: reviewerOutput,
+        },
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : "unknown error";
@@ -275,6 +360,7 @@ export class DeepInsightDefaultRunner
   private async planDimensions(
     topic: string,
     billing: { userId: string; moduleType: string; operationType: string },
+    preferredModelId?: string,
   ): Promise<PlanResult> {
     const systemPrompt = [
       "You are a research lead. Break the topic into 2-4 distinct, non-overlapping research dimensions.",
@@ -287,6 +373,8 @@ export class DeepInsightDefaultRunner
       modelType: AIModelType.CHAT,
       operationName: "deep-insight-plan",
       billing,
+      // 用户选定的真实 model id 透传（空字符串视为未设置，符合"fallback 用空串"红线）
+      ...(preferredModelId ? { model: preferredModelId } : {}),
     });
     const parsed = this.safeParseJson(res.content);
     const rawDims = Array.isArray(parsed?.dimensions) ? parsed.dimensions : [];
@@ -348,6 +436,29 @@ export class DeepInsightDefaultRunner
       }
     }
     return refs;
+  }
+
+  /** 从 reviewer 输出中容错提取 verdict 列表。 */
+  private extractVerdicts(
+    reviewerOutput: unknown,
+  ): Array<{ dimension?: string; score?: number; comment?: string }> {
+    if (!reviewerOutput || typeof reviewerOutput !== "object") return [];
+    const r = reviewerOutput as Record<string, unknown>;
+    if (Array.isArray(r.verdicts)) {
+      return (r.verdicts as unknown[])
+        .filter((v) => !!v && typeof v === "object")
+        .map((v) => {
+          const vr = v as Record<string, unknown>;
+          return {
+            ...(typeof vr.dimension === "string"
+              ? { dimension: vr.dimension }
+              : {}),
+            ...(typeof vr.score === "number" ? { score: vr.score } : {}),
+            ...(typeof vr.comment === "string" ? { comment: vr.comment } : {}),
+          };
+        });
+    }
+    return [];
   }
 
   private assembleReport(report: unknown): string {

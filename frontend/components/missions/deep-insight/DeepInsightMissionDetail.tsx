@@ -23,6 +23,7 @@
 import { useMemo, useState } from 'react';
 import {
   Activity,
+  AlertTriangle,
   ClipboardList,
   Coins,
   Database,
@@ -41,6 +42,7 @@ import {
   MissionTodoBoard,
   ReferencesPanel,
   TeamRosterPanel,
+  TodoDetailDrawer,
 } from '@/components/agent-playground';
 import { MissionGraphTab } from '@/components/agent-playground/MissionGraphTab';
 import {
@@ -58,17 +60,13 @@ import type {
   DimensionPipelineState,
   MemoryIndexState,
   StageState,
+  VerifierVerdict,
 } from '@/lib/features/agent-playground/mission-presentation.types';
 import type { MissionTodo } from '@/lib/features/agent-playground/mission-todo.types';
 import type { MissionDetailView } from '@/services/agent-playground/api';
 import type { PlaygroundEvent } from '@/hooks/features/useAgentPlaygroundStream';
 import { MODULE_THEMES } from '@/lib/design/module-themes';
-import type {
-  DeepInsightMissionView,
-  DICostState,
-  DIDimensionPipelineState,
-  MissionStep,
-} from './contract';
+import type { DeepInsightMissionView, MissionStep } from './contract';
 
 type TabKey = 'tasks' | 'collab' | 'report' | 'references' | 'graph' | 'cost';
 
@@ -139,12 +137,39 @@ export interface DeepInsightMissionDetailProps {
   /** 「开始/重新下发」—— 透传给左栏 TeamRosterPanel 的按钮区（与 playground 一致）。 */
   onRerun?: () => void;
   onDelete?: () => void;
+  /**
+   * 「更新/继续上次」—— 用相同 topic 进入新建表单（编辑配置后再跑）。
+   * 对应 TeamRosterPanel.onUpdate。isResumable=true 时按钮 label 变"继续上次"。
+   */
+  onUpdate?: () => void;
+  /** 「取消」—— 取消运行中的 mission。 */
+  onCancel?: () => void;
+  /**
+   * 点击 Leader 节点时触发（可打开 LeaderChatModal 或其他交互）。
+   * 不传时 TeamRosterPanel 仍渲染节点，只是没有点击反馈。
+   */
+  onLeaderClick?: () => void;
+  /**
+   * 点击 Research Team 节点时触发（展开 group 内部 micro-pipeline）。
+   * 不传时同上。
+   */
+  onResearchTeamClick?: () => void;
+  /** WebSocket 连接状态（'connected'|'disconnected'|'reconnecting'）；用于 topBanner 提示。 */
+  connState?: 'connected' | 'disconnected' | 'reconnecting';
+  /** WS 或运行期错误消息；有值时 topBanner 显示错误提示。 */
+  wsError?: string;
 }
 
 export function DeepInsightMissionDetail({
   data,
   onBack,
   onRerun,
+  onUpdate,
+  onCancel,
+  onLeaderClick,
+  onResearchTeamClick,
+  connState,
+  wsError,
 }: DeepInsightMissionDetailProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('tasks');
   const [leftCollapsed, setLeftCollapsed] = useState(false);
@@ -223,6 +248,71 @@ export function DeepInsightMissionDetail({
   // 有无作为 live 闸门，无 live 数据时这两处降级隐藏。
   const canonicalView = data.reportArtifact as MissionDetailView | undefined;
 
+  // ── CapabilityMeters 最小 fake view（company 无 canonical view 也能渲染 cost tab）──
+  // CapabilityMeters 只读 view.mission.{finalScore/status/startedAt/finishedAt} + view.verdicts
+  // 和 view.memoryIndex，构造最小兼容 shape，不产生 any。
+  const capabilityFakeView = useMemo<MissionDetailView>(() => {
+    const playgroundVerdicts: VerifierVerdict[] = data.verdicts.map(
+      (v): VerifierVerdict => ({
+        verifierId: v.verifierId,
+        score: v.score,
+        critique: v.critique,
+        criteria: v.criteria,
+        modelId: v.modelId,
+      })
+    );
+    return {
+      mission: {
+        id: data.id,
+        // idle は 'starting' に写像（MissionViewStatus に 'idle' がない）
+        status:
+          data.missionStatus === 'completed'
+            ? 'completed'
+            : data.missionStatus === 'failed'
+              ? 'failed'
+              : data.missionStatus === 'cancelled'
+                ? 'cancelled'
+                : data.missionStatus === 'idle'
+                  ? 'starting'
+                  : 'running',
+        resumable: false,
+        canCancel: data.missionStatus === 'running',
+        rerunnableStages: [],
+        finalScore: data.finalScore,
+        // startedAt / finishedAt: epoch ms → ISO string
+        startedAt:
+          data.createdAt != null
+            ? new Date(data.createdAt).toISOString()
+            : undefined,
+        finishedAt:
+          data.missionStatus === 'completed' || data.missionStatus === 'failed'
+            ? new Date().toISOString()
+            : undefined,
+      },
+      stages: [],
+      agents: [],
+      verdicts: playgroundVerdicts,
+      memoryIndex: data.memory
+        ? {
+            chunks: data.memory.chunks,
+            namespace: data.memory.namespace,
+            tags: data.memory.tags,
+          }
+        : null,
+      references: [],
+      reportVersions: [],
+      timelineVersion: 0,
+      snapshotVersion: 0,
+    };
+  }, [
+    data.id,
+    data.missionStatus,
+    data.finalScore,
+    data.createdAt,
+    data.verdicts,
+    data.memory,
+  ]);
+
   // ── 全部 6 个 tab 都显示（与 playground 完全一致）；无 live 数据的 collab/graph 走空态 ──
   const tabs = ALL_TABS;
 
@@ -246,6 +336,10 @@ export function DeepInsightMissionDetail({
       maxCredits={data.maxCredits}
       isResumable={data.isResumable}
       onRerun={onRerun}
+      onUpdate={onUpdate}
+      onCancel={onCancel}
+      onLeaderClick={onLeaderClick}
+      onResearchTeamClick={onResearchTeamClick}
       onCollapse={() => setLeftCollapsed(true)}
     />
   );
@@ -307,6 +401,66 @@ export function DeepInsightMissionDetail({
     </>
   );
 
+  // ── topBanner：WS 失联 / 运行失败提示（playground 风格）──
+  const topBanner = (() => {
+    if (wsError) {
+      return (
+        <div className="flex items-center gap-2 border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+          <span>{wsError}</span>
+        </div>
+      );
+    }
+    if (connState === 'disconnected') {
+      return (
+        <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+          <span>实时连接已断开，正在重连…</span>
+        </div>
+      );
+    }
+    if (connState === 'reconnecting') {
+      return (
+        <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" />
+          <span>实时连接重连中…</span>
+        </div>
+      );
+    }
+    if (data.missionStatus === 'failed' && data.failedMessage) {
+      return (
+        <div className="flex items-center gap-2 border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+          <span className="line-clamp-1">{data.failedMessage}</span>
+        </div>
+      );
+    }
+    return null;
+  })();
+
+  // ── tabBarTrailing：精简版算力指标（CompactMeters）──
+  const tabBarTrailing =
+    cost.tokensUsed > 0 || cost.costUsd > 0 ? (
+      <div className="flex items-center gap-2 text-[11px] text-gray-500">
+        <span className="font-mono">{fmtTokensShort(cost.tokensUsed)} tok</span>
+        {cost.costUsd > 0 && (
+          <span className="font-mono text-amber-600">
+            ${cost.costUsd.toFixed(3)}
+          </span>
+        )}
+        {data.finalScore != null && (
+          <span className="font-mono font-semibold text-emerald-600">
+            {data.finalScore}/100
+          </span>
+        )}
+      </div>
+    ) : null;
+
+  // selectedTodo（TodoDetailDrawer 用）
+  const selectedTodo = selectedTaskKey
+    ? todos.find((t) => t.id === selectedTaskKey)
+    : undefined;
+
   return (
     <MissionDetailFrame<TabKey>
       onBack={() => onBack?.()}
@@ -327,7 +481,20 @@ export function DeepInsightMissionDetail({
       leftCollapsed={leftCollapsed}
       onLeftCollapseToggle={() => setLeftCollapsed((v) => !v)}
       leftCollapsedView={collapsedLeftView}
+      topBanner={topBanner}
+      tabBarTrailing={tabBarTrailing}
     >
+      {/* TodoDetailDrawer：tasks tab 点击行展开详情（与 playground 一致）*/}
+      <TodoDetailDrawer
+        todo={selectedTodo}
+        agents={agents}
+        dimensionPipelines={dimensionPipelines}
+        allTodos={todos}
+        onClose={() => setSelectedTaskKey(null)}
+        missionId={data.id}
+        missionTerminal={missionTerminal}
+      />
+
       <div className="px-6 py-5">
         {safeActiveTab === 'tasks' && (
           <MissionTodoBoard
@@ -347,9 +514,9 @@ export function DeepInsightMissionDetail({
         )}
 
         {safeActiveTab === 'collab' &&
-          (hasEvents && canonicalView ? (
+          (hasEvents ? (
             <MissionFlowView
-              view={canonicalView}
+              view={canonicalView ?? capabilityFakeView}
               events={events}
               todoLedger={todos}
             />
@@ -411,14 +578,13 @@ export function DeepInsightMissionDetail({
 
         {safeActiveTab === 'cost' && (
           <div className="space-y-4">
-            {canonicalView && (
-              <CapabilityMeters
-                view={canonicalView}
-                wallTimeMs={0}
-                cost={cost}
-                memory={memory}
-              />
-            )}
+            {/* CapabilityMeters 始终渲染：company 无 canonical view 时用 capabilityFakeView 兜底 */}
+            <CapabilityMeters
+              view={canonicalView ?? capabilityFakeView}
+              wallTimeMs={0}
+              cost={cost}
+              memory={memory}
+            />
             <ComputeUsagePanel
               cost={cost}
               agents={agents}
@@ -446,6 +612,13 @@ export function DeepInsightMissionDetail({
 export default DeepInsightMissionDetail;
 
 // ── helpers ────────────────────────────────────────────────────────────
+
+/** token 数紧凑格式（tabBarTrailing 用，不引入 formatters 以免循环）。 */
+function fmtTokensShort(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+  return String(n);
+}
 
 /**
  * Header 状态 pill（对齐 playground statusPill 的色彩语义）。
