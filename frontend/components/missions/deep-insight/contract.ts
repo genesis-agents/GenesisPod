@@ -299,6 +299,10 @@ export interface DeepInsightMissionView extends BaseMissionView {
   verdicts: DIVerifierVerdict[];
   /** graph（MissionGraphTab）是否可用（company 无 graph API → false，tab 隐藏）。 */
   hasGraph: boolean;
+  /** 研究主题概述（tasks tab themeSummary；真实字段，非 statusDetail 误用）。 */
+  themeSummary?: string;
+  /** 完成时刻（epoch ms）；与 createdAt 算真实运行耗时，不显示假 0s。 */
+  completedAt?: number;
 
   // ── 旧契约可选承载（不再是主结构，仅兼容既有简版左栏 / 评审意见）──
   /** @deprecated 用 finalScore + verdicts。仍保留供简版评分环。 */
@@ -438,6 +442,8 @@ export interface MissionReportResultLike {
   usage?: ComputeUsage;
   /** 失败时后端写入的真实错误信息（runMission catch → result.error）。 */
   error?: string;
+  /** 完成时刻 ISO（runViaCapability 写入 completedAt）；算真实运行耗时。 */
+  completedAt?: string;
 }
 
 export interface CompanyMissionInput {
@@ -449,6 +455,12 @@ export interface CompanyMissionInput {
   result?: MissionReportResultLike;
   /** 由 L4 / 应用页注入的运行态动作（不入纯渲染派生）。 */
   actions?: MissionAction[];
+  /** 研究深度（有真实值时传入，无则 fromCompanyMissionResult 兜底 'deep'）。 */
+  depth?: string;
+  /** 运行语言（有真实值时传入，无则兜底 'zh-CN'）。 */
+  language?: string;
+  /** 预算上限 credits（无则 undefined）。 */
+  maxCredits?: number;
 }
 
 /** company 原始 status → 归一三态。 */
@@ -565,12 +577,16 @@ export function fromCompanyMissionResult(
     topic: input.title,
     dimensions: dimNames,
     dimensionDetails,
-    // 公司 deepdive 是深度洞察任务 —— 给左栏运行配置卡可显示的研究深度 + 语言。
-    depth: 'deep',
-    language: 'zh-CN',
-    maxCredits: undefined,
+    // 公司 deepdive 是深度洞察任务 —— 深度/语言优先用调用方传入的真实值，无则兜底（能力语义即 deep）。
+    depth: input.depth ?? 'deep',
+    language: input.language ?? 'zh-CN',
+    maxCredits: input.maxCredits,
     missionStatus: companyMissionStatus(input.status),
     isResumable: false,
+    themeSummary: result.themeSummary,
+    completedAt: result.completedAt
+      ? Date.parse(result.completedAt) || undefined
+      : undefined,
     failedMessage:
       companyStatus(input.status) === 'failed' ? result.error : undefined,
     // 右侧 tab
@@ -1059,6 +1075,15 @@ export function fromPlaygroundMissionView(
     missionStatus,
     isResumable:
       mission.resumable === true || root.isResumable === true || undefined,
+    themeSummary: getStr(mission, 'themeSummary'),
+    completedAt: (() => {
+      const ms = getNum(mission, 'completedAt');
+      if (ms != null) return ms;
+      const iso = getStr(mission, 'completedAt');
+      if (!iso) return undefined;
+      const p = Date.parse(iso);
+      return Number.isNaN(p) ? undefined : p;
+    })(),
     // 右侧 tab
     events: getArr(root, 'events'),
     reportArtifact: reportArtifact ?? undefined,

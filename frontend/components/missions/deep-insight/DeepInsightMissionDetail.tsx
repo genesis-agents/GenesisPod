@@ -31,6 +31,7 @@ import {
   Layers,
   ListChecks,
   Network,
+  Settings,
   type LucideIcon,
 } from 'lucide-react';
 import { MissionDetailFrame } from '@/components/common/mission-detail';
@@ -158,6 +159,11 @@ export interface DeepInsightMissionDetailProps {
   connState?: 'connected' | 'disconnected' | 'reconnecting';
   /** WS 或运行期错误消息；有值时 topBanner 显示错误提示。 */
   wsError?: string;
+  /**
+   * 点击 header 右上角设置（cog）按钮时触发。
+   * 不传时不渲染 cog 按钮（诚实降级，不留空壳）。
+   */
+  onSettings?: () => void;
 }
 
 export function DeepInsightMissionDetail({
@@ -170,6 +176,7 @@ export function DeepInsightMissionDetail({
   onResearchTeamClick,
   connState,
   wsError,
+  onSettings,
 }: DeepInsightMissionDetailProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('tasks');
   const [leftCollapsed, setLeftCollapsed] = useState(false);
@@ -199,6 +206,16 @@ export function DeepInsightMissionDetail({
 
   // memory：契约 DIMemoryIndexState | undefined → 面板要 MemoryIndexState | null
   const memory = (data.memory as MemoryIndexState | undefined) ?? null;
+
+  // 真实运行耗时：终态用 completedAt-createdAt；运行中用 now-createdAt；无时间戳才 0。
+  // 不再写死假 0s（CapabilityMeters.wallTimeMs 必填，故给真实/估算值而非伪 0）。
+  const wallTimeMs = useMemo(() => {
+    if (data.createdAt == null) return 0;
+    const end =
+      data.completedAt ??
+      (data.missionStatus === 'running' ? Date.now() : data.createdAt);
+    return Math.max(0, end - data.createdAt);
+  }, [data.createdAt, data.completedAt, data.missionStatus]);
 
   // missionTerminal：missionStatus 非 running 即终态
   const missionTerminal = data.missionStatus !== 'running';
@@ -394,10 +411,19 @@ export function DeepInsightMissionDetail({
           <span>{data.language}</span>
         </>
       )}
-      <span>·</span>
-      <span>{data.dimensions.length} 维度</span>
-      <span>·</span>
-      <span>{data.references.length} 引用</span>
+      {/* 仅在真有数据时显示，不渲染 "0 维度 · 0 引用" 假壳 */}
+      {data.dimensions.length > 0 && (
+        <>
+          <span>·</span>
+          <span>{data.dimensions.length} 维度</span>
+        </>
+      )}
+      {data.references.length > 0 && (
+        <>
+          <span>·</span>
+          <span>{data.references.length} 引用</span>
+        </>
+      )}
     </>
   );
 
@@ -461,6 +487,19 @@ export function DeepInsightMissionDetail({
     ? todos.find((t) => t.id === selectedTaskKey)
     : undefined;
 
+  // ── headerActions：只有 onSettings 提供时才渲染 cog 按钮（不提供 = 不渲染，诚实降级）──
+  const headerActions = onSettings ? (
+    <button
+      type="button"
+      onClick={onSettings}
+      className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+      title="任务配置"
+      aria-label="任务配置"
+    >
+      <Settings className="h-4 w-4" />
+    </button>
+  ) : null;
+
   return (
     <MissionDetailFrame<TabKey>
       onBack={() => onBack?.()}
@@ -474,6 +513,7 @@ export function DeepInsightMissionDetail({
       }
       subtitle={subtitle}
       statusPill={statusPill}
+      headerActions={headerActions}
       tabs={tabs}
       activeTab={safeActiveTab}
       onTabChange={(k) => setActiveTab(k as TabKey)}
@@ -488,6 +528,8 @@ export function DeepInsightMissionDetail({
       <TodoDetailDrawer
         todo={selectedTodo}
         agents={agents}
+        stages={stages}
+        events={events}
         dimensionPipelines={dimensionPipelines}
         allTodos={todos}
         onClose={() => setSelectedTaskKey(null)}
@@ -499,7 +541,7 @@ export function DeepInsightMissionDetail({
         {safeActiveTab === 'tasks' && (
           <MissionTodoBoard
             todos={todos}
-            themeSummary={data.statusDetail}
+            themeSummary={data.themeSummary}
             selectedKey={selectedTaskKey}
             onSelect={(id) => setSelectedTaskKey(id)}
             missionFailed={data.missionStatus === 'failed'}
@@ -581,7 +623,7 @@ export function DeepInsightMissionDetail({
             {/* CapabilityMeters 始终渲染：company 无 canonical view 时用 capabilityFakeView 兜底 */}
             <CapabilityMeters
               view={canonicalView ?? capabilityFakeView}
-              wallTimeMs={0}
+              wallTimeMs={wallTimeMs}
               cost={cost}
               memory={memory}
             />

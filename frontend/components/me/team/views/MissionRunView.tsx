@@ -42,13 +42,15 @@ function toListItem(m: CompanyMission): MissionListItem {
     usage?: { totalTokens?: number; totalCostCents?: number };
     summary?: string;
     themeSummary?: string;
+    depth?: string;
+    language?: string;
   };
   const iso = new Date(m.createdAt).toISOString();
   return {
     id: m.id,
     topic: m.title,
-    depth: 'standard',
-    language: 'zh-CN',
+    depth: r.depth ?? 'deep',
+    language: r.language ?? 'zh-CN',
     status: STATUS_MAP[m.status] ?? m.status,
     startedAt: iso,
     completedAt: m.status === 'done' ? iso : null,
@@ -193,12 +195,17 @@ export function MissionRunView() {
   // ── 详情态：整页 DeepInsightMissionDetail（L4 kit，吃归一契约）─────────
   const reportMission = missions.find((m) => m.id === reportMissionId) ?? null;
   if (reportMission) {
+    const reportResult = reportMission.result as
+      | (MissionReportResultLike & { depth?: string; language?: string })
+      | undefined;
     const detailView = fromCompanyMissionResult({
       id: reportMission.id,
       title: reportMission.title,
       status: reportMission.status,
       createdAt: reportMission.createdAt,
-      result: reportMission.result as MissionReportResultLike | undefined,
+      result: reportResult,
+      depth: reportResult?.depth,
+      language: reportResult?.language,
       actions: [
         {
           variant: 'primary',
@@ -247,9 +254,15 @@ export function MissionRunView() {
           setReportMissionId(null);
           setDispatchOpen(true);
         }}
-        // onCancel: company 侧暂无取消接口，提供 noop
+        // onSettings: 复用 onUpdate 流（预填 title 打开弹窗配置后再跑）
+        onSettings={() => {
+          setTitle(reportMission.title);
+          setReportMissionId(null);
+          setDispatchOpen(true);
+        }}
+        // onCancel: company 侧暂无取消接口
         onCancel={undefined}
-        // onLeaderClick / onResearchTeamClick: 暂无弹窗，提供 noop
+        // onLeaderClick / onResearchTeamClick: 暂无弹窗
         onLeaderClick={undefined}
         onResearchTeamClick={undefined}
         onDelete={() => {
