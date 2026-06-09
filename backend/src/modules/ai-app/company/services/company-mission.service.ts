@@ -83,6 +83,19 @@ export class CompanyMissionService {
     string,
     Array<{ type: string; payload: unknown; timestamp: number }>
   >();
+  /**
+   * 运行中渐进任务状态（按 missionId）。随事件实时更新并落库 result.steps，
+   * 让"任务列表"在运行中就逐个出现并推进 + 持久化（重开/刷新仍在，非事后补）。
+   */
+  private readonly liveTaskState = new Map<
+    string,
+    {
+      planning?: "running" | "done";
+      review?: "running" | "done";
+      dimOrder: string[];
+      dimStatus: Map<string, "running" | "done" | "failed">;
+    }
+  >();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -248,6 +261,7 @@ export class CompanyMissionService {
     } finally {
       this.abortControllers.delete(missionId);
       this.collabBuffers.delete(missionId);
+      this.liveTaskState.delete(missionId);
     }
   }
 
@@ -618,11 +632,20 @@ export class CompanyMissionService {
     if (event.type === "stage:started" || event.type === "stage:completed") {
       const stage = event.stepId ? stageMap[event.stepId] : undefined;
       if (stage) {
+        const done = event.type === "stage:completed";
         await this.emit("company.stage:lifecycle", missionId, userId, {
           stage,
-          status: event.type === "stage:started" ? "started" : "completed",
+          status: done ? "completed" : "started",
           label: event.label,
         });
+        // 渐进任务：plan→规划任务；review→评审任务
+        if (event.stepId === "plan" || event.stepId === "review") {
+          const st = this.liveState(missionId);
+          if (event.stepId === "plan")
+            st.planning = done ? "done" : (st.planning ?? "running");
+          else st.review = done ? "done" : (st.review ?? "running");
+          await this.persistLiveProgress(missionId);
+        }
       }
     } else if (event.type === "agent-lifecycle") {
       // 完成快照：桥转到 company.agent:lifecycle 供前端实时展示 token/model 进度
@@ -645,6 +668,21 @@ export class CompanyMissionService {
         role,
         ...p,
       });
+      // 渐进任务：若该生命周期快照带 dimension，同样纳入逐维度推进
+      const dim = typeof p.dimension === "string" ? p.dimension : undefined;
+      if (dim) {
+        const st = this.liveState(missionId);
+        if (!st.dimStatus.has(dim)) st.dimOrder.push(dim);
+        st.dimStatus.set(
+          dim,
+          phase === "completed"
+            ? "done"
+            : phase === "failed"
+              ? "failed"
+              : "running",
+        );
+        await this.persistLiveProgress(missionId);
+      }
     } else if (event.type === "agent-trace") {
       // 过程级 agent 事件：按 kind 分流
       const p = event.payload ?? {};
@@ -675,6 +713,20 @@ export class CompanyMissionService {
             : {}),
           ...(p.modelTrail !== undefined ? { modelTrail: p.modelTrail } : {}),
         });
+        // 渐进任务：每个维度的 researcher 随生命周期逐个出现并推进
+        if (dimension) {
+          const st = this.liveState(missionId);
+          if (!st.dimStatus.has(dimension)) st.dimOrder.push(dimension);
+          st.dimStatus.set(
+            dimension,
+            phase === "completed"
+              ? "done"
+              : phase === "failed"
+                ? "failed"
+                : "running",
+          );
+          await this.persistLiveProgress(missionId);
+        }
       } else {
         // thinking / action_planned / action_executed / error → company.agent:narrative
         const text = typeof p.text === "string" ? p.text : undefined;
@@ -689,6 +741,56 @@ export class CompanyMissionService {
         }
       }
     }
+  }
+
+  /** 取/建某 mission 的渐进任务状态。 */
+  private liveState(missionId: string) {
+    let s = this.liveTaskState.get(missionId);
+    if (!s) {
+      s = { dimOrder: [], dimStatus: new Map() };
+      this.liveTaskState.set(missionId, s);
+    }
+    return s;
+  }
+
+  /**
+   * 把当前渐进任务状态 + 协作动态落库到 result（运行中实时持久化）。
+   * status/progress 不变（保持 running）；终态时 runViaCapability 用最终结果覆盖。
+   */
+  private async persistLiveProgress(missionId: string): Promise<void> {
+    const s = this.liveTaskState.get(missionId);
+    if (!s) return;
+    const steps: Array<Record<string, unknown>> = [];
+    if (s.planning)
+      steps.push({
+        label: "意图理解 · 维度拆解",
+        role: "Leader",
+        status: s.planning === "done" ? "done" : "running",
+      });
+    for (const d of s.dimOrder)
+      steps.push({
+        label: d,
+        role: "Researcher",
+        dimension: d,
+        status: s.dimStatus.get(d) ?? "running",
+      });
+    if (s.review)
+      steps.push({
+        label: "综合评审",
+        role: "Reviewer",
+        status: s.review === "done" ? "done" : "running",
+      });
+
+    const toJson = (v: unknown): Prisma.InputJsonValue =>
+      JSON.parse(JSON.stringify(v ?? null)) as Prisma.InputJsonValue;
+    await this.updateMission(missionId, {
+      result: toJson({
+        steps,
+        dimensions: s.dimOrder,
+        collab: this.collabBuffers.get(missionId) ?? [],
+        live: true,
+      }),
+    });
   }
 
   // ── Stage implementations ──────────────────────────────────────────────────

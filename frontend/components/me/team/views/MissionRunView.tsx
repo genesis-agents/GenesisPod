@@ -115,6 +115,26 @@ export function MissionRunView() {
     void loadHeroes();
   }, [loadCompany, loadMissions, loadHeroes]);
 
+  // 运行中打开详情：每 3s 刷新该任务的持久化结果（后端实时落 result.steps/collab），
+  // 让任务列表/协作动态逐个推进且持久化（刷新/重开仍在，非事后补）。
+  useEffect(() => {
+    if (!reportMissionId) return;
+    const t = setInterval(() => {
+      const m = useCompanyStore
+        .getState()
+        .missions.find((x) => x.id === reportMissionId);
+      if (
+        m &&
+        (m.status === 'running' ||
+          m.status === 'review' ||
+          m.status === 'queued')
+      ) {
+        void loadMissions();
+      }
+    }, 3000);
+    return () => clearInterval(t);
+  }, [reportMissionId, loadMissions]);
+
   // store missions 变化 → 通知 gallery 重新读取（含 WS 进度 / 新建 / 删除）
   useEffect(() => {
     setGalleryReload((n) => n + 1);
