@@ -35,12 +35,15 @@ function makeRunner(score: number): FakeRunner {
 
 function makeService(): {
   service: CompanyMissionService;
-  update: jest.Mock;
+  updateMany: jest.Mock;
 } {
   const update = jest.fn().mockResolvedValue({});
-  const prisma = { companyMission: { update } };
+  // ★ 终态走仲裁后：done/failed 终态写经 finalizeIfNotCancelled → updateMany。
+  const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+  const prisma = { companyMission: { update, updateMany } };
   const eventBus = { emit: jest.fn().mockResolvedValue(undefined) };
   // 其余依赖在 runViaCapability 的本测试路径上不被触达 → 空对象兜底。
+  //   第 9 参 persistenceAdapter：本测试 runner 为 mock，不触达 ctx.persistence → 空兜底。
   const service = new CompanyMissionService(
     prisma as never,
     eventBus as never,
@@ -50,13 +53,14 @@ function makeService(): {
     {} as never,
     {} as never,
     {} as never,
+    {} as never,
   );
-  return { service, update };
+  return { service, updateMany };
 }
 
-/** 取最后一次 status:"done" 落库的 result.review。 */
-function lastReview(update: jest.Mock): Record<string, unknown> | undefined {
-  const doneCall = [...update.mock.calls]
+/** 取最后一次 status:"done" 终态写（updateMany）的 result.review。 */
+function lastReview(write: jest.Mock): Record<string, unknown> | undefined {
+  const doneCall = [...write.mock.calls]
     .reverse()
     .find((c) => c[0]?.data?.status === "done");
   return doneCall?.[0]?.data?.result?.review as
@@ -66,7 +70,7 @@ function lastReview(update: jest.Mock): Record<string, unknown> | undefined {
 
 describe("CompanyMissionService acceptance gate", () => {
   it("低分 → 重跑但封顶 maxAttempts（不死循环），最终 passed=false 收口", async () => {
-    const { service, update } = makeService();
+    const { service, updateMany } = makeService();
     const runner = makeRunner(40); // < passThreshold 60
 
     await (
@@ -77,14 +81,14 @@ describe("CompanyMissionService acceptance gate", () => {
 
     // 封顶：恰好跑 maxAttempts(2) 次，不无限重跑
     expect(runner.run).toHaveBeenCalledTimes(2);
-    const review = lastReview(update);
+    const review = lastReview(updateMany);
     expect(review?.passed).toBe(false);
     expect(review?.attempts).toBe(2);
     expect(review?.score).toBe(40);
   });
 
   it("达标分 → 一次通过，passed=true，不重跑", async () => {
-    const { service, update } = makeService();
+    const { service, updateMany } = makeService();
     const runner = makeRunner(80); // >= 60
 
     await (
@@ -94,7 +98,7 @@ describe("CompanyMissionService acceptance gate", () => {
     ).runViaCapability("m2", "u2", "topic", runner);
 
     expect(runner.run).toHaveBeenCalledTimes(1);
-    const review = lastReview(update);
+    const review = lastReview(updateMany);
     expect(review?.passed).toBe(true);
     expect(review?.score).toBe(80);
     expect(review?.attempts).toBe(1);

@@ -18,6 +18,7 @@
 
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
+import { CompanyMissionPersistenceAdapter } from "./company-mission-persistence.adapter";
 import { EventBus, ChatFacade, AgentRunner } from "@/modules/ai-harness/facade";
 import { SkillRegistry } from "@/modules/ai-engine/facade";
 import type { CompanyMission, Prisma } from "@prisma/client";
@@ -160,6 +161,9 @@ export class CompanyMissionService {
     private readonly agentRunner: AgentRunner,
     private readonly capabilityRegistry: CapabilityRegistry,
     private readonly catalogService: MarketplaceCatalogService,
+    // ★ 运行态持久化（枢纽）：注入能力核的 ctx.persistence → 每阶段 checkpoint 落库 +
+    //   终态首写赢仲裁（取消/完成/失败竞态）。W4 已建本适配器但此前未接线。
+    private readonly persistenceAdapter: CompanyMissionPersistenceAdapter,
   ) {}
 
   /**
@@ -609,6 +613,9 @@ export class CompanyMissionService {
         userId,
         missionId,
         ...(signal ? { signal } : {}),
+        // ★ 运行态持久化（枢纽）：注入 company 持久化端口 → 能力核每阶段 saveCheckpoint
+        //   落 company_missions.result.__checkpoint + 终态首写赢仲裁。
+        persistence: this.persistenceAdapter,
         onEvent: (e) => {
           void this.bridgeCapabilityEvent(missionId, userId, e);
         },
@@ -685,7 +692,8 @@ export class CompanyMissionService {
         return;
       }
 
-      await this.updateMission(missionId, {
+      // ★ 终态走仲裁：条件写（未取消才写），避免盖掉用户取消。
+      const won = await this.finalizeIfNotCancelled(missionId, {
         status: "done",
         progress: 100,
         result: {
@@ -711,9 +719,12 @@ export class CompanyMissionService {
           completedAt: new Date().toISOString(),
         },
       });
-      await this.emit("company.mission:completed", missionId, userId, {
-        missionId,
-      });
+      // 被取消抢先（won=false）→ 不发 completed 事件（mission:cancelled 已由 cancelMission 广播）。
+      if (won) {
+        await this.emit("company.mission:completed", missionId, userId, {
+          missionId,
+        });
+      }
       this.log.log(
         `CompanyMission ${missionId} completed via capability "${runner.manifest.id}" ` +
           `(score=${score ?? "n/a"} passed=${passed} attempts=${attempt})`,
@@ -724,7 +735,9 @@ export class CompanyMissionService {
     // failed —— 不伪装成功：真实 error 落库 + emit（前端失败空态据此显示真因）。
     // 仍带上已规划维度（标 failed），让"任务列表"展示尝试过的子任务而非空白。
     const message = result.error ?? "capability run failed";
-    await this.updateMission(missionId, {
+    // ★ 终态走仲裁：条件写（未取消才写）。能力核 abort 后返回 failed，但用户取消已置
+    //   cancelled——此处守护避免把 cancelled 盖成 failed。
+    const won = await this.finalizeIfNotCancelled(missionId, {
       status: "failed",
       result: {
         error: message,
@@ -734,10 +747,12 @@ export class CompanyMissionService {
         failedAt: new Date().toISOString(),
       },
     });
-    await this.emit("company.mission:failed", missionId, userId, {
-      missionId,
-      message,
-    });
+    if (won) {
+      await this.emit("company.mission:failed", missionId, userId, {
+        missionId,
+        message,
+      });
+    }
   }
 
   /** 能力执行流事件 → company.stage:lifecycle + 进度（前端任务详情 WS 实时呈现）。 */
@@ -1257,6 +1272,36 @@ export class CompanyMissionService {
         return `${m.hiredAgent.name} [${m.hiredAgent.role}]${tag}`;
       })
       .join(", ");
+  }
+
+  /**
+   * ★ 终态走仲裁（枢纽）：终态写（done/failed）经条件 updateMany 实现"取消首写赢"——
+   *   仅当 mission 未被取消时才写终态，避免 run 后无条件写盖掉用户取消（cancelMission
+   *   已置 cancelled）。返回是否真正写入（count>0），调用方据此决定要不要 emit 终态事件。
+   *
+   *   与 CompanyMissionPersistenceAdapter.applyTerminalIfRunning（能力核执行期调用，落
+   *   __terminal + checkpoint）配套：adapter 抢仲裁权，service 写业务富结果但同样守护取消。
+   */
+  private async finalizeIfNotCancelled(
+    id: string,
+    data: {
+      status: "done" | "failed";
+      progress?: number;
+      result: Prisma.InputJsonValue;
+    },
+  ): Promise<boolean> {
+    try {
+      const res = await this.prisma.companyMission.updateMany({
+        where: { id, status: { not: "cancelled" } },
+        data,
+      });
+      return res.count > 0;
+    } catch (err: unknown) {
+      this.log.warn(
+        `finalizeIfNotCancelled ${id} db error: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return false;
+    }
   }
 
   private async updateMission(

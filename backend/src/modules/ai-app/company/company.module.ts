@@ -10,6 +10,7 @@ import { CompanyMissionGateway } from "./api/controller/company-mission.gateway"
 import { CompanyRepository } from "./services/company.repository";
 import { CompanyService } from "./services/company.service";
 import { CompanyMissionService } from "./services/company-mission.service";
+import { CompanyMissionPersistenceAdapter } from "./services/company-mission-persistence.adapter";
 import { CompanyMissionGraphService } from "./services/company-mission-graph.service";
 import { CompanyHeroService } from "./services/company-hero.service";
 import { COMPANY_MISSION_EVENTS } from "./events/company.events";
@@ -42,6 +43,9 @@ import { COMPANY_MISSION_EVENTS } from "./events/company.events";
     CompanyRepository,
     CompanyService,
     CompanyMissionService,
+    // ★ 运行态持久化（枢纽）：company 消费侧 MissionPersistencePort 实现，
+    //   注入 deep-insight 能力核 → 每阶段 checkpoint 落库 + 终态首写赢仲裁。
+    CompanyMissionPersistenceAdapter,
     CompanyMissionGraphService,
     CompanyHeroService,
     CompanyMissionGateway,
