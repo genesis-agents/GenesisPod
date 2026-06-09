@@ -114,9 +114,9 @@ export const NAV_GROUPS: NavGroup[] = [
       },
     ],
   },
-  // 发现能力（原「AI 广场」，置底）：去专家市场招募 / 去实验场试新能力
+  // 发现更多（原「AI 广场」，置底）：去专家市场招募 / 去实验场试新能力
   {
-    label: '发现能力',
+    label: '发现更多',
     items: [
       {
         href: '/marketplace',

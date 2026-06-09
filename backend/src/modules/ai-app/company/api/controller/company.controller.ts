@@ -334,6 +334,11 @@ export class CompanyController {
       this.getUserId(req),
       heroId,
       dto.title,
+      {
+        description: dto.description,
+        depth: dto.depth,
+        language: dto.language,
+      },
     );
   }
 

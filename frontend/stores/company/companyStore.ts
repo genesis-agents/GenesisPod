@@ -320,7 +320,15 @@ interface CompanyState {
     >
   ) => Promise<void>;
   removeHero: (id: string) => Promise<void>;
-  createHeroMission: (heroId: string, title: string) => Promise<string | null>;
+  createHeroMission: (
+    heroId: string,
+    title: string,
+    opts?: {
+      description?: string;
+      depth?: 'quick' | 'standard' | 'deep';
+      language?: 'zh-CN' | 'en-US';
+    }
+  ) => Promise<string | null>;
 }
 
 export const useCompanyStore = create<CompanyState>((set, get) => ({
@@ -876,11 +884,16 @@ export const useCompanyStore = create<CompanyState>((set, get) => ({
     }
   },
 
-  createHeroMission: async (heroId, title) => {
+  createHeroMission: async (heroId, title, opts) => {
     try {
       const raw = await apiClient.post<BackendMission>(
         `/company/heroes/${encodeURIComponent(heroId)}/missions`,
-        { title }
+        {
+          title,
+          description: opts?.description,
+          depth: opts?.depth,
+          language: opts?.language,
+        }
       );
       const mission = adaptMission(raw);
       set((s) => ({ missions: [mission, ...s.missions] }));

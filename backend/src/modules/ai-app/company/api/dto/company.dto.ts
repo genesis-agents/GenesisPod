@@ -7,6 +7,7 @@
 import {
   IsArray,
   IsBoolean,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -98,6 +99,23 @@ export class CreateMissionDto {
   @ApiProperty({ description: "Mission title / prompt (2–200 chars)" })
   @IsString()
   title!: string;
+
+  @ApiPropertyOptional({
+    description: "可选研究描述：背景 / 关注角度 / 约束，提升拆解质量",
+  })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional({ enum: ["quick", "standard", "deep"] })
+  @IsOptional()
+  @IsIn(["quick", "standard", "deep"])
+  depth?: "quick" | "standard" | "deep";
+
+  @ApiPropertyOptional({ enum: ["zh-CN", "en-US"] })
+  @IsOptional()
+  @IsIn(["zh-CN", "en-US"])
+  language?: "zh-CN" | "en-US";
 }
 
 export class RenameMissionDto {

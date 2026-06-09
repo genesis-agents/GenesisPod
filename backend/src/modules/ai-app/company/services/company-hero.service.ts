@@ -130,6 +130,11 @@ export class CompanyHeroService {
     userId: string,
     heroId: string,
     title: string,
+    extra?: {
+      description?: string;
+      depth?: "quick" | "standard" | "deep";
+      language?: "zh-CN" | "en-US";
+    },
   ): Promise<CompanyMission> {
     const hero = await this.prisma.companyHero.findFirst({
       where: { id: heroId, userId },
@@ -143,6 +148,7 @@ export class CompanyHeroService {
       hero.capabilityId,
       title,
       preferredModelId,
+      extra,
     );
   }
 }

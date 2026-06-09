@@ -5,11 +5,8 @@ import Link from 'next/link';
 import {
   Crown,
   Cpu,
-  Settings2,
-  Trash2,
   Send,
   Store,
-  Layers,
   X,
   Brain,
   Rocket,
@@ -18,10 +15,10 @@ import {
   Shield,
   Sparkles,
   Flame,
-  ChevronRight,
+  Wrench,
+  Workflow,
   type LucideIcon,
 } from 'lucide-react';
-import { PageHeaderHero } from '@/components/ui/page-header-hero';
 import { EmptyState } from '@/components/ui/states';
 import { Modal, ConfirmDialog } from '@/components/ui/dialogs';
 import { Button } from '@/components/ui/primitives/button';
@@ -114,23 +111,8 @@ export function HeroRosterView({
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-y-auto bg-gray-50/50">
-      <PageHeaderHero
-        module="ask"
-        icon={<Crown className="h-7 w-7 text-white" />}
-        title="我的专家"
-        subtitle="麾下专家各司其职，配好模型即可下任务，调遣他们替你完成深度工作"
-        actions={
-          <Button asChild variant="outline" size="sm">
-            <Link href="/marketplace">
-              <Store className="mr-2 h-4 w-4" />
-              去专家市场
-            </Link>
-          </Button>
-        }
-      />
-
-      <div className="mx-auto w-full max-w-7xl px-8 pb-12 pt-6">
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto w-full max-w-7xl px-8 pb-12 pt-5">
         {heroes.length === 0 ? (
           <EmptyState
             type="noData"
@@ -182,7 +164,9 @@ function HeroCard({
 }) {
   const { removeHero } = useCompanyStore();
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [skillsOpen, setSkillsOpen] = useState(false);
+  const [drawerFocus, setDrawerFocus] = useState<
+    null | 'skills' | 'tools' | 'workflow'
+  >(null);
 
   const capability = useMemo(
     () => resolveCapability(hero.capabilityId, workflows),
@@ -212,6 +196,10 @@ function HeroCard({
               ]
             : []
         }
+        isOwner
+        onEdit={onConfig}
+        onDelete={() => setConfirmOpen(true)}
+        labels={{ edit: '配置', delete: '移除' }}
         stats={[
           {
             key: 'model',
@@ -221,93 +209,85 @@ function HeroCard({
                 ? `${hero.models.length} 个模型`
                 : '引擎自动择优',
           },
-          ...(capability.stages.length > 0
-            ? [
-                {
-                  key: 'stages',
-                  icon: <Layers className="h-3.5 w-3.5" />,
-                  text: `${capability.stages.length} 阶段`,
-                },
-              ]
-            : []),
         ]}
         customSection={
-          <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs font-medium">
             {capability.stages.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {capability.stages.slice(0, 5).map((stage) => (
-                  <span
-                    key={stage}
-                    className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
-                  >
-                    {stage}
-                  </span>
-                ))}
-              </div>
-            )}
-            {(capability.skillIds.length > 0 ||
-              capability.toolIds.length > 0) && (
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setSkillsOpen(true);
+                  setDrawerFocus('workflow');
                 }}
-                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                className="inline-flex items-center gap-1 text-primary hover:underline"
               >
-                {capability.skillIds.length} 技能 · {capability.toolIds.length}{' '}
-                工具
-                <ChevronRight className="h-3 w-3" />
+                <Workflow className="h-3.5 w-3.5" />
+                {capability.stages.length} 步工作流
+              </button>
+            )}
+            {capability.skillIds.length > 0 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDrawerFocus('skills');
+                }}
+                className="inline-flex items-center gap-1 text-primary hover:underline"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                {capability.skillIds.length} 技能
+              </button>
+            )}
+            {capability.toolIds.length > 0 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDrawerFocus('tools');
+                }}
+                className="inline-flex items-center gap-1 text-primary hover:underline"
+              >
+                <Wrench className="h-3.5 w-3.5" />
+                {capability.toolIds.length} 工具
               </button>
             )}
           </div>
         }
         footerExtra={
-          <div className="flex w-full items-center gap-2">
+          <div className="flex w-full">
             {onDispatch ? (
-              <Button size="sm" className="flex-1" onClick={onDispatch}>
+              <Button size="sm" className="w-full" onClick={onDispatch}>
                 <Send className="mr-1.5 h-4 w-4" />
                 下任务
               </Button>
             ) : (
-              <Button asChild size="sm" className="flex-1">
+              <Button asChild size="sm" className="w-full">
                 <Link href="/missions">
                   <Send className="mr-1.5 h-4 w-4" />
                   下任务
                 </Link>
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={onConfig}>
-              <Settings2 className="mr-1.5 h-4 w-4" />
-              配置
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setConfirmOpen(true)}
-              aria-label="移除专家"
-              className="h-9 w-9 text-gray-400 hover:text-destructive"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-            <ConfirmDialog
-              open={confirmOpen}
-              onClose={() => setConfirmOpen(false)}
-              onConfirm={() => removeHero(hero.id)}
-              type="danger"
-              title={`移除「${hero.name}」？`}
-              description="移除后该专家将从你的麾下消失，可随时再去市场招募。"
-              confirmText="移除"
-            />
           </div>
         }
       />
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={() => removeHero(hero.id)}
+        type="danger"
+        title={`移除「${hero.name}」？`}
+        description="移除后该专家将从你的团队移除，可随时再去市场招募。"
+        confirmText="移除"
+      />
       <HeroSkillToolDrawer
-        open={skillsOpen}
-        onClose={() => setSkillsOpen(false)}
+        open={drawerFocus !== null}
+        onClose={() => setDrawerFocus(null)}
         expertName={hero.name}
+        focus={drawerFocus ?? 'all'}
         skillIds={capability.skillIds}
         toolIds={capability.toolIds}
+        stages={capability.stages}
       />
     </>
   );

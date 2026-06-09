@@ -69,7 +69,17 @@ function toListItem(m: CompanyMission): MissionListItem {
   };
 }
 
-export function MissionRunView() {
+const DEPTH_OPTIONS = [
+  { value: 'quick', label: '快速', hint: '~5 分钟' },
+  { value: 'standard', label: '标准', hint: '~10 分钟' },
+  { value: 'deep', label: '深度', hint: '~20 分钟' },
+] as const;
+
+export function MissionRunView({
+  embedded = false,
+}: {
+  embedded?: boolean;
+} = {}) {
   const {
     heroes,
     missions,
@@ -102,6 +112,10 @@ export function MissionRunView() {
     null
   );
   const [renameValue, setRenameValue] = useState('');
+  // 下发任务富化输入（参考 playground）：描述 / 调研规模 / 语言
+  const [description, setDescription] = useState('');
+  const [depth, setDepth] = useState<'quick' | 'standard' | 'deep'>('deep');
+  const [language, setLanguage] = useState<'zh-CN' | 'en-US'>('zh-CN');
 
   const { events: wsEvents } = useCompanyMissionStream(activeMissionId);
   // 详情态第二路订阅：为当前打开的报告 mission 订阅实时事件（注入 collab tab）
@@ -201,7 +215,9 @@ export function MissionRunView() {
   const dispatch = async () => {
     if (!activeHero || !title.trim() || running) return;
     const taskTitle = title.trim();
+    const taskDescription = description.trim();
     setTitle('');
+    setDescription('');
     setStageStatus({ planning: 'active' });
     setActiveMissionId(null);
     processedTsRef.current = 0;
@@ -209,7 +225,11 @@ export function MissionRunView() {
     runningRef.current = true;
     setDispatchOpen(false);
 
-    const missionId = await createHeroMission(activeHero.id, taskTitle);
+    const missionId = await createHeroMission(activeHero.id, taskTitle, {
+      description: taskDescription || undefined,
+      depth,
+      language,
+    });
     if (!missionId) {
       setRunning(false);
       runningRef.current = false;
@@ -389,7 +409,7 @@ export function MissionRunView() {
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-500">
-                  任务
+                  任务话题
                 </label>
                 <Input
                   value={title}
@@ -400,12 +420,70 @@ export function MissionRunView() {
                   placeholder="例如：调研 Q3 竞品定价并给出建议"
                 />
               </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-500">
+                  研究描述
+                  <span className="ml-2 font-normal text-gray-400">
+                    选填——给更完整的背景 / 关注角度 / 约束，明显提升拆解质量
+                  </span>
+                </label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={4}
+                  maxLength={4000}
+                  placeholder="例如：聚焦头部 3 家厂商，时间窗口近 12 个月，重点对比定价策略与商业化打法。"
+                  className="w-full resize-y rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-500">
+                    调研规模
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {DEPTH_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setDepth(opt.value)}
+                        className={`flex flex-col items-center rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors ${
+                          depth === opt.value
+                            ? 'border-primary bg-primary/5 text-primary'
+                            : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                        }`}
+                      >
+                        {opt.label}
+                        <span className="mt-0.5 text-xs font-normal text-gray-400">
+                          {opt.hint}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-500">
+                    输出语言
+                  </label>
+                  <select
+                    value={language}
+                    onChange={(e) =>
+                      setLanguage(e.target.value as 'zh-CN' | 'en-US')
+                    }
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="zh-CN">中文</option>
+                    <option value="en-US">English</option>
+                  </select>
+                </div>
+              </div>
             </>
           )}
         </div>
       </Modal>
 
       <MissionGalleryView
+        hideHeader={embedded}
         title="专家任务"
         subtitle="派专家执行任务，实时看协作过程，完成后查看完整研究报告"
         iconGradient={MODULE_THEMES.ask.gradient}

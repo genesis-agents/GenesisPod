@@ -54,6 +54,13 @@ type TaskProfile = {
     | "extended";
 };
 
+/** Hero 派单可选富化输入（透传到能力 runner，与 CapabilityRunInput 子集对齐）。 */
+type HeroMissionExtra = {
+  description?: string;
+  depth?: "quick" | "standard" | "deep";
+  language?: "zh-CN" | "en-US";
+};
+
 /**
  * 前端模型档位（Opus/Sonnet/Haiku 展示名）→ 引擎 modelType。
  * 不把档位名当真实 model id 传（那会解析失败），统一走 modelType，由引擎按 TaskProfile + fallback 链选模型。
@@ -172,6 +179,7 @@ export class CompanyMissionService {
     capabilityId: string,
     title: string,
     preferredModelId: string,
+    extra?: HeroMissionExtra,
   ): Promise<CompanyMission> {
     const mission = await this.prisma.companyMission.create({
       data: {
@@ -191,6 +199,7 @@ export class CompanyMissionService {
       capabilityId,
       mission.title,
       preferredModelId,
+      extra,
     ).catch((err: unknown) => {
       this.log.error(
         `CompanyHero mission ${mission.id} run failed (outer catch): ${err instanceof Error ? err.message : String(err)}`,
@@ -210,6 +219,7 @@ export class CompanyMissionService {
     capabilityId: string,
     title: string,
     preferredModelId: string,
+    extra?: HeroMissionExtra,
   ): Promise<void> {
     await this.updateMission(missionId, { status: "running", progress: 0 });
     await this.emit("company.mission:started", missionId, userId, {
@@ -234,6 +244,7 @@ export class CompanyMissionService {
         runner,
         preferredModelId || undefined,
         controller.signal,
+        extra,
       );
     } catch (err: unknown) {
       // 用户取消：cancelMission 已置 cancelled 状态并广播，run 抛出的 AbortError
@@ -527,9 +538,16 @@ export class CompanyMissionService {
     runner: ICapabilityRunner,
     preferredModelId?: string,
     signal?: AbortSignal,
+    extra?: HeroMissionExtra,
   ): Promise<void> {
     const result = await runner.run(
-      { topic, ...(preferredModelId ? { preferredModelId } : {}) },
+      {
+        topic,
+        ...(preferredModelId ? { preferredModelId } : {}),
+        ...(extra?.description ? { description: extra.description } : {}),
+        ...(extra?.depth ? { depth: extra.depth } : {}),
+        ...(extra?.language ? { language: extra.language } : {}),
+      },
       {
         userId,
         missionId,

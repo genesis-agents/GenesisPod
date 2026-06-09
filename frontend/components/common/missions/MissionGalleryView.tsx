@@ -276,8 +276,10 @@ export interface MissionGalleryViewProps {
   searchPlaceholder?: string;
   /** 强制 reload 触发器（外部 inc 后组件 re-fetch）*/
   reloadKey?: number;
-  /** 列表区标题（默认"我的任务"；company 侧传"英雄任务"）。 */
+  /** 列表区标题（默认"我的任务"；company 侧传"专家任务"）。 */
   listHeading?: string;
+  /** 隐藏大页头（嵌入「我的团队」双 Tab 时用）：只保留搜索 + 新建工具条。 */
+  hideHeader?: boolean;
 }
 
 export function MissionGalleryView({
@@ -296,6 +298,7 @@ export function MissionGalleryView({
   searchPlaceholder = '按 topic 或报告内容搜索…',
   reloadKey = 0,
   listHeading = '我的任务',
+  hideHeader = false,
 }: MissionGalleryViewProps) {
   const [missions, setMissions] = useState<MissionListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -370,25 +373,13 @@ export function MissionGalleryView({
     : undefined;
 
   return (
-    <div className="h-full min-w-0 flex-1 overflow-auto bg-gray-50">
-      {/* Header — 走公共 PageHeaderHero */}
-      <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
-        <PageHeaderHero
-          title={title}
-          subtitle={subtitle}
-          icon={<Sparkles className="h-7 w-7 text-white" />}
-          iconGradient={iconGradient}
-          iconShadowClass={iconShadowClass}
-          actions={
-            showSignInPrompt ? null : (
-              <Button onClick={onCreateMission}>
-                <Plus className="mr-2 h-5 w-5" />
-                {createButtonLabel}
-              </Button>
-            )
-          }
-        >
-          <div className="relative">
+    <div
+      className={`h-full min-w-0 flex-1 overflow-auto ${hideHeader ? '' : 'bg-gray-50'}`}
+    >
+      {hideHeader ? (
+        /* 嵌入模式：无大页头，只留搜索 + 新建工具条 */
+        <div className="flex items-center gap-3 px-8 pt-5">
+          <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <Input
               type="text"
@@ -398,8 +389,44 @@ export function MissionGalleryView({
               className="rounded-xl py-3 pl-12"
             />
           </div>
-        </PageHeaderHero>
-      </div>
+          {!showSignInPrompt && (
+            <Button onClick={onCreateMission}>
+              <Plus className="mr-2 h-5 w-5" />
+              {createButtonLabel}
+            </Button>
+          )}
+        </div>
+      ) : (
+        /* Header — 走公共 PageHeaderHero */
+        <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
+          <PageHeaderHero
+            title={title}
+            subtitle={subtitle}
+            icon={<Sparkles className="h-7 w-7 text-white" />}
+            iconGradient={iconGradient}
+            iconShadowClass={iconShadowClass}
+            actions={
+              showSignInPrompt ? null : (
+                <Button onClick={onCreateMission}>
+                  <Plus className="mr-2 h-5 w-5" />
+                  {createButtonLabel}
+                </Button>
+              )
+            }
+          >
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+              <Input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={searchPlaceholder}
+                className="rounded-xl py-3 pl-12"
+              />
+            </div>
+          </PageHeaderHero>
+        </div>
+      )}
 
       {/* Body */}
       <div className="px-8 py-6">

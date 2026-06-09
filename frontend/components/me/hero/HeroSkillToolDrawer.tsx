@@ -1,6 +1,13 @@
 'use client';
 
-import { Sparkles, Wrench, ShieldAlert, ShieldCheck, Eye } from 'lucide-react';
+import {
+  Sparkles,
+  Wrench,
+  Workflow,
+  ShieldAlert,
+  ShieldCheck,
+  Eye,
+} from 'lucide-react';
 import { SideDrawer } from '@/components/common/drawers/SideDrawer';
 import { EmptyState } from '@/components/ui/states';
 import { findListing } from '@/components/marketplace/marketplace.catalog';
@@ -27,6 +34,10 @@ interface Props {
   expertName: string;
   skillIds: string[];
   toolIds: string[];
+  /** 工作流阶段（打法），focus='workflow' 时展示。 */
+  stages?: string[];
+  /** 聚焦展示：'skills' 技能 / 'tools' 工具 / 'workflow' 工作流 / 'all' 技能+工具（默认）。 */
+  focus?: 'skills' | 'tools' | 'workflow' | 'all';
 }
 
 /**
@@ -41,7 +52,12 @@ export function HeroSkillToolDrawer({
   expertName,
   skillIds,
   toolIds,
+  stages = [],
+  focus = 'all',
 }: Props) {
+  const showSkills = focus === 'all' || focus === 'skills';
+  const showTools = focus === 'all' || focus === 'tools';
+  const showWorkflow = focus === 'workflow';
   const skills = skillIds
     .map((id) => findListing(id))
     .filter((l): l is SkillListing => l?.kind === 'skill');
@@ -52,15 +68,21 @@ export function HeroSkillToolDrawer({
     (id) => !skills.some((s) => s.id === id)
   );
   const missingTools = toolIds.filter((id) => !tools.some((t) => t.id === id));
-  const empty = skillIds.length === 0 && toolIds.length === 0;
+  const empty = showWorkflow
+    ? stages.length === 0
+    : (!showSkills || skillIds.length === 0) &&
+      (!showTools || toolIds.length === 0);
+  const title =
+    focus === 'skills'
+      ? `${expertName} · 技能`
+      : focus === 'tools'
+        ? `${expertName} · 工具`
+        : focus === 'workflow'
+          ? `${expertName} · 工作流`
+          : `${expertName} · 技能与工具`;
 
   return (
-    <SideDrawer
-      open={open}
-      onClose={onClose}
-      title={`${expertName} · 技能与工具`}
-      widthPx={520}
-    >
+    <SideDrawer open={open} onClose={onClose} title={title} widthPx={520}>
       {empty ? (
         <div className="p-6">
           <EmptyState
@@ -72,8 +94,34 @@ export function HeroSkillToolDrawer({
         </div>
       ) : (
         <div className="space-y-6 p-5">
+          {/* 工作流（打法） */}
+          {showWorkflow && stages.length > 0 && (
+            <section>
+              <div className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-gray-900">
+                <Workflow className="h-4 w-4 text-violet-500" />
+                工作流
+                <span className="text-xs font-normal text-gray-400">
+                  {stages.length} 步
+                </span>
+              </div>
+              <ol className="space-y-2">
+                {stages.map((stage, i) => (
+                  <li
+                    key={`${stage}-${i}`}
+                    className="flex items-start gap-2 rounded-lg border border-gray-100 bg-gray-50/60 p-3"
+                  >
+                    <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-semibold text-violet-700">
+                      {i + 1}
+                    </span>
+                    <span className="text-sm text-gray-800">{stage}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+
           {/* 技能 */}
-          {(skills.length > 0 || missingSkills.length > 0) && (
+          {showSkills && (skills.length > 0 || missingSkills.length > 0) && (
             <section>
               <div className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-gray-900">
                 <Sparkles className="h-4 w-4 text-amber-500" />
@@ -133,7 +181,7 @@ export function HeroSkillToolDrawer({
           )}
 
           {/* 工具 */}
-          {(tools.length > 0 || missingTools.length > 0) && (
+          {showTools && (tools.length > 0 || missingTools.length > 0) && (
             <section>
               <div className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-gray-900">
                 <Wrench className="h-4 w-4 text-blue-500" />

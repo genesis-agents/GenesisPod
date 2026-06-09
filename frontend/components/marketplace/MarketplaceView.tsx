@@ -9,7 +9,9 @@ import {
   Plus,
   Search,
   Users,
-  ChevronRight,
+  Workflow,
+  Sparkles,
+  Wrench,
 } from 'lucide-react';
 import { PageHeaderHero } from '@/components/ui/page-header-hero';
 import { LoadingState } from '@/components/ui/states/LoadingState';
@@ -141,7 +143,9 @@ function HeroCard({
 }) {
   const meta = KIND_META.workflow;
   const Icon = meta.Icon;
-  const [skillsOpen, setSkillsOpen] = useState(false);
+  const [drawerFocus, setDrawerFocus] = useState<
+    null | 'skills' | 'tools' | 'workflow'
+  >(null);
 
   return (
     <>
@@ -165,47 +169,44 @@ function HeroCard({
           },
         ]}
         customSection={
-          <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs font-medium">
             {hero.stages.length > 0 && (
-              <div>
-                <p className="mb-1.5 text-xs font-medium text-gray-400">
-                  自带打法
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {hero.stages.map((stage, i) => (
-                    <span
-                      key={`${stage}-${i}`}
-                      className={cn(
-                        'rounded-full px-2 py-0.5 text-xs font-medium',
-                        meta.soft,
-                        meta.text
-                      )}
-                    >
-                      {stage}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {hero.roles.length > 0 && (
-              <p className="line-clamp-1 text-xs text-gray-500">
-                阵型：{hero.roles.slice(0, 3).join(' · ')}
-                {hero.roles.length > 3 ? ' …' : ''}
-              </p>
-            )}
-            {((hero.skillIds?.length ?? 0) > 0 ||
-              (hero.toolIds?.length ?? 0) > 0) && (
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setSkillsOpen(true);
+                  setDrawerFocus('workflow');
                 }}
-                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                className="inline-flex items-center gap-1 text-primary hover:underline"
               >
-                {hero.skillIds?.length ?? 0} 技能 · {hero.toolIds?.length ?? 0}{' '}
-                工具
-                <ChevronRight className="h-3 w-3" />
+                <Workflow className="h-3.5 w-3.5" />
+                {hero.stages.length} 步工作流
+              </button>
+            )}
+            {(hero.skillIds?.length ?? 0) > 0 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDrawerFocus('skills');
+                }}
+                className="inline-flex items-center gap-1 text-primary hover:underline"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                {hero.skillIds?.length ?? 0} 技能
+              </button>
+            )}
+            {(hero.toolIds?.length ?? 0) > 0 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDrawerFocus('tools');
+                }}
+                className="inline-flex items-center gap-1 text-primary hover:underline"
+              >
+                <Wrench className="h-3.5 w-3.5" />
+                {hero.toolIds?.length ?? 0} 工具
               </button>
             )}
           </div>
@@ -228,11 +229,13 @@ function HeroCard({
         }
       />
       <HeroSkillToolDrawer
-        open={skillsOpen}
-        onClose={() => setSkillsOpen(false)}
+        open={drawerFocus !== null}
+        onClose={() => setDrawerFocus(null)}
         expertName={hero.name}
+        focus={drawerFocus ?? 'all'}
         skillIds={hero.skillIds ?? []}
         toolIds={hero.toolIds ?? []}
+        stages={hero.stages}
       />
     </>
   );

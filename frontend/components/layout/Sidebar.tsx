@@ -248,7 +248,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
       {/* Main Navigation —— 单一数据源 NAV_GROUPS（与 MobileNav 同源，杜绝漂移） */}
       <nav className="scrollbar-thin flex-1 overflow-y-auto overflow-x-hidden px-3 py-2">
-        <div className="space-y-1">
+        <div className="space-y-5">
           {NAV_GROUPS.filter((g) => !g.hidden).map((group, gi) => {
             const items = group.items.filter((it) => !it.adminOnly || isAdmin);
             if (items.length === 0) return null;
