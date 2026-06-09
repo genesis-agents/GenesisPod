@@ -72,13 +72,15 @@ describe("P0-A — stage lifecycle emit via orchestrator bridge (no longer in st
     expect(src).toContain('event.type === "stage:failed"');
   });
 
-  it("dispatcher bridges onEvent to orchestrator.run()", () => {
+  it("dispatcher bridges onEvent to capability runner.run()", () => {
+    // ★ #16b 硬切：私有 orchestrator.run 退役，dispatcher 改消费能力核
+    //   runner.run()。onEvent 必须仍接到执行器调用，并桥到 playground 事件出口。
     const src = read(dispatcherFile);
-    // onEvent must be wired into orchestrator.run() call
-    const runIdx = src.indexOf("orchestrator.run(");
+    const runIdx = src.indexOf("runner.run(");
     expect(runIdx).toBeGreaterThan(-1);
     const segment = src.slice(runIdx, runIdx + 800);
     expect(segment).toContain("onEvent");
+    expect(segment).toContain("bridgeCapabilityEventToPlayground");
   });
 
   // The 5 stage files that previously had no emit.  After 2026-05-06 single-track
@@ -140,8 +142,7 @@ describe("P0-A — stage lifecycle emit via orchestrator bridge (no longer in st
 // ---------------------------------------------------------------------------
 
 describe("P0-B — MissionLivenessGuard staleThresholdMs >= 15 min in playground", () => {
-  const moduleFile =
-    "ai-app/playground/module/playground.module.ts";
+  const moduleFile = "ai-app/playground/module/playground.module.ts";
 
   it("playground module registers liveness adapter with staleThresholdMs", () => {
     const src = read(moduleFile);
@@ -324,12 +325,10 @@ describe("P0-D — trajectory persistence methods exist in MissionStore", () => 
 
 describe("P0-8de5d02b0 — leader:goals-set initialRisks schema is object[]", () => {
   it("playground event schemas file registers leader:goals-set", () => {
-    const schemasFile =
-      "ai-app/playground/events/playground.event-schemas.ts";
+    const schemasFile = "ai-app/playground/events/playground.event-schemas.ts";
     if (!exists(schemasFile)) {
       // May be inline registered; check events file
-      const eventsFile =
-        "ai-app/playground/events/playground.events.ts";
+      const eventsFile = "ai-app/playground/events/playground.events.ts";
       const src = read(eventsFile);
       // goals-set must appear
       expect(src).toContain("goals-set");
