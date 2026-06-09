@@ -66,13 +66,13 @@ export const NAV_GROUPS: NavGroup[] = [
       },
     ],
   },
-  // 我的工作台：我的前沿（前沿信息感知）/ 我的知识库 / 我的团队（专家花名册 + 专家任务双 Tab）
+  // 我的工作台：我的前沿库（前沿信息感知）/ 我的知识库 / 我的专家团（专家花名册 + 专家任务双 Tab）
   {
     label: '我的工作台',
     items: [
       {
         href: '/explore',
-        label: '我的前沿',
+        label: '我的前沿库',
         Icon: Telescope,
         moduleKey: 'explore',
         forceReload: true,
@@ -84,7 +84,7 @@ export const NAV_GROUPS: NavGroup[] = [
         moduleKey: 'library',
         forceReload: true,
       },
-      { href: '/agents', label: '我的团队', Icon: Users, matchPrefix: true },
+      { href: '/agents', label: '我的专家团', Icon: Users, matchPrefix: true },
     ],
   },
   // 深度洞察
