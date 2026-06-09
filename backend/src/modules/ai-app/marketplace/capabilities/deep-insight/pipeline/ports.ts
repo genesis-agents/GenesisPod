@@ -133,4 +133,7 @@ export const CS_KEY = {
   //   （按 dimension 名索引）。S3 perItemPipeline 命中即复用、跳过 researcher 调用，
   //   等价 OFF 路 hydrateInheritedResearchResults。与 researcherResults 分桶避免重复 append。
   inheritedResearch: "deep-insight.inheritedResearch",
+  // ★ goals（s2 plan → s4/s10 myPlan.goals）：leader plan 产出的 Goals 对象，
+  //   供 s4 assess-research myPlan + s10 foreword/signoff myPlan 使用。
+  goals: "deep-insight.goals",
 } as const;

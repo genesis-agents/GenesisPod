@@ -15,6 +15,7 @@
  */
 import { MissionPipelineRegistry } from "@/modules/ai-harness/facade";
 import { MissionPipelineOrchestrator } from "@/modules/ai-harness/facade";
+import { readDefineAgentMeta } from "@/modules/ai-harness/facade";
 import { CapabilityRegistry } from "../../../capability/capability-registry";
 import { DeepInsightDefaultRunner } from "../deep-insight.runner";
 import { DEEP_INSIGHT_PIPELINE } from "../recipe/deep-insight.recipe";
@@ -41,21 +42,104 @@ function makeAgentRunner() {
   return { run, calls };
 }
 
+/**
+ * 契约校验 runner：每次 agentRunner.run 时把 bindings 构建的 input 用**真 agent
+ * inputSchema**（@DefineAgent metadata）safeParse，收集违规。
+ *
+ * 防的是 depth:"Required" 这类回归——bindings 漏传 agent 必填字段，普通 mock runner
+ * 不校验 input 会静默放过，但真 LLM 下 agentRunner 校验必失败（mission 直接挂）。
+ */
+function makeContractValidatingRunner() {
+  const violations: Array<{ agentId: string; errors: string }> = [];
+  const run = jest.fn(async (Spec: { name?: string }, input: unknown) => {
+    const meta = readDefineAgentMeta(Spec as object);
+    const schema = meta?.inputSchema;
+    if (schema) {
+      const parsed = schema.safeParse(input);
+      if (!parsed.success) {
+        violations.push({
+          agentId: meta?.id ?? Spec?.name ?? "unknown",
+          errors: parsed.error.issues
+            .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+            .join("; "),
+        });
+      }
+    }
+    const agentId = (Spec?.name ?? "unknown").toLowerCase();
+    return {
+      output: routeOutput(agentId, input),
+      state: "completed" as const,
+      tokensUsed: { prompt: 1, completion: 1, total: 2 },
+      costCents: 1,
+    };
+  });
+  return { run, violations };
+}
+
 function routeOutput(agentId: string, input: unknown): unknown {
   const phase = (input as { phase?: string }).phase;
   if (agentId.includes("leader") || phase) {
     if (phase === "plan") {
       return {
-        themeSummary: "theme",
+        phase: "plan",
+        themeSummary: "theme summary for the research topic",
         dimensions: [
-          { id: "d1", name: "维度一", rationale: "r1" },
-          { id: "d2", name: "维度二", rationale: "r2" },
+          {
+            id: "d1",
+            name: "维度一",
+            rationale: "r1",
+            toolHint: { categories: ["general"] },
+          },
+          {
+            id: "d2",
+            name: "维度二",
+            rationale: "r2",
+            toolHint: { categories: ["general"] },
+          },
         ],
+        goals: {
+          successCriteria: [
+            "完成深度研究报告，覆盖所有关键维度",
+            "每个维度至少包含3个高质量来源",
+          ],
+          qualityBar: { minSources: 0, minCoverage: 0, hardConstraints: [] },
+          deliverables: ["研究报告", "关键洞察摘要"],
+        },
+        initialRisks: [],
       };
     }
-    if (phase === "assess-research") return { decision: "continue" };
-    if (phase === "signoff")
-      return { signed: true, leaderOverallScore: 82, verdict: "approve" };
+    if (phase === "assess-research")
+      return {
+        decision: "accept-all",
+        rationale: "all dimensions have sufficient coverage",
+        perDimension: [],
+        newDimensions: [],
+      };
+    if (phase === "foreword") {
+      return {
+        phase: "foreword",
+        whatWeAnswered: [
+          {
+            criterion: "研究目标完成度",
+            addressed: "yes" as const,
+            evidence: "所有维度均已完成深度研究和分析",
+          },
+        ],
+        whatRemainsUnclear: [],
+        howToRead: "本报告按维度组织，建议先阅读执行摘要再深入各章节",
+        recommendedFollowUp: [],
+      };
+    }
+    if (phase === "signoff") {
+      return {
+        phase: "signoff",
+        leaderOverallScore: 82,
+        leaderVerdict: "good" as const,
+        accountabilityNote:
+          "我在M0阶段制定了明确的研究计划，所有维度均按计划完成。本次研究覆盖了预设的所有成功标准，质量符合要求。",
+        signed: true,
+      };
+    }
     return {};
   }
   if (agentId.includes("researcher")) {
@@ -159,24 +243,41 @@ function makeRichStubs() {
         }
         const fullMarkdown = parts.join("\n\n");
         return {
-          title: wr.title,
+          title: wr.title ?? "报告",
           content: {
             fullMarkdown,
             fullReportSize: Buffer.byteLength(fullMarkdown, "utf8"),
           },
           sections: (wr.sections ?? []).map((s, i) => ({
             id: `chapter-${i + 1}`,
-            title: s.heading ?? "",
-            content: s.body ?? "",
+            // ★ 同时提供 title（s10 writerSections map 用）+ content（s8b remediaton 用）
+            title: s.heading ?? `Section ${i + 1}`,
+            content: s.body ?? "内容",
             citationIds: [],
             figureIds: [],
           })),
           citations: [],
           figures: [],
-          quickView: {},
+          quickView: {
+            executiveSummary: {
+              markdown:
+                "本报告综合了多维度的深度研究，提供了全面的分析与洞察。",
+            },
+            conclusion: {
+              markdown:
+                "综合以上研究，本报告提供了深入的分析与见解，建议进一步关注相关领域的发展动态。",
+            },
+          },
           factTable: [],
-          metadata: {},
-          quality: { overall: 75, dimensions: {}, warnings: [] },
+          // ★ metadata 补 wordCount（s10 finalQuality.wordCount）
+          metadata: { wordCount: 2000 },
+          // ★ quality 补 finalVerdict（s10 qualitySnapshot.finalVerdict）
+          quality: {
+            overall: 75,
+            dimensions: { coverage: 70, lengthAccuracy: 80 },
+            finalVerdict: "acceptable",
+            warnings: [],
+          },
         };
       },
     ),
@@ -312,6 +413,18 @@ describe("deep-insight 14 阶段执行内核（W2）", () => {
       expect(stageCompleted).toContain(id);
       expect(systemStageIds.has(id)).toBe(true);
     }
+  });
+
+  it("契约守护：每个 stage 给 agent 的 input 通过真 inputSchema 校验（防 depth:Required 类回归）", async () => {
+    const validating = makeContractValidatingRunner();
+    const { runner } = makeRunnerWith(validating as never, makeRichStubs());
+    const res = await runner.run(
+      { topic: "AI 2026", depth: "standard", language: "zh-CN" },
+      { userId: "u", missionId: "m-contract" },
+    );
+    expect(res.status).toBe("completed");
+    // 任何 binding 漏传 agent 必填字段 → safeParse 失败 → 这里红，带 agentId + 字段名。
+    expect(validating.violations).toEqual([]);
   });
 
   it("crossState 逐级传递 → 终态报告 + 引用 + 算力 + reviewVerdict", async () => {

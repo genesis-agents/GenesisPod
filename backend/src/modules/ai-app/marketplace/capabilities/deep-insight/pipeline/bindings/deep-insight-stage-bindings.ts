@@ -61,10 +61,28 @@ export interface RichServices {
   readonly figureRelevance: FigureRelevanceService;
 }
 
-/** plan 阶段产物（维度拆解）。 */
+/** plan 阶段的 Goals 形状（来自 leader plan Output.goals，供 s4/s10 myPlan.goals）。 */
+interface GoalsShape {
+  successCriteria: string[];
+  qualityBar: {
+    minSources: number;
+    minCoverage: number;
+    hardConstraints: string[];
+  };
+  deliverables: string[];
+}
+
+/** plan 阶段产物（维度拆解 + goals）。 */
 interface PlanResult {
   themeSummary: string;
-  dimensions: { id: string; name: string; rationale: string }[];
+  dimensions: {
+    id: string;
+    name: string;
+    rationale: string;
+    toolHint?: { categories: string[]; preferIds?: string[] };
+    facet?: string;
+  }[];
+  goals?: GoalsShape;
 }
 
 /** 单维 researcher 产物（findings + summary）。 */
@@ -168,6 +186,9 @@ export class DeepInsightStageBindings implements StageBindings {
             phase: "plan",
             topic: input.topic,
             language: input.language,
+            // ★ leader agent input schema 要求 depth 必填（深度档位决定维度数 target）。
+            //   缺省回退 standard，避免硬切到能力轨后真 LLM 校验 "depth: Required" 失败。
+            depth: input.invocation.depth ?? "standard",
             ...(input.invocation.description
               ? { description: input.invocation.description }
               : {}),
@@ -181,6 +202,10 @@ export class DeepInsightStageBindings implements StageBindings {
         });
         const plan = this.normalizePlan(res.output, input.topic);
         full.crossStageState.set<PlanResult>(CS_KEY.plan, plan);
+        // ★ goals 单独存一份方便 s4/s10 快速取（plan 整体也有，两份同步无冗余风险）。
+        if (plan.goals) {
+          full.crossStageState.set<GoalsShape>(CS_KEY.goals, plan.goals);
+        }
         return plan;
       },
       extractPlanFields: (raw: unknown) => {
@@ -294,6 +319,60 @@ export class DeepInsightStageBindings implements StageBindings {
           full.crossStageState.get<ResearcherResult[]>(
             CS_KEY.researcherResults,
           ) ?? [];
+        // ★ goals + dimensions 合成真实 myPlan（对齐 s4-leader-assess-research.stage.ts:84-124）。
+        const goals: GoalsShape = full.crossStageState.get<GoalsShape>(
+          CS_KEY.goals,
+        ) ??
+          plan?.goals ?? {
+            successCriteria: ["完成研究报告，覆盖所有关键维度"],
+            qualityBar: { minSources: 0, minCoverage: 0, hardConstraints: [] },
+            deliverables: ["研究报告"],
+          };
+        const minSourcesRequired = goals.qualityBar.minSources ?? 0;
+        // ★ researcherOutcomes 按 OFF 路 s4 stage:84-124 真实构造（非直传 researcherResults）。
+        const researcherOutcomes = (plan?.dimensions ?? []).map((d) => {
+          const r = researcherResults.find((x) => x.dimension === d.name);
+          const findings = r?.findings ?? [];
+          const summary = r?.summary ?? "";
+          const state: "completed" | "degraded" | "failed" =
+            findings.length === 0
+              ? "failed"
+              : summary.startsWith("(failed") || summary.startsWith("(error")
+                ? "degraded"
+                : "completed";
+          const sources = findings
+            .map((f) => f.source)
+            .filter((s): s is string => typeof s === "string")
+            .slice(0, 5);
+          const meetsMinSources =
+            minSourcesRequired === 0 || findings.length >= minSourcesRequired;
+          const minSourcesDelta = Math.max(
+            0,
+            minSourcesRequired - findings.length,
+          );
+          // uniqueDomains: 简单按 sources 去重域名数。
+          const uniqueDomains = new Set(
+            sources.map((s) => {
+              try {
+                return new URL(s).hostname;
+              } catch {
+                return s;
+              }
+            }),
+          ).size;
+          return {
+            dimensionId: d.id,
+            dimensionName: d.name,
+            state,
+            findingsCount: findings.length,
+            sources,
+            summary: summary.slice(0, 300),
+            meetsMinSources,
+            minSourcesRequired,
+            minSourcesDelta,
+            uniqueDomains,
+          };
+        });
         try {
           const res = await invokeAgent({
             runner: this.runner,
@@ -302,8 +381,8 @@ export class DeepInsightStageBindings implements StageBindings {
               phase: "assess-research",
               topic: input.topic,
               language: input.language,
-              plan,
-              researcherResults,
+              myPlan: { goals, dimensions: plan?.dimensions ?? [] },
+              researcherOutcomes,
             },
             invocation: input.invocation,
             crossStageState: full.crossStageState,
@@ -723,16 +802,81 @@ export class DeepInsightStageBindings implements StageBindings {
   ): Promise<{ verdict: unknown; score?: number }> {
     const full = this.fullArgs(ctx);
     const input = readPipelineInput(full.ctx);
-    const report =
-      full.crossStageState.get(CS_KEY.reportArtifact) ??
+    const artifact =
+      asArtifact(full.crossStageState.get(CS_KEY.reportArtifact)) ??
       full.crossStageState.get(CS_KEY.report);
+    // ★ draftReport 从 reportArtifact 映射为 ResearchReportSchema 合法形状
+    //   （title≥2, summary≥20, sections≥1 且 heading+body 非空, conclusion≥20）。
+    const rawSections = (artifact as { sections?: unknown[] } | undefined)
+      ?.sections;
+    const mappedSections =
+      Array.isArray(rawSections) && rawSections.length > 0
+        ? rawSections.map((s: unknown) => {
+            const sec = s as Record<string, unknown>;
+            const heading = String(sec.title ?? sec.heading ?? "Section");
+            const body = String(sec.content ?? sec.body ?? "");
+            const result: {
+              heading: string;
+              body: string;
+              sources?: string[];
+            } = {
+              heading: heading || "Section",
+              body: body || "内容",
+            };
+            const cits = sec.citations;
+            if (Array.isArray(cits) && cits.length > 0) {
+              result.sources = cits
+                .map((c: unknown) =>
+                  typeof c === "string"
+                    ? c
+                    : String((c as Record<string, unknown>)?.url ?? c),
+                )
+                .filter((u) => u.startsWith("http"));
+            }
+            return result;
+          })
+        : [{ heading: "摘要", body: "报告内容" }];
+    // quickView.executiveSummary / conclusion fallback
+    const qv = (artifact as Record<string, unknown> | undefined)?.quickView as
+      | Record<string, unknown>
+      | undefined;
+    const rawSummary = String(
+      (qv?.executiveSummary as Record<string, unknown> | undefined)?.markdown ??
+        (artifact as Record<string, unknown> | undefined)?.summary ??
+        mappedSections[0]?.body?.slice(0, 300) ??
+        "报告摘要",
+    );
+    const summary =
+      rawSummary.length >= 20
+        ? rawSummary
+        : rawSummary + "（自动补全至摘要最小长度）";
+    const rawConclusion = String(
+      (qv?.conclusion as Record<string, unknown> | undefined)?.markdown ??
+        (artifact as Record<string, unknown> | undefined)?.conclusion ??
+        mappedSections[mappedSections.length - 1]?.body?.slice(0, 300) ??
+        "综合以上研究，本报告提供了深入的分析与见解。",
+    );
+    const conclusion =
+      rawConclusion.length >= 20
+        ? rawConclusion
+        : rawConclusion + "（自动补全至结论最小长度）";
+    const rawTitle = String(
+      (artifact as Record<string, unknown> | undefined)?.title ?? input.topic,
+    );
+    const title = rawTitle.length >= 2 ? rawTitle : input.topic;
+    const draftReport = {
+      title,
+      summary,
+      sections: mappedSections,
+      conclusion,
+    };
     const res = await invokeAgent({
       runner: this.runner,
       specId: "playground.reviewer",
       input: {
         topic: input.topic,
         language: input.language,
-        draftReport: report,
+        draftReport,
       },
       invocation: input.invocation,
       crossStageState: full.crossStageState,
@@ -845,7 +989,9 @@ export class DeepInsightStageBindings implements StageBindings {
   // ── S10 leader foreword + signoff（signoff primitive，多层 verdict + 硬门）─────────
   //
   // 富增强（W2.5，对齐 playground s10-leader-foreword-and-signoff）：
-  //   runRole 跑 leader signoff（综合 reportArtifact + reviewScore + 客观评估写前言/签字）。
+  //   runRole 两次调用 leader：
+  //     1. phase="foreword"：写 whatWeAnswered / whatRemainsUnclear / howToRead。
+  //     2. phase="signoff"：签字 + 自评分（依赖 foreword 产出 + finalQuality + dimensionStates）。
   //   accountability hook 做最终问责裁决（在 LLM 签字之上叠加业务硬门）：
   //     1. s4 patch 失败（ctx.s4PatchFailures 非空）→ 强制 signed=false（防"说要补救没补就签"）。
   //     2. finalScore 经 QualityTrace 客观计算（从 10 维评估 + reviewScore 融合），落 CS_KEY.finalScore。
@@ -855,20 +1001,203 @@ export class DeepInsightStageBindings implements StageBindings {
       runRole: async (args: { ctx: StageRunArgs["ctx"] }): Promise<unknown> => {
         const full = this.fullArgs(args.ctx);
         const input = readPipelineInput(full.ctx);
-        const report = full.crossStageState.get(CS_KEY.reportArtifact);
+        const plan = full.crossStageState.get<PlanResult>(CS_KEY.plan);
+        const researcherResults =
+          full.crossStageState.get<ResearcherResult[]>(
+            CS_KEY.researcherResults,
+          ) ?? [];
+        const artifact = asArtifact(
+          full.crossStageState.get(CS_KEY.reportArtifact),
+        );
+        const goals: GoalsShape = full.crossStageState.get<GoalsShape>(
+          CS_KEY.goals,
+        ) ??
+          plan?.goals ?? {
+            successCriteria: ["完成研究报告，覆盖所有关键维度"],
+            qualityBar: { minSources: 0, minCoverage: 0, hardConstraints: [] },
+            deliverables: ["研究报告"],
+          };
+        // ★ dimensionStates（参照 s10 stage: dimStateOf）。
+        const dimensionStates = (plan?.dimensions ?? []).map((d) => {
+          const r = researcherResults.find((x) => x.dimension === d.name);
+          const findings = r?.findings ?? [];
+          const summary = r?.summary ?? "";
+          const state: "completed" | "degraded" | "failed" =
+            findings.length === 0
+              ? "failed"
+              : summary.startsWith("(failed")
+                ? "degraded"
+                : "completed";
+          return { name: d.name, state };
+        });
+        // ★ reconciliation stats（从 CS_KEY.reconciliationReport 提取）。
+        const rec = full.crossStageState.get<Record<string, unknown>>(
+          CS_KEY.reconciliationReport,
+        );
+        const reconciliation = rec
+          ? {
+              factCount: Array.isArray(rec.factTable)
+                ? rec.factTable.length
+                : 0,
+              conflictCount: Array.isArray(rec.conflicts)
+                ? rec.conflicts.length
+                : 0,
+              criticalGaps: Array.isArray(rec.gaps)
+                ? (
+                    rec.gaps as Array<{
+                      severity?: string;
+                      expectedAspects?: string[];
+                    }>
+                  )
+                    .filter((g) => g.severity === "critical")
+                    .map((g) => (g.expectedAspects ?? []).join(", "))
+                    .filter(Boolean)
+                : ([] as string[]),
+            }
+          : undefined;
+        // ★ QualitySnapshot（参照 s10 stage 构造，artifact 字段兜底避免 int 校验失败）。
         const reviewScore = full.crossStageState.get<number>(
           CS_KEY.reviewScore,
         );
+        const pipelineEval = full.crossStageState.get<{
+          overallScore?: number;
+          grade?: string;
+          feedback?: string;
+        }>(CS_KEY.pipelineEvaluation);
+        const qualitySnapshot = {
+          sourceCount: Array.isArray(artifact?.citations)
+            ? artifact.citations.length
+            : 0,
+          coverageScore:
+            typeof (artifact?.quality as Record<string, unknown> | undefined)
+              ?.dimensions === "object"
+              ? (((
+                  (artifact?.quality as Record<string, unknown>)
+                    ?.dimensions as Record<string, unknown>
+                )?.coverage as number | undefined) ?? 0)
+              : 0,
+          overall:
+            typeof artifact?.quality?.overall === "number"
+              ? artifact.quality.overall
+              : 0,
+          finalVerdict:
+            typeof (artifact?.quality as Record<string, unknown> | undefined)
+              ?.finalVerdict === "string"
+              ? String(
+                  (artifact?.quality as Record<string, unknown>).finalVerdict,
+                )
+              : "?",
+          ...(typeof reviewScore === "number"
+            ? { reviewerAvgScore: reviewScore }
+            : {}),
+          criticBlindspots: [] as string[],
+          criticBiases: [] as string[],
+          ...(typeof pipelineEval?.overallScore === "number"
+            ? { objectiveScore: pipelineEval.overallScore }
+            : {}),
+          ...(pipelineEval?.grade
+            ? { objectiveGrade: pipelineEval.grade }
+            : {}),
+          ...(pipelineEval?.feedback
+            ? { objectiveFeedback: pipelineEval.feedback }
+            : {}),
+        };
         try {
-          const res = await invokeAgent({
+          // ── Phase 1: foreword ──────────────────────────────────────────────
+          const forewordRes = await invokeAgent({
+            runner: this.runner,
+            specId: "playground.leader",
+            input: {
+              phase: "foreword",
+              topic: input.topic,
+              language: input.language,
+              myPlan: { goals, dimensions: plan?.dimensions ?? [] },
+              myDecisions: [],
+              stageOutcomes: {
+                researcherStates: dimensionStates,
+                ...(reconciliation ? { reconciliation } : {}),
+                writerSections: Array.isArray(artifact?.sections)
+                  ? (
+                      artifact.sections as Array<{
+                        title?: string;
+                        heading?: string;
+                      }>
+                    ).map((s) => s.title ?? s.heading ?? "")
+                  : [],
+                qualitySnapshot,
+              },
+            },
+            invocation: input.invocation,
+            crossStageState: full.crossStageState,
+            signal: full.ctx.signal,
+            stepId: "s10-leader-foreword-signoff",
+            role: "leader",
+            operationType: "foreword",
+          });
+          const forewordOutput = forewordRes.output as {
+            whatWeAnswered?: Array<{
+              criterion: string;
+              addressed: "yes" | "partial" | "no";
+              evidence: string;
+            }>;
+            whatRemainsUnclear?: string[];
+          } | null;
+          // ── Phase 2: signoff ──────────────────────────────────────────────
+          const wordCount =
+            typeof artifact?.metadata?.wordCount === "number"
+              ? artifact.metadata.wordCount
+              : 0;
+          const finalQuality = {
+            sourceCount: qualitySnapshot.sourceCount,
+            coverageScore: qualitySnapshot.coverageScore,
+            overall: qualitySnapshot.overall,
+            finalVerdict: qualitySnapshot.finalVerdict,
+            wordCount,
+            ...(typeof reviewScore === "number"
+              ? { reviewerAvgScore: reviewScore }
+              : {}),
+            ...(typeof pipelineEval?.overallScore === "number"
+              ? { objectiveScore: pipelineEval.overallScore }
+              : {}),
+            ...(pipelineEval?.grade
+              ? { objectiveGrade: pipelineEval.grade }
+              : {}),
+            ...(pipelineEval?.feedback
+              ? { objectiveFeedback: pipelineEval.feedback }
+              : {}),
+          };
+          // myForeword：使用 foreword 产出；兜底给 schema 合法最小值。
+          const whatWeAnswered =
+            Array.isArray(forewordOutput?.whatWeAnswered) &&
+            forewordOutput.whatWeAnswered.length > 0
+              ? forewordOutput.whatWeAnswered
+              : [
+                  {
+                    criterion: "研究目标",
+                    addressed: "yes" as const,
+                    evidence: "完成了所有研究维度的分析",
+                  },
+                ];
+          const myForeword = {
+            whatWeAnswered,
+            whatRemainsUnclear: Array.isArray(
+              forewordOutput?.whatRemainsUnclear,
+            )
+              ? forewordOutput.whatRemainsUnclear
+              : [],
+          };
+          const signoffRes = await invokeAgent({
             runner: this.runner,
             specId: "playground.leader",
             input: {
               phase: "signoff",
               topic: input.topic,
               language: input.language,
-              reportArtifact: report,
-              reviewScore,
+              myPlan: { goals, dimensions: plan?.dimensions ?? [] },
+              myDecisions: [],
+              myForeword,
+              finalQuality,
+              dimensionStates,
             },
             invocation: input.invocation,
             crossStageState: full.crossStageState,
@@ -877,7 +1206,7 @@ export class DeepInsightStageBindings implements StageBindings {
             role: "leader",
             operationType: "signoff",
           });
-          return res.output;
+          return signoffRes.output;
         } catch {
           // signoff 可降级：缺 leader 签字不阻断终态产出。
           return null;
@@ -958,28 +1287,88 @@ export class DeepInsightStageBindings implements StageBindings {
             id?: unknown;
             name?: unknown;
             rationale?: unknown;
+            facet?: unknown;
+            toolHint?: { categories?: string[]; preferIds?: string[] };
           }>;
+          goals?: GoalsShape;
         }
       | undefined;
     const rawDims = Array.isArray(p?.dimensions) ? p.dimensions : [];
     const dimensions = rawDims
       .filter(
-        (d): d is { id?: unknown; name: string; rationale?: unknown } =>
-          !!d && typeof (d as { name?: unknown }).name === "string",
+        (
+          d,
+        ): d is {
+          id?: unknown;
+          name: string;
+          rationale?: unknown;
+          facet?: unknown;
+          toolHint?: { categories?: string[]; preferIds?: string[] };
+        } => !!d && typeof (d as { name?: unknown }).name === "string",
       )
       .slice(0, 6)
       .map((d, i) => ({
         id: typeof d.id === "string" ? d.id : `dim-${i + 1}`,
         name: String(d.name),
         rationale: typeof d.rationale === "string" ? d.rationale : "",
+        // ★ toolHint 是 Dimension schema 必填（categories min 1）；LLM 产出如缺失则
+        //   补 "general" 兜底，确保 s4/s10 myPlan.dimensions safeParse 不失败。
+        toolHint: d.toolHint?.categories?.length
+          ? {
+              categories: d.toolHint.categories,
+              ...(d.toolHint.preferIds
+                ? { preferIds: d.toolHint.preferIds }
+                : {}),
+            }
+          : { categories: ["general"] },
+        ...(d.facet ? { facet: String(d.facet) } : {}),
       }));
     if (dimensions.length === 0) {
-      dimensions.push({ id: "dim-1", name: topic, rationale: "" });
+      dimensions.push({
+        id: "dim-1",
+        name: topic,
+        rationale: "",
+        toolHint: { categories: ["general"] },
+      });
     }
+    // ★ goals 保留（GoalsShape），供 s4 / s10 myPlan.goals；LLM 缺产时给最小合法默认值。
+    const rawGoals = p?.goals;
+    const goals: GoalsShape = rawGoals
+      ? {
+          successCriteria:
+            Array.isArray(rawGoals.successCriteria) &&
+            rawGoals.successCriteria.length > 0
+              ? rawGoals.successCriteria.map(String)
+              : ["完成研究报告"],
+          qualityBar: {
+            minSources:
+              typeof rawGoals.qualityBar?.minSources === "number"
+                ? rawGoals.qualityBar.minSources
+                : 0,
+            minCoverage:
+              typeof rawGoals.qualityBar?.minCoverage === "number"
+                ? rawGoals.qualityBar.minCoverage
+                : 0,
+            hardConstraints: Array.isArray(rawGoals.qualityBar?.hardConstraints)
+              ? rawGoals.qualityBar.hardConstraints.map(String)
+              : [],
+          },
+          deliverables:
+            Array.isArray(rawGoals.deliverables) &&
+            rawGoals.deliverables.length > 0
+              ? rawGoals.deliverables.map(String)
+              : ["研究报告"],
+        }
+      : {
+          successCriteria: ["完成研究报告，覆盖所有关键维度"],
+          qualityBar: { minSources: 0, minCoverage: 0, hardConstraints: [] },
+          deliverables: ["研究报告"],
+        };
     return {
       themeSummary:
         typeof p?.themeSummary === "string" ? p.themeSummary : topic,
       dimensions,
+      goals,
     };
   }
 
