@@ -709,8 +709,47 @@ export class PlaygroundPipelineDispatcher
     missionId: string,
     userId: string,
   ): Promise<void> {
+    // ★ #16b 回归修复（2026-06-09）：能力核经 ctx.onEvent 抛 agent-trace（researcher
+    //   thinking / 工具调用 / 错误的实时过程）+ agent-lifecycle（完成快照）。此前 bridge
+    //   只桥 stage:* → agent 过程事件全被丢弃，前端"所有过程丢失"（阶段只剩启动/完成空壳、
+    //   无 token、无内部活动）。这里翻成 playground.agent:narrative / agent:lifecycle，
+    //   恢复与 OFF 路等价的实时过程展示。
+    if (event.type === "agent-trace") {
+      const p = (event.payload ?? {}) as {
+        kind?: string;
+        text?: string;
+        role?: string;
+        dimension?: string;
+      };
+      if (p.text) {
+        await this.emitToBus({
+          type: "playground.agent:narrative",
+          missionId,
+          userId,
+          payload: {
+            ...(event.stepId
+              ? { stage: mapStepIdToFrontendStageId(event.stepId) }
+              : {}),
+            role: p.role ?? "agent",
+            tag: this.narrativeTagFromKind(p.kind),
+            text: p.text,
+            ...(p.dimension ? { dimension: p.dimension } : {}),
+          },
+        }).catch(() => undefined);
+      }
+      return;
+    }
+    if (event.type === "agent-lifecycle") {
+      await this.emitToBus({
+        type: "playground.agent:lifecycle",
+        missionId,
+        userId,
+        payload: event.payload ?? {},
+      }).catch(() => undefined);
+      return;
+    }
     const stepId = event.telemetry?.systemStageId ?? event.stepId;
-    if (!stepId) return; // 无 stage 锚点的事件（started/completed/agent-*）不桥 stage 生命周期。
+    if (!stepId) return; // 无 stage 锚点的纯生命周期事件（started/completed）不桥 stage。
     if (event.type === "stage:started") {
       this.missionSpan.startStageSpan(missionId, stepId, "capability");
     } else if (
@@ -729,6 +768,22 @@ export class PlaygroundPipelineDispatcher
       { type: event.type, stepId, timestamp: event.timestamp },
       { missionId, userId },
     );
+  }
+
+  /** 能力 agent-trace 的 kind → playground.agent:narrative 的 NarrativeTag。 */
+  private narrativeTagFromKind(kind?: string): string {
+    switch (kind) {
+      case "thinking":
+        return "thinking";
+      case "action_planned":
+        return "planning";
+      case "action_executed":
+        return "searching";
+      case "error":
+        return "warning";
+      default:
+        return "info";
+    }
   }
 
   /**
