@@ -384,6 +384,16 @@ export class CompanyController {
     return { success: true };
   }
 
+  @Post("missions/:id/cancel")
+  @ApiOperation({ summary: "取消运行中的 Mission" })
+  async cancelMission(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+  ) {
+    await this.missionService.cancelMission(this.getUserId(req), id);
+    return { success: true };
+  }
+
   // ── mission graph（知识图谱，平台共享构建器）────────────────────────────────
 
   @Throttle({ default: { limit: 10, ttl: 60000 } })

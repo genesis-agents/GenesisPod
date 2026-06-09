@@ -15,13 +15,30 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import type { CompanyHero, CompanyMission } from "@prisma/client";
-import { CapabilityRegistry } from "@/modules/ai-app/marketplace/capability";
 import { CompanyMissionService } from "./company-mission.service";
 
 /** 零 hero 时自动配置的默认能力。 */
 const DEFAULT_CAPABILITY_ID = "deep-insight";
-/** manifest 标题不可解析时的默认名（中文兜底）。 */
-const DEFAULT_HERO_NAME_FALLBACK = "深度研究官";
+
+/**
+ * 英雄雅称池 —— 英雄的名字是「身份」，与「职能」（capability 标题，如深度洞察研究）分离。
+ * 采用时按用户现有英雄数取一个，循环递进，保证多名英雄各有雅称、不重名。
+ * 取意洞察 / 谋略 / 明辨的清雅二字名。
+ */
+const HERO_NAMES = [
+  "知微",
+  "洞玄",
+  "明察",
+  "衡之",
+  "策然",
+  "鉴心",
+  "澄怀",
+  "观澜",
+  "寻渊",
+  "慎思",
+  "格物",
+  "览胜",
+] as const;
 
 export interface UpdateHeroInput {
   name?: string;
@@ -37,7 +54,6 @@ export interface UpdateHeroInput {
 export class CompanyHeroService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly capabilityRegistry: CapabilityRegistry,
     private readonly missionService: CompanyMissionService,
   ) {}
 
@@ -59,10 +75,11 @@ export class CompanyHeroService {
 
   /**
    * 采用一个市场能力为 hero。
-   * 名称取该能力 manifest 标题（不可解析时用中文兜底名）。
+   * 名称取雅称池中的下一个（按用户现有英雄数循环），与职能（capability 标题）分离。
    */
   async adoptHero(userId: string, capabilityId: string): Promise<CompanyHero> {
-    const name = this.resolveCapabilityName(capabilityId);
+    const count = await this.prisma.companyHero.count({ where: { userId } });
+    const name = HERO_NAMES[count % HERO_NAMES.length];
     return this.prisma.companyHero.create({
       data: {
         userId,
@@ -127,11 +144,5 @@ export class CompanyHeroService {
       title,
       preferredModelId,
     );
-  }
-
-  /** 能力 manifest 标题 → hero 默认名；解析不到（runner 未注册）→ 中文兜底。 */
-  private resolveCapabilityName(capabilityId: string): string {
-    const runner = this.capabilityRegistry.resolve(capabilityId);
-    return runner?.manifest.title ?? DEFAULT_HERO_NAME_FALLBACK;
   }
 }

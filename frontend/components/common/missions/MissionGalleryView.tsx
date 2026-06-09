@@ -276,6 +276,8 @@ export interface MissionGalleryViewProps {
   searchPlaceholder?: string;
   /** 强制 reload 触发器（外部 inc 后组件 re-fetch）*/
   reloadKey?: number;
+  /** 列表区标题（默认"我的任务"；company 侧传"英雄任务"）。 */
+  listHeading?: string;
 }
 
 export function MissionGalleryView({
@@ -293,6 +295,7 @@ export function MissionGalleryView({
   emptyState,
   searchPlaceholder = '按 topic 或报告内容搜索…',
   reloadKey = 0,
+  listHeading = '我的任务',
 }: MissionGalleryViewProps) {
   const [missions, setMissions] = useState<MissionListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -438,7 +441,7 @@ export function MissionGalleryView({
             {/* 2026-05-13 #67: 删除"可继续 banner" —— 续跑入口迁到详情页 */}
             <div className="mb-4 flex items-baseline justify-between">
               <h2 className="text-base font-semibold text-gray-900">
-                {searchQuery ? '搜索结果' : '我的 Mission'}
+                {searchQuery ? '搜索结果' : listHeading}
               </h2>
               <span className="text-xs text-gray-500">
                 共 {filtered.length} 个

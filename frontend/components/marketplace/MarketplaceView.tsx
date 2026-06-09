@@ -27,7 +27,17 @@ export function MarketplaceView() {
   const { catalog, loading, error, refresh } = useMarketplaceCatalog();
   const { adoptHero } = useCompanyStore();
 
-  const heroes = catalog.workflow;
+  // 英雄 = 有 capability runner 绑定（missionType）的工作流；其余仅是无法真跑的
+  // 工作流模板（PPT/辩论/写作团队等），不作为英雄上架。按 missionType 去重，
+  // 同一能力只出一名英雄。
+  const heroes = useMemo(() => {
+    const seen = new Set<string>();
+    return catalog.workflow.filter((w) => {
+      if (!w.missionType || seen.has(w.missionType)) return false;
+      seen.add(w.missionType);
+      return true;
+    });
+  }, [catalog.workflow]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -41,7 +51,7 @@ export function MarketplaceView() {
   }, [heroes, search]);
 
   const adopt = (hero: WorkflowListing) => {
-    const capabilityId = hero.missionType || hero.id;
+    const capabilityId = hero.missionType ?? hero.id;
     void adoptHero(capabilityId).then((heroId) => {
       if (heroId) {
         toast.success(`已收下英雄「${hero.name}」，进入我的英雄`);

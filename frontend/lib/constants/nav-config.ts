@@ -109,7 +109,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/agents', label: '我的英雄', Icon: Crown, matchPrefix: true },
       {
         href: '/missions',
-        label: '我的任务',
+        label: '英雄任务',
         Icon: ListChecks,
         matchPrefix: true,
       },

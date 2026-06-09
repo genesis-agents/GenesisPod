@@ -16,7 +16,7 @@
  * 不得吞错伪装成功。
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { EventBus, ChatFacade, AgentRunner } from "@/modules/ai-harness/facade";
 import { SkillRegistry } from "@/modules/ai-engine/facade";
@@ -69,6 +69,12 @@ const TIER_TO_MODEL_TYPE: Record<string, AIModelType> = {
 @Injectable()
 export class CompanyMissionService {
   private readonly log = new Logger(CompanyMissionService.name);
+  /**
+   * 运行中 mission 的 abort 句柄。用于取消：abort() 中止 capability run（researcher
+   * 的 fetch / LLM 调用尊重 signal）。单 pod 内有效——多 pod 时取消请求若落到非起跑
+   * pod 只翻 DB 状态，原 pod 的 run 由下次心跳/终态收口（已知局限，待共享信号补强）。
+   */
+  private readonly abortControllers = new Map<string, AbortController>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -189,6 +195,9 @@ export class CompanyMissionService {
       missionId,
     });
 
+    const controller = new AbortController();
+    this.abortControllers.set(missionId, controller);
+
     try {
       const runner = this.capabilityRegistry.resolve(capabilityId);
       if (!runner) {
@@ -203,8 +212,15 @@ export class CompanyMissionService {
         title,
         runner,
         preferredModelId || undefined,
+        controller.signal,
       );
     } catch (err: unknown) {
+      // 用户取消：cancelMission 已置 cancelled 状态并广播，run 抛出的 AbortError
+      // 不应再覆盖为 failed。
+      if (controller.signal.aborted) {
+        this.log.log(`CompanyHero mission ${missionId} cancelled by user`);
+        return;
+      }
       const message = err instanceof Error ? err.message : "unknown error";
       this.log.error(`CompanyHero mission ${missionId} failed: ${message}`);
 
@@ -221,7 +237,25 @@ export class CompanyMissionService {
         missionId,
         message,
       });
+    } finally {
+      this.abortControllers.delete(missionId);
     }
+  }
+
+  /**
+   * 取消运行中的 mission：abort capability run + 置 cancelled 状态（按 userId 归属校验）。
+   * 单 pod 内 abort 立即生效；前端乐观置 cancelled，无需额外事件。
+   */
+  async cancelMission(userId: string, missionId: string): Promise<void> {
+    const mission = await this.prisma.companyMission.findFirst({
+      where: { id: missionId, userId },
+    });
+    if (!mission) throw new NotFoundException("Mission not found");
+
+    this.abortControllers.get(missionId)?.abort();
+    this.abortControllers.delete(missionId);
+
+    await this.updateMission(missionId, { status: "cancelled" });
   }
 
   // ── list ───────────────────────────────────────────────────────────────────
@@ -469,12 +503,14 @@ export class CompanyMissionService {
     topic: string,
     runner: ICapabilityRunner,
     preferredModelId?: string,
+    signal?: AbortSignal,
   ): Promise<void> {
     const result = await runner.run(
       { topic, ...(preferredModelId ? { preferredModelId } : {}) },
       {
         userId,
         missionId,
+        ...(signal ? { signal } : {}),
         onEvent: (e) => {
           void this.bridgeCapabilityEvent(missionId, userId, e);
         },

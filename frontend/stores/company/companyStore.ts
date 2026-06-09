@@ -92,7 +92,13 @@ export interface TeamWorkflow {
   sourceListingId?: string;
 }
 
-export type MissionStatus = 'queued' | 'running' | 'review' | 'done' | 'failed';
+export type MissionStatus =
+  | 'queued'
+  | 'running'
+  | 'review'
+  | 'done'
+  | 'failed'
+  | 'cancelled';
 
 export interface CompanyMission {
   id: string;
@@ -226,6 +232,7 @@ function adaptMission(m: BackendMission): CompanyMission {
     'review',
     'done',
     'failed',
+    'cancelled',
   ];
   const status: MissionStatus = validStatuses.includes(
     m.status as MissionStatus
@@ -295,6 +302,7 @@ interface CompanyState {
   loadMissions: (teamId?: string) => Promise<void>;
   createMission: (teamId: string, title: string) => Promise<string | null>;
   deleteMission: (missionId: string) => Promise<void>;
+  cancelMission: (missionId: string) => Promise<void>;
   renameMission: (missionId: string, title: string) => Promise<void>;
   setMissionProgress: (
     missionId: string,
@@ -764,6 +772,25 @@ export const useCompanyStore = create<CompanyState>((set, get) => ({
     } catch {
       set({ missions: prev });
       toast.error('删除任务失败，请稍后重试');
+    }
+  },
+
+  cancelMission: async (missionId) => {
+    // 乐观置 cancelled：立即翻状态，失败再回滚
+    const prev = get().missions;
+    set({
+      missions: prev.map((m) =>
+        m.id === missionId ? { ...m, status: 'cancelled' as MissionStatus } : m
+      ),
+    });
+    try {
+      await apiClient.post(
+        `/company/missions/${encodeURIComponent(missionId)}/cancel`,
+        {}
+      );
+    } catch {
+      set({ missions: prev });
+      toast.error('取消任务失败，请稍后重试');
     }
   },
 

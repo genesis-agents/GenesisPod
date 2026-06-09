@@ -74,6 +74,7 @@ export function MissionRunView() {
     heroes,
     missions,
     deleteMission,
+    cancelMission,
     renameMission,
     setMissionProgress,
     loadMissions,
@@ -291,8 +292,16 @@ export function MissionRunView() {
           setReportMissionId(null);
           setDispatchOpen(true);
         }}
-        // onCancel: company 侧暂无取消接口
-        onCancel={undefined}
+        // onCancel: 运行中可取消（abort capability run + 置 cancelled）
+        onCancel={
+          reportMission.status === 'running' ||
+          reportMission.status === 'review' ||
+          reportMission.status === 'queued'
+            ? () => {
+                void cancelMission(reportMission.id);
+              }
+            : undefined
+        }
         // onLeaderClick / onResearchTeamClick: 暂无弹窗
         onLeaderClick={undefined}
         onResearchTeamClick={undefined}
@@ -377,8 +386,8 @@ export function MissionRunView() {
       </Modal>
 
       <MissionGalleryView
-        title="我的团队任务"
-        subtitle="给团队下达任务，实时看协作过程，完成后查看完整研究报告"
+        title="英雄任务"
+        subtitle="派英雄执行任务，实时看协作过程，完成后查看完整研究报告"
         iconGradient={MODULE_THEMES.ask.gradient}
         createButtonLabel="下发任务"
         onCreateMission={() => setDispatchOpen(true)}
@@ -390,9 +399,10 @@ export function MissionRunView() {
         }}
         onDelete={(m) => void deleteMission(m.id)}
         searchPlaceholder="搜索任务标题…"
+        listHeading="英雄任务"
         emptyState={{
           title: '还没有任务',
-          hint: '给团队下达第一个任务，看它们协作产出研究报告',
+          hint: '派你的英雄执行第一个任务，看它产出研究报告',
           ctaLabel: '下发任务',
         }}
         reloadKey={galleryReload}
