@@ -414,6 +414,80 @@ function buildStaticAgents(dimensionNames: string[]): DIAgentLiveState[] {
   return agents;
 }
 
+/**
+ * 从持久化/实时事件给静态 agent 骨架补 telemetry（tokens / 模型 / cost / trace），
+ * 让 company 任务详情抽屉不再满屏「—」。事件源 = result.collab（终态回放）或 live WS。
+ * 数据来自 bridgeCapabilityEvent 桥出的 company.agent:lifecycle / company.agent:narrative
+ * （payload 带 role / dimension / tokensUsed / costCents / modelTrail / text）。
+ * 只填能从事件拿到的；耗时 / 工具调用次数事件未携带 → 仍留空（待后端补采）。
+ */
+function enrichAgentsFromEvents(
+  base: DIAgentLiveState[],
+  events: unknown[],
+  dimNames: string[]
+): DIAgentLiveState[] {
+  if (!events || events.length === 0) return base;
+  type Ev = {
+    type?: string;
+    payload?: Record<string, unknown>;
+    timestamp?: number;
+  };
+  const byId = new Map(base.map((a) => [a.agentId, a]));
+  const researcherIdByDim = new Map<string, string>();
+  dimNames.forEach((d, i) => researcherIdByDim.set(d, `researcher#${i}`));
+
+  const resolveId = (role?: string, dim?: string): string | undefined => {
+    if (dim && researcherIdByDim.has(dim)) return researcherIdByDim.get(dim);
+    if (role === 'leader' || role === 'writer' || role === 'reviewer')
+      return role;
+    return undefined;
+  };
+
+  for (const e of events as Ev[]) {
+    const p = e.payload ?? {};
+    const role = typeof p.role === 'string' ? p.role : undefined;
+    const dim = typeof p.dimension === 'string' ? p.dimension : undefined;
+    const id = resolveId(role, dim);
+    if (!id) continue;
+    const agent = byId.get(id);
+    if (!agent) continue;
+
+    if (e.type === 'company.agent:lifecycle') {
+      if (typeof p.tokensUsed === 'number')
+        agent.tokensUsed = Math.max(agent.tokensUsed ?? 0, p.tokensUsed);
+      if (typeof p.costCents === 'number')
+        agent.costUsd = Math.max(agent.costUsd ?? 0, p.costCents / 100);
+      if (
+        !agent.modelId &&
+        Array.isArray(p.modelTrail) &&
+        p.modelTrail.length
+      ) {
+        const m0 = p.modelTrail[0];
+        if (m0 && typeof m0 === 'object') {
+          const mid = (m0 as Record<string, unknown>).modelId;
+          if (typeof mid === 'string') agent.modelId = mid;
+        }
+      }
+      if (
+        p.phase === 'completed' ||
+        p.phase === 'failed' ||
+        p.phase === 'running'
+      )
+        agent.phase = p.phase;
+    } else if (e.type === 'company.agent:narrative') {
+      const text = typeof p.text === 'string' ? p.text : undefined;
+      if (text) {
+        agent.trace.push({
+          kind: p.tag === 'error' ? 'error' : 'thought',
+          ts: typeof e.timestamp === 'number' ? e.timestamp : 0,
+          text,
+        });
+      }
+    }
+  }
+  return base;
+}
+
 /** 5 个高层 stage 全 done（company 静态左栏进度兜底）。 */
 function buildStaticStages(): DIStageState[] {
   const ids: DIStageId[] = [
@@ -638,6 +712,12 @@ export function fromCompanyMissionResult(
       }
     : undefined;
 
+  // 事件源（终态回放 result.collab / live WS）——同时喂 collab tab + 富化 agent telemetry。
+  const adapterEvents =
+    input.events && input.events.length > 0
+      ? input.events
+      : (result.collab ?? []);
+
   return {
     id: input.id,
     title: input.title,
@@ -648,8 +728,12 @@ export function fromCompanyMissionResult(
     steps,
     usage: result.usage,
     actions: input.actions,
-    // 左栏 TeamRosterPanel
-    agents: buildStaticAgents(dimNames),
+    // 左栏 TeamRosterPanel —— 静态骨架 + 从事件补 tokens/模型/cost/trace（不再满屏「—」）。
+    agents: enrichAgentsFromEvents(
+      buildStaticAgents(dimNames),
+      adapterEvents,
+      dimNames
+    ),
     stages: buildStaticStages(),
     taskProgress,
     finalScore,
@@ -670,10 +754,7 @@ export function fromCompanyMissionResult(
       companyStatus(input.status) === 'failed' ? result.error : undefined,
     // 右侧 tab
     // live WS 事件优先；无（重开已完成任务）→ 回放持久化的 result.collab。
-    events:
-      input.events && input.events.length > 0
-        ? input.events
-        : (result.collab ?? []),
+    events: adapterEvents,
     reportArtifact: undefined,
     report: result.summary,
     dimensionPipelines: [],
