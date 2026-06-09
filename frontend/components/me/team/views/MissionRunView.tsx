@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Send, Loader2 } from 'lucide-react';
 import { Modal } from '@/components/ui/dialogs';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { Button } from '@/components/ui/primitives/button';
+import { Input } from '@/components/ui/form/Input';
 import { MissionGalleryView } from '@/components/common/missions/MissionGalleryView';
 import type { MissionListItem } from '@/services/agent-playground/api';
 import { MODULE_THEMES } from '@/lib/design/module-themes';
@@ -288,24 +290,20 @@ export function MissionRunView() {
         size="lg"
         footer={
           <>
-            <button
-              onClick={() => setDispatchOpen(false)}
-              className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
-            >
+            <Button variant="outline" onClick={() => setDispatchOpen(false)}>
               取消
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => void dispatch()}
               disabled={!title.trim() || running || teams.length === 0}
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
             >
               {running ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
               ) : (
-                <Send className="h-4 w-4" />
+                <Send className="mr-1.5 h-4 w-4" />
               )}
               下发任务
-            </button>
+            </Button>
           </>
         }
       >
@@ -339,14 +337,13 @@ export function MissionRunView() {
                 <label className="mb-1 block text-xs font-medium text-gray-500">
                   任务
                 </label>
-                <input
+                <Input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') void dispatch();
                   }}
                   placeholder="例如：调研 Q3 竞品定价并给出建议"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
               {activeTeam && (
