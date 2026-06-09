@@ -22,8 +22,39 @@ import type {
   StageRunArgs,
 } from "@/modules/ai-harness/facade";
 import { defineStageHooks } from "@/modules/ai-harness/facade";
+import type {
+  ReportArtifactAssembler,
+  SectionSelfEvalService,
+  SectionRemediationService,
+  ReportEvaluationService,
+  QualityTraceComputeService,
+  RemediationAction,
+} from "../../runner-deps";
 import { CS_KEY, readPipelineInput, type StageBindings } from "../ports";
 import { invokeAgent } from "./agent-invoke.helper";
+import {
+  buildAssembleInput,
+  buildChapterInputs,
+  buildCriticArtifactSummary,
+  asArtifact,
+  type PlanShape,
+  type AnalystShape,
+  type WriterReportShape,
+  type ReportArtifactLite,
+} from "./report-assembler.helper";
+
+/**
+ * 富评判 / 富组装服务束（全部 @Global HarnessModule 提供，runner 构造函数注入后透传）。
+ * 设计依据：capability-execution-architecture.md §3「认知决策/编排下沉能力家；
+ * 无状态打分/组装基元留 harness，能力家组合它」——本束即「组合」的注入点。
+ */
+export interface RichServices {
+  readonly reportArtifactAssembler: ReportArtifactAssembler;
+  readonly sectionSelfEval: SectionSelfEvalService;
+  readonly sectionRemediation: SectionRemediationService;
+  readonly reportEvaluation: ReportEvaluationService;
+  readonly qualityTrace: QualityTraceComputeService;
+}
 
 /** plan 阶段产物（维度拆解）。 */
 interface PlanResult {
@@ -45,7 +76,10 @@ interface ResearcherResult {
 }
 
 export class DeepInsightStageBindings implements StageBindings {
-  constructor(private readonly runner: AgentRunner) {}
+  constructor(
+    private readonly runner: AgentRunner,
+    private readonly rich: RichServices,
+  ) {}
 
   buildHooksForStep(stepId: string): ResolvedStageHooks {
     switch (stepId) {
@@ -66,9 +100,11 @@ export class DeepInsightStageBindings implements StageBindings {
       case "s8-writer":
         return this.buildWriterHooks();
       case "s8b-quality-enhancement":
+        return this.buildQualityEnhanceHooks();
       case "s9-critic":
+        return this.buildCriticHooks();
       case "s9b-objective-eval":
-        return this.buildReviewHooks(stepId);
+        return this.buildObjectiveEvalHooks();
       case "s10-leader-foreword-signoff":
         return this.buildSignoffHooks();
       case "s11-persist":
@@ -189,7 +225,20 @@ export class DeepInsightStageBindings implements StageBindings {
     });
   }
 
-  // ── S4 leader assess（assess primitive）───────────────────────────────────────
+  // ── S4 leader assess（assess primitive，真决策 + patch 失败跟踪）─────────────────
+  //
+  // 富增强（W2.5，对齐 playground s4-leader-assess）：
+  //   1. runRole 跑 leader assess-research，产出 decision ∈ accept-all/patch/redirect/abort
+  //      + perDimension（每维 accept/retry-with-critique/replace-spec/abort）。
+  //   2. parseDecision 把 leader verdict 映射到 assess primitive 的 4 路决策：
+  //      abort → abort-mission（primitive 原生抛 StageAbortError 终止 mission）；
+  //      patch/redirect → retry-some（标记需补救）；accept-all → continue。
+  //   3. dispatchAssessActions 把 patch/redirect 的弱维度记进 ctx.s4PatchFailures——
+  //      s10 signoff 的 accountability hook 据此强制拒签（防"评估说要补救但没补就签字"）。
+  //
+  // 范围说明（已在返回里 flag 为后续波）：本波**不做**并行重派 researcher 的完整
+  //   patch-retry 闭环（需 DAGExecutor 重跑 per-dim pipeline，属更大子系统）。本波交付
+  //   "真决策 + abort 终止 + 失败跟踪供 s10 硬门"，这是 signoff 完整性的 parity-critical 部分。
   private buildAssessHooks(): ResolvedStageHooks {
     return defineStageHooks({
       runRole: async (args: { ctx: StageRunArgs["ctx"] }): Promise<unknown> => {
@@ -200,28 +249,68 @@ export class DeepInsightStageBindings implements StageBindings {
           full.crossStageState.get<ResearcherResult[]>(
             CS_KEY.researcherResults,
           ) ?? [];
-        const res = await invokeAgent({
-          runner: this.runner,
-          specId: "playground.leader",
-          input: {
-            phase: "assess-research",
-            topic: input.topic,
-            language: input.language,
-            plan,
-            researcherResults,
-          },
-          invocation: input.invocation,
-          crossStageState: full.crossStageState,
-          signal: full.ctx.signal,
-          stepId: "s4-leader-assess",
-          role: "leader",
-          operationType: "assess",
-        });
-        return res.output ?? { decision: "continue" };
+        try {
+          const res = await invokeAgent({
+            runner: this.runner,
+            specId: "playground.leader",
+            input: {
+              phase: "assess-research",
+              topic: input.topic,
+              language: input.language,
+              plan,
+              researcherResults,
+            },
+            invocation: input.invocation,
+            crossStageState: full.crossStageState,
+            signal: full.ctx.signal,
+            stepId: "s4-leader-assess",
+            role: "leader",
+            operationType: "assess",
+          });
+          return res.output ?? { decision: "accept-all" };
+        } catch {
+          // assess 可降级：leader 评估失败不阻断（视为 accept-all，下游照常成稿）。
+          return { decision: "accept-all" };
+        }
       },
-      // assess 决策：能力内核默认 continue（patch/abort 的过程管理是 app 增强，
-      // 不在共享内核默认路径——降级为"评估后继续"，不退化报告产出）。
-      parseDecision: (_raw: unknown): "continue" => "continue",
+      // 把 leader verdict 映射到 assess primitive 的 4 路决策。
+      parseDecision: (
+        raw: unknown,
+      ): "continue" | "retry-some" | "abort-mission" | "patch-then-retry" => {
+        const decision = this.readLeaderAssessDecision(raw);
+        switch (decision) {
+          case "abort":
+            return "abort-mission";
+          case "patch":
+          case "redirect":
+            return "retry-some";
+          case "accept-all":
+          default:
+            return "continue";
+        }
+      },
+      // patch/redirect → 把弱维度记进 s4PatchFailures（s10 硬门依据）。
+      dispatchAssessActions: (args: {
+        decision:
+          | "continue"
+          | "retry-some"
+          | "abort-mission"
+          | "patch-then-retry";
+        raw: unknown;
+        ctx: StageRunArgs["ctx"];
+        crossStageState: CrossStageState;
+      }): void => {
+        if (args.decision !== "retry-some") return;
+        // 用 runner 绑定的 crossState（与 s10 读取同一实例）。
+        const cs = this.fullArgs(args.ctx).crossStageState;
+        const weak = this.extractWeakDimensions(args.raw);
+        for (const dim of weak) {
+          cs.append<{ dimension: string; reason: string }>(
+            CS_KEY.s4PatchFailures,
+            dim,
+          );
+        }
+      },
     });
   }
 
@@ -401,73 +490,313 @@ export class DeepInsightStageBindings implements StageBindings {
           operationType: "write",
         });
         full.crossStageState.set(CS_KEY.report, res.output);
-        // reportArtifact 与 report 在共享内核默认等价（artifact 富组装是 app 增强）。
-        full.crossStageState.set(CS_KEY.reportArtifact, res.output);
         return res.output ?? null;
+      },
+      // 富组装（W2.5，对齐 playground s8 reportArtifact）：writer 原始 report →
+      // ReportArtifactAssembler.assemble（sections 树 / citations 编号 + occurrences /
+      // figures 五项硬规则 / quickView / factTable / 50+ 格式自动修复 / 10 维质量评分）。
+      // assemble 是纯代码（无 LLM），失败时降级回 writer 原始 report 不阻断终态。
+      reportArtifactAssembler: (args: {
+        artifact: unknown;
+        ctx: StageRunArgs["ctx"];
+        crossStageState: CrossStageState;
+      }): unknown => {
+        // 用 runner 绑定的 crossState（fullArgs），与其它 hook + 终态组装同一实例。
+        // primitive 透传的 args.crossStageState 是 orchestrator 自己那份（记账用），
+        // 与 runner 绑定那份不同——业务产物必须写绑定那份才能被 s9b/s10/终态读到。
+        const cs = this.fullArgs(args.ctx).crossStageState;
+        const input = readPipelineInput(args.ctx);
+        const plan = cs.get<PlanResult>(CS_KEY.plan);
+        const researcherResults =
+          cs.get<ResearcherResult[]>(CS_KEY.researcherResults) ?? [];
+        const analyst = cs.get<AnalystShape>(CS_KEY.analystOutput);
+        const startedAt = cs.get<number>(CS_KEY.startedAt) ?? Date.now();
+        try {
+          const assembleInput = buildAssembleInput({
+            profile: {
+              topic: input.topic,
+              language: input.language,
+              ...(input.invocation.depth
+                ? { depth: input.invocation.depth }
+                : {}),
+            },
+            plan: plan as PlanShape | undefined,
+            researcherResults: researcherResults as never,
+            analyst,
+            writerReport: args.artifact as WriterReportShape | undefined,
+            usage: {
+              totalTokens: cs.get<number>(CS_KEY.tokensUsed) ?? 0,
+              totalCostCents: cs.get<number>(CS_KEY.costCents) ?? 0,
+              generationTimeMs: Math.max(0, Date.now() - startedAt),
+            },
+          });
+          const artifact =
+            this.rich.reportArtifactAssembler.assemble(assembleInput);
+          cs.set(CS_KEY.reportArtifact, artifact);
+          return artifact;
+        } catch {
+          // assemble 失败降级：reportArtifact = writer 原始 report（不退化终态产出）。
+          cs.set(CS_KEY.reportArtifact, args.artifact);
+          return args.artifact;
+        }
       },
     });
   }
 
-  // ── S8b / S9 / S9b review（review primitive）──────────────────────────────────
-  private buildReviewHooks(stepId: string): ResolvedStageHooks {
+  // ── S8b section quality enhancement（review primitive，afterReview 富补救）──────
+  //
+  // 富增强（W2.5，对齐 playground s8b-section-quality-enhancement）：
+  //   review 跑 reviewer agent 给主评分 + 合成 reviewVerdict（company gate 不退化）。
+  //   afterReview 跑 SectionSelfEval（4 维写后自评）→ SectionRemediation（弱维度定向补救）
+  //   逐 section 闭环 + QualityTrace.recordDimensionRemediationLoop 记前/后/delta，
+  //   把补救后的 section 回写 reportArtifact（纯 LLM + 纯映射，失败降级不阻断）。
+  private buildQualityEnhanceHooks(): ResolvedStageHooks {
     return defineStageHooks({
       review: async (args: {
         ctx: StageRunArgs["ctx"];
-      }): Promise<{ verdict: unknown; score?: number }> => {
-        const full = this.fullArgs(args.ctx);
-        const input = readPipelineInput(full.ctx);
-        const report = full.crossStageState.get(CS_KEY.report);
-        // s9-critic 用 critic agent；s8b/s9b 用 reviewer agent（评分主逻辑）。
-        if (stepId === "s9-critic") {
-          try {
-            const res = await invokeAgent({
-              runner: this.runner,
-              specId: "playground.critic",
-              input: this.buildCriticInput(report, input.topic, input.language),
-              invocation: input.invocation,
-              crossStageState: full.crossStageState,
-              signal: full.ctx.signal,
-              stepId,
-              role: "critic",
-              operationType: "critic",
-            });
-            return { verdict: res.output };
-          } catch {
-            return { verdict: null };
-          }
-        }
-        const res = await invokeAgent({
-          runner: this.runner,
-          specId: "playground.reviewer",
-          input: {
-            topic: input.topic,
-            language: input.language,
-            draftReport: report,
-          },
-          invocation: input.invocation,
-          crossStageState: full.crossStageState,
-          signal: full.ctx.signal,
-          stepId,
-          role: "reviewer",
-          operationType:
-            stepId === "s9b-objective-eval"
-              ? "objective-eval"
-              : "quality-enhance",
-        });
-        const verdict = res.output;
-        const score = this.extractScore(verdict);
-        if (typeof score === "number") {
-          full.crossStageState.set(CS_KEY.reviewScore, score);
-        }
-        // 合成 reviewVerdict（让 company 验收 gate 不退化，W6 同款逻辑）。
-        const synth = this.synthReviewVerdict(verdict);
-        if (synth) full.crossStageState.set(CS_KEY.reviewVerdict, synth);
-        return { verdict, ...(typeof score === "number" ? { score } : {}) };
+      }): Promise<{ verdict: unknown; score?: number }> =>
+        this.runReviewerScore(args.ctx, "s8b-quality-enhancement"),
+      afterReview: async (args: {
+        ctx: StageRunArgs["ctx"];
+        crossStageState: CrossStageState;
+      }): Promise<void> => {
+        // 用 runner 绑定的 crossState（与产物同一实例）。
+        const cs = this.fullArgs(args.ctx).crossStageState;
+        await this.runSectionRemediation(args.ctx, cs);
       },
     });
   }
 
-  // ── S10 leader foreword + signoff（signoff primitive）──────────────────────────
+  // ── S9 meta-critic（review primitive，独立 critic 复审 + 降权）────────────────────
+  //
+  // 富增强（W2.5，对齐 playground s9-reviewer-critic-l4）：critic agent 独立复审
+  //   产出 verdict（pass/concerns/fail）；afterReview 据 verdict 对 reportArtifact.quality
+  //   降权（fail → overall ×0.7；concerns → ×0.9），让 s10 leader 看到真实质量信号。
+  private buildCriticHooks(): ResolvedStageHooks {
+    return defineStageHooks({
+      review: async (args: {
+        ctx: StageRunArgs["ctx"];
+      }): Promise<{ verdict: unknown }> => {
+        const full = this.fullArgs(args.ctx);
+        const input = readPipelineInput(full.ctx);
+        const artifact = full.crossStageState.get(CS_KEY.reportArtifact);
+        try {
+          const res = await invokeAgent({
+            runner: this.runner,
+            specId: "playground.critic",
+            input: {
+              topic: input.topic,
+              language: input.language,
+              audienceProfile: "domain-expert",
+              artifactSummary: buildCriticArtifactSummary(
+                asArtifact(artifact),
+                input.topic,
+              ),
+            },
+            invocation: input.invocation,
+            crossStageState: full.crossStageState,
+            signal: full.ctx.signal,
+            stepId: "s9-critic",
+            role: "critic",
+            operationType: "meta-critic",
+          });
+          return { verdict: res.output };
+        } catch {
+          return { verdict: null };
+        }
+      },
+      afterReview: (args: {
+        verdict: unknown;
+        ctx: StageRunArgs["ctx"];
+        crossStageState: CrossStageState;
+      }): void => {
+        // 用 runner 绑定的 crossState（与产物同一实例）。
+        const cs = this.fullArgs(args.ctx).crossStageState;
+        this.applyCriticDowngrade(args.verdict, cs);
+      },
+    });
+  }
+
+  // ── S9b objective evaluation（review primitive，10 维客观评分）────────────────────
+  //
+  // 富增强（W2.5，对齐 playground s9b-report-objective-evaluation）：
+  //   review 跑 reviewer agent 主评分；objectiveEvalInjection 跑 ReportEvaluation 10 维
+  //   结构化评审（按 section 拆 ChapterInput），结果落 reportArtifact.metadata.pipelineEvaluation
+  //   + 记 finalScore（overallScore），供 s10 leader signoff 参考。
+  private buildObjectiveEvalHooks(): ResolvedStageHooks {
+    return defineStageHooks({
+      review: async (args: {
+        ctx: StageRunArgs["ctx"];
+      }): Promise<{ verdict: unknown; score?: number }> =>
+        this.runReviewerScore(args.ctx, "s9b-objective-eval"),
+      objectiveEvalInjection: async (args: {
+        verdict: unknown;
+        ctx: StageRunArgs["ctx"];
+      }): Promise<unknown> => {
+        const full = this.fullArgs(args.ctx);
+        const input = readPipelineInput(full.ctx);
+        const artifact = asArtifact(
+          full.crossStageState.get(CS_KEY.reportArtifact),
+        );
+        const chapters = buildChapterInputs(artifact);
+        if (chapters.length === 0) return args.verdict;
+        try {
+          const evalResult = await this.rich.reportEvaluation.evaluateReport({
+            reportTitle: artifact?.title ?? input.topic,
+            topicType: input.topic,
+            chapters,
+            language: input.language,
+          });
+          full.crossStageState.set(CS_KEY.pipelineEvaluation, evalResult);
+          // 把 10 维评估落进 reportArtifact.metadata.pipelineEvaluation（前端可见）。
+          if (artifact) {
+            const meta = artifact.metadata ?? {};
+            meta.pipelineEvaluation = evalResult;
+            artifact.metadata = meta;
+            full.crossStageState.set(CS_KEY.reportArtifact, artifact);
+          }
+        } catch {
+          // 客观评估失败降级：不阻断 mission（s10 仍可凭 reviewScore 签字）。
+        }
+        return args.verdict;
+      },
+    });
+  }
+
+  /** s8b / s9b 共用：跑 reviewer agent 拿主评分 + 合成 reviewVerdict（company gate 不退化）。 */
+  private async runReviewerScore(
+    ctx: StageRunArgs["ctx"],
+    stepId: string,
+  ): Promise<{ verdict: unknown; score?: number }> {
+    const full = this.fullArgs(ctx);
+    const input = readPipelineInput(full.ctx);
+    const report =
+      full.crossStageState.get(CS_KEY.reportArtifact) ??
+      full.crossStageState.get(CS_KEY.report);
+    const res = await invokeAgent({
+      runner: this.runner,
+      specId: "playground.reviewer",
+      input: {
+        topic: input.topic,
+        language: input.language,
+        draftReport: report,
+      },
+      invocation: input.invocation,
+      crossStageState: full.crossStageState,
+      signal: full.ctx.signal,
+      stepId,
+      role: "reviewer",
+      operationType:
+        stepId === "s9b-objective-eval" ? "objective-eval" : "quality-enhance",
+    });
+    const verdict = res.output;
+    const score = this.extractScore(verdict);
+    if (typeof score === "number") {
+      full.crossStageState.set(CS_KEY.reviewScore, score);
+    }
+    const synth = this.synthReviewVerdict(verdict);
+    if (synth) full.crossStageState.set(CS_KEY.reviewVerdict, synth);
+    return { verdict, ...(typeof score === "number" ? { score } : {}) };
+  }
+
+  /**
+   * s8b 富补救：逐 section 跑 SectionSelfEval（4 维）→ 弱维度 SectionRemediation 定向补救，
+   * QualityTrace 记补救闭环，补救后 section 回写 reportArtifact.sections + content.fullMarkdown。
+   * 任何单 section 失败降级跳过（fail-open，不阻断 mission）。
+   */
+  private async runSectionRemediation(
+    ctx: StageRunArgs["ctx"],
+    crossStageState: CrossStageState,
+  ): Promise<void> {
+    const input = readPipelineInput(ctx);
+    const artifact = asArtifact(crossStageState.get(CS_KEY.reportArtifact));
+    const sections = artifact?.sections;
+    if (!artifact || !Array.isArray(sections) || sections.length === 0) return;
+
+    const trace = this.rich.qualityTrace.createTrace(ctx.missionId);
+    let mutated = false;
+
+    for (const sec of sections as Array<{
+      id?: string;
+      title?: string;
+      heading?: string;
+      content?: string;
+      body?: string;
+    }>) {
+      const content = sec.content ?? sec.body ?? "";
+      const title = sec.title ?? sec.heading ?? "";
+      if (content.length < 200) continue; // 太短不值得补救
+      try {
+        const evalResult = await this.rich.sectionSelfEval.evaluateSection({
+          content,
+          sectionTitle: title,
+          topicName: input.topic,
+          language: input.language,
+        });
+        if (evalResult.overallOk || evalResult.weakAreas.length === 0) continue;
+        const actions: RemediationAction[] =
+          this.rich.sectionSelfEval.determineRemediationActions(
+            evalResult,
+            7,
+            input.language,
+          );
+        if (actions.length === 0) continue;
+        const remediated = await this.rich.sectionRemediation.remediate({
+          content,
+          sectionTitle: title,
+          actions,
+          ...(input.invocation.preferredModelId
+            ? { originalModelId: input.invocation.preferredModelId }
+            : {}),
+          language: input.language,
+        });
+        if (remediated.skipped || !remediated.content) continue;
+        // 回写补救后内容（content / body 任一存在的字段都更新）。
+        if (sec.content !== undefined) sec.content = remediated.content;
+        if (sec.body !== undefined) sec.body = remediated.content;
+        if (sec.content === undefined && sec.body === undefined) {
+          sec.content = remediated.content;
+        }
+        mutated = true;
+        // QualityTrace 记补救闭环（before/after delta）。
+        const after = await this.rich.sectionSelfEval.evaluateSection({
+          content: remediated.content,
+          sectionTitle: title,
+          topicName: input.topic,
+          language: input.language,
+        });
+        this.rich.qualityTrace.recordDimensionRemediationLoop(
+          trace,
+          sec.id ?? title,
+          {
+            selfEvalScoresBefore: evalResult.scores,
+            selfEvalScoresAfter: after.scores,
+            weakAreasResolved: after.weakAreas.length === 0,
+            ...(input.invocation.preferredModelId
+              ? { remediationModel: input.invocation.preferredModelId }
+              : {}),
+          },
+        );
+      } catch {
+        // 单 section 补救失败降级跳过（不阻断后续 section / mission）。
+      }
+    }
+
+    if (mutated) {
+      // section 内容变了 → 重建 content.fullMarkdown（前端连续阅读 / 复制 markdown 用）。
+      this.rebuildArtifactMarkdown(artifact);
+      crossStageState.set(CS_KEY.reportArtifact, artifact);
+    }
+  }
+
+  // ── S10 leader foreword + signoff（signoff primitive，多层 verdict + 硬门）─────────
+  //
+  // 富增强（W2.5，对齐 playground s10-leader-foreword-and-signoff）：
+  //   runRole 跑 leader signoff（综合 reportArtifact + reviewScore + 客观评估写前言/签字）。
+  //   accountability hook 做最终问责裁决（在 LLM 签字之上叠加业务硬门）：
+  //     1. s4 patch 失败（ctx.s4PatchFailures 非空）→ 强制 signed=false（防"说要补救没补就签"）。
+  //     2. finalScore 经 QualityTrace 客观计算（从 10 维评估 + reviewScore 融合），落 CS_KEY.finalScore。
+  //   forcedDegraded=true 时 signoff primitive 会让 stage 标记降级（前端可见）。
   private buildSignoffHooks(): ResolvedStageHooks {
     return defineStageHooks({
       runRole: async (args: { ctx: StageRunArgs["ctx"] }): Promise<unknown> => {
@@ -495,13 +824,43 @@ export class DeepInsightStageBindings implements StageBindings {
             role: "leader",
             operationType: "signoff",
           });
-          full.crossStageState.set(CS_KEY.leaderSignOff, res.output);
           return res.output;
         } catch {
           // signoff 可降级：缺 leader 签字不阻断终态产出。
-          full.crossStageState.set(CS_KEY.leaderSignOff, null);
           return null;
         }
+      },
+      accountability: (args: {
+        raw: unknown;
+        ctx: StageRunArgs["ctx"];
+        crossStageState: CrossStageState;
+      }): { forcedDegraded?: boolean; signoff: unknown } => {
+        // 用 runner 绑定的 crossState（与 s4 写入、终态读取同一实例）。
+        const cs = this.fullArgs(args.ctx).crossStageState;
+        const patchFailures =
+          cs.get<Array<{ dimension: string }>>(CS_KEY.s4PatchFailures) ?? [];
+        const objectiveScore = this.objectiveFinalScore(cs);
+        if (typeof objectiveScore === "number") {
+          cs.set(CS_KEY.finalScore, objectiveScore);
+        }
+        let signoff = args.raw;
+        let forcedDegraded = false;
+        // s4 patch 失败 → 强制拒签（覆盖 LLM 的 signed）。
+        if (
+          patchFailures.length > 0 &&
+          signoff &&
+          typeof signoff === "object"
+        ) {
+          const s = { ...(signoff as Record<string, unknown>) };
+          s.signed = false;
+          s.refusalReason =
+            (typeof s.refusalReason === "string" && s.refusalReason) ||
+            `s4 评估标记 ${patchFailures.length} 个维度需补救但未完成闭环，按问责规则强制拒签`;
+          signoff = s;
+          forcedDegraded = true;
+        }
+        cs.set(CS_KEY.leaderSignOff, signoff ?? null);
+        return { signoff: signoff ?? null, forcedDegraded };
       },
     });
   }
@@ -571,36 +930,102 @@ export class DeepInsightStageBindings implements StageBindings {
     };
   }
 
-  private buildCriticInput(
-    report: unknown,
-    topic: string,
-    language: string,
-  ): Record<string, unknown> {
-    const r = report as
-      | {
-          title?: string;
-          sections?: Array<{ heading?: string; title?: string }>;
-          executiveSummary?: string;
-        }
-      | undefined;
-    const sectionTitles = (r?.sections ?? []).map(
-      (s) => s.heading ?? s.title ?? "",
+  /** 从 leader assess-research 产出读 decision（accept-all/patch/redirect/abort）。 */
+  private readLeaderAssessDecision(
+    raw: unknown,
+  ): "accept-all" | "patch" | "redirect" | "abort" {
+    if (!raw || typeof raw !== "object") return "accept-all";
+    const d = (raw as { decision?: unknown }).decision;
+    if (
+      d === "patch" ||
+      d === "redirect" ||
+      d === "abort" ||
+      d === "accept-all"
+    ) {
+      return d;
+    }
+    return "accept-all";
+  }
+
+  /** 从 leader assess perDimension 抽出非 accept 的弱维度（s4PatchFailures 记账）。 */
+  private extractWeakDimensions(
+    raw: unknown,
+  ): Array<{ dimension: string; reason: string }> {
+    if (!raw || typeof raw !== "object") return [];
+    const per = (raw as { perDimension?: unknown }).perDimension;
+    if (!Array.isArray(per)) return [];
+    const out: Array<{ dimension: string; reason: string }> = [];
+    for (const item of per) {
+      if (!item || typeof item !== "object") continue;
+      const r = item as Record<string, unknown>;
+      const action = typeof r.action === "string" ? r.action : "";
+      if (action && action !== "accept") {
+        out.push({
+          dimension:
+            typeof r.dimension === "string" ? r.dimension : "(unknown)",
+          reason: action,
+        });
+      }
+    }
+    return out;
+  }
+
+  /**
+   * s9 critic verdict → reportArtifact.quality.overall 降权（fail ×0.7 / concerns ×0.9）。
+   * 让 s10 leader 看到经独立复审修正后的真实质量信号。
+   */
+  private applyCriticDowngrade(
+    verdict: unknown,
+    crossStageState: CrossStageState,
+  ): void {
+    if (!verdict || typeof verdict !== "object") return;
+    const v = (verdict as { overallVerdict?: unknown }).overallVerdict;
+    const factor = v === "fail" ? 0.7 : v === "concerns" ? 0.9 : 1;
+    if (factor === 1) return;
+    const artifact = asArtifact(crossStageState.get(CS_KEY.reportArtifact));
+    if (!artifact?.quality || typeof artifact.quality.overall !== "number") {
+      return;
+    }
+    artifact.quality.overall = Math.round(artifact.quality.overall * factor);
+    crossStageState.set(CS_KEY.reportArtifact, artifact);
+  }
+
+  /**
+   * s10 客观 finalScore：优先 10 维客观评估 overallScore；缺则回退 reviewScore；
+   * 再缺则回退 reportArtifact.quality.overall。纯计算，无 LLM。
+   */
+  private objectiveFinalScore(
+    crossStageState: CrossStageState,
+  ): number | undefined {
+    const evalResult = crossStageState.get<{ overallScore?: number }>(
+      CS_KEY.pipelineEvaluation,
     );
-    return {
-      topic,
-      language,
-      audienceProfile: "domain-expert",
-      artifactSummary: {
-        title: r?.title ?? topic,
-        executiveSummary: r?.executiveSummary ?? "",
-        sectionCount: sectionTitles.length,
-        sectionTitles,
-        citationCount: 0,
-        factCount: 0,
-        figureCount: 0,
-        overallQuality: 70,
-        qualityDimensions: {},
-      },
+    if (typeof evalResult?.overallScore === "number") {
+      return Math.round(evalResult.overallScore);
+    }
+    const reviewScore = crossStageState.get<number>(CS_KEY.reviewScore);
+    if (typeof reviewScore === "number") return Math.round(reviewScore);
+    const artifact = asArtifact(crossStageState.get(CS_KEY.reportArtifact));
+    if (typeof artifact?.quality?.overall === "number") {
+      return Math.round(artifact.quality.overall);
+    }
+    return undefined;
+  }
+
+  /** s8b 补救后 section 内容变了 → 重建 content.fullMarkdown（标题 ## + body 拼接）。 */
+  private rebuildArtifactMarkdown(artifact: ReportArtifactLite): void {
+    const parts: string[] = [];
+    if (artifact.title) parts.push(`# ${artifact.title}`);
+    for (const s of artifact.sections ?? []) {
+      const heading = s.title ?? s.heading;
+      if (heading) parts.push(`## ${heading}`);
+      const body = s.content ?? s.body;
+      if (body) parts.push(body);
+    }
+    const fullMarkdown = parts.join("\n\n");
+    artifact.content = {
+      fullMarkdown,
+      fullReportSize: Buffer.byteLength(fullMarkdown, "utf8"),
     };
   }
 
@@ -610,9 +1035,7 @@ export class DeepInsightStageBindings implements StageBindings {
     return typeof v.score === "number" ? v.score : undefined;
   }
 
-  private synthReviewVerdict(
-    verdict: unknown,
-  ):
+  private synthReviewVerdict(verdict: unknown):
     | {
         score?: number;
         verdict?: "approve" | "revise" | "reject";

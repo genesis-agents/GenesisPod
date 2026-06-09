@@ -21,6 +21,22 @@ export {
   type PipelineMissionResult,
   type RunPipelineArgs,
 } from "@/modules/ai-harness/facade";
+// ★ W2.5（富增强到 playground 等价）：harness 评判 / 富组装原语（全 @Global HarnessModule
+//   导出，runner 构造函数注入即可，无需 marketplace.module 额外 provider）。
+export {
+  ReportArtifactAssembler,
+  SectionSelfEvalService,
+  SectionRemediationService,
+  ReportEvaluationService,
+  QualityTraceComputeService,
+  type ReportArtifact,
+  type ChapterInput,
+  type EvaluationResult,
+  type RemediationAction,
+  type SectionSelfEvalResult,
+  type QualityTraceContext,
+  type QualityTrace,
+} from "@/modules/ai-harness/facade";
 export { AIModelType } from "@prisma/client";
 export {
   CapabilityRegistry,

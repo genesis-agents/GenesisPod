@@ -105,6 +105,7 @@ class ProbePersistence implements MissionPersistencePort {
   saveCheckpointCount = 0;
   applyTerminalCount = 0;
   lastTerminal: { outcome: string } | null = null;
+  lastFinalScore: number | undefined;
   private cp = new Map<string, unknown>();
 
   async markStageProgress(): Promise<void> {}
@@ -122,15 +123,113 @@ class ProbePersistence implements MissionPersistencePort {
   async applyTerminalIfRunning(
     _missionId: string,
     outcome: "completed" | "failed" | "cancelled",
+    details?: { finalScore?: number },
   ): Promise<boolean> {
     this.applyTerminalCount++;
     this.lastTerminal = { outcome };
+    if (outcome === "completed") this.lastFinalScore = details?.finalScore;
     return true;
   }
 }
 
-function makeRunner() {
-  const agentRunner = makeAgentRunner();
+/**
+ * 富评判 / 富组装 stub（W2.5）。
+ *   - assembler：把 writer report → reportArtifact（content.fullMarkdown / sections /
+ *     quality.overall），与真服务同形状但纯映射（无 LLM / 无 ReportQualityGate 依赖）。
+ *   - selfEval：默认 overallOk=true（不触发补救，保证 s8b 纯通过路径）。
+ *   - remediation：skipped。
+ *   - reportEvaluation：10 维 overallScore（s9b 客观评分 → finalScore）。
+ *   - qualityTrace：createTrace + record* 全 no-op（纯计算探针，单测不验内部）。
+ */
+function makeRichStubs() {
+  const reportArtifactAssembler = {
+    assemble: jest.fn(
+      (input: {
+        writerReport: {
+          title?: string;
+          sections?: Array<{ heading?: string; body?: string }>;
+        };
+      }) => {
+        const wr = input.writerReport;
+        const parts: string[] = [];
+        if (wr.title) parts.push(`# ${wr.title}`);
+        for (const s of wr.sections ?? []) {
+          if (s.heading) parts.push(`## ${s.heading}`);
+          if (s.body) parts.push(s.body);
+        }
+        const fullMarkdown = parts.join("\n\n");
+        return {
+          title: wr.title,
+          content: {
+            fullMarkdown,
+            fullReportSize: Buffer.byteLength(fullMarkdown, "utf8"),
+          },
+          sections: (wr.sections ?? []).map((s, i) => ({
+            id: `chapter-${i + 1}`,
+            title: s.heading ?? "",
+            content: s.body ?? "",
+            citationIds: [],
+            figureIds: [],
+          })),
+          citations: [],
+          figures: [],
+          quickView: {},
+          factTable: [],
+          metadata: {},
+          quality: { overall: 75, dimensions: {}, warnings: [] },
+        };
+      },
+    ),
+  };
+  const sectionSelfEval = {
+    evaluateSection: jest.fn(async () => ({
+      scores: {
+        analytical_depth: 8,
+        evidence_coverage: 8,
+        actionability: 8,
+        writing_quality: 8,
+      },
+      weakAreas: [],
+      overallOk: true,
+    })),
+    determineRemediationActions: jest.fn(() => []),
+  };
+  const sectionRemediation = {
+    remediate: jest.fn(async (i: { content: string }) => ({
+      content: i.content,
+      actionsApplied: [],
+      skipped: true,
+      skipReason: "no_actions_needed",
+    })),
+  };
+  const reportEvaluation = {
+    evaluateReport: jest.fn(async () => ({
+      chapters: [],
+      overallScore: 88,
+      grade: "B",
+      feedback: "ok",
+      modelComparison: [],
+      evaluatorModel: "",
+      evaluatedAt: new Date().toISOString(),
+    })),
+  };
+  const qualityTrace = {
+    createTrace: jest.fn(() => ({ reportId: "x", dimensionOutputs: [] })),
+    recordDimensionRemediationLoop: jest.fn(),
+  };
+  return {
+    reportArtifactAssembler,
+    sectionSelfEval,
+    sectionRemediation,
+    reportEvaluation,
+    qualityTrace,
+  };
+}
+
+function makeRunnerWith(
+  agentRunner: ReturnType<typeof makeAgentRunner>,
+  rich: ReturnType<typeof makeRichStubs>,
+) {
   const pipelineRegistry = new MissionPipelineRegistry();
   const orchestrator = new MissionPipelineOrchestrator(pipelineRegistry);
   const capabilityRegistry = new CapabilityRegistry();
@@ -140,9 +239,18 @@ function makeRunner() {
     capabilityRegistry,
     pipelineRegistry,
     orchestrator,
+    rich.reportArtifactAssembler as never,
+    rich.sectionSelfEval as never,
+    rich.sectionRemediation as never,
+    rich.reportEvaluation as never,
+    rich.qualityTrace as never,
   );
   runner.onModuleInit();
-  return { runner, agentRunner, pipelineRegistry, capabilityRegistry };
+  return { runner, agentRunner, pipelineRegistry, capabilityRegistry, rich };
+}
+
+function makeRunner() {
+  return makeRunnerWith(makeAgentRunner(), makeRichStubs());
 }
 
 describe("deep-insight 14 阶段执行内核（W2）", () => {
@@ -259,20 +367,75 @@ describe("deep-insight 14 阶段执行内核（W2）", () => {
         };
       },
     );
-    const pipelineRegistry = new MissionPipelineRegistry();
-    const orchestrator = new MissionPipelineOrchestrator(pipelineRegistry);
-    const runner = new DeepInsightDefaultRunner(
-      agentRunner as never,
-      { chat: jest.fn() } as never,
-      new CapabilityRegistry(),
-      pipelineRegistry,
-      orchestrator,
-    );
-    runner.onModuleInit();
+    const { runner } = makeRunnerWith(agentRunner, makeRichStubs());
     const res = await runner.run(
       { topic: "T", language: "zh-CN" },
       { userId: "u", missionId: "m-5" },
     );
     expect(res.status).toBe("failed");
+  });
+
+  // ── W2.5 富增强断言（不削弱以上 7 个断言；新增 parity 证据）──────────────────────
+
+  it("s8 富组装：reportArtifactAssembler.assemble 被调，终稿用 artifact.content.fullMarkdown", async () => {
+    const rich = makeRichStubs();
+    const { runner } = makeRunnerWith(makeAgentRunner(), rich);
+    const res = await runner.run(
+      { topic: "AI", language: "zh-CN" },
+      { userId: "u", missionId: "m-6" },
+    );
+    expect(res.status).toBe("completed");
+    // s8 经 ReportArtifactAssembler 组装（playground 等价的富组装路径）。
+    expect(rich.reportArtifactAssembler.assemble).toHaveBeenCalledTimes(1);
+    // 终稿来自 artifact.content.fullMarkdown（含 writer sections）。
+    expect(res.report).toContain("# 报告");
+    expect(res.report).toContain("## H1");
+  });
+
+  it("s8b 富补救：长 section 跑 SectionSelfEval；overallOk 时不触发 remediation", async () => {
+    const longBody = "x".repeat(400);
+    const agentRunner = makeAgentRunner();
+    // SingleShotWriterAgent（id 含 "writer"）产出 1 个长 body section（> 200 字触发自评）；
+    // 其余角色沿用默认 routeOutput。
+    agentRunner.run.mockImplementation(
+      async (Spec: { name?: string }, input: unknown) => {
+        const id = (Spec?.name ?? "").toLowerCase();
+        const out =
+          id.includes("writer") && !id.includes("outline")
+            ? { title: "报告", sections: [{ heading: "H1", body: longBody }] }
+            : routeOutput(id, input);
+        return {
+          output: out,
+          state: "completed" as const,
+          tokensUsed: { prompt: 1, completion: 1, total: 2 },
+          costCents: 1,
+        };
+      },
+    );
+    const rich = makeRichStubs();
+    const { runner } = makeRunnerWith(agentRunner, rich);
+    const res = await runner.run(
+      { topic: "AI", language: "zh-CN" },
+      { userId: "u", missionId: "m-7" },
+    );
+    expect(res.status).toBe("completed");
+    // 长 section → 跑 SectionSelfEval（4 维写后自评）。
+    expect(rich.sectionSelfEval.evaluateSection).toHaveBeenCalled();
+    // overallOk=true（stub）→ 不触发定向补救（fail-open，不退化）。
+    expect(rich.sectionRemediation.remediate).not.toHaveBeenCalled();
+  });
+
+  it("s9b 富评估：ReportEvaluation.evaluateReport 被调，finalScore 取客观 overallScore", async () => {
+    const rich = makeRichStubs();
+    const { runner } = makeRunnerWith(makeAgentRunner(), rich);
+    const probe = new ProbePersistence();
+    const res = await runner.run(
+      { topic: "AI", language: "zh-CN" },
+      { userId: "u", missionId: "m-8", persistence: probe },
+    );
+    expect(res.status).toBe("completed");
+    expect(rich.reportEvaluation.evaluateReport).toHaveBeenCalledTimes(1);
+    // finalScore = 客观 10 维 overallScore（88），而非 reviewVerdict.score（80）。
+    expect(probe.lastFinalScore).toBe(88);
   });
 });

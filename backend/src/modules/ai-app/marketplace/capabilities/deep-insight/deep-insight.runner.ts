@@ -22,6 +22,11 @@ import {
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
   CrossStageState,
+  ReportArtifactAssembler,
+  SectionSelfEvalService,
+  SectionRemediationService,
+  ReportEvaluationService,
+  QualityTraceComputeService,
   type CapabilityManifest,
   type ICapabilityRunner,
   type CapabilityRunInput,
@@ -117,9 +122,21 @@ export class DeepInsightDefaultRunner
     private readonly capabilityRegistry: CapabilityRegistry,
     private readonly pipelineRegistry: MissionPipelineRegistry,
     private readonly orchestrator: MissionPipelineOrchestrator,
+    // ★ W2.5 富增强：harness 评判 / 富组装原语（全 @Global HarnessModule 提供，DI 自动注入）。
+    private readonly reportArtifactAssembler: ReportArtifactAssembler,
+    private readonly sectionSelfEval: SectionSelfEvalService,
+    private readonly sectionRemediation: SectionRemediationService,
+    private readonly reportEvaluation: ReportEvaluationService,
+    private readonly qualityTrace: QualityTraceComputeService,
   ) {
     void this.chatFacade; // 保留注入（plan 等结构化抽取的未来用途）；当前 14 步全走 AgentRunner。
-    this.bindings = new DeepInsightStageBindings(this.agentRunner);
+    this.bindings = new DeepInsightStageBindings(this.agentRunner, {
+      reportArtifactAssembler: this.reportArtifactAssembler,
+      sectionSelfEval: this.sectionSelfEval,
+      sectionRemediation: this.sectionRemediation,
+      reportEvaluation: this.reportEvaluation,
+      qualityTrace: this.qualityTrace,
+    });
   }
 
   onModuleInit(): void {
@@ -209,6 +226,11 @@ export class DeepInsightDefaultRunner
       this.log.warn(
         `[deep-insight ${missionId}] loadCheckpoint failed (ignore, run fresh): ${this.errMsg(err)}`,
       );
+    }
+
+    // ★ W2.5：记录 run 起始时间戳（assembler generationTimeMs 计算用），不覆盖 resume 值。
+    if (crossStageState.get<number>(CS_KEY.startedAt) === undefined) {
+      crossStageState.set(CS_KEY.startedAt, Date.now());
     }
 
     // 把 crossStageState 绑到 missionId，hooks 内据 ctx.missionId 取回。
@@ -307,6 +329,9 @@ export class DeepInsightDefaultRunner
     const leaderSignOff = state.get(CS_KEY.leaderSignOff);
     const verdicts = state.get(CS_KEY.verifierVerdicts);
     const usage = this.usage(state);
+    // ★ W2.5：finalScore 优先用 s10 QualityTrace 客观计算（10 维评估融合），缺则回退 reviewScore。
+    const finalScore =
+      state.get<number>(CS_KEY.finalScore) ?? reviewVerdict?.score;
 
     await this.applyTerminal(persistence, missionId, "completed", {
       report,
@@ -315,9 +340,7 @@ export class DeepInsightDefaultRunner
       dimensions: plan?.dimensions,
       verdicts,
       leaderSignOff,
-      ...(reviewVerdict?.score !== undefined
-        ? { finalScore: reviewVerdict.score }
-        : {}),
+      ...(finalScore !== undefined ? { finalScore } : {}),
       tokensUsed: usage.totalTokens,
       costCents: usage.totalCostCents,
     });
@@ -329,7 +352,9 @@ export class DeepInsightDefaultRunner
 
     return {
       status: "completed",
-      report: this.assembleReport(report),
+      // ★ W2.5：终稿优先用 reportArtifact.content.fullMarkdown（assembler 富组装 +
+      //   50+ 格式修复 + 参考文献段），缺则回退 writer 原始 report（不退化既有契约）。
+      report: this.assembleReport(reportArtifact ?? report),
       references: this.extractReferences(researcherResults),
       stageOutputs: this.collectStageOutputs(state),
       usage,
@@ -580,15 +605,29 @@ export class DeepInsightDefaultRunner
   private assembleReport(report: unknown): string {
     const r = report as {
       title?: string;
-      sections?: { heading?: string; title?: string; body?: string }[];
+      content?: { fullMarkdown?: string };
+      sections?: {
+        heading?: string;
+        title?: string;
+        body?: string;
+        content?: string;
+      }[];
     } | null;
+    // ★ W2.5：reportArtifact 有 content.fullMarkdown（assembler 富组装产物）则直接用。
+    if (
+      typeof r?.content?.fullMarkdown === "string" &&
+      r.content.fullMarkdown
+    ) {
+      return r.content.fullMarkdown;
+    }
     if (r?.sections && Array.isArray(r.sections)) {
       const parts: string[] = [];
       if (r.title) parts.push(`# ${r.title}`);
       for (const s of r.sections) {
         const heading = s.heading ?? s.title;
         if (heading) parts.push(`## ${heading}`);
-        if (s.body) parts.push(s.body);
+        const body = s.body ?? s.content;
+        if (body) parts.push(body);
       }
       if (parts.length) return parts.join("\n\n");
     }

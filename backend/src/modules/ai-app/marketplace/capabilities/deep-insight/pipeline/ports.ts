@@ -121,4 +121,12 @@ export const CS_KEY = {
   leaderSignOff: "deep-insight.leaderSignOff",
   tokensUsed: "deep-insight.tokensUsed",
   costCents: "deep-insight.costCents",
+  // ★ W2.5 富增强：s4 patch 失败跟踪（s10 据此强制拒签，对齐 playground s4PatchFailures）。
+  s4PatchFailures: "deep-insight.s4PatchFailures",
+  // ★ W2.5 富增强：s10 leader finalScore（QualityTrace 客观计算，落 CapabilityRunResult）。
+  finalScore: "deep-insight.finalScore",
+  // ★ W2.5 富增强：s9b 客观评估 10 维结果（落 reportArtifact.metadata.pipelineEvaluation）。
+  pipelineEvaluation: "deep-insight.pipelineEvaluation",
+  // ★ W2.5 富增强：run 起始时间戳（assembler generationTimeMs 计算）。
+  startedAt: "deep-insight.startedAt",
 } as const;
