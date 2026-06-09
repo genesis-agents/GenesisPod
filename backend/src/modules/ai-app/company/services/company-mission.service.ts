@@ -17,6 +17,7 @@
  */
 
 import {
+  BadRequestException,
   Injectable,
   Logger,
   NotFoundException,
@@ -431,6 +432,45 @@ export class CompanyMissionService implements OnModuleInit {
     });
 
     return mission;
+  }
+
+  /**
+   * 复跑 —— 用原 mission 终态保留的派发参数（result.__dispatch）创建一条**全新** mission
+   * 重跑（同 hero + 同档位 depth/语言/知识库/图文）。原 mission 历史保留不动，返回新 mission。
+   * 缺 __dispatch（历史数据/被覆盖）→ 抛错，前端提示无法复跑、请重新下发。
+   */
+  async rerunHeroMission(
+    userId: string,
+    missionId: string,
+  ): Promise<CompanyMission> {
+    const src = await this.prisma.companyMission.findFirst({
+      where: { id: missionId, userId },
+    });
+    if (!src) throw new NotFoundException("Mission not found");
+    const result =
+      src.result && typeof src.result === "object" && !Array.isArray(src.result)
+        ? (src.result as Record<string, unknown>)
+        : {};
+    const dispatch = result.__dispatch as
+      | {
+          capabilityId?: string;
+          preferredModelId?: string;
+          extra?: HeroMissionExtra;
+        }
+      | undefined;
+    if (!dispatch?.capabilityId) {
+      throw new BadRequestException(
+        "该任务缺少可复跑的派发参数（可能为历史数据），请重新下发任务。",
+      );
+    }
+    return this.createHeroMission(
+      userId,
+      src.heroId ?? "",
+      dispatch.capabilityId,
+      src.title,
+      dispatch.preferredModelId ?? "",
+      dispatch.extra,
+    );
   }
 
   /**
@@ -902,6 +942,12 @@ export class CompanyMissionService implements OnModuleInit {
             notes: rv?.notes ?? [],
           }),
           capabilityId: runner.manifest.id,
+          // ★ 复跑用：终态保留派发参数（capabilityId/model/档位），让 rerun 用同档位重跑。
+          __dispatch: toJson({
+            capabilityId: runner.manifest.id,
+            ...(preferredModelId ? { preferredModelId } : {}),
+            ...(extra ? { extra } : {}),
+          }),
           completedAt: new Date().toISOString(),
         },
       });
@@ -930,6 +976,12 @@ export class CompanyMissionService implements OnModuleInit {
         dimensions: dimNames,
         steps: toJson(dimSteps),
         collab,
+        // ★ 复跑用：失败也保留派发参数，让用户一键重跑同档位任务。
+        __dispatch: toJson({
+          capabilityId: runner.manifest.id,
+          ...(preferredModelId ? { preferredModelId } : {}),
+          ...(extra ? { extra } : {}),
+        }),
         failedAt: new Date().toISOString(),
       },
     });

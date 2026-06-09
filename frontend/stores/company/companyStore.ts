@@ -303,6 +303,7 @@ interface CompanyState {
   createMission: (teamId: string, title: string) => Promise<string | null>;
   deleteMission: (missionId: string) => Promise<void>;
   cancelMission: (missionId: string) => Promise<void>;
+  rerunMission: (missionId: string) => Promise<string | null>;
   renameMission: (missionId: string, title: string) => Promise<void>;
   setMissionProgress: (
     missionId: string,
@@ -802,6 +803,23 @@ export const useCompanyStore = create<CompanyState>((set, get) => ({
     } catch {
       set({ missions: prev });
       toast.error('取消任务失败，请稍后重试');
+    }
+  },
+
+  rerunMission: async (missionId) => {
+    try {
+      // 后端用原派发参数（depth/语言/知识库/图文）创建全新任务重跑，返回完整 mission 行。
+      const raw = await apiClient.post<BackendMission>(
+        `/company/missions/${encodeURIComponent(missionId)}/rerun`,
+        {}
+      );
+      const mission = adaptMission(raw);
+      set((s) => ({ missions: [mission, ...s.missions] }));
+      toast.success('已复跑，新任务已创建');
+      return mission.id;
+    } catch {
+      toast.error('复跑失败，请稍后重试');
+      return null;
     }
   },
 

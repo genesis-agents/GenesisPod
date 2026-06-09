@@ -402,6 +402,13 @@ export class CompanyController {
     return { success: true };
   }
 
+  @Post("missions/:id/rerun")
+  @ApiOperation({ summary: "复跑 Mission（用原派发参数创建全新任务重跑）" })
+  async rerunMission(@Request() req: RequestWithUser, @Param("id") id: string) {
+    // 返回完整 mission 行（与 heroes/:id/missions 同形），前端 adaptMission 直接入列表。
+    return this.missionService.rerunHeroMission(this.getUserId(req), id);
+  }
+
   // ── mission graph（知识图谱，平台共享构建器）────────────────────────────────
 
   @Throttle({ default: { limit: 10, ttl: 60000 } })

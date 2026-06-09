@@ -122,6 +122,7 @@ export function MissionRunView({
     missions,
     deleteMission,
     cancelMission,
+    rerunMission,
     renameMission,
     setMissionProgress,
     loadMissions,
@@ -331,14 +332,13 @@ export function MissionRunView({
               {
                 variant: 'primary' as const,
                 emoji: '▶',
-                label: '重新下发',
-                title: '用相同专家 + 任务标题起一个新 mission',
+                label: '复跑',
+                title:
+                  '用原任务的相同档位（深度/语言/知识库/图文）起一个新 mission',
                 onClick: () => {
-                  void createHeroMission(rerunHeroId, reportMission.title).then(
-                    (id) => {
-                      if (id) setActiveMissionId(id);
-                    }
-                  );
+                  void rerunMission(reportMission.id).then((id) => {
+                    if (id) setActiveMissionId(id);
+                  });
                   setReportMissionId(null);
                 },
               },
@@ -357,16 +357,13 @@ export function MissionRunView({
       ],
     });
 
-    const handleRerun = rerunHeroId
-      ? () => {
-          void createHeroMission(rerunHeroId, reportMission.title).then(
-            (id) => {
-              if (id) setActiveMissionId(id);
-            }
-          );
-          setReportMissionId(null);
-        }
-      : undefined;
+    const handleRerun = () => {
+      // 复跑：后端用原任务保留的派发参数（__dispatch）创建全新 mission 重跑，保留全部档位。
+      void rerunMission(reportMission.id).then((id) => {
+        if (id) setActiveMissionId(id);
+      });
+      setReportMissionId(null);
+    };
 
     return (
       <DeepInsightMissionDetail
