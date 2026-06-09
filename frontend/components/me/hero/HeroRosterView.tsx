@@ -12,6 +12,14 @@ import {
   Pencil,
   Check,
   X,
+  Brain,
+  Rocket,
+  Compass,
+  Telescope,
+  Shield,
+  Sparkles,
+  Flame,
+  type LucideIcon,
 } from 'lucide-react';
 import { PageHeaderHero } from '@/components/ui/page-header-hero';
 import { EmptyState } from '@/components/ui/states';
@@ -31,6 +39,33 @@ function gradientForId(id: string): string {
   let h = 5381;
   for (let i = 0; i < id.length; i++) h = ((h << 5) + h + id.charCodeAt(i)) | 0;
   return AVATAR_GRADIENTS[Math.abs(h) % AVATAR_GRADIENTS.length];
+}
+
+/**
+ * 英雄头像预设（cosmetic）：图标 + token 渐变（渐变取自 AVATAR_GRADIENTS，避免硬编码色）。
+ * 纯展示，不影响执行。
+ */
+const HERO_AVATARS: { key: string; Icon: LucideIcon }[] = [
+  { key: 'crown', Icon: Crown },
+  { key: 'brain', Icon: Brain },
+  { key: 'rocket', Icon: Rocket },
+  { key: 'compass', Icon: Compass },
+  { key: 'telescope', Icon: Telescope },
+  { key: 'shield', Icon: Shield },
+  { key: 'sparkles', Icon: Sparkles },
+  { key: 'flame', Icon: Flame },
+];
+
+/** 头像 key → { 图标, 渐变 }；未选中返回 null（调用方回退到 id 哈希色 + Crown）。 */
+function avatarPreset(
+  key: string | undefined
+): { Icon: LucideIcon; gradient: string } | null {
+  const idx = HERO_AVATARS.findIndex((a) => a.key === key);
+  if (idx < 0) return null;
+  return {
+    Icon: HERO_AVATARS[idx].Icon,
+    gradient: AVATAR_GRADIENTS[idx % AVATAR_GRADIENTS.length],
+  };
 }
 
 /** 从市场 catalog 解析 capability 的展示信息（标题 + 阶段 chips）。 */
@@ -127,7 +162,9 @@ function HeroCard({ hero, onConfig }: { hero: Hero; onConfig: () => void }) {
     () => resolveCapability(hero.capabilityId),
     [hero.capabilityId]
   );
-  const gradient = gradientForId(hero.id);
+  const preset = avatarPreset(hero.avatar);
+  const AvatarIcon = preset?.Icon ?? Crown;
+  const gradient = preset?.gradient ?? gradientForId(hero.id);
 
   const commitRename = () => {
     const next = draftName.trim();
@@ -149,7 +186,7 @@ function HeroCard({ hero, onConfig }: { hero: Hero; onConfig: () => void }) {
             gradient
           )}
         >
-          <Crown className="h-5 w-5 text-white" />
+          <AvatarIcon className="h-5 w-5 text-white" />
         </div>
         <div className="min-w-0 flex-1">
           {renaming ? (
@@ -207,6 +244,11 @@ function HeroCard({ hero, onConfig }: { hero: Hero; onConfig: () => void }) {
           )}
           {capability.title && (
             <p className="truncate text-xs text-gray-500">{capability.title}</p>
+          )}
+          {hero.tagline && (
+            <p className="mt-0.5 line-clamp-1 text-xs italic text-gray-400">
+              「{hero.tagline}」
+            </p>
           )}
         </div>
       </div>
@@ -296,6 +338,14 @@ function HeroConfigModal({
 }) {
   const { configHero } = useCompanyStore();
   const { models: aiModels } = useAIModels();
+  const [tagline, setTagline] = useState(hero.tagline ?? '');
+
+  const commitTagline = () => {
+    const next = tagline.trim();
+    if (next !== (hero.tagline ?? '')) {
+      void configHero(hero.id, { tagline: next });
+    }
+  };
 
   const available = aiModels
     .filter(
@@ -319,77 +369,127 @@ function HeroConfigModal({
       subtitle="模型 fallback 链（主 → 备）与自动 fallback"
       footer={<Button onClick={onClose}>完成</Button>}
     >
-      <div>
-        <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-900">
-          <Cpu className="h-4 w-4 text-slate-500" /> 模型
-          <span className="text-xs font-normal text-gray-400">
-            已选 {hero.models.length}
-          </span>
+      <div className="space-y-5">
+        {/* 身份（cosmetic）：头像 + 一句话人设 */}
+        <div>
+          <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-900">
+            <Sparkles className="h-4 w-4 text-violet-500" /> 头像
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {HERO_AVATARS.map(({ key, Icon }, idx) => {
+              const selected = hero.avatar === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => void configHero(hero.id, { avatar: key })}
+                  aria-label={`头像 ${key}`}
+                  className={cn(
+                    'flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br text-white transition-all',
+                    AVATAR_GRADIENTS[idx % AVATAR_GRADIENTS.length],
+                    selected
+                      ? 'ring-2 ring-primary ring-offset-2'
+                      : 'opacity-80 hover:opacity-100'
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-3">
+            <label className="mb-1 block text-xs font-medium text-gray-500">
+              一句话人设（仅展示，不影响执行）
+            </label>
+            <input
+              value={tagline}
+              maxLength={40}
+              onChange={(e) => setTagline(e.target.value)}
+              onBlur={commitTagline}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitTagline();
+              }}
+              placeholder="例如：只信一手数据"
+              className={cn(CONTROL_CLS, 'max-w-sm')}
+            />
+          </div>
         </div>
 
-        {/* 已选有序标签 */}
-        {hero.models.length > 0 ? (
-          <div className="mb-2 flex flex-wrap gap-1.5">
-            {hero.models.map((id, idx) => (
-              <span
-                key={id}
-                className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground"
-              >
-                <span className="rounded bg-white/25 px-1 text-xs">
-                  {idx === 0 ? '主' : `备${idx}`}
-                </span>
-                {nameOf(id)}
-                <button
-                  type="button"
-                  onClick={() => setModels(hero.models.filter((m) => m !== id))}
-                  className="rounded-full p-0.5 hover:bg-white/20"
-                  aria-label="移除"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            ))}
+        <div>
+          <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-900">
+            <Cpu className="h-4 w-4 text-slate-500" /> 模型
+            <span className="text-xs font-normal text-gray-400">
+              已选 {hero.models.length}
+            </span>
           </div>
-        ) : (
-          <p className="mb-2 text-xs text-gray-400">
-            未配置模型，引擎将自动择优
-          </p>
-        )}
 
-        {/* 添加下拉 */}
-        {available.length > 0 ? (
-          <select
-            className={cn(CONTROL_CLS, 'max-w-sm')}
-            value=""
-            onChange={(e) => {
-              if (e.target.value) {
-                setModels([...hero.models, e.target.value]);
+          {/* 已选有序标签 */}
+          {hero.models.length > 0 ? (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {hero.models.map((id, idx) => (
+                <span
+                  key={id}
+                  className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground"
+                >
+                  <span className="rounded bg-white/25 px-1 text-xs">
+                    {idx === 0 ? '主' : `备${idx}`}
+                  </span>
+                  {nameOf(id)}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setModels(hero.models.filter((m) => m !== id))
+                    }
+                    className="rounded-full p-0.5 hover:bg-white/20"
+                    aria-label="移除"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="mb-2 text-xs text-gray-400">
+              未配置模型，引擎将自动择优
+            </p>
+          )}
+
+          {/* 添加下拉 */}
+          {available.length > 0 ? (
+            <select
+              className={cn(CONTROL_CLS, 'max-w-sm')}
+              value=""
+              onChange={(e) => {
+                if (e.target.value) {
+                  setModels([...hero.models, e.target.value]);
+                }
+              }}
+            >
+              <option value="">+ 添加模型…</option>
+              {available.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <p className="text-xs text-gray-300">已全部添加</p>
+          )}
+
+          {/* 自动 fallback 开关 */}
+          <label className="mt-3 flex items-center gap-2 text-xs text-gray-600">
+            <input
+              type="checkbox"
+              checked={hero.autoFallback}
+              onChange={(e) =>
+                void configHero(hero.id, { autoFallback: e.target.checked })
               }
-            }}
-          >
-            <option value="">+ 添加模型…</option>
-            {available.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <p className="text-xs text-gray-300">已全部添加</p>
-        )}
-
-        {/* 自动 fallback 开关 */}
-        <label className="mt-3 flex items-center gap-2 text-xs text-gray-600">
-          <input
-            type="checkbox"
-            checked={hero.autoFallback}
-            onChange={(e) =>
-              void configHero(hero.id, { autoFallback: e.target.checked })
-            }
-            className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
-          />
-          主模型不可用时，自动按链顺序 fallback 到备用模型
-        </label>
+              className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            主模型不可用时，自动按链顺序 fallback 到备用模型
+          </label>
+        </div>
       </div>
     </Modal>
   );

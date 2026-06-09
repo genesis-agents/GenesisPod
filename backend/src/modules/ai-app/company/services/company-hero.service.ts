@@ -27,6 +27,10 @@ export interface UpdateHeroInput {
   name?: string;
   models?: string[];
   autoFallback?: boolean;
+  /** cosmetic 头像预设 key（纯展示，不入 prompt）。 */
+  avatar?: string;
+  /** cosmetic 一句话人设（纯展示，不入 prompt）。 */
+  tagline?: string;
 }
 
 @Injectable()
@@ -89,6 +93,8 @@ export class CompanyHeroService {
         ...(patch.autoFallback !== undefined
           ? { autoFallback: patch.autoFallback }
           : {}),
+        ...(patch.avatar !== undefined ? { avatar: patch.avatar } : {}),
+        ...(patch.tagline !== undefined ? { tagline: patch.tagline } : {}),
       },
     });
   }

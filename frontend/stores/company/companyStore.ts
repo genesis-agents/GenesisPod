@@ -55,6 +55,10 @@ export interface Hero {
   id: string;
   capabilityId: string;
   name: string;
+  /** cosmetic 头像预设 key（纯展示，不入 prompt） */
+  avatar?: string;
+  /** cosmetic 一句话人设（纯展示，不入 prompt） */
+  tagline?: string;
   /** 模型 fallback 链（有序，第一个为主模型）；空数组 => 引擎自动择优 */
   models: string[];
   autoFallback: boolean;
@@ -138,6 +142,8 @@ interface BackendHero {
   id: string;
   capabilityId: string;
   name: string;
+  avatar?: string | null;
+  tagline?: string | null;
   models: string[];
   autoFallback: boolean;
   createdAt: string;
@@ -206,6 +212,8 @@ function adaptHero(h: BackendHero): Hero {
     id: h.id,
     capabilityId: h.capabilityId,
     name: h.name,
+    avatar: h.avatar ?? undefined,
+    tagline: h.tagline ?? undefined,
     models: h.models ?? [],
     autoFallback: h.autoFallback,
   };
@@ -299,7 +307,9 @@ interface CompanyState {
   adoptHero: (capabilityId: string) => Promise<string | null>;
   configHero: (
     id: string,
-    patch: Partial<Pick<Hero, 'name' | 'models' | 'autoFallback'>>
+    patch: Partial<
+      Pick<Hero, 'name' | 'models' | 'autoFallback' | 'avatar' | 'tagline'>
+    >
   ) => Promise<void>;
   removeHero: (id: string) => Promise<void>;
   createHeroMission: (heroId: string, title: string) => Promise<string | null>;

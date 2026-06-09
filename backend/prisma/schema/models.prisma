@@ -11241,6 +11241,8 @@ model CompanyHero {
   userId       String   @map("user_id")
   capabilityId String   @map("capability_id")
   name         String
+  avatar       String?  // cosmetic 头像预设 key（纯展示，不入 prompt）
+  tagline      String?  // cosmetic 一句话人设（纯展示，不入 prompt）
   models       String[]
   autoFallback Boolean  @default(true) @map("auto_fallback")
   createdAt    DateTime @default(now()) @map("created_at")

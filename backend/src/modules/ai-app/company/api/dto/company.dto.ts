@@ -133,6 +133,20 @@ export class UpdateHeroDto {
   @IsOptional()
   @IsBoolean()
   autoFallback?: boolean;
+
+  @ApiPropertyOptional({
+    description: "Cosmetic avatar preset key (display only)",
+  })
+  @IsOptional()
+  @IsString()
+  avatar?: string;
+
+  @ApiPropertyOptional({
+    description: "Cosmetic one-line persona (display only)",
+  })
+  @IsOptional()
+  @IsString()
+  tagline?: string;
 }
 
 // ─── Team workflow ────────────────────────────────────────────────────────────
