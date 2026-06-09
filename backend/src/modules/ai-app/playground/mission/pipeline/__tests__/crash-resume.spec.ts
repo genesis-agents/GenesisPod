@@ -162,11 +162,7 @@ function makeDispatcherBundle(
       ),
   } as unknown as MissionRuntimeShellService;
 
-  const businessOrch = new PlaygroundBusinessOrchestrator(
-    fakeStageBindings,
-    fakeCheckpoint as never,
-    storeProxy as never,
-  );
+  const businessOrch = new PlaygroundBusinessOrchestrator();
   const fakeLifecycleManager = {
     finalize: jest.fn(
       async (args: {
