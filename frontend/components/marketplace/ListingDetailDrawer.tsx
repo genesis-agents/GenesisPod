@@ -64,14 +64,14 @@ export function ListingDetailDrawer({
   const Icon = meta.Icon;
 
   const acquireLabel = acquired
-    ? '已加入我的团队'
+    ? '已加入我的专家团'
     : listing.kind === 'team'
-      ? '一键组建到我的团队'
+      ? '一键组建到我的专家团'
       : listing.kind === 'agent'
-        ? '招聘到我的团队'
+        ? '招聘到我的专家团'
         : listing.kind === 'workflow'
           ? '套用为新 Team'
-          : '加入我的团队';
+          : '加入我的专家团';
 
   return (
     <Modal

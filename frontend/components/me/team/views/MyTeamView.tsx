@@ -28,7 +28,7 @@ export function MyTeamView() {
           <PageHeaderHero
             module="ask"
             icon={<Users className="h-7 w-7 text-white" />}
-            title="我的团队"
+            title="我的专家团"
             subtitle="麾下专家各司其职，配好模型即可下任务，调遣他们替你完成深度工作"
             actions={
               <Button asChild variant="outline" size="sm">

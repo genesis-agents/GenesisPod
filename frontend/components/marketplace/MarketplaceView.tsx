@@ -64,7 +64,7 @@ export function MarketplaceView() {
     const capabilityId = hero.missionType ?? hero.id;
     void adoptHero(capabilityId).then((heroId) => {
       if (heroId) {
-        toast.success(`已录用「${hero.name}」，进入我的团队`);
+        toast.success(`已录用「${hero.name}」，进入我的专家团`);
         router.push('/agents');
       }
     });
@@ -76,13 +76,13 @@ export function MarketplaceView() {
         module="market"
         icon={<Store className="h-7 w-7 text-white" />}
         title="专家市场"
-        subtitle="每位专家自带打法与阵型 —— 一键录用，带回「我的团队」直接派单"
+        subtitle="每位专家自带打法与阵型 —— 一键录用，带回「我的专家团」直接派单"
         actions={
           <Link
             href="/agents"
             className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
           >
-            我的团队
+            我的专家团
             <ArrowUpRight className="h-4 w-4" />
           </Link>
         }
