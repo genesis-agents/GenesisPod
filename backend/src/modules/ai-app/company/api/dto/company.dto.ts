@@ -106,6 +106,35 @@ export class RenameMissionDto {
   title!: string;
 }
 
+// ─── Hero ─────────────────────────────────────────────────────────────────────
+
+export class AdoptHeroDto {
+  @ApiProperty({ description: "Marketplace capability id to adopt as a hero" })
+  @IsString()
+  capabilityId!: string;
+}
+
+export class UpdateHeroDto {
+  @ApiPropertyOptional({ description: "Hero display name" })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: "Model slot (real model ids)",
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  models?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  autoFallback?: boolean;
+}
+
 // ─── Team workflow ────────────────────────────────────────────────────────────
 
 export class SetTeamWorkflowDto {

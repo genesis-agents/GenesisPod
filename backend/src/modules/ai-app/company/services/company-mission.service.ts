@@ -128,6 +128,102 @@ export class CompanyMissionService {
     return mission;
   }
 
+  // ── hero capability dispatch ─────────────────────────────────────────────────
+
+  /**
+   * createHeroMission —— Hero 模型派发：落库一条 company_missions 行（heroId 设置、
+   * teamId 为 null、status "queued"），然后把 capabilityId 解析到能力 runner 并真跑，
+   * 复用与团队路径完全相同的 run/bridge/persist 机器（runViaCapability + bridgeCapabilityEvent），
+   * emit 同一套 company.mission:* / company.stage:lifecycle 事件，前端流原样工作。
+   *
+   * preferredModelId = hero.models[0]：用户选了真实 model id → 透传 bypass election；
+   * 为空 → 引擎按 TaskProfile + BYOK 默认选模型（0-config 可用）。
+   */
+  async createHeroMission(
+    userId: string,
+    heroId: string,
+    capabilityId: string,
+    title: string,
+    preferredModelId: string,
+  ): Promise<CompanyMission> {
+    const mission = await this.prisma.companyMission.create({
+      data: {
+        userId,
+        teamId: null,
+        heroId,
+        title,
+        status: "queued",
+        progress: 0,
+      },
+    });
+
+    // fire-and-forget：异步执行，异常由内部 catch 处理（不吞错伪装成功）。
+    void this.runHeroMission(
+      mission.id,
+      userId,
+      capabilityId,
+      mission.title,
+      preferredModelId,
+    ).catch((err: unknown) => {
+      this.log.error(
+        `CompanyHero mission ${mission.id} run failed (outer catch): ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
+
+    return mission;
+  }
+
+  /**
+   * Hero mission 执行：解析 capabilityId → 能力 runner → runViaCapability 真跑。
+   * 复用团队能力路径的同一套 started/running + 结果持久化 + 事件桥。
+   */
+  private async runHeroMission(
+    missionId: string,
+    userId: string,
+    capabilityId: string,
+    title: string,
+    preferredModelId: string,
+  ): Promise<void> {
+    await this.updateMission(missionId, { status: "running", progress: 0 });
+    await this.emit("company.mission:started", missionId, userId, {
+      missionId,
+    });
+
+    try {
+      const runner = this.capabilityRegistry.resolve(capabilityId);
+      if (!runner) {
+        throw new Error(
+          `capability runner "${capabilityId}" not registered; ensure its onModuleInit ran`,
+        );
+      }
+      // 真实 model id 优先；为空时 undefined → 引擎按 TaskProfile + BYOK 选模型。
+      await this.runViaCapability(
+        missionId,
+        userId,
+        title,
+        runner,
+        preferredModelId || undefined,
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "unknown error";
+      this.log.error(`CompanyHero mission ${missionId} failed: ${message}`);
+
+      await this.updateMission(missionId, {
+        status: "failed",
+        result: { error: message, failedAt: new Date().toISOString() },
+      }).catch((dbErr: unknown) => {
+        this.log.error(
+          `Failed to persist failed status for ${missionId}: ${dbErr instanceof Error ? dbErr.message : String(dbErr)}`,
+        );
+      });
+
+      await this.emit("company.mission:failed", missionId, userId, {
+        missionId,
+        message,
+      });
+    }
+  }
+
   // ── list ───────────────────────────────────────────────────────────────────
 
   async listMissions(

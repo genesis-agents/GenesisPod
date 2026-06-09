@@ -1,17 +1,16 @@
 'use client';
 
 import AppShell from '@/components/layout/AppShell';
-import { AgentTeamSection } from '@/components/me/team/AgentTeamSection';
+import { HeroRosterView } from '@/components/me/hero/HeroRosterView';
 
 /**
- * /agents —— 我的 Agent 团队（一人公司 OS，左侧主菜单「我的工作台」组）。
- * 与个人设置里的 Agent 团队同内容（共用 AgentTeamSection，自带 PageHeaderHero + Tabs）；
- * 任务已剥离到 /missions。
+ * /agents —— 我的英雄（一人公司 OS，左侧主菜单「我的工作台」组）。
+ * 单能力官名册：配模型、改名、下任务、移除；任务执行在 /missions。
  */
 export default function AgentsPage() {
   return (
     <AppShell>
-      <AgentTeamSection />
+      <HeroRosterView />
     </AppShell>
   );
 }

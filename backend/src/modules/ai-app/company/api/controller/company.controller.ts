@@ -53,8 +53,10 @@ import type {
 import { CompanyService } from "../../services/company.service";
 import { CompanyMissionService } from "../../services/company-mission.service";
 import { CompanyMissionGraphService } from "../../services/company-mission-graph.service";
+import { CompanyHeroService } from "../../services/company-hero.service";
 import {
   AcquireWorkflowDto,
+  AdoptHeroDto,
   InstantiateTeamFromWorkflowDto,
   AddTeamMemberDto,
   CreateMissionDto,
@@ -64,6 +66,7 @@ import {
   SetCeoDto,
   SetTeamLeaderDto,
   SetTeamWorkflowDto,
+  UpdateHeroDto,
   UpdateHiredAgentDto,
   UpdateTeamDto,
   UpdateWorkflowDto,
@@ -78,6 +81,7 @@ export class CompanyController {
     private readonly companyService: CompanyService,
     private readonly missionService: CompanyMissionService,
     private readonly graphService: CompanyMissionGraphService,
+    private readonly heroService: CompanyHeroService,
   ) {}
 
   // ── helpers ─────────────────────────────────────────────────────────────────
@@ -284,6 +288,53 @@ export class CompanyController {
     @Param("id") id: string,
   ): Promise<void> {
     await this.companyService.deleteWorkflow(this.getUserId(req), id);
+  }
+
+  // ── heroes ───────────────────────────────────────────────────────────────────
+
+  @Get("heroes")
+  @ApiOperation({
+    summary: "获取 Hero 列表（零 hero 时自动配置一个默认 deep-insight hero）",
+  })
+  async listHeroes(@Request() req: RequestWithUser) {
+    return this.heroService.listHeroes(this.getUserId(req));
+  }
+
+  @Post("heroes")
+  @ApiOperation({ summary: "采用一个市场能力为 Hero" })
+  async adoptHero(@Request() req: RequestWithUser, @Body() dto: AdoptHeroDto) {
+    return this.heroService.adoptHero(this.getUserId(req), dto.capabilityId);
+  }
+
+  @Patch("heroes/:id")
+  @ApiOperation({ summary: "更新 Hero 配置（名称 / 模型槽 / autoFallback）" })
+  async updateHero(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+    @Body() dto: UpdateHeroDto,
+  ) {
+    return this.heroService.updateHero(this.getUserId(req), id, dto);
+  }
+
+  @Delete("heroes/:id")
+  @ApiOperation({ summary: "删除 Hero" })
+  async deleteHero(@Request() req: RequestWithUser, @Param("id") id: string) {
+    await this.heroService.deleteHero(this.getUserId(req), id);
+    return { success: true };
+  }
+
+  @Post("heroes/:id/missions")
+  @ApiOperation({ summary: "向 Hero 派发 Mission（运行其采用的能力）" })
+  async createHeroMission(
+    @Request() req: RequestWithUser,
+    @Param("id") heroId: string,
+    @Body() dto: CreateMissionDto,
+  ) {
+    return this.heroService.createHeroMission(
+      this.getUserId(req),
+      heroId,
+      dto.title,
+    );
   }
 
   // ── missions ───────────────────────────────────────────────────────────────

@@ -419,7 +419,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.myLibrary')}</span>}
           </Link>
 
-          {/* 我的团队 — 个人设置里 Agent 团队的主菜单入口（同内容） */}
+          {/* 我的英雄 — 一人公司 OS：收英雄 + 配模型，下任务给英雄 */}
           <Link
             href="/agents"
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
@@ -427,7 +427,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 ? 'bg-gray-100 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
-            title="我的团队"
+            title="我的英雄"
           >
             <svg
               className="h-5 w-5 flex-shrink-0"
@@ -442,7 +442,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 d="M17 20h5v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75M9 20H4v-2a4 4 0 013-3.87m6 5.87v-2a4 4 0 00-3-3.87M9 7a4 4 0 108 0 4 4 0 00-8 0z"
               />
             </svg>
-            {showExpanded && <span>我的团队</span>}
+            {showExpanded && <span>我的英雄</span>}
           </Link>
 
           {/* 我的任务 — 从 Agent 团队剥离的独立任务区 */}

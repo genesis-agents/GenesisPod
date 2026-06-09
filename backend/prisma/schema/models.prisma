@@ -11217,7 +11217,8 @@ model CompanyWorkflow {
 model CompanyMission {
   id        String   @id @default(uuid())
   userId    String   @map("user_id")
-  teamId    String   @map("team_id")
+  teamId    String?  @map("team_id")
+  heroId    String?  @map("hero_id")
   title     String
   /// queued | running | review | done | failed
   status    String   @default("queued")
@@ -11228,7 +11229,24 @@ model CompanyMission {
 
   @@index([userId])
   @@index([teamId])
+  @@index([heroId])
   @@map("company_missions")
+}
+
+// ── CompanyHero ─────────────────────────────────────────────────────────────
+// 2026-06-08: 一人公司 "Hero" 模型——一个 hero = 用户采用的市场能力（capabilityId，
+// 如 "deep-insight"）+ 模型槽（models）。向 hero 派发 mission 即运行该能力（squad 自动成军）。
+model CompanyHero {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  capabilityId String   @map("capability_id")
+  name         String
+  models       String[]
+  autoFallback Boolean  @default(true) @map("auto_fallback")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("company_heroes")
 }
 
 // ── CompanyMissionGraph ─────────────────────────────────────────────────────

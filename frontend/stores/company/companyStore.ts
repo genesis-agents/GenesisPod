@@ -47,6 +47,19 @@ export interface HiredAgent {
   toolIds: string[];
 }
 
+/**
+ * 一人公司「Hero」—— 单能力官（如深度研究官），由市场 capability 驱动。
+ * 0-config 可用：models 为空时引擎自动择优；autoFallback 控制主模型失败时按链切换。
+ */
+export interface Hero {
+  id: string;
+  capabilityId: string;
+  name: string;
+  /** 模型 fallback 链（有序，第一个为主模型）；空数组 => 引擎自动择优 */
+  models: string[];
+  autoFallback: boolean;
+}
+
 export interface CompanyTeam {
   id: string;
   name: string;
@@ -120,6 +133,15 @@ interface BackendTeam {
   workflowId: string | null;
   members: { hiredAgentId: string }[];
 }
+/** 后端 CompanyHero 原始形状 */
+interface BackendHero {
+  id: string;
+  capabilityId: string;
+  name: string;
+  models: string[];
+  autoFallback: boolean;
+  createdAt: string;
+}
 interface BackendWorkflow {
   id: string;
   name: string;
@@ -179,6 +201,16 @@ function adaptWorkflow(w: BackendWorkflow): TeamWorkflow {
   };
 }
 
+function adaptHero(h: BackendHero): Hero {
+  return {
+    id: h.id,
+    capabilityId: h.capabilityId,
+    name: h.name,
+    models: h.models ?? [],
+    autoFallback: h.autoFallback,
+  };
+}
+
 function adaptMission(m: BackendMission): CompanyMission {
   const validStatuses: MissionStatus[] = [
     'queued',
@@ -212,6 +244,7 @@ interface CompanyState {
   teamWorkflows: TeamWorkflow[];
   teams: CompanyTeam[];
   missions: CompanyMission[];
+  heroes: Hero[];
 
   // ―― 快照加载 ――
   loadCompany: () => Promise<void>;
@@ -260,6 +293,16 @@ interface CompanyState {
     progress: number,
     status?: MissionStatus
   ) => void;
+
+  // ―― Hero（一人公司·单能力官）――
+  loadHeroes: () => Promise<void>;
+  adoptHero: (capabilityId: string) => Promise<string | null>;
+  configHero: (
+    id: string,
+    patch: Partial<Pick<Hero, 'name' | 'models' | 'autoFallback'>>
+  ) => Promise<void>;
+  removeHero: (id: string) => Promise<void>;
+  createHeroMission: (heroId: string, title: string) => Promise<string | null>;
 }
 
 export const useCompanyStore = create<CompanyState>((set, get) => ({
@@ -271,6 +314,7 @@ export const useCompanyStore = create<CompanyState>((set, get) => ({
   teamWorkflows: [],
   teams: [],
   missions: [],
+  heroes: [],
 
   // ―― 快照加载 ――
   loadCompany: async () => {
@@ -741,4 +785,72 @@ export const useCompanyStore = create<CompanyState>((set, get) => ({
           : m
       ),
     })),
+
+  // ―― Hero（一人公司·单能力官）――
+  loadHeroes: async () => {
+    try {
+      const raw = await apiClient.get<
+        BackendHero[] | { items?: BackendHero[] }
+      >('/company/heroes');
+      // apiClient 已解包 envelope；后端零 hero 时自动配发 1 个默认 hero 并返回
+      const arr: BackendHero[] = Array.isArray(raw)
+        ? raw
+        : ((raw as { items?: BackendHero[] }).items ?? []);
+      set({ heroes: arr.map(adaptHero) });
+    } catch {
+      toast.error('加载 Hero 列表失败，请稍后重试');
+    }
+  },
+
+  adoptHero: async (capabilityId) => {
+    try {
+      const hero = adaptHero(
+        await apiClient.post<BackendHero>('/company/heroes', { capabilityId })
+      );
+      set((s) => ({ heroes: [hero, ...s.heroes] }));
+      return hero.id;
+    } catch {
+      toast.error('采用 Hero 失败，请稍后重试');
+      return null;
+    }
+  },
+
+  configHero: async (id, patch) => {
+    const prev = get().heroes;
+    set((s) => ({
+      heroes: s.heroes.map((h) => (h.id === id ? { ...h, ...patch } : h)),
+    }));
+    try {
+      await apiClient.patch(`/company/heroes/${encodeURIComponent(id)}`, patch);
+    } catch {
+      set({ heroes: prev });
+      toast.error('更新 Hero 配置失败，请稍后重试');
+    }
+  },
+
+  removeHero: async (id) => {
+    const prev = get().heroes;
+    set((s) => ({ heroes: s.heroes.filter((h) => h.id !== id) }));
+    try {
+      await apiClient.delete(`/company/heroes/${encodeURIComponent(id)}`);
+    } catch {
+      set({ heroes: prev });
+      toast.error('移除 Hero 失败，请稍后重试');
+    }
+  },
+
+  createHeroMission: async (heroId, title) => {
+    try {
+      const raw = await apiClient.post<BackendMission>(
+        `/company/heroes/${encodeURIComponent(heroId)}/missions`,
+        { title }
+      );
+      const mission = adaptMission(raw);
+      set((s) => ({ missions: [mission, ...s.missions] }));
+      return mission.id;
+    } catch {
+      toast.error('下达任务失败，请稍后重试');
+      return null;
+    }
+  },
 }));

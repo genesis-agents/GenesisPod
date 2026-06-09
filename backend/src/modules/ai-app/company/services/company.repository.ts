@@ -184,9 +184,10 @@ export class CompanyRepository {
    * Used exclusively by CompanyMissionService.runMission.
    */
   async findTeamForMission(
-    teamId: string,
+    teamId: string | null,
     userId: string,
   ): Promise<CompanyTeamForMission | null> {
+    if (!teamId) return null;
     const team = await this.prisma.companyTeam.findFirst({
       where: { id: teamId, userId },
       include: { members: true },

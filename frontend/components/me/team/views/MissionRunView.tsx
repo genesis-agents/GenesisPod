@@ -71,19 +71,18 @@ function toListItem(m: CompanyMission): MissionListItem {
 
 export function MissionRunView() {
   const {
-    teams,
-    hired,
+    heroes,
     missions,
-    teamWorkflows,
-    createMission,
     deleteMission,
     renameMission,
     setMissionProgress,
     loadMissions,
     loadCompany,
+    loadHeroes,
+    createHeroMission,
   } = useCompanyStore();
 
-  const [teamId, setTeamId] = useState<string>(teams[0]?.id ?? '');
+  const [heroId, setHeroId] = useState<string>(heroes[0]?.id ?? '');
   const [title, setTitle] = useState('');
   // 点开查看的任务详情
   const [reportMissionId, setReportMissionId] = useState<string | null>(null);
@@ -108,23 +107,24 @@ export function MissionRunView() {
   const { events: reportMissionEvents } =
     useCompanyMissionStream(reportMissionId);
 
-  // 首次加载：公司快照（团队/成员）+ 已有任务
+  // 首次加载：公司快照（团队/成员）+ 已有任务 + 英雄列表
   useEffect(() => {
     void loadCompany();
     void loadMissions();
-  }, [loadCompany, loadMissions]);
+    void loadHeroes();
+  }, [loadCompany, loadMissions, loadHeroes]);
 
   // store missions 变化 → 通知 gallery 重新读取（含 WS 进度 / 新建 / 删除）
   useEffect(() => {
     setGalleryReload((n) => n + 1);
   }, [missions]);
 
-  // 同步第一个团队 id（避免初始渲染时 teams 为空）
+  // 同步第一个英雄 id（避免初始渲染时 heroes 为空）
   useEffect(() => {
-    if (teams.length > 0 && !teamId) {
-      setTeamId(teams[0].id);
+    if (heroes.length > 0 && !heroId) {
+      setHeroId(heroes[0].id);
     }
-  }, [teams, teamId]);
+  }, [heroes, heroId]);
 
   // 处理 WS 事件 → 更新 store 进度 + 阶段状态（详情页 live rail 用）
   const processedTsRef = useRef<number>(0);
@@ -175,10 +175,10 @@ export function MissionRunView() {
     }
   }, [wsEvents, activeMissionId, setMissionProgress]);
 
-  const activeTeam = teams.find((t) => t.id === teamId) ?? null;
+  const activeHero = heroes.find((h) => h.id === heroId) ?? null;
 
   const dispatch = async () => {
-    if (!activeTeam || !title.trim() || running) return;
+    if (!activeHero || !title.trim() || running) return;
     const taskTitle = title.trim();
     setTitle('');
     setStageStatus({ planning: 'active' });
@@ -188,7 +188,7 @@ export function MissionRunView() {
     runningRef.current = true;
     setDispatchOpen(false);
 
-    const missionId = await createMission(activeTeam.id, taskTitle);
+    const missionId = await createHeroMission(activeHero.id, taskTitle);
     if (!missionId) {
       setRunning(false);
       runningRef.current = false;
@@ -219,6 +219,9 @@ export function MissionRunView() {
     const reportResult = reportMission.result as
       | (MissionReportResultLike & { depth?: string; language?: string })
       | undefined;
+    // mission 不携带 heroId，无法精确还原原英雄；以第一个英雄作为重发兜底，
+    // 没有任何英雄时优雅地隐藏「重新下发」入口。
+    const rerunHeroId = heroes[0]?.id ?? null;
     const detailView = fromCompanyMissionResult({
       id: reportMission.id,
       title: reportMission.title,
@@ -229,20 +232,24 @@ export function MissionRunView() {
       language: reportResult?.language,
       events: reportMissionEvents,
       actions: [
-        {
-          variant: 'primary',
-          emoji: '▶',
-          label: '重新下发',
-          title: '用相同团队 + 任务标题起一个新 mission',
-          onClick: () => {
-            void createMission(reportMission.teamId, reportMission.title).then(
-              (id) => {
-                if (id) setActiveMissionId(id);
-              }
-            );
-            setReportMissionId(null);
-          },
-        },
+        ...(rerunHeroId
+          ? [
+              {
+                variant: 'primary' as const,
+                emoji: '▶',
+                label: '重新下发',
+                title: '用相同英雄 + 任务标题起一个新 mission',
+                onClick: () => {
+                  void createHeroMission(rerunHeroId, reportMission.title).then(
+                    (id) => {
+                      if (id) setActiveMissionId(id);
+                    }
+                  );
+                  setReportMissionId(null);
+                },
+              },
+            ]
+          : []),
         {
           variant: 'danger',
           emoji: '⏹',
@@ -256,14 +263,16 @@ export function MissionRunView() {
       ],
     });
 
-    const handleRerun = () => {
-      void createMission(reportMission.teamId, reportMission.title).then(
-        (id) => {
-          if (id) setActiveMissionId(id);
+    const handleRerun = rerunHeroId
+      ? () => {
+          void createHeroMission(rerunHeroId, reportMission.title).then(
+            (id) => {
+              if (id) setActiveMissionId(id);
+            }
+          );
+          setReportMissionId(null);
         }
-      );
-      setReportMissionId(null);
-    };
+      : undefined;
 
     return (
       <DeepInsightMissionDetail
@@ -302,7 +311,7 @@ export function MissionRunView() {
         open={dispatchOpen}
         onClose={() => setDispatchOpen(false)}
         title="下发任务"
-        subtitle="选择团队、描述要做的事，交给团队执行"
+        subtitle="选择英雄、描述要做的事，交给英雄执行"
         size="lg"
         footer={
           <>
@@ -311,7 +320,7 @@ export function MissionRunView() {
             </Button>
             <Button
               onClick={() => void dispatch()}
-              disabled={!title.trim() || running || teams.length === 0}
+              disabled={!title.trim() || running || heroes.length === 0}
             >
               {running ? (
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
@@ -324,27 +333,27 @@ export function MissionRunView() {
         }
       >
         <div className="space-y-4">
-          {teams.length === 0 ? (
+          {heroes.length === 0 ? (
             <EmptyState
               type="default"
               size="sm"
-              title="还没有团队"
-              description="先去「我的团队 · 组队」建一个 Team，再回来下发任务"
+              title="还没有英雄"
+              description="还没有英雄，先去英雄市场收一个"
             />
           ) : (
             <>
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-500">
-                  交给哪个 Team
+                  派给哪个英雄
                 </label>
                 <select
-                  value={teamId}
-                  onChange={(e) => setTeamId(e.target.value)}
+                  value={heroId}
+                  onChange={(e) => setHeroId(e.target.value)}
                   className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
                 >
-                  {teams.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
+                  {heroes.map((h) => (
+                    <option key={h.id} value={h.id}>
+                      {h.name}
                     </option>
                   ))}
                 </select>
@@ -362,23 +371,6 @@ export function MissionRunView() {
                   placeholder="例如：调研 Q3 竞品定价并给出建议"
                 />
               </div>
-              {activeTeam && (
-                <p className="text-xs text-gray-400">
-                  Leader：
-                  {hired.find((h) => h.instanceId === activeTeam.leaderId)
-                    ?.name ?? '（未指定）'}{' '}
-                  · 成员{' '}
-                  {
-                    activeTeam.memberIds.filter((id) =>
-                      hired.some((h) => h.instanceId === id)
-                    ).length
-                  }{' '}
-                  名
-                  {activeTeam.workflowId
-                    ? ` · ${teamWorkflows.find((w) => w.id === activeTeam.workflowId)?.name ?? ''}`
-                    : ''}
-                </p>
-              )}
             </>
           )}
         </div>
