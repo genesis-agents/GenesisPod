@@ -16,7 +16,12 @@
  * 不得吞错伪装成功。
  */
 
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  type OnModuleInit,
+} from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { CompanyMissionPersistenceAdapter } from "./company-mission-persistence.adapter";
 import { EventBus, ChatFacade, AgentRunner } from "@/modules/ai-harness/facade";
@@ -122,7 +127,7 @@ const STEP_ID_TO_COMPANY_BUCKET: Record<
 // ── service ───────────────────────────────────────────────────────────────────
 
 @Injectable()
-export class CompanyMissionService {
+export class CompanyMissionService implements OnModuleInit {
   private readonly log = new Logger(CompanyMissionService.name);
   /**
    * 运行中 mission 的 abort 句柄。用于取消：abort() 中止 capability run（researcher
@@ -165,6 +170,138 @@ export class CompanyMissionService {
     //   终态首写赢仲裁（取消/完成/失败竞态）。W4 已建本适配器但此前未接线。
     private readonly persistenceAdapter: CompanyMissionPersistenceAdapter,
   ) {}
+
+  /**
+   * ★ 耐久恢复（P0）：boot 时扫 stale running orphan。pod 重启会丢失内存里的
+   *   abortControllers / liveTaskState / collabBuffers，DB 上 status='running' 不会
+   *   自动改 → mission 永久卡 running（僵尸）。本钩子在启动时：
+   *     - 可恢复（有 checkpoint + __dispatch）→ 用同一 missionId 重跑（能力核经
+   *       persistence.loadCheckpoint 续跑，跳过已完成 stage）。
+   *     - 不可恢复 → mark failed + emit，杀掉僵尸（用户看到失败可重跑，不再无声转圈）。
+   */
+  onModuleInit(): void {
+    void this.recoverOrphanMissions();
+  }
+
+  /** 把派发参数 merge 进 result.__dispatch（boot resume 重建上下文用，best-effort）。 */
+  private async persistDispatchMeta(
+    missionId: string,
+    dispatch: {
+      capabilityId: string;
+      preferredModelId?: string;
+      extra?: HeroMissionExtra;
+    },
+  ): Promise<void> {
+    try {
+      const row = await this.prisma.companyMission.findUnique({
+        where: { id: missionId },
+        select: { result: true },
+      });
+      const result =
+        row?.result &&
+        typeof row.result === "object" &&
+        !Array.isArray(row.result)
+          ? { ...(row.result as Record<string, unknown>) }
+          : {};
+      result.__dispatch = JSON.parse(
+        JSON.stringify(dispatch),
+      ) as Prisma.InputJsonValue;
+      await this.prisma.companyMission.update({
+        where: { id: missionId },
+        data: { result: result as Prisma.InputJsonValue },
+      });
+    } catch (err: unknown) {
+      this.log.warn(
+        `persistDispatchMeta ${missionId} failed (best-effort): ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  private async recoverOrphanMissions(): Promise<void> {
+    try {
+      const staleMs = 5 * 60 * 1000;
+      const cutoff = new Date(Date.now() - staleMs);
+      const orphans = await this.prisma.companyMission.findMany({
+        where: { status: "running", updatedAt: { lt: cutoff } },
+        select: {
+          id: true,
+          userId: true,
+          title: true,
+          result: true,
+          progress: true,
+        },
+      });
+      if (orphans.length === 0) {
+        this.log.log("[orphan-recovery] no stale running missions");
+        return;
+      }
+      this.log.warn(
+        `[orphan-recovery] found ${orphans.length} stale running mission(s)`,
+      );
+      for (const o of orphans) {
+        // 原子认领：bump updatedAt（写同值 progress 触发 @updatedAt），count===1 才本 pod 处理，
+        //   多 pod 并发 boot 时每个 orphan 只被一个 pod 认领（防重复续跑/重复计费）。
+        const claim = await this.prisma.companyMission.updateMany({
+          where: { id: o.id, status: "running", updatedAt: { lt: cutoff } },
+          data: { progress: o.progress },
+        });
+        if (claim.count !== 1) continue;
+
+        const result =
+          o.result && typeof o.result === "object" && !Array.isArray(o.result)
+            ? (o.result as Record<string, unknown>)
+            : {};
+        const cp = result.__checkpoint as { lastStepId?: string } | undefined;
+        const dispatch = result.__dispatch as
+          | {
+              capabilityId?: string;
+              preferredModelId?: string;
+              extra?: HeroMissionExtra;
+            }
+          | undefined;
+
+        if (cp?.lastStepId && dispatch?.capabilityId) {
+          this.log.warn(
+            `[orphan-recovery] resuming ${o.id} from checkpoint "${cp.lastStepId}"`,
+          );
+          // fire-and-forget 续跑：runHeroMission → runViaCapability →
+          //   persistence.loadCheckpoint(同 missionId) → 能力核从 lastStepId 续跑。
+          void this.runHeroMission(
+            o.id,
+            o.userId,
+            dispatch.capabilityId,
+            o.title,
+            dispatch.preferredModelId ?? "",
+            dispatch.extra,
+          );
+        } else {
+          this.log.warn(
+            `[orphan-recovery] ${o.id} not resumable (cp=${cp?.lastStepId ?? "none"}, dispatch=${dispatch ? "y" : "n"}) → mark failed`,
+          );
+          const message =
+            "Mission 在执行中遇到后端重启（进程内存丢失且无可恢复 checkpoint）。" +
+            "已自动标记为失败，请重新下发任务。";
+          await this.finalizeIfNotCancelled(o.id, {
+            status: "failed",
+            result: {
+              ...result,
+              error: message,
+              failureCode: "DISPATCHER_BOOT_ORPHAN_CLEANUP",
+              failedAt: new Date().toISOString(),
+            } as Prisma.InputJsonValue,
+          });
+          await this.emit("company.mission:failed", o.id, o.userId, {
+            missionId: o.id,
+            message,
+          });
+        }
+      }
+    } catch (err: unknown) {
+      this.log.error(
+        `[orphan-recovery] failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
 
   /**
    * 把 Agent 装配的技能（skillIds）解析回真实方法论正文，注入系统提示。
@@ -273,6 +410,13 @@ export class CompanyMissionService {
     extra?: HeroMissionExtra,
   ): Promise<void> {
     await this.updateMission(missionId, { status: "running", progress: 0 });
+    // ★ 耐久恢复：把派发参数落 result.__dispatch，让 boot orphan 扫描能用同一 missionId
+    //   经 loadCheckpoint 续跑（mission 行本身不存这些参数）。best-effort，不阻断主流程。
+    await this.persistDispatchMeta(missionId, {
+      capabilityId,
+      preferredModelId,
+      ...(extra ? { extra } : {}),
+    });
     await this.emit("company.mission:started", missionId, userId, {
       missionId,
     });
@@ -771,6 +915,11 @@ export class CompanyMissionService {
           stage,
           status: done ? "completed" : "started",
           label: event.label,
+          // ★ 14 步实时任务列表：透传 telemetry.systemStageId，前端 deriveLiveSteps
+          //   命中即按 14 阶段逐行点亮（与 playground 一致）；缺省时前端走 3 桶降级。
+          ...(event.telemetry?.systemStageId
+            ? { telemetry: { systemStageId: event.telemetry.systemStageId } }
+            : {}),
         });
         // 渐进任务：planning 桶起点 → 规划任务；review 桶 → 评审任务。
         // 锚点优先用 systemStageId（s2-leader-plan / s10-leader-signoff…），
