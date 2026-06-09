@@ -34,11 +34,7 @@ import {
   EventBus,
   MissionElectionTracker,
   MissionLifecycleManager,
-  MissionPipelineOrchestrator,
-  MissionPipelineRegistry,
   mapAgentFailureCode,
-  type MissionPipelineConfig,
-  type ResolvedStageHooks,
   type StageRunArgs,
 } from "@/modules/ai-harness/facade";
 import type { PlaygroundTerminalExtra } from "../lifecycle/mission-store.service";
@@ -47,7 +43,6 @@ import {
   type MissionRuntimeSession,
 } from "./mission-runtime-shell.service";
 import { MissionStageBindingsService } from "./mission-stage-bindings.service";
-import { PLAYGROUND_PIPELINE } from "../../runtime/playground.config";
 import { type RunMissionInput } from "../../api/dto/run-mission.dto";
 // ★ Stage 1 / S1-1 (2026-05-09): 11 个 stage 函数 + narrate / runWithStageInstrumentation
 //   + MissionInvariants 已随 stage hooks 移到 PlaygroundBusinessOrchestrator;dispatcher
@@ -57,14 +52,13 @@ import { MissionCheckpointService } from "@/modules/ai-harness/facade";
 import { MissionFailedPreset } from "@/modules/platform/facade";
 import { MissionEventBuffer } from "../lifecycle/mission-event-buffer.service";
 import { MissionStore } from "../lifecycle/mission-store.service";
-// ★ W3 能力轨：flag ON 时 playground 改消费平台共享能力（deep-insight）执行 14 阶段，
-//   而非私有 orchestrator 直跑。OFF（默认）逐字不动。
+// ★ #16b 能力轨（唯一执行轨）：playground 消费平台共享能力（deep-insight）执行 14 阶段，
+//   注入自己的持久化端口 + 事件桥。私有 orchestrator 路径已退役。
 import {
   CapabilityRegistry,
   type CapabilityRunEvent,
   type CapabilityRunInput,
 } from "@/modules/ai-app/marketplace/capability";
-import { loadPlaygroundRuntimeConfig } from "../../runtime/playground-runtime.config";
 import { AgentInvoker, LeaderService, type SupervisedMission } from "../roles";
 import { LeaderInvocationFactory } from "./leader-invocation.factory";
 // ★ Stage 1 / S1-1 (2026-05-09): 业务编排已抽到独立 service —— dispatcher inject + delegate
@@ -122,16 +116,7 @@ export class PlaygroundPipelineDispatcher
 {
   private readonly sessions = new Map<string, SessionEntry>();
 
-  /**
-   * ★ W3 能力轨开关（boot 期读一次，进程级稳定）。OFF（默认）走旧 orchestrator 私有
-   *   14 阶段；ON 走 ICapabilityRunner.run（deep-insight 能力内核）。
-   *   env PLAYGROUND_VIA_CAPABILITY=1/true/yes/on 才 ON，fail-closed。
-   */
-  private readonly viaCapability = loadPlaygroundRuntimeConfig().viaCapability;
-
   constructor(
-    private readonly registry: MissionPipelineRegistry,
-    private readonly orchestrator: MissionPipelineOrchestrator,
     private readonly runtimeShell: MissionRuntimeShellService,
     private readonly stageBindings: MissionStageBindingsService,
     private readonly leaderService: LeaderService,
@@ -186,99 +171,22 @@ export class PlaygroundPipelineDispatcher
   // 2026-05-24 P4: emitToBus 已上提到 BusinessTeamMissionDispatcherFramework，
   //   本 dispatcher 通过继承直接复用（this.emitToBus(...)），不再本地定义。
 
-  // ── Stage 1 / S1-1 (2026-05-09): STAGE_NUMBER / CHECKPOINT_AT / PRIMARY_HOOK_BY_PRIMITIVE
-  //   已移到 PlaygroundBusinessOrchestrator(business 字面量)。withProgressTracking 通过
-  //   this.businessOrch.STAGE_NUMBER 访问。
-
-  /**
-   * 把"主 hook"包一层进度跟踪：成功后 markStageComplete + 选择性 save
-   * checkpoint。对齐 legacy team.mission.ts 的 markStageComplete 调用点。
-   *
-   * 助手 hook（如 extractPlanFields, parseDecision, scoreScaling）保持原样，
-   * 因为 primitive 把它们当同步 / 类型严格的特定签名消费。
-   */
-  private withProgressTracking(
-    stepId: string,
-    stageHooks: ResolvedStageHooks,
-  ): ResolvedStageHooks {
-    // ★ Stage 1 / S1-1 (2026-05-09): STAGE_NUMBER / CHECKPOINT_AT / PRIMARY_HOOK_BY_PRIMITIVE
-    //   是 business 字面量,在 PlaygroundBusinessOrchestrator 持有;mechanism(包 hook 加
-    //   markStageComplete + checkpoint 保存)留 dispatcher 作 runtime-glue。
-    const stageNumber = this.businessOrch.STAGE_NUMBER[stepId];
-    const checkpointTag = this.businessOrch.CHECKPOINT_AT[stepId];
-
-    // 找该 step 对应的 primitive，取主 hook 名
-    const step = PLAYGROUND_PIPELINE.steps.find((s) => s.id === stepId);
-    if (!step) return stageHooks;
-    const primaryHookName =
-      this.businessOrch.PRIMARY_HOOK_BY_PRIMITIVE[step.primitive];
-    if (!primaryHookName) return stageHooks;
-    const original = (stageHooks as Record<string, unknown>)[primaryHookName];
-    if (typeof original !== "function") return stageHooks;
-
-    const wrappedPrimary = async (args: unknown) => {
-      const result = await (original as (a: unknown) => unknown)(args);
-      // success path: write progress + checkpoint
-      const ctx = (args as { ctx?: { missionId?: string } }).ctx;
-      const missionId = ctx?.missionId;
-      if (missionId && stageNumber != null) {
-        await this.store
-          .markStageComplete(missionId, stageNumber)
-          .catch((err: unknown) => {
-            this.log.warn(
-              `[progress-tracking ${missionId}] markStageComplete(${stageNumber}) failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
-            );
-          });
-      }
-      if (missionId && checkpointTag) {
-        const entry = this.sessions.get(missionId);
-        if (entry) {
-          const completedKeys = Object.keys(
-            this.businessOrch.STAGE_NUMBER,
-          ).filter(
-            (k) => this.businessOrch.STAGE_NUMBER[k] <= (stageNumber ?? 0),
-          );
-          // ★ R2-#37 (2026-05-23): include crossState snapshot so crash-resume
-          //   can restore inter-stage data without re-running earlier stages.
-          await this.missionCheckpoint
-            .save(
-              missionId,
-              {
-                lastStage: checkpointTag,
-                topic: entry.input.topic,
-                crossState: entry.crossState.toJSON(),
-              },
-              completedKeys,
-              "running",
-            )
-            .catch((err: unknown) => {
-              this.log.warn(
-                `[progress-tracking ${missionId}] checkpoint.save(${checkpointTag}) failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
-              );
-            });
-        }
-      }
-      return result;
-    };
-
-    return {
-      ...stageHooks,
-      [primaryHookName]: wrappedPrimary,
-    } as unknown as ResolvedStageHooks;
-  }
+  // ── #16b (2026-06-09): withProgressTracking 已删——OFF 路私有 14 阶段 hooks 退役。
+  //   ON 路（能力轨）的 stage 进度 + checkpoint 经 MissionStorePersistenceAdapter
+  //   （markStageProgress → markStageComplete / saveCheckpoint）由能力核驱动，见
+  //   mission-store.service.ts asPersistencePort + deep-insight.runner bridgeMissionEvent。
+  //   STAGE_NUMBER（crash-resume 排序）/ resolveTriggerType / bindSessionLookup 仍由
+  //   PlaygroundBusinessOrchestrator 提供，故 businessOrch 仍注入。
 
   onModuleInit(): void {
     // ★ Stage 1 / S1-1 (2026-05-09): bind sessionLookup 让 PlaygroundBusinessOrchestrator
-    //   能通过 missionId 访问 SessionEntry。必须在 register pipeline 之前 bind,因为
-    //   buildPipelineWithHooks → buildBaseHooksForStep → businessOrch.buildHooksForStep
-    //   会创建 hook closures,closures 内部调 businessOrch.getEntry(missionId)。
+    //   能通过 missionId 访问 SessionEntry。S12 postlude / crash-resume 续跑仍经
+    //   businessOrch 读 SessionEntry。
+    // ★ #16b (2026-06-09): 不再注册私有 "playground" pipeline 到 MissionPipelineRegistry
+    //   ——OFF 路退役，能力轨经能力核自注册的 "deep-insight" pipeline 执行（见
+    //   DeepInsightDefaultRunner）。dispatcher 不再持有 orchestrator / registry。
     this.businessOrch.bindSessionLookup((missionId) =>
       this.getEntry(missionId),
-    );
-    if (this.registry.has(PLAYGROUND_PIPELINE.id)) return;
-    this.registry.register(this.buildPipelineWithHooks());
-    this.log.log(
-      `[playground-pipeline] registered "${PLAYGROUND_PIPELINE.id}" (14 step / ALL WIRED ★ 试用就绪)`,
     );
     // ★ 2026-05-06 #88: pod restart 后扫 orphan running missions（hb_age > 5min
     //   = pod 失联标志），立即 mark failed 不让用户等 15min Liveness Guard。
@@ -537,66 +445,18 @@ export class PlaygroundPipelineDispatcher
     let reachedTerminal = false;
     try {
       return await this.runtimeShell.runWithinContext(session, async () => {
-        // ★ W3 能力轨分支：ON → 消费 ICapabilityRunner（deep-insight 14 阶段内核），
-        //   注入 playground 自己的持久化端口 + 事件桥；OFF（默认）→ 旧 orchestrator
-        //   私有路径**逐字不动**。两路都返回同形 MissionResult，下游终态收口共用。
-        const result = this.viaCapability
-          ? await this.runViaCapabilityRunner(
-              missionId,
-              input,
-              userId,
-              session,
-              resumeFromStepId,
-              initialCrossStageState,
-            )
-          : await this.orchestrator.run({
-              missionId,
-              pipelineId: PLAYGROUND_PIPELINE.id,
-              input,
-              userId,
-              tenantId: workspaceId,
-              signal: session.missionAbort.signal,
-              // ★ R2-#37 (2026-05-23): crash-resume — pass resume context when
-              //   a prior checkpoint was found and restored above.
-              resumeFromStepId,
-              initialCrossStageState,
-              // ★ 2026-05-06 (A 架构优化): orchestrator 已内置 stage:started/completed/failed
-              //   事件机制，但之前 dispatcher 没传 onEvent → 全部丢弃，导致 stage 文件
-              //   被迫各自手写 emit stage:started/completed（5 个文件还漏发）。
-              //   现在桥接：orchestrator 主导 lifecycle 信号 (playground.stage:lifecycle)，
-              //   stage 文件保留的 stage:completed 仅作 metrics 携带 custom payload (artifacts)。
-              //   workflow 控制权回归 harness/orchestrator，漏 emit 物理上不可能。
-              onEvent: async (event) => {
-                if (!event.stepId) return;
-                // ── R2-#38: emit OTel stage spans (playground 业务专属，必须在桥接前) ──
-                // ★ 2026-05-06 单轨化彻底版: orchestrator stage:completed 携带 hook 返回的
-                //   output（业务产物），dispatcher 把 output 拍平到 lifecycle payload；
-                //   stage 文件不再 emit stage:metrics（双轨彻底删除）。前端只看 lifecycle。
-                if (event.type === "stage:started") {
-                  this.missionSpan.startStageSpan(
-                    missionId,
-                    event.stepId,
-                    event.primitive ?? "unknown",
-                  );
-                } else if (
-                  event.type === "stage:completed" ||
-                  event.type === "stage:failed"
-                ) {
-                  this.missionSpan.endStageSpan(
-                    missionId,
-                    event.stepId,
-                    event.type === "stage:completed" ? "completed" : "failed",
-                    event.error instanceof Error ? event.error : undefined,
-                  );
-                }
-                // 2026-05-24 P4: stage:lifecycle / stage:stalled / stage:degraded 桥接
-                //   走 framework 通用 mechanism；framework return true 表示已接管。
-                await this.bridgeOrchestratorStageEvent(event, {
-                  missionId,
-                  userId,
-                });
-              },
-            });
+        // ★ #16b 终态硬切（2026-06-09）：playground 单轨消费平台共享能力（deep-insight 14
+        //   阶段内核），注入自己的持久化端口 + 事件桥。旧 OFF 路（私有 orchestrator + 14
+        //   阶段 hooks）已删除——能力轨是唯一实现。增量"更新"复用经 capInput.inheritedBaseline
+        //   下沉（见 runViaCapabilityRunner / #16a）；14-chip / timeline 经事件桥不变。
+        const result = await this.runViaCapabilityRunner(
+          missionId,
+          input,
+          userId,
+          session,
+          resumeFromStepId,
+          initialCrossStageState,
+        );
         // ★ R2-A.13.1 失败兜底：orchestrator 返 status=failed/aborted 时，
         //   补齐 legacy team.mission.ts 的 mission:failed event + markFailed 行为
         //   （pipeline-v1 hook 内部抛错经 orchestrator 包成 stage:failed event +
@@ -796,6 +656,32 @@ export class PlaygroundPipelineDispatcher
         void this.bridgeCapabilityEventToPlayground(event, missionId, userId);
       },
     });
+
+    // ★ #16b S12 postlude 等价：能力核的 CrossStageState 是私有的（R1 隔离不外露），
+    //   但终态产物经 collectStageOutputs 投影进 stageOutputs。这里把它们回灌进
+    //   entry.crossState，让 fireSelfEvolutionPostlude（s12 自进化）+ handleMissionFailure
+    //   的 partial 落库拿到真实产物，而非空数据（修复硬切后 entry.crossState 全空的退化）。
+    const so = capResult.stageOutputs as {
+      plan?: unknown;
+      researcherResults?: unknown;
+      report?: unknown;
+      reportArtifact?: unknown;
+      leaderSignOff?: unknown;
+    };
+    const so_entry = this.sessions.get(missionId);
+    if (so_entry) {
+      const cs = so_entry.crossState;
+      if (so.plan) cs.lastPlan = so.plan as typeof cs.lastPlan;
+      if (so.researcherResults)
+        cs.lastResearcherResults =
+          so.researcherResults as typeof cs.lastResearcherResults;
+      if (so.report) cs.lastReport = so.report as typeof cs.lastReport;
+      if (so.reportArtifact)
+        cs.lastReportArtifact =
+          so.reportArtifact as typeof cs.lastReportArtifact;
+      if (so.leaderSignOff)
+        cs.lastLeaderSignOff = so.leaderSignOff as typeof cs.lastLeaderSignOff;
+    }
 
     // CapabilityRunResult → MissionResult（status: failed/completed；能力核无 aborted，
     //   abort 经 signal 后 runner 落 failed/cancelled，dispatcher 失败收口统一处理）。
@@ -1204,47 +1090,11 @@ export class PlaygroundPipelineDispatcher
     }
   }
 
-  // ── pipeline 构造 ──────────────────────────────────────────────────────
-
-  private buildPipelineWithHooks(): MissionPipelineConfig {
-    const stepHooks: Record<string, ResolvedStageHooks> = {};
-    for (const step of PLAYGROUND_PIPELINE.steps) {
-      stepHooks[step.id] = this.buildHooksForStep(step.id, step.primitive);
-    }
-    return {
-      ...PLAYGROUND_PIPELINE,
-      steps: PLAYGROUND_PIPELINE.steps.map((s) => ({
-        ...s,
-        hooks: stepHooks[s.id] ?? {},
-      })),
-    };
-  }
-
-  /**
-   * 为每个 step 构造 hook 闭包。所有 13 个 step 都已实装；s12-self-evolution
-   * 不在 PLAYGROUND_PIPELINE.steps，由 fireSelfEvolutionPostlude fire-and-forget
-   * 直接调用 runSelfEvolutionStage（见 dispatcher.runMission 末尾 + line 597+）。
-   */
-  private buildHooksForStep(
-    stepId: string,
-    primitive: string,
-  ): ResolvedStageHooks {
-    const baseHooks = this.buildBaseHooksForStep(stepId, primitive);
-    // 包一层 progress tracking（markStageComplete + 选择性 checkpoint.save）
-    return this.withProgressTracking(stepId, baseHooks);
-  }
-
-  private buildBaseHooksForStep(
-    stepId: string,
-    primitive: string,
-  ): ResolvedStageHooks {
-    // ★ Stage 1 / S1-1 (2026-05-09): 业务编排已抽到 PlaygroundBusinessOrchestrator
-    //   delegate 到 businessOrch.buildHooksForStep,内部调对应 build*Hooks 并通过
-    //   注入的 sessionLookup 访问 SessionEntry(在 onModuleInit 阶段已 bind)。
-    //   stage degraded narrative contract still lives there: hooks must keep
-    //   calling markStageDegraded instead of swallowing S3/S4/S9 failures.
-    return this.businessOrch.buildHooksForStep(stepId, primitive);
-  }
+  // ── #16b (2026-06-09): buildPipelineWithHooks / buildHooksForStep /
+  //   buildBaseHooksForStep 已删——OFF 路私有 pipeline 注册退役。能力轨经
+  //   DeepInsightDefaultRunner 自注册 "deep-insight" pipeline + DeepInsightStageBindings
+  //   执行 14 阶段。PlaygroundBusinessOrchestrator 的 build*Hooks 随之成为不可达死代码
+  //   （留待后续清理，不构成第二执行轨）。
 
   /**
    * 公共 helper：从 sessions Map 取 entry，缺失抛错 + 类型收窄

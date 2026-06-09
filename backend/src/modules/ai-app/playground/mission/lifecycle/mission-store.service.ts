@@ -780,14 +780,14 @@ const STEP_ID_TO_STAGE_NUMBER: Readonly<Record<string, number>> = {
 };
 
 /**
- * MissionStorePersistenceAdapter —— MissionStore 的 MissionPersistencePort 视图（W3）。
+ * MissionStorePersistenceAdapter —— MissionStore 的 MissionPersistencePort 视图。
  *
- * 薄封装：checkpoint 委托 PrismaMissionCheckpointStore（与 OFF 路同 framework）、
- * stage 进度委托 store.markStageComplete、终态委托 lifecycleManager.finalize（经
- * store 这个 arbiter 条件写 WHERE status='running'，与 OFF 路终态语义完全一致）。
+ * 薄封装：checkpoint 委托 PrismaMissionCheckpointStore、stage 进度委托
+ * store.markStageComplete、终态委托 lifecycleManager.finalize（经 store 这个 arbiter
+ * 条件写 WHERE status='running'，首写赢终态语义）。
  *
- * 仅 ON 路（PLAYGROUND_VIA_CAPABILITY=true）经 ICapabilityRunner.run 的
- * ctx.persistence 使用；OFF 路不构造、不触达本类。可选 trajectory 方法
+ * ★ #16b（2026-06-09）：能力轨是 playground 唯一执行轨，本适配器经 ICapabilityRunner.run
+ * 的 ctx.persistence 承载全部 mission 的 checkpoint / 进度 / 终态写。可选 trajectory 方法
  * （saveResearchResult / saveReportVersion）刻意不实现：端口声明为可选，runner 用
  * `?.` 调用，缺省即 no-op，避免 port shape 与既有 report.helper 形状强行对齐的脆弱
  * 适配（留待后续 gated 任务按需补）。
