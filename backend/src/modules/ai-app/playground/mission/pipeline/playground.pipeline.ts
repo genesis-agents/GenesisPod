@@ -751,6 +751,23 @@ export class PlaygroundPipelineDispatcher
     //   （已由 session.billing 体现）不转发（能力核有自己的参数化）。
     // 注：RunMissionInput 无 preferredModelId 字段（playground 默认按 TaskProfile +
     //   BYOK 选模），故不转发；能力核走自身默认模型选择，与 OFF 路行为一致。
+    // ★ #16a 增量复用："更新"按钮（inheritFromMissionId）已在 runMission 顶部经
+    //   hydrateInheritedPlan / hydrateInheritedResearchResults 把上次 mission 的 plan +
+    //   各维 researcher 产物灌进 entry.crossState。这里转成中性 inheritedBaseline 传给能力核，
+    //   让 ON 路 S2/S3 命中即跳过重算（等价 OFF 路跳过 S2/S3）。无继承时为 undefined → 全量新跑。
+    const inheritEntry = this.sessions.get(missionId);
+    const inheritedPlan = inheritEntry?.crossState.lastPlan;
+    const inheritedResearch = inheritEntry?.crossState.inheritedResearchResults;
+    const inheritedBaseline =
+      inheritedPlan || (inheritedResearch && inheritedResearch.length > 0)
+        ? {
+            ...(inheritedPlan ? { plan: inheritedPlan } : {}),
+            ...(inheritedResearch?.length
+              ? { researcherResults: inheritedResearch }
+              : {}),
+          }
+        : undefined;
+
     const capInput: CapabilityRunInput = {
       topic: input.topic,
       ...(input.description ? { description: input.description } : {}),
@@ -765,6 +782,7 @@ export class PlaygroundPipelineDispatcher
       ...(input.searchTimeRange
         ? { searchTimeRange: input.searchTimeRange }
         : {}),
+      ...(inheritedBaseline ? { inheritedBaseline } : {}),
     };
 
     const persistence = this.store.asPersistencePort(this.lifecycleManager);

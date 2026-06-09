@@ -539,6 +539,85 @@ describe("deep-insight 14 阶段执行内核（W2）", () => {
     expect(assembledFigureUrls.some((u) => u.endsWith("-2.png"))).toBe(false);
   });
 
+  // ── #16a 增量复用断言（inheritedBaseline 命中跳过 S2/S3；缺省不退化首次运行）──────────
+
+  it("#16a 增量复用：inheritedBaseline 命中 → 跳过 S2 plan LLM + S3 researcher 检索，仍 completed", async () => {
+    const agentRunner = makeAgentRunner();
+    const { runner } = makeRunnerWith(agentRunner, makeRichStubs());
+    const inheritedBaseline = {
+      plan: {
+        themeSummary: "继承主题",
+        dimensions: [
+          { id: "d1", name: "维度一", rationale: "r1" },
+          { id: "d2", name: "维度二", rationale: "r2" },
+        ],
+      },
+      researcherResults: [
+        {
+          dimension: "维度一",
+          findings: [
+            {
+              claim: "c1",
+              evidence: "e1",
+              source: "https://reuse-1.com",
+              sourceTitle: "t1",
+            },
+          ],
+          summary: "复用 summary 1",
+        },
+        {
+          dimension: "维度二",
+          findings: [
+            {
+              claim: "c2",
+              evidence: "e2",
+              source: "https://reuse-2.com",
+              sourceTitle: "t2",
+            },
+          ],
+          summary: "复用 summary 2",
+        },
+      ],
+    };
+    const res = await runner.run(
+      { topic: "AI", language: "zh-CN", inheritedBaseline },
+      { userId: "u", missionId: "m-inherit-1" },
+    );
+    expect(res.status).toBe("completed");
+    // S2 plan LLM 跳过（无 phase=plan 调用）——直接复用 inherited plan。
+    const planCalls = agentRunner.calls.filter(
+      (c) => (c.input as { phase?: string }).phase === "plan",
+    );
+    expect(planCalls).toHaveLength(0);
+    // S3 researcher 全跳过（2 维都命中复用，无 web 检索）。
+    const researcherCalls = agentRunner.calls.filter((c) =>
+      c.agentId.includes("researcher"),
+    );
+    expect(researcherCalls).toHaveLength(0);
+    // 复用的 research 正常进入终态引用（2 个去重 source）——下游 stage 无感。
+    expect(res.references?.length).toBe(2);
+  });
+
+  it("#16a 缺省 inheritedBaseline → S2/S3 正常跑（不退化首次运行）", async () => {
+    const agentRunner = makeAgentRunner();
+    const { runner } = makeRunnerWith(agentRunner, makeRichStubs());
+    const res = await runner.run(
+      { topic: "AI", language: "zh-CN" },
+      { userId: "u", missionId: "m-fresh-1" },
+    );
+    expect(res.status).toBe("completed");
+    // 首次运行：plan LLM 真跑一次。
+    expect(
+      agentRunner.calls.filter(
+        (c) => (c.input as { phase?: string }).phase === "plan",
+      ),
+    ).toHaveLength(1);
+    // researcher 按维真跑（≥2 维）。
+    expect(
+      agentRunner.calls.filter((c) => c.agentId.includes("researcher")).length,
+    ).toBeGreaterThanOrEqual(2);
+  });
+
   it("s8 figure 精排 fail-open：精排抛错不阻断报告（仍 completed，保留原候选）", async () => {
     const agentRunner = makeAgentRunner();
     agentRunner.run.mockImplementation(

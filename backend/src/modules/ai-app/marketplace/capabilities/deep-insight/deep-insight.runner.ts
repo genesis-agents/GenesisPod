@@ -232,6 +232,25 @@ export class DeepInsightDefaultRunner
       );
     }
 
+    // ★ #16a 增量复用：消费方注入 inheritedBaseline 时，把上次 mission 可复用产物 seed 进
+    //   crossStageState，让 S2/S3 命中即跳过重算。仅在非 crash-resume（无 checkpoint）时生效——
+    //   crash-resume 已 hydrate 全量中间态且经 resumeFromStepId 整步跳过，不再需要 inherit。
+    if (!resumeFromStepId && input.inheritedBaseline) {
+      const { plan, researcherResults } = input.inheritedBaseline;
+      if (plan && crossStageState.get(CS_KEY.plan) === undefined) {
+        crossStageState.set(CS_KEY.plan, plan);
+      }
+      if (Array.isArray(researcherResults) && researcherResults.length > 0) {
+        // 暂存桶（按 dimension 索引由 S3 perItemPipeline 消费）；不直接进 researcherResults
+        //   避免与 S3 fresh append 重复。
+        crossStageState.set(CS_KEY.inheritedResearch, [...researcherResults]);
+      }
+      this.log.log(
+        `[deep-insight ${missionId}] 增量复用：inheritedBaseline 已 seed（plan=${plan ? "y" : "n"}, ` +
+          `research=${Array.isArray(researcherResults) ? researcherResults.length : 0} dims）`,
+      );
+    }
+
     // ★ W2.5：记录 run 起始时间戳（assembler generationTimeMs 计算用），不覆盖 resume 值。
     if (crossStageState.get<number>(CS_KEY.startedAt) === undefined) {
       crossStageState.set(CS_KEY.startedAt, Date.now());
@@ -551,6 +570,9 @@ export class DeepInsightDefaultRunner
       reconciliation: state.get(CS_KEY.reconciliationReport) ?? null,
       analysis: state.get(CS_KEY.analystOutput) ?? null,
       report: state.get(CS_KEY.report) ?? null,
+      // ★ #16b S12 postlude 等价：消费方（playground）据此回灌 entry.crossState.lastReportArtifact，
+      //   让 fireSelfEvolutionPostlude 拿到富报告产物（sections/quality）而非空数据。
+      reportArtifact: state.get(CS_KEY.reportArtifact) ?? null,
       reviewScore: state.get(CS_KEY.reviewScore) ?? null,
       leaderSignOff: state.get(CS_KEY.leaderSignOff) ?? null,
     };

@@ -28,6 +28,24 @@ export interface CapabilityRunInput {
   readonly knowledgeBaseIds?: readonly string[];
   /** 搜索时效窗口（透传 researcher + envelope.metadata，给 search tool 兜底）。 */
   readonly searchTimeRange?: "30d" | "90d" | "180d" | "365d" | "730d" | "all";
+  /**
+   * ★ #16a 增量复用（消费方"更新/续作"场景）：注入上次 mission 的可复用产物，让能力核
+   *   跳过对应阶段的重算，等价 playground OFF 路 hydrateInherited* 的"跳过 S2/S3 重跑"。
+   *
+   *   - plan：上次拆解的维度规划 → S2 命中即直接复用，跳过 leader plan LLM。
+   *   - researcherResults：上次各维 researcher 产物（按 dimension 索引）→ S3 perItemPipeline
+   *     命中即复用，跳过 web 检索（增量复用最贵/最慢的一段）。
+   *
+   *   形状中性（消费方无需知道能力内部 CrossStageState/CS_KEY），能力核负责映射进内部状态。
+   *   缺省/空 → 全量新跑（与首次运行一致）。仅在非 crash-resume（无 checkpoint）时生效。
+   *
+   *   注：章节级复用（writer 重写跳过）暂未覆盖，属后续波；当前复用 plan+research 已回收
+   *   增量场景的主要 token/时延成本（web 检索 + ReAct 循环）。
+   */
+  readonly inheritedBaseline?: {
+    readonly plan?: unknown;
+    readonly researcherResults?: readonly unknown[];
+  };
 }
 
 /** 执行流事件（消费方桥到自己的 WS / 进度）。 */

@@ -129,4 +129,8 @@ export const CS_KEY = {
   pipelineEvaluation: "deep-insight.pipelineEvaluation",
   // ★ W2.5 富增强：run 起始时间戳（assembler generationTimeMs 计算）。
   startedAt: "deep-insight.startedAt",
+  // ★ #16a 增量复用：消费方经 inheritedBaseline 注入的"上次 mission 调研产物"暂存桶
+  //   （按 dimension 名索引）。S3 perItemPipeline 命中即复用、跳过 researcher 调用，
+  //   等价 OFF 路 hydrateInheritedResearchResults。与 researcherResults 分桶避免重复 append。
+  inheritedResearch: "deep-insight.inheritedResearch",
 } as const;

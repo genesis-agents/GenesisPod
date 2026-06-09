@@ -153,6 +153,14 @@ export class DeepInsightStageBindings implements StageBindings {
       runRole: async (args: { ctx: StageRunArgs["ctx"] }): Promise<unknown> => {
         const full = this.fullArgs(args.ctx);
         const input = readPipelineInput(full.ctx);
+        // ★ #16a 增量复用：plan 已由 inheritedBaseline seed（消费方"更新"场景）→ 直接复用，
+        //   跳过 leader plan LLM。等价 OFF 路 hydrateInheritedPlan 后 S2 跳过。fresh run 时
+        //   S2 入口 CS_KEY.plan 必为 undefined（只有本 hook 写它），crash-resume 整步跳过 S2，
+        //   故"入口已有 plan"唯一对应 inherited 场景，判定无歧义。
+        const seededPlan = full.crossStageState.get<PlanResult>(CS_KEY.plan);
+        if (seededPlan) {
+          return seededPlan;
+        }
         const res = await invokeAgent({
           runner: this.runner,
           specId: "playground.leader",
@@ -200,6 +208,22 @@ export class DeepInsightStageBindings implements StageBindings {
         const full = this.fullArgs(args.ctx);
         const input = readPipelineInput(full.ctx);
         const dim = args.item as { id: string; name: string };
+        // ★ #16a 增量复用：该维已有上次 mission 的 researcher 产物（inheritedBaseline seed 进
+        //   暂存桶）→ 复用、跳过 web 检索（增量场景最贵/最慢的一段）。append 到 researcherResults
+        //   走与 fresh 同一路径（终态产物形状一致），从暂存桶取避免重复 append。
+        const inherited = full.crossStageState.get<ResearcherResult[]>(
+          CS_KEY.inheritedResearch,
+        );
+        const reused = inherited?.find(
+          (r) => (r as ResearcherResult | undefined)?.dimension === dim.name,
+        );
+        if (reused) {
+          full.crossStageState.append<ResearcherResult>(
+            CS_KEY.researcherResults,
+            reused,
+          );
+          return reused;
+        }
         const res = await invokeAgent({
           runner: this.runner,
           specId: "playground.researcher",
