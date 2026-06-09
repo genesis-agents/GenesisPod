@@ -27,10 +27,19 @@ import {
   type MissionTerminalOutcome,
   type MissionTerminalArbiter,
   type MissionTerminalIntent,
+  type MissionLifecycleManager,
 } from "@/modules/ai-harness/facade";
 import type { PlaygroundConfigSnapshot } from "../../runtime/playground.input-rebuilder";
 import { MissionLifecycleHelper } from "./mission-lifecycle.helper";
-import { CHECKPOINT_KEY } from "./prisma-mission-checkpoint.store";
+import {
+  CHECKPOINT_KEY,
+  PrismaMissionCheckpointStore,
+} from "./prisma-mission-checkpoint.store";
+import type {
+  MissionPersistencePort,
+  MissionTerminalDetails,
+} from "../../../marketplace/capability";
+import { MissionFailureCode } from "@/modules/ai-harness/facade";
 
 /**
  * 每用户最多并发 running mission 数。
@@ -184,6 +193,12 @@ export class MissionStore
   private readonly postmortem: MissionPostmortemHelper;
   private readonly report: MissionReportHelper;
   private readonly costLedger: CostLedgerStore;
+  /**
+   * ★ W3 能力轨：checkpoint 端口落库委托。复用既有 PrismaMissionCheckpointStore
+   *   （写 leader_journal.__checkpoint，与 OFF 路同一 framework 实现），仅 ON 路
+   *   能力 runner 经 MissionStorePersistenceAdapter 调用。
+   */
+  private readonly checkpointStore: PrismaMissionCheckpointStore;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -299,6 +314,30 @@ export class MissionStore
       (missionId, reason) => this.triggerEmergencyAbort(missionId, reason),
     );
     this.costLedger = new CostLedgerStore(prisma);
+    this.checkpointStore = new PrismaMissionCheckpointStore(prisma);
+  }
+
+  /**
+   * ★ W3 能力轨：返回 MissionPersistencePort 视图（薄封装本 store + 注入的
+   *   lifecycleManager）。ON 路 dispatcher 把它注入 ICapabilityRunner.run 的
+   *   ctx.persistence，让能力内核经端口落 playground 库（checkpoint/resume +
+   *   终态仲裁），不见任何具体 store 类型。
+   *
+   * 为何不让 MissionStore 直接 implements MissionPersistencePort：本 store 已实现
+   *   harness MissionTerminalArbiter 的 `applyTerminalIfRunning(missionId, intent)`
+   *   （2 参 intent 对象签名），与端口的 `applyTerminalIfRunning(missionId, outcome,
+   *   details)`（3 参）**同名不同签**，无法在同一 class 共存。故用独立 adapter
+   *   隔离两套契约（store 保留 arbiter 视图，adapter 提供端口视图），二者都走同一
+   *   lifecycleManager.finalize 仲裁，行为一致。
+   */
+  asPersistencePort(
+    lifecycleManager: MissionLifecycleManager,
+  ): MissionPersistencePort {
+    return new MissionStorePersistenceAdapter(
+      this,
+      this.checkpointStore,
+      lifecycleManager,
+    );
   }
 
   /**
@@ -715,5 +754,228 @@ export class MissionStore
     return row
       ? { userId: row.userId, visibility: row.visibility, topicId: null }
       : null;
+  }
+}
+
+/**
+ * recipe stepId → playground DB stageNumber 映射（与
+ * PlaygroundBusinessOrchestrator.STAGE_NUMBER 同表）。adapter 自持一份避免反向依赖
+ * dispatcher（business-orchestrator）造成模块环。deep-insight recipe 的 stepId 与
+ * playground 私有 14 步一一对齐（s1-budget … s11-persist），故同表可复用。
+ */
+const STEP_ID_TO_STAGE_NUMBER: Readonly<Record<string, number>> = {
+  "s1-budget": 1,
+  "s2-leader-plan": 2,
+  "s3-researcher-collect": 3,
+  "s4-leader-assess": 4,
+  "s5-reconciler": 5,
+  "s6-analyst": 6,
+  "s7-writer-outline": 7,
+  "s8-writer": 8,
+  "s8b-quality-enhancement": 8,
+  "s9-critic": 9,
+  "s9b-objective-eval": 9,
+  "s10-leader-foreword-signoff": 10,
+  "s11-persist": 11,
+};
+
+/**
+ * MissionStorePersistenceAdapter —— MissionStore 的 MissionPersistencePort 视图（W3）。
+ *
+ * 薄封装：checkpoint 委托 PrismaMissionCheckpointStore（与 OFF 路同 framework）、
+ * stage 进度委托 store.markStageComplete、终态委托 lifecycleManager.finalize（经
+ * store 这个 arbiter 条件写 WHERE status='running'，与 OFF 路终态语义完全一致）。
+ *
+ * 仅 ON 路（PLAYGROUND_VIA_CAPABILITY=true）经 ICapabilityRunner.run 的
+ * ctx.persistence 使用；OFF 路不构造、不触达本类。可选 trajectory 方法
+ * （saveResearchResult / saveReportVersion）刻意不实现：端口声明为可选，runner 用
+ * `?.` 调用，缺省即 no-op，避免 port shape 与既有 report.helper 形状强行对齐的脆弱
+ * 适配（留待后续 gated 任务按需补）。
+ */
+export class MissionStorePersistenceAdapter implements MissionPersistencePort {
+  /** checkpoint payload 形状（与 ON 路自洽；OFF 路 payload 用 lastStage 字段，互不混用）。 */
+  private readonly log = new Logger(MissionStorePersistenceAdapter.name);
+
+  constructor(
+    private readonly store: MissionStore,
+    private readonly checkpointStore: PrismaMissionCheckpointStore,
+    private readonly lifecycleManager: MissionLifecycleManager,
+  ) {}
+
+  // ── 核心：crash-resume ──
+
+  async markStageProgress(missionId: string, stepId: string): Promise<void> {
+    const stageNumber = STEP_ID_TO_STAGE_NUMBER[stepId];
+    if (stageNumber == null) return; // 未知 stepId（如 s12）不计进度，静默跳过。
+    await this.store.markStageComplete(missionId, stageNumber);
+  }
+
+  async saveCheckpoint(
+    missionId: string,
+    snapshot: {
+      lastStepId: string;
+      topic: string;
+      crossState: Readonly<Record<string, unknown>>;
+    },
+  ): Promise<boolean> {
+    // payload 自洽：ON 路 resume 由 loadCheckpoint 读回同形状（lastStepId + crossState
+    // 为能力核 CrossStageState.toJSON()，含 deep-insight.* 前缀键，与 OFF 路字段空间隔离）。
+    // completedKeys 取该 step 及之前所有 step id（按 stageNumber 升序），供 framework
+    // 推导可跳过步骤集合。
+    const stageNumber = STEP_ID_TO_STAGE_NUMBER[snapshot.lastStepId] ?? 0;
+    const completedKeys = Object.keys(STEP_ID_TO_STAGE_NUMBER).filter(
+      (k) => (STEP_ID_TO_STAGE_NUMBER[k] ?? Infinity) <= stageNumber,
+    );
+    await this.checkpointStore.save({
+      missionId,
+      savedAt: new Date(),
+      payload: {
+        lastStepId: snapshot.lastStepId,
+        topic: snapshot.topic,
+        crossState: snapshot.crossState,
+      },
+      completedKeys,
+      status: "running",
+    });
+    return true;
+  }
+
+  async loadCheckpoint(missionId: string): Promise<{
+    lastStepId: string;
+    topic: string;
+    crossState: Readonly<Record<string, unknown>>;
+  } | null> {
+    const snap = await this.checkpointStore.load(missionId);
+    if (!snap || snap.status !== "running") return null;
+    const payload = snap.payload as {
+      lastStepId?: string;
+      topic?: string;
+      crossState?: Record<string, unknown>;
+    } | null;
+    // 仅认 ON 路写入的 payload（带 lastStepId）；OFF 路 payload（lastStage 字段、
+    // 无 lastStepId）→ 不在 ON 路 resume，返回 null（不混用，与 §3 兼容结论一致）。
+    if (!payload?.lastStepId || !payload.crossState) return null;
+    return {
+      lastStepId: payload.lastStepId,
+      topic: payload.topic ?? "",
+      crossState: payload.crossState,
+    };
+  }
+
+  async clearCheckpoint(missionId: string): Promise<void> {
+    await this.checkpointStore.clear(missionId);
+  }
+
+  // ── 终态：条件写仲裁（经 lifecycleManager.finalize → store arbiter）──
+
+  async applyTerminalIfRunning(
+    missionId: string,
+    outcome: "completed" | "failed" | "cancelled",
+    details: MissionTerminalDetails,
+  ): Promise<boolean> {
+    const intent = this.buildTerminalIntent(outcome, details);
+    try {
+      const { won } =
+        await this.lifecycleManager.finalize<PlaygroundTerminalExtra>({
+          missionId,
+          intent,
+          arbiter: this.store,
+        });
+      return won;
+    } catch (err) {
+      this.log.warn(
+        `[asPersistencePort ${missionId}] finalize(${outcome}) failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return false;
+    }
+  }
+
+  /** MissionTerminalDetails（能力端口）→ playground arbiter intent（含富载荷）。 */
+  private buildTerminalIntent(
+    outcome: "completed" | "failed" | "cancelled",
+    details: MissionTerminalDetails,
+  ): MissionTerminalIntent<PlaygroundTerminalExtra> {
+    const costUsd =
+      typeof details.costCents === "number"
+        ? details.costCents / 100
+        : undefined;
+    // report：端口为 unknown，arbiter detail 期望 { title?, summary?, ... } 形状；
+    // 仅当是 object 时透传，否则忽略（不杜撰）。
+    const report =
+      details.report && typeof details.report === "object"
+        ? (details.report as {
+            title?: string;
+            summary?: string;
+            [k: string]: unknown;
+          })
+        : undefined;
+
+    if (outcome === "cancelled") {
+      return { status: "failed", extra: { kind: "cancelled" } };
+    }
+    if (outcome === "failed") {
+      return {
+        status: "failed",
+        extra: {
+          kind: "failed",
+          detail: {
+            ...(details.errorMessage != null
+              ? { errorMessage: details.errorMessage }
+              : {}),
+            ...(details.failureCode != null
+              ? { failureCode: details.failureCode as MissionFailureCode }
+              : {}),
+            ...(typeof details.tokensUsed === "number"
+              ? { tokensUsed: details.tokensUsed }
+              : {}),
+            ...(costUsd != null ? { costUsd } : {}),
+            ...(typeof details.elapsedWallTimeMs === "number"
+              ? { elapsedWallTimeMs: details.elapsedWallTimeMs }
+              : {}),
+            ...(details.themeSummary != null
+              ? { themeSummary: details.themeSummary }
+              : {}),
+            ...(details.dimensions !== undefined
+              ? { dimensions: details.dimensions }
+              : {}),
+            ...(report !== undefined ? { report } : {}),
+            ...(details.verdicts !== undefined
+              ? { verdicts: details.verdicts }
+              : {}),
+          },
+        },
+      };
+    }
+    // completed
+    return {
+      status: "completed",
+      extra: {
+        kind: "completed",
+        detail: {
+          ...(typeof details.finalScore === "number"
+            ? { finalScore: details.finalScore }
+            : {}),
+          ...(typeof details.tokensUsed === "number"
+            ? { tokensUsed: details.tokensUsed }
+            : {}),
+          ...(costUsd != null ? { costUsd } : {}),
+          ...(typeof details.elapsedWallTimeMs === "number"
+            ? { elapsedWallTimeMs: details.elapsedWallTimeMs }
+            : {}),
+          ...(details.themeSummary != null
+            ? { themeSummary: details.themeSummary }
+            : {}),
+          ...(details.dimensions !== undefined
+            ? { dimensions: details.dimensions }
+            : {}),
+          ...(report !== undefined ? { report } : {}),
+          ...(details.verdicts !== undefined
+            ? { verdicts: details.verdicts }
+            : {}),
+        },
+      },
+    };
   }
 }

@@ -26,6 +26,7 @@
 import { registerAs } from "@nestjs/config";
 import { z } from "zod";
 import {
+  parseBooleanEnv,
   parseNonNegativeIntEnv,
   parsePositiveIntEnv,
 } from "@/common/utils/schema-coercion.utils";
@@ -92,6 +93,17 @@ const DEFAULTS = {
 
   // ★ 2026-05-22 follow-up：原 disableBudgetAbort 已删除——同样 config 定义但零消费
   //   (生产代码从不读),profile 设 true 也无效,"防级联 abort"保护实际不存在。删除止误导。
+
+  // — capability 执行轨切换（W3 能力即产品迁移）—
+  /**
+   * playground 是否改走「能力即产品」执行轨（ICapabilityRunner.run 跑 deep-insight
+   * 能力内核），而非私有 dispatcher 直跑 14 阶段。
+   *
+   * 默认 false（OFF）= 现状不变：仍走旧 orchestrator + 私有 stage hooks，逐字不动、
+   * 零生产影响。env PLAYGROUND_VIA_CAPABILITY=1/true/yes/on 显式 opt-in 才走新轨
+   * （灰度可回退）。fail-closed：缺省 / 任何非真值 → OFF。
+   */
+  viaCapability: false,
 } as const;
 
 /**
@@ -104,6 +116,7 @@ export const PlaygroundRuntimeConfigSchema = z.object({
   staleThresholdMin: z.number().int().min(1),
   softWarnThresholdMin: z.number().int().min(1),
   wallTimeCapMs: z.number().int().min(0),
+  viaCapability: z.boolean(),
 });
 
 export type PlaygroundRuntimeConfig = z.infer<
@@ -168,6 +181,10 @@ export function loadPlaygroundRuntimeConfig(
       env.PLAYGROUND_WALL_TIME_CAP_MS,
       baseline.wallTimeCapMs,
     ),
+    // opt-in：env 真值才走能力轨；缺省 / 非真值 → baseline.viaCapability(false)。
+    viaCapability: env.PLAYGROUND_VIA_CAPABILITY
+      ? parseBooleanEnv(env.PLAYGROUND_VIA_CAPABILITY)
+      : baseline.viaCapability,
   };
 
   // Cross-field invariants

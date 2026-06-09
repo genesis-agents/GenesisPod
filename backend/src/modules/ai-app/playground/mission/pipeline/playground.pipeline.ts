@@ -57,6 +57,14 @@ import { MissionCheckpointService } from "@/modules/ai-harness/facade";
 import { MissionFailedPreset } from "@/modules/platform/facade";
 import { MissionEventBuffer } from "../lifecycle/mission-event-buffer.service";
 import { MissionStore } from "../lifecycle/mission-store.service";
+// ★ W3 能力轨：flag ON 时 playground 改消费平台共享能力（deep-insight）执行 14 阶段，
+//   而非私有 orchestrator 直跑。OFF（默认）逐字不动。
+import {
+  CapabilityRegistry,
+  type CapabilityRunEvent,
+  type CapabilityRunInput,
+} from "@/modules/ai-app/marketplace/capability";
+import { loadPlaygroundRuntimeConfig } from "../../runtime/playground-runtime.config";
 import { AgentInvoker, LeaderService, type SupervisedMission } from "../roles";
 import { LeaderInvocationFactory } from "./leader-invocation.factory";
 // ★ Stage 1 / S1-1 (2026-05-09): 业务编排已抽到独立 service —— dispatcher inject + delegate
@@ -114,6 +122,13 @@ export class PlaygroundPipelineDispatcher
 {
   private readonly sessions = new Map<string, SessionEntry>();
 
+  /**
+   * ★ W3 能力轨开关（boot 期读一次，进程级稳定）。OFF（默认）走旧 orchestrator 私有
+   *   14 阶段；ON 走 ICapabilityRunner.run（deep-insight 能力内核）。
+   *   env PLAYGROUND_VIA_CAPABILITY=1/true/yes/on 才 ON，fail-closed。
+   */
+  private readonly viaCapability = loadPlaygroundRuntimeConfig().viaCapability;
+
   constructor(
     private readonly registry: MissionPipelineRegistry,
     private readonly orchestrator: MissionPipelineOrchestrator,
@@ -151,6 +166,11 @@ export class PlaygroundPipelineDispatcher
     @Optional()
     @Inject(forwardRef(() => MissionRerunOrchestratorService))
     private readonly rerunOrchestrator?: MissionRerunOrchestratorService,
+    // ★ W3 能力轨：@Global MarketplaceModule 提供 CapabilityRegistry，DI 全局可见，
+    //   无需 playground.module import。@Optional 让裁剪测试床（直接 new dispatcher、
+    //   不装配 MarketplaceModule）优雅降级——OFF 路（默认）完全不触达本依赖；ON 路缺
+    //   registry 时 warn + 返回 failed（不 throw，符合 DI 反模式守护：@Optional 不配 throw）。
+    @Optional() private readonly capabilityRegistry?: CapabilityRegistry,
   ) {
     // 2026-05-24 P4: framework 提供 emitToBus + bridgeOrchestratorStageEvent
     //   通用 mechanism；本 dispatcher 仅注入 playground 专属事件 type 字符串。
@@ -517,54 +537,66 @@ export class PlaygroundPipelineDispatcher
     let reachedTerminal = false;
     try {
       return await this.runtimeShell.runWithinContext(session, async () => {
-        const result = await this.orchestrator.run({
-          missionId,
-          pipelineId: PLAYGROUND_PIPELINE.id,
-          input,
-          userId,
-          tenantId: workspaceId,
-          signal: session.missionAbort.signal,
-          // ★ R2-#37 (2026-05-23): crash-resume — pass resume context when
-          //   a prior checkpoint was found and restored above.
-          resumeFromStepId,
-          initialCrossStageState,
-          // ★ 2026-05-06 (A 架构优化): orchestrator 已内置 stage:started/completed/failed
-          //   事件机制，但之前 dispatcher 没传 onEvent → 全部丢弃，导致 stage 文件
-          //   被迫各自手写 emit stage:started/completed（5 个文件还漏发）。
-          //   现在桥接：orchestrator 主导 lifecycle 信号 (playground.stage:lifecycle)，
-          //   stage 文件保留的 stage:completed 仅作 metrics 携带 custom payload (artifacts)。
-          //   workflow 控制权回归 harness/orchestrator，漏 emit 物理上不可能。
-          onEvent: async (event) => {
-            if (!event.stepId) return;
-            // ── R2-#38: emit OTel stage spans (playground 业务专属，必须在桥接前) ──
-            // ★ 2026-05-06 单轨化彻底版: orchestrator stage:completed 携带 hook 返回的
-            //   output（业务产物），dispatcher 把 output 拍平到 lifecycle payload；
-            //   stage 文件不再 emit stage:metrics（双轨彻底删除）。前端只看 lifecycle。
-            if (event.type === "stage:started") {
-              this.missionSpan.startStageSpan(
-                missionId,
-                event.stepId,
-                event.primitive ?? "unknown",
-              );
-            } else if (
-              event.type === "stage:completed" ||
-              event.type === "stage:failed"
-            ) {
-              this.missionSpan.endStageSpan(
-                missionId,
-                event.stepId,
-                event.type === "stage:completed" ? "completed" : "failed",
-                event.error instanceof Error ? event.error : undefined,
-              );
-            }
-            // 2026-05-24 P4: stage:lifecycle / stage:stalled / stage:degraded 桥接
-            //   走 framework 通用 mechanism；framework return true 表示已接管。
-            await this.bridgeOrchestratorStageEvent(event, {
+        // ★ W3 能力轨分支：ON → 消费 ICapabilityRunner（deep-insight 14 阶段内核），
+        //   注入 playground 自己的持久化端口 + 事件桥；OFF（默认）→ 旧 orchestrator
+        //   私有路径**逐字不动**。两路都返回同形 MissionResult，下游终态收口共用。
+        const result = this.viaCapability
+          ? await this.runViaCapabilityRunner(
               missionId,
+              input,
               userId,
+              session,
+              resumeFromStepId,
+              initialCrossStageState,
+            )
+          : await this.orchestrator.run({
+              missionId,
+              pipelineId: PLAYGROUND_PIPELINE.id,
+              input,
+              userId,
+              tenantId: workspaceId,
+              signal: session.missionAbort.signal,
+              // ★ R2-#37 (2026-05-23): crash-resume — pass resume context when
+              //   a prior checkpoint was found and restored above.
+              resumeFromStepId,
+              initialCrossStageState,
+              // ★ 2026-05-06 (A 架构优化): orchestrator 已内置 stage:started/completed/failed
+              //   事件机制，但之前 dispatcher 没传 onEvent → 全部丢弃，导致 stage 文件
+              //   被迫各自手写 emit stage:started/completed（5 个文件还漏发）。
+              //   现在桥接：orchestrator 主导 lifecycle 信号 (playground.stage:lifecycle)，
+              //   stage 文件保留的 stage:completed 仅作 metrics 携带 custom payload (artifacts)。
+              //   workflow 控制权回归 harness/orchestrator，漏 emit 物理上不可能。
+              onEvent: async (event) => {
+                if (!event.stepId) return;
+                // ── R2-#38: emit OTel stage spans (playground 业务专属，必须在桥接前) ──
+                // ★ 2026-05-06 单轨化彻底版: orchestrator stage:completed 携带 hook 返回的
+                //   output（业务产物），dispatcher 把 output 拍平到 lifecycle payload；
+                //   stage 文件不再 emit stage:metrics（双轨彻底删除）。前端只看 lifecycle。
+                if (event.type === "stage:started") {
+                  this.missionSpan.startStageSpan(
+                    missionId,
+                    event.stepId,
+                    event.primitive ?? "unknown",
+                  );
+                } else if (
+                  event.type === "stage:completed" ||
+                  event.type === "stage:failed"
+                ) {
+                  this.missionSpan.endStageSpan(
+                    missionId,
+                    event.stepId,
+                    event.type === "stage:completed" ? "completed" : "failed",
+                    event.error instanceof Error ? event.error : undefined,
+                  );
+                }
+                // 2026-05-24 P4: stage:lifecycle / stage:stalled / stage:degraded 桥接
+                //   走 framework 通用 mechanism；framework return true 表示已接管。
+                await this.bridgeOrchestratorStageEvent(event, {
+                  missionId,
+                  userId,
+                });
+              },
             });
-          },
-        });
         // ★ R2-A.13.1 失败兜底：orchestrator 返 status=failed/aborted 时，
         //   补齐 legacy team.mission.ts 的 mission:failed event + markFailed 行为
         //   （pipeline-v1 hook 内部抛错经 orchestrator 包成 stage:failed event +
@@ -652,6 +684,147 @@ export class PlaygroundPipelineDispatcher
       this.sessions.delete(missionId);
       this.electionTracker.clear(missionId);
     }
+  }
+
+  /**
+   * ★ W3 能力轨（flag ON 专用）：经 ICapabilityRunner 消费 deep-insight 能力内核跑
+   *   真 14 阶段，注入 playground 自己的：
+   *     - persistence（MissionStore.asPersistencePort）→ checkpoint/resume + 终态仲裁
+   *       仍落 agent_playground_missions、走 lifecycleManager.finalize（WHERE
+   *       status='running' 条件写，与 OFF 路语义一致）。
+   *     - onEvent → 桥到既有 EventBus（playground.stage:lifecycle 等）+ OTel span，
+   *       让前端 14-chip / timeline 照常点亮（事件契约不变）。
+   *     - signal → 透传 mission abort。
+   *   返回 MissionResult（与 orchestrator.run 同形），下游终态收口（handleMissionFailure
+   *   / checkpoint clear / fireSelfEvolutionPostlude）与 OFF 路完全共用。
+   *
+   *   checkpoint 兼容（§3 结论）：ON 路 resume 走能力内核 CrossStageState 格式（端口
+   *   loadCheckpoint 仅认带 lastStepId 的 payload）；旧 OFF 路 checkpoint（lastStage
+   *   字段）不被 ON 路 resume，不混用。同一 mission 生命周期内 flag 进程级稳定，不跨轨。
+   */
+  private async runViaCapabilityRunner(
+    missionId: string,
+    input: RunMissionInput,
+    userId: string,
+    session: MissionRuntimeSession,
+    resumeFromStepId: string | undefined,
+    initialCrossStageState: Readonly<Record<string, unknown>> | undefined,
+  ): Promise<{
+    readonly missionId: string;
+    readonly status: "completed" | "failed" | "aborted";
+    readonly stageOutputs: Readonly<Record<string, unknown>>;
+    readonly crossStageState: Readonly<Record<string, unknown>>;
+    readonly error?: unknown;
+  }> {
+    // 缺 registry（裁剪测试床未装配 MarketplaceModule）或 runner 未注册：不 throw，
+    //   warn + 返回 failed MissionResult，由下游失败收口处理（避免 @Optional + throw
+    //   反模式，且不让 mission 卡 running）。生产装配齐全，此分支不应触达。
+    const runner = this.capabilityRegistry?.resolve("deep-insight");
+    if (!runner) {
+      const reason = this.capabilityRegistry
+        ? '能力 runner "deep-insight" 未注册（DeepInsightDefaultRunner.onModuleInit 未执行）'
+        : "CapabilityRegistry 未注入（@Global MarketplaceModule 未装配）";
+      this.log.error(
+        `[W3 capability ${missionId}] 无法走能力轨：${reason} —— 标记 mission 失败。`,
+      );
+      return {
+        missionId,
+        status: "failed",
+        stageOutputs: {},
+        crossStageState: {},
+        error: new Error(`capability runner unavailable: ${reason}`),
+      };
+    }
+    // resume 上下文：OFF 路 checkpoint 已在 runMission 顶部 hydrate 进
+    //   initialCrossStageState（lastStage 格式，ON 路端口 loadCheckpoint 不认它）。
+    //   ON 路 resume 实际由能力 runner 内部经 persistence.loadCheckpoint（lastStepId
+    //   格式）驱动；此处入参仅作日志参考，不强行喂给能力核（避免格式串轨）。
+    if (resumeFromStepId != null || initialCrossStageState != null) {
+      this.log.log(
+        `[W3 capability ${missionId}] OFF-path resume ctx present (stepId=` +
+          `${resumeFromStepId ?? "none"}); ON-path resume 由能力核 checkpoint 端口驱动。`,
+      );
+    }
+
+    // RunMissionInput → CapabilityRunInput：仅转发能力消费的语义字段；playground 专属
+    //   档位（budget/style/length/audience/auditLayers/concurrency/viewMode）+ 计费字段
+    //   （已由 session.billing 体现）不转发（能力核有自己的参数化）。
+    // 注：RunMissionInput 无 preferredModelId 字段（playground 默认按 TaskProfile +
+    //   BYOK 选模），故不转发；能力核走自身默认模型选择，与 OFF 路行为一致。
+    const capInput: CapabilityRunInput = {
+      topic: input.topic,
+      ...(input.description ? { description: input.description } : {}),
+      ...(input.depth ? { depth: input.depth } : {}),
+      ...(input.language ? { language: input.language } : {}),
+      ...(input.withFigures !== undefined
+        ? { withFigures: input.withFigures }
+        : {}),
+      ...(input.knowledgeBaseIds?.length
+        ? { knowledgeBaseIds: [...input.knowledgeBaseIds] }
+        : {}),
+      ...(input.searchTimeRange
+        ? { searchTimeRange: input.searchTimeRange }
+        : {}),
+    };
+
+    const persistence = this.store.asPersistencePort(this.lifecycleManager);
+
+    const capResult = await runner.run(capInput, {
+      userId,
+      missionId,
+      signal: session.missionAbort.signal,
+      persistence,
+      onEvent: (event) => {
+        void this.bridgeCapabilityEventToPlayground(event, missionId, userId);
+      },
+    });
+
+    // CapabilityRunResult → MissionResult（status: failed/completed；能力核无 aborted，
+    //   abort 经 signal 后 runner 落 failed/cancelled，dispatcher 失败收口统一处理）。
+    return {
+      missionId,
+      status: capResult.status,
+      stageOutputs: capResult.stageOutputs,
+      crossStageState: {},
+      ...(capResult.error ? { error: new Error(capResult.error) } : {}),
+    };
+  }
+
+  /**
+   * ★ W3 能力轨事件桥：CapabilityRunEvent → playground 既有事件出口（EventBus +
+   *   OTel span），复用 OFF 路同一桥接 mechanism（bridgeOrchestratorStageEvent +
+   *   missionSpan），保证前端 14-chip / timeline 无感（事件契约不变）。
+   *
+   *   stage:started/completed/failed 走 stage span + lifecycle 桥；
+   *   stage:degraded/stalled 走 framework degraded/stalled 桥；
+   *   agent-trace / agent-lifecycle 暂不桥到 playground（OFF 路也无对应实时 agent
+   *   narrative 出口，避免新增前端未消费的事件流——保持等价、不超范围）。
+   */
+  private async bridgeCapabilityEventToPlayground(
+    event: CapabilityRunEvent,
+    missionId: string,
+    userId: string,
+  ): Promise<void> {
+    const stepId = event.telemetry?.systemStageId ?? event.stepId;
+    if (!stepId) return; // 无 stage 锚点的事件（started/completed/agent-*）不桥 stage 生命周期。
+    if (event.type === "stage:started") {
+      this.missionSpan.startStageSpan(missionId, stepId, "capability");
+    } else if (
+      event.type === "stage:completed" ||
+      event.type === "stage:failed"
+    ) {
+      this.missionSpan.endStageSpan(
+        missionId,
+        stepId,
+        event.type === "stage:completed" ? "completed" : "failed",
+      );
+    }
+    // framework 通用桥接：把能力事件（type + stepId）翻成 playground.stage:lifecycle /
+    //   stage:degraded / stage:stalled（mapStepId 映射前端 chip id，与 OFF 路同表）。
+    await this.bridgeOrchestratorStageEvent(
+      { type: event.type, stepId, timestamp: event.timestamp },
+      { missionId, userId },
+    );
   }
 
   /**

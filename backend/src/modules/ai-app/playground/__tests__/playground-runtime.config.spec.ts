@@ -25,6 +25,8 @@ describe("playground-runtime.config", () => {
         staleThresholdMin: 15,
         softWarnThresholdMin: 20,
         wallTimeCapMs: 4 * 60 * 60 * 1000,
+        // ★ W3 能力轨开关：默认 OFF（缺省 env 时 production-safe，旧 dispatcher 路径不变）。
+        viaCapability: false,
       });
     });
   });
@@ -58,6 +60,28 @@ describe("playground-runtime.config", () => {
         PLAYGROUND_WALL_TIME_CAP_MS: "0",
       } as NodeJS.ProcessEnv);
       expect(cfg.wallTimeCapMs).toBe(0); // 0 means "unlimited" upstream
+    });
+
+    it("opts into capability track only when PLAYGROUND_VIA_CAPABILITY is truthy", () => {
+      // 真值集合（parseBooleanEnv）→ ON。
+      for (const v of ["1", "true", "yes", "on", "TRUE"]) {
+        expect(
+          loadPlaygroundRuntimeConfig({
+            PLAYGROUND_VIA_CAPABILITY: v,
+          } as NodeJS.ProcessEnv).viaCapability,
+        ).toBe(true);
+      }
+      // 非真值 / 缺省 → OFF（fail-closed，旧 dispatcher 路径不变）。
+      for (const v of ["0", "false", "no", "off", "garbage", ""]) {
+        expect(
+          loadPlaygroundRuntimeConfig({
+            PLAYGROUND_VIA_CAPABILITY: v,
+          } as NodeJS.ProcessEnv).viaCapability,
+        ).toBe(false);
+      }
+      expect(
+        loadPlaygroundRuntimeConfig({} as NodeJS.ProcessEnv).viaCapability,
+      ).toBe(false);
     });
   });
 
