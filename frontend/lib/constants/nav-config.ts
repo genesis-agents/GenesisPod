@@ -9,12 +9,10 @@
 
 import {
   Lightbulb,
-  Search,
+  Telescope,
   Store,
   FlaskConical,
   BookOpen,
-  Crown,
-  ListChecks,
   Radar,
   Eye,
   Microscope,
@@ -68,51 +66,25 @@ export const NAV_GROUPS: NavGroup[] = [
       },
     ],
   },
-  // AI 广场：发现 / 购买 / 试用能力
-  {
-    label: 'AI 广场',
-    items: [
-      {
-        href: '/explore',
-        labelKey: 'nav.aiExplore',
-        Icon: Search,
-        moduleKey: 'explore',
-        forceReload: true,
-      },
-      {
-        href: '/marketplace',
-        labelKey: 'nav.marketplace',
-        Icon: Store,
-        moduleKey: 'market',
-        matchPrefix: true,
-      },
-      {
-        href: '/agent-playground',
-        labelKey: 'nav.playground',
-        Icon: FlaskConical,
-        moduleKey: 'playground',
-        matchPrefix: true,
-      },
-    ],
-  },
-  // 我的工作台
+  // 我的工作台：我的前沿（前沿信息感知）/ 我的知识库 / 我的团队（专家花名册 + 专家任务双 Tab）
   {
     label: '我的工作台',
     items: [
       {
+        href: '/explore',
+        label: '我的前沿',
+        Icon: Telescope,
+        moduleKey: 'explore',
+        forceReload: true,
+      },
+      {
         href: '/library',
-        labelKey: 'nav.myLibrary',
+        label: '我的知识库',
         Icon: BookOpen,
         moduleKey: 'library',
         forceReload: true,
       },
-      { href: '/agents', label: '我的英雄', Icon: Crown, matchPrefix: true },
-      {
-        href: '/missions',
-        label: '英雄任务',
-        Icon: ListChecks,
-        matchPrefix: true,
-      },
+      { href: '/agents', label: '我的团队', Icon: Users, matchPrefix: true },
     ],
   },
   // 深度洞察
@@ -138,6 +110,26 @@ export const NAV_GROUPS: NavGroup[] = [
         labelKey: 'nav.aiResearch',
         Icon: Microscope,
         moduleKey: 'research',
+        matchPrefix: true,
+      },
+    ],
+  },
+  // 发现能力（原「AI 广场」，置底）：去专家市场招募 / 去实验场试新能力
+  {
+    label: '发现能力',
+    items: [
+      {
+        href: '/marketplace',
+        label: '专家市场',
+        Icon: Store,
+        moduleKey: 'market',
+        matchPrefix: true,
+      },
+      {
+        href: '/agent-playground',
+        label: 'AI 实验场',
+        Icon: FlaskConical,
+        moduleKey: 'playground',
         matchPrefix: true,
       },
     ],

@@ -257,7 +257,29 @@ export class MarketplaceCatalogService {
     // Two canonical sources, both projected read-only (标准 28：不建台账):
     //   1. TeamRegistry —— TeamConfig 阵型（research/debate/slides…）
     //   2. MissionPipelineRegistry —— mission pipeline（playground 14 阶段 + radar/social/writing）
-    return [...this.getTeamWorkflows(), ...this.getMissionWorkflows()];
+    const base = [...this.getTeamWorkflows(), ...this.getMissionWorkflows()];
+
+    // 为每个工作流（= 市场「专家」）聚合其阵型 Agent 的技能/工具：
+    //   roles → 沉淀 Agent（按 role 解析）→ 技能/工具去重并集。
+    // 与 getTeams 同源同逻辑，让「专家」卡能展开查看其技能/工具详情。
+    const byRole = new Map(this.getSedimentedAgents().map((a) => [a.role, a]));
+    return base.map((w) => {
+      const seen = new Set<string>();
+      const roster: AgentCatalogItem[] = [];
+      for (const role of w.roles) {
+        const ag = byRole.get(role);
+        if (ag && !seen.has(ag.id)) {
+          roster.push(ag);
+          seen.add(ag.id);
+        }
+      }
+      return {
+        ...w,
+        agentIds: roster.map((a) => a.id),
+        skillIds: Array.from(new Set(roster.flatMap((a) => a.skillIds))),
+        toolIds: Array.from(new Set(roster.flatMap((a) => a.toolIds))),
+      };
+    });
   }
 
   private getTeamWorkflows(): WorkflowCatalogItem[] {

@@ -108,7 +108,7 @@ export function MissionRunView() {
   const { events: reportMissionEvents } =
     useCompanyMissionStream(reportMissionId);
 
-  // 首次加载：公司快照（团队/成员）+ 已有任务 + 英雄列表
+  // 首次加载：公司快照（团队/成员）+ 已有任务 + 专家列表
   useEffect(() => {
     void loadCompany();
     void loadMissions();
@@ -140,7 +140,7 @@ export function MissionRunView() {
     setGalleryReload((n) => n + 1);
   }, [missions]);
 
-  // 同步第一个英雄 id（避免初始渲染时 heroes 为空）
+  // 同步第一个专家 id（避免初始渲染时 heroes 为空）
   useEffect(() => {
     if (heroes.length > 0 && !heroId) {
       setHeroId(heroes[0].id);
@@ -240,8 +240,8 @@ export function MissionRunView() {
     const reportResult = reportMission.result as
       | (MissionReportResultLike & { depth?: string; language?: string })
       | undefined;
-    // mission 不携带 heroId，无法精确还原原英雄；以第一个英雄作为重发兜底，
-    // 没有任何英雄时优雅地隐藏「重新下发」入口。
+    // mission 不携带 heroId，无法精确还原原专家；以第一个专家作为重发兜底，
+    // 没有任何专家时优雅地隐藏「重新下发」入口。
     const rerunHeroId = heroes[0]?.id ?? null;
     const detailView = fromCompanyMissionResult({
       id: reportMission.id,
@@ -259,7 +259,7 @@ export function MissionRunView() {
                 variant: 'primary' as const,
                 emoji: '▶',
                 label: '重新下发',
-                title: '用相同英雄 + 任务标题起一个新 mission',
+                title: '用相同专家 + 任务标题起一个新 mission',
                 onClick: () => {
                   void createHeroMission(rerunHeroId, reportMission.title).then(
                     (id) => {
@@ -340,7 +340,7 @@ export function MissionRunView() {
         open={dispatchOpen}
         onClose={() => setDispatchOpen(false)}
         title="下发任务"
-        subtitle="选择英雄、描述要做的事，交给英雄执行"
+        subtitle="选择专家、描述要做的事，交给专家执行"
         size="lg"
         footer={
           <>
@@ -366,14 +366,14 @@ export function MissionRunView() {
             <EmptyState
               type="default"
               size="sm"
-              title="还没有英雄"
-              description="还没有英雄，先去英雄市场收一个"
+              title="还没有专家"
+              description="还没有专家，先去专家市场收一个"
             />
           ) : (
             <>
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-500">
-                  派给哪个英雄
+                  派给哪个专家
                 </label>
                 <select
                   value={heroId}
@@ -406,8 +406,8 @@ export function MissionRunView() {
       </Modal>
 
       <MissionGalleryView
-        title="英雄任务"
-        subtitle="派英雄执行任务，实时看协作过程，完成后查看完整研究报告"
+        title="专家任务"
+        subtitle="派专家执行任务，实时看协作过程，完成后查看完整研究报告"
         iconGradient={MODULE_THEMES.ask.gradient}
         createButtonLabel="下发任务"
         onCreateMission={() => setDispatchOpen(true)}
@@ -419,10 +419,10 @@ export function MissionRunView() {
         }}
         onDelete={(m) => void deleteMission(m.id)}
         searchPlaceholder="搜索任务标题…"
-        listHeading="英雄任务"
+        listHeading="专家任务"
         emptyState={{
           title: '还没有任务',
-          hint: '派你的英雄执行第一个任务，看它产出研究报告',
+          hint: '派你的专家执行第一个任务，看它产出研究报告',
           ctaLabel: '下发任务',
         }}
         reloadKey={galleryReload}

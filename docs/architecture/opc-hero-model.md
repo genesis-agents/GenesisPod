@@ -1,8 +1,10 @@
-# 一人公司 OS · 英雄（Hero）模型重构方案
+# 一人公司 OS · 数字员工（实现机制，原「英雄」模型）
 
-> 2026-06-08 决策落档。把"招人→组队→配工作流→配 CEO"四步墙折叠成"收英雄 + 配模型"两步。
+> 2026-06-08 决策落档。把"招人→组队→配工作流→配 CEO"四步墙折叠成"录用员工 + 配模型"两步。
 >
-> **本文为一人公司 OS 当前主流模型的权威依据**，取代 [features/one-person-company-os/design.md](../features/one-person-company-os/design.md) 中的组织/团队模型（该文 §1–§5 / §7 / §9 已降级为隐藏的进阶/兼容路；其 §6 / §10 后端映射仍有效）。
+> ⚠️ **术语已迁移（2026-06-09）**：本文的「英雄」一律对应对外呈现的「**专家 Agent**」（「专家」承载专业判断力，「Agent」承载智能感；实例名用职能头衔如「深度研究专家」）。定位、术语词表、信息架构以 [product-positioning.md](./product-positioning.md) 为权威；**本文仅作底层实现机制（capability/mission/数据层/执行层）的参考**，其中的「英雄」叫法不再用于 UI。
+>
+> **本文为一人公司 OS 实现机制的依据**，取代 [features/one-person-company-os/design.md](../features/one-person-company-os/design.md) 中的组织/团队模型（该文 §1–§5 / §7 / §9 已降级为隐藏的进阶/兼容路；其 §6 / §10 后端映射仍有效）。
 
 ## 核心模型
 

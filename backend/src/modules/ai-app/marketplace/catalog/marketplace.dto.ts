@@ -56,6 +56,12 @@ export interface WorkflowCatalogItem {
    * 团队阵型一般留空。前端 resolveMissionKit(missionType) 解析呈现面。
    */
   missionType?: string;
+  /** 阵型 Agent 的 listing id（roles → 沉淀 Agent 解析）。 */
+  agentIds?: string[];
+  /** 阵型聚合的技能 id（去重并集；供「专家」卡展开看技能详情）。 */
+  skillIds?: string[];
+  /** 阵型聚合的工具 id（去重并集）。 */
+  toolIds?: string[];
 }
 
 /**

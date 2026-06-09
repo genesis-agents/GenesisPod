@@ -91,6 +91,12 @@ export interface WorkflowListing extends BaseListing {
    * 后续详情/采用处可 resolveMissionKit(missionType)?.DetailComponent 渲染配套界面。
    */
   missionType?: string;
+  /** 阵型 Agent 的 listing id（roles → 沉淀 Agent）。 */
+  agentIds?: string[];
+  /** 阵型聚合的技能 id（去重并集；供「专家」卡展开看技能/工具详情）。 */
+  skillIds?: string[];
+  /** 阵型聚合的工具 id（去重并集）。 */
+  toolIds?: string[];
 }
 
 export interface TeamListing extends BaseListing {

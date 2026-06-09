@@ -18,6 +18,7 @@ import {
   Shield,
   Sparkles,
   Flame,
+  ChevronRight,
   type LucideIcon,
 } from 'lucide-react';
 import { PageHeaderHero } from '@/components/ui/page-header-hero';
@@ -31,6 +32,7 @@ import { useCompanyStore, type Hero } from '@/stores/company/companyStore';
 import { useAIModels } from '@/hooks/features/useAIModels';
 import { useMarketplaceCatalog } from '@/hooks/features/useMarketplaceCatalog';
 import type { WorkflowListing } from '@/components/marketplace/marketplace.types';
+import { HeroSkillToolDrawer } from '@/components/me/hero/HeroSkillToolDrawer';
 
 const CONTROL_CLS =
   'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary';
@@ -43,7 +45,7 @@ function gradientForId(id: string): string {
 }
 
 /**
- * 英雄头像预设（cosmetic）：图标 + token 渐变（渐变取自 AVATAR_GRADIENTS，避免硬编码色）。
+ * 专家头像预设（cosmetic）：图标 + token 渐变（渐变取自 AVATAR_GRADIENTS，避免硬编码色）。
  * 纯展示，不影响执行。
  */
 const HERO_AVATARS: { key: string; Icon: LucideIcon }[] = [
@@ -76,18 +78,28 @@ function avatarPreset(
 function resolveCapability(
   capabilityId: string,
   workflows: WorkflowListing[]
-): { title?: string; stages: string[] } {
+): { title?: string; stages: string[]; skillIds: string[]; toolIds: string[] } {
   const w = workflows.find((x) => x.missionType === capabilityId);
-  if (!w) return { stages: [] };
-  return { title: w.name, stages: w.stages ?? [] };
+  if (!w) return { stages: [], skillIds: [], toolIds: [] };
+  return {
+    title: w.name,
+    stages: w.stages ?? [],
+    skillIds: w.skillIds ?? [],
+    toolIds: w.toolIds ?? [],
+  };
 }
 
 /**
- * HeroRosterView —— 一人公司「我的英雄」。
- * 标准主页页壳（与英雄市场一致）：PageHeaderHero + 居中容器 + AssetCard 网格。
- * 每位英雄 = 单能力官（雅称为身份，capability 为职能），可配模型/头像/人设、下任务、移除。
+ * HeroRosterView —— 一人公司「我的专家」。
+ * 标准主页页壳（与专家市场一致）：PageHeaderHero + 居中容器 + AssetCard 网格。
+ * 每位专家 = 单能力官（实例名为身份，capability 为职能），可配模型/头像/人设、下任务、移除。
  */
-export function HeroRosterView() {
+export function HeroRosterView({
+  onDispatch,
+}: {
+  /** 「下任务」回调（嵌在「我的团队」双 Tab 内时切到「专家任务」Tab）；不传则跳 /missions。 */
+  onDispatch?: () => void;
+} = {}) {
   const { heroes, loadHeroes } = useCompanyStore();
   const { catalog } = useMarketplaceCatalog();
   const [configId, setConfigId] = useState<string | null>(null);
@@ -106,13 +118,13 @@ export function HeroRosterView() {
       <PageHeaderHero
         module="ask"
         icon={<Crown className="h-7 w-7 text-white" />}
-        title="我的英雄"
-        subtitle="麾下英雄各司其职，配好模型即可下任务，调遣他们替你完成深度工作"
+        title="我的专家"
+        subtitle="麾下专家各司其职，配好模型即可下任务，调遣他们替你完成深度工作"
         actions={
           <Button asChild variant="outline" size="sm">
             <Link href="/marketplace">
               <Store className="mr-2 h-4 w-4" />
-              去英雄市场
+              去专家市场
             </Link>
           </Button>
         }
@@ -123,13 +135,13 @@ export function HeroRosterView() {
           <EmptyState
             type="noData"
             icon={<Crown className="h-12 w-12" />}
-            title="还没有英雄"
-            description="去英雄市场招募你的第一位单能力官"
+            title="还没有专家"
+            description="去专家市场招募你的第一位单能力官"
             action={
               <Button asChild>
                 <Link href="/marketplace">
                   <Store className="mr-2 h-4 w-4" />
-                  去英雄市场
+                  去专家市场
                 </Link>
               </Button>
             }
@@ -142,6 +154,7 @@ export function HeroRosterView() {
                 hero={hero}
                 workflows={catalog.workflow}
                 onConfig={() => setConfigId(hero.id)}
+                onDispatch={onDispatch}
               />
             ))}
           </div>
@@ -155,18 +168,21 @@ export function HeroRosterView() {
   );
 }
 
-/** 英雄卡 —— canonical AssetCard（与英雄市场同款卡）。 */
+/** 专家卡 —— canonical AssetCard（与专家市场同款卡）。 */
 function HeroCard({
   hero,
   workflows,
   onConfig,
+  onDispatch,
 }: {
   hero: Hero;
   workflows: WorkflowListing[];
   onConfig: () => void;
+  onDispatch?: () => void;
 }) {
   const { removeHero } = useCompanyStore();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [skillsOpen, setSkillsOpen] = useState(false);
 
   const capability = useMemo(
     () => resolveCapability(hero.capabilityId, workflows),
@@ -177,95 +193,128 @@ function HeroCard({
   const gradient = preset?.gradient ?? gradientForId(hero.id);
 
   return (
-    <AssetCard
-      title={hero.name}
-      description={
-        hero.tagline ? `「${hero.tagline}」` : (capability.title ?? '')
-      }
-      icon={<AvatarIcon className="h-6 w-6 text-white" />}
-      gradient={gradient}
-      badges={
-        capability.title
-          ? [
-              {
-                key: 'role',
-                label: capability.title,
-                className: 'bg-primary/10 text-primary',
-              },
-            ]
-          : []
-      }
-      stats={[
-        {
-          key: 'model',
-          icon: <Cpu className="h-3.5 w-3.5" />,
-          text:
-            hero.models.length > 0
-              ? `${hero.models.length} 个模型`
-              : '引擎自动择优',
-        },
-        ...(capability.stages.length > 0
-          ? [
-              {
-                key: 'stages',
-                icon: <Layers className="h-3.5 w-3.5" />,
-                text: `${capability.stages.length} 阶段`,
-              },
-            ]
-          : []),
-      ]}
-      customSection={
-        capability.stages.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5">
-            {capability.stages.slice(0, 5).map((stage) => (
-              <span
-                key={stage}
-                className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
+    <>
+      <AssetCard
+        title={hero.name}
+        description={
+          hero.tagline ? `「${hero.tagline}」` : (capability.title ?? '')
+        }
+        icon={<AvatarIcon className="h-6 w-6 text-white" />}
+        gradient={gradient}
+        badges={
+          capability.title
+            ? [
+                {
+                  key: 'role',
+                  label: capability.title,
+                  className: 'bg-primary/10 text-primary',
+                },
+              ]
+            : []
+        }
+        stats={[
+          {
+            key: 'model',
+            icon: <Cpu className="h-3.5 w-3.5" />,
+            text:
+              hero.models.length > 0
+                ? `${hero.models.length} 个模型`
+                : '引擎自动择优',
+          },
+          ...(capability.stages.length > 0
+            ? [
+                {
+                  key: 'stages',
+                  icon: <Layers className="h-3.5 w-3.5" />,
+                  text: `${capability.stages.length} 阶段`,
+                },
+              ]
+            : []),
+        ]}
+        customSection={
+          <div className="space-y-2">
+            {capability.stages.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {capability.stages.slice(0, 5).map((stage) => (
+                  <span
+                    key={stage}
+                    className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
+                  >
+                    {stage}
+                  </span>
+                ))}
+              </div>
+            )}
+            {(capability.skillIds.length > 0 ||
+              capability.toolIds.length > 0) && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSkillsOpen(true);
+                }}
+                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
               >
-                {stage}
-              </span>
-            ))}
+                {capability.skillIds.length} 技能 · {capability.toolIds.length}{' '}
+                工具
+                <ChevronRight className="h-3 w-3" />
+              </button>
+            )}
           </div>
-        ) : undefined
-      }
-      footerExtra={
-        <div className="flex w-full items-center gap-2">
-          <Button asChild size="sm" className="flex-1">
-            <Link href="/missions">
-              <Send className="mr-1.5 h-4 w-4" />
-              下任务
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" onClick={onConfig}>
-            <Settings2 className="mr-1.5 h-4 w-4" />
-            配置
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setConfirmOpen(true)}
-            aria-label="移除英雄"
-            className="h-9 w-9 text-gray-400 hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-          <ConfirmDialog
-            open={confirmOpen}
-            onClose={() => setConfirmOpen(false)}
-            onConfirm={() => removeHero(hero.id)}
-            type="danger"
-            title={`移除「${hero.name}」？`}
-            description="移除后该英雄将从你的麾下消失，可随时再去市场招募。"
-            confirmText="移除"
-          />
-        </div>
-      }
-    />
+        }
+        footerExtra={
+          <div className="flex w-full items-center gap-2">
+            {onDispatch ? (
+              <Button size="sm" className="flex-1" onClick={onDispatch}>
+                <Send className="mr-1.5 h-4 w-4" />
+                下任务
+              </Button>
+            ) : (
+              <Button asChild size="sm" className="flex-1">
+                <Link href="/missions">
+                  <Send className="mr-1.5 h-4 w-4" />
+                  下任务
+                </Link>
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={onConfig}>
+              <Settings2 className="mr-1.5 h-4 w-4" />
+              配置
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setConfirmOpen(true)}
+              aria-label="移除专家"
+              className="h-9 w-9 text-gray-400 hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+            <ConfirmDialog
+              open={confirmOpen}
+              onClose={() => setConfirmOpen(false)}
+              onConfirm={() => removeHero(hero.id)}
+              type="danger"
+              title={`移除「${hero.name}」？`}
+              description="移除后该专家将从你的麾下消失，可随时再去市场招募。"
+              confirmText="移除"
+            />
+          </div>
+        }
+      />
+      <HeroSkillToolDrawer
+        open={skillsOpen}
+        onClose={() => setSkillsOpen(false)}
+        expertName={hero.name}
+        skillIds={capability.skillIds}
+        toolIds={capability.toolIds}
+      />
+    </>
   );
 }
 
 /**
- * HeroConfigModal —— 配置英雄：名称（雅称）+ 头像 + 人设 + 模型 fallback 链。
+ * HeroConfigModal —— 配置专家：名称+ 头像 + 人设 + 模型 fallback 链。
  */
 function HeroConfigModal({
   hero,
@@ -320,7 +369,7 @@ function HeroConfigModal({
             <Sparkles className="h-4 w-4 text-violet-500" /> 身份
           </div>
           <label className="mb-1 block text-xs font-medium text-gray-500">
-            名称（雅称）
+            名称
           </label>
           <input
             value={name}

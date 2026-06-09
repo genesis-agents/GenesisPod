@@ -78,6 +78,9 @@ interface WorkflowCatalogItem {
   roles: string[];
   stages: string[];
   missionType?: string;
+  agentIds?: string[];
+  skillIds?: string[];
+  toolIds?: string[];
 }
 
 interface TeamCatalogItem {
@@ -195,6 +198,9 @@ function adaptWorkflow(item: WorkflowCatalogItem): WorkflowListing {
     stages: item.stages,
     // 呈现面绑定透传：消费方可 resolveMissionKit(missionType) 渲染配套 mission UI。
     missionType: item.missionType,
+    agentIds: item.agentIds ?? [],
+    skillIds: item.skillIds ?? [],
+    toolIds: item.toolIds ?? [],
   };
 }
 
