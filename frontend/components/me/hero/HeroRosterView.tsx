@@ -17,6 +17,7 @@ import {
   Flame,
   Wrench,
   Workflow,
+  Settings2,
   type LucideIcon,
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/states';
@@ -254,20 +255,24 @@ function HeroCard({
           </div>
         }
         footerExtra={
-          <div className="flex w-full">
+          <div className="flex w-full items-center gap-2">
             {onDispatch ? (
-              <Button size="sm" className="w-full" onClick={onDispatch}>
+              <Button size="sm" className="flex-1" onClick={onDispatch}>
                 <Send className="mr-1.5 h-4 w-4" />
                 下任务
               </Button>
             ) : (
-              <Button asChild size="sm" className="w-full">
+              <Button asChild size="sm" className="flex-1">
                 <Link href="/missions">
                   <Send className="mr-1.5 h-4 w-4" />
                   下任务
                 </Link>
               </Button>
             )}
+            <Button variant="outline" size="sm" onClick={onConfig}>
+              <Settings2 className="mr-1.5 h-4 w-4" />
+              配置
+            </Button>
           </div>
         }
       />
