@@ -70,7 +70,10 @@ import { WebSearchModule } from "./content/web-search/web-search.module";
 // ImageModule（content/image，零注入死代码）已删除
 // ★ 沉淀（2026-04-29）: figure 抽取（来自 {app}，TI 暂不切换）
 //   不创建 sub-module，直接作为 provider 注册（ai-engine.module 已 @Global + imports AiEngineToolsModule）
-import { FigureExtractorService } from "./content/figure";
+import {
+  FigureExtractorService,
+  FigureRelevanceService,
+} from "./content/figure";
 // ★ PR-A8 (2026-05-07): markdown sanitizer 监控聚合器（in-memory，admin metrics 拉 snapshot）
 import { SanitizerMetricsService } from "./content/markdown/sanitizer-metrics.service";
 // ★ 沉淀（2026-04-29）: LLM Reranker（来自 {app}）
@@ -172,6 +175,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // ★ 沉淀（2026-04-29）: figure-extractor（来自 {app}，{app} 复用）
     FigureExtractorService,
+    FigureRelevanceService,
     // ★ 沉淀: LLM Reranker
     LlmRerankerAdapter,
     // ★ PR-A8 (2026-05-07): sanitizer metrics 聚合器
@@ -227,6 +231,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
 
     // ★ 沉淀: figure-extractor 作为顶层 export
     FigureExtractorService,
+    FigureRelevanceService,
     LlmRerankerAdapter,
     // ★ PR-A8 (2026-05-07): sanitizer metrics 顶层 export，admin / observability 拉 snapshot
     SanitizerMetricsService,

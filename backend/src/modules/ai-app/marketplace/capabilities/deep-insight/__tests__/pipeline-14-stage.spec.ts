@@ -217,12 +217,20 @@ function makeRichStubs() {
     createTrace: jest.fn(() => ({ reportId: "x", dimensionOutputs: [] })),
     recordDimensionRemediationLoop: jest.fn(),
   };
+  // ★ figure re-home（2026-06-09）：FigureRelevance 精排 stub。
+  //   默认 identity（返回全部入参），保证不削弱既有路径；个别用例覆盖断言精排被调。
+  const figureRelevance = {
+    filterRelevantFigures: jest.fn(
+      async (figures: Array<{ imageUrl: string }>) => figures,
+    ),
+  };
   return {
     reportArtifactAssembler,
     sectionSelfEval,
     sectionRemediation,
     reportEvaluation,
     qualityTrace,
+    figureRelevance,
   };
 }
 
@@ -244,6 +252,7 @@ function makeRunnerWith(
     rich.sectionRemediation as never,
     rich.reportEvaluation as never,
     rich.qualityTrace as never,
+    rich.figureRelevance as never,
   );
   runner.onModuleInit();
   return { runner, agentRunner, pipelineRegistry, capabilityRegistry, rich };
@@ -437,5 +446,143 @@ describe("deep-insight 14 阶段执行内核（W2）", () => {
     expect(rich.reportEvaluation.evaluateReport).toHaveBeenCalledTimes(1);
     // finalScore = 客观 10 维 overallScore（88），而非 reviewVerdict.score（80）。
     expect(probe.lastFinalScore).toBe(88);
+  });
+
+  // ── figure re-home 断言（s8 组装前 figureCandidates embedding 相关性精排）──────────
+
+  it("s8 figure 精排：有 figureCandidates 时按维度调 FigureRelevance.filterRelevantFigures", async () => {
+    // researcher 产出带 figureCandidates（2 张 photo）；assembler 捕获精排后入参。
+    const agentRunner = makeAgentRunner();
+    agentRunner.run.mockImplementation(
+      async (Spec: { name?: string }, input: unknown) => {
+        const id = (Spec?.name ?? "").toLowerCase();
+        let out: unknown;
+        if (id.includes("researcher")) {
+          const dim = (input as { dimension?: string }).dimension ?? "维度";
+          out = {
+            dimension: dim,
+            findings: [
+              { claim: "c", evidence: "e", source: `https://${dim}.com` },
+            ],
+            summary: `summary ${dim}`,
+            figureCandidates: [
+              {
+                sourceUrl: `https://${dim}.com/p`,
+                imageUrl: `https://cdn/${dim}-1.png`,
+                caption: "相关图：与主题强相关的图表说明文本",
+              },
+              {
+                sourceUrl: `https://${dim}.com/p`,
+                imageUrl: `https://cdn/${dim}-2.png`,
+                caption: "无关广告 banner 图，应被精排剔除",
+              },
+            ],
+          };
+        } else {
+          out = routeOutput(id, input);
+        }
+        return {
+          output: out,
+          state: "completed" as const,
+          tokensUsed: { prompt: 1, completion: 1, total: 2 },
+          costCents: 1,
+        };
+      },
+    );
+    const rich = makeRichStubs();
+    // 精排：只保留 imageUrl 以 "-1" 结尾的（模拟相关图通过、广告图被拒）。
+    rich.figureRelevance.filterRelevantFigures.mockImplementation(
+      async (figures: Array<{ imageUrl: string }>) =>
+        figures.filter((f) => f.imageUrl.endsWith("-1.png")),
+    );
+    // assembler 捕获 figure 精排后透传的 researcherResults.figureCandidates。
+    let assembledFigureUrls: string[] = [];
+    rich.reportArtifactAssembler.assemble.mockImplementation(
+      (input: {
+        writerReport: {
+          title?: string;
+          sections?: Array<{ heading?: string; body?: string }>;
+        };
+        researcherResults?: Array<{
+          figureCandidates?: Array<{ imageUrl?: string }>;
+        }>;
+      }) => {
+        assembledFigureUrls = (input.researcherResults ?? []).flatMap((r) =>
+          (r.figureCandidates ?? [])
+            .map((c) => c.imageUrl)
+            .filter((u): u is string => typeof u === "string"),
+        );
+        return {
+          title: input.writerReport.title,
+          content: { fullMarkdown: "# 报告\n\n## H1\n\nB1", fullReportSize: 1 },
+          sections: [],
+          citations: [],
+          figures: [],
+          quickView: {},
+          factTable: [],
+          metadata: {},
+          quality: { overall: 75, dimensions: {}, warnings: [] },
+        };
+      },
+    );
+    const { runner } = makeRunnerWith(agentRunner, rich);
+    const res = await runner.run(
+      { topic: "AI", language: "zh-CN" },
+      { userId: "u", missionId: "m-fig-1" },
+    );
+    expect(res.status).toBe("completed");
+    // 2 维 researcher × 各 2 候选 → 精排被调（每维一次）。
+    expect(rich.figureRelevance.filterRelevantFigures).toHaveBeenCalled();
+    // 精排后只剩 "-1" 候选（广告图被剔除）；组装入参不含 "-2"。
+    expect(assembledFigureUrls.length).toBeGreaterThan(0);
+    expect(assembledFigureUrls.every((u) => u.endsWith("-1.png"))).toBe(true);
+    expect(assembledFigureUrls.some((u) => u.endsWith("-2.png"))).toBe(false);
+  });
+
+  it("s8 figure 精排 fail-open：精排抛错不阻断报告（仍 completed，保留原候选）", async () => {
+    const agentRunner = makeAgentRunner();
+    agentRunner.run.mockImplementation(
+      async (Spec: { name?: string }, input: unknown) => {
+        const id = (Spec?.name ?? "").toLowerCase();
+        let out: unknown;
+        if (id.includes("researcher")) {
+          const dim = (input as { dimension?: string }).dimension ?? "维度";
+          out = {
+            dimension: dim,
+            findings: [
+              { claim: "c", evidence: "e", source: `https://${dim}.com` },
+            ],
+            summary: `s ${dim}`,
+            figureCandidates: [
+              {
+                sourceUrl: `https://${dim}.com`,
+                imageUrl: `https://cdn/${dim}.png`,
+                caption: "图说明文本够长用于精排判定",
+              },
+            ],
+          };
+        } else {
+          out = routeOutput(id, input);
+        }
+        return {
+          output: out,
+          state: "completed" as const,
+          tokensUsed: { prompt: 1, completion: 1, total: 2 },
+          costCents: 1,
+        };
+      },
+    );
+    const rich = makeRichStubs();
+    rich.figureRelevance.filterRelevantFigures.mockRejectedValue(
+      new Error("embedding endpoint 503"),
+    );
+    const { runner } = makeRunnerWith(agentRunner, rich);
+    const res = await runner.run(
+      { topic: "AI", language: "zh-CN" },
+      { userId: "u", missionId: "m-fig-2" },
+    );
+    // 精排失败 fail-open：报告仍组装成功（不阻断终态）。
+    expect(res.status).toBe("completed");
+    expect(rich.figureRelevance.filterRelevantFigures).toHaveBeenCalled();
   });
 });

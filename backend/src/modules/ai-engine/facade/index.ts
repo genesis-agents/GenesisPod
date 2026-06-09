@@ -494,7 +494,9 @@ export type {
 // ★ 沉淀（2026-04-29）: figure 抽取（来自 {app}, TI 暂不切换）
 export {
   FigureExtractorService,
+  FigureRelevanceService,
   type ExtractedFigure,
+  type FigureRelevanceConfig,
 } from "../content/figure";
 
 // ★ 沉淀（2026-04-29）: LLM 注入防御三件套（OWASP LLM01）

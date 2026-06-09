@@ -37,6 +37,16 @@ export {
   type QualityTraceContext,
   type QualityTrace,
 } from "@/modules/ai-harness/facade";
+// ★ figure re-home（2026-06-09）：FigureRelevance Stage-3 相关性精排（embedding）。
+//   归位到 ai-engine/content/figure（零 app/harness 依赖），能力家经 ai-engine/facade 注入
+//   （R1-safe，单向不穿透）。s8 reportArtifactAssembler 前对 figureCandidates 精排，
+//   与 playground s3 的 filterRelevantFigures 等价。
+//   注意：facade 导出 FigureRelevanceService + ExtractedFigure 由主 Agent 补（见交付清单）；
+//   本 re-export 先按「假设 facade 已导出」落位。
+export {
+  FigureRelevanceService,
+  type ExtractedFigure,
+} from "@/modules/ai-engine/facade";
 export { AIModelType } from "@prisma/client";
 export {
   CapabilityRegistry,

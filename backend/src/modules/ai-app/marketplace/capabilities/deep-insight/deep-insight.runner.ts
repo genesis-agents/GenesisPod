@@ -27,6 +27,7 @@ import {
   SectionRemediationService,
   ReportEvaluationService,
   QualityTraceComputeService,
+  FigureRelevanceService,
   type CapabilityManifest,
   type ICapabilityRunner,
   type CapabilityRunInput,
@@ -128,6 +129,8 @@ export class DeepInsightDefaultRunner
     private readonly sectionRemediation: SectionRemediationService,
     private readonly reportEvaluation: ReportEvaluationService,
     private readonly qualityTrace: QualityTraceComputeService,
+    // ★ figure re-home：embedding 相关性精排（engine 层，经 facade 注入，R1-safe）。
+    private readonly figureRelevance: FigureRelevanceService,
   ) {
     void this.chatFacade; // 保留注入（plan 等结构化抽取的未来用途）；当前 14 步全走 AgentRunner。
     this.bindings = new DeepInsightStageBindings(this.agentRunner, {
@@ -136,6 +139,7 @@ export class DeepInsightDefaultRunner
       sectionRemediation: this.sectionRemediation,
       reportEvaluation: this.reportEvaluation,
       qualityTrace: this.qualityTrace,
+      figureRelevance: this.figureRelevance,
     });
   }
 

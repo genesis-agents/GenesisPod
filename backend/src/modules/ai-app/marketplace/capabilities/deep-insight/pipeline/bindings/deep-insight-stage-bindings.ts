@@ -29,6 +29,8 @@ import type {
   ReportEvaluationService,
   QualityTraceComputeService,
   RemediationAction,
+  FigureRelevanceService,
+  ExtractedFigure,
 } from "../../runner-deps";
 import { CS_KEY, readPipelineInput, type StageBindings } from "../ports";
 import { invokeAgent } from "./agent-invoke.helper";
@@ -54,6 +56,9 @@ export interface RichServices {
   readonly sectionRemediation: SectionRemediationService;
   readonly reportEvaluation: ReportEvaluationService;
   readonly qualityTrace: QualityTraceComputeService;
+  // ★ figure re-home（2026-06-09）：Stage-3 图文相关性精排（embedding），
+  //   s8 组装前对 researcher 产出的 figureCandidates 按维度精排（与 playground s3 等价）。
+  readonly figureRelevance: FigureRelevanceService;
 }
 
 /** plan 阶段产物（维度拆解）。 */
@@ -73,6 +78,22 @@ interface ResearcherResult {
     sourceSnippet?: string;
   }>;
   summary: string;
+}
+
+/** researcher 产出的图候选（图文相关性精排入参的原始形状）。 */
+interface FigureCandidate {
+  sourceUrl: string;
+  imageUrl?: string;
+  caption: string;
+  sourcePageOrSection?: string;
+  relevanceHint?: "high" | "medium" | "low";
+}
+
+/** 带可选图候选的 researcher 产物视图（rankFigureCandidates 用）。 */
+interface FigureRankableResearcher {
+  dimension: string;
+  figureCandidates?: FigureCandidate[];
+  [key: string]: unknown;
 }
 
 export class DeepInsightStageBindings implements StageBindings {
@@ -496,11 +517,11 @@ export class DeepInsightStageBindings implements StageBindings {
       // ReportArtifactAssembler.assemble（sections 树 / citations 编号 + occurrences /
       // figures 五项硬规则 / quickView / factTable / 50+ 格式自动修复 / 10 维质量评分）。
       // assemble 是纯代码（无 LLM），失败时降级回 writer 原始 report 不阻断终态。
-      reportArtifactAssembler: (args: {
+      reportArtifactAssembler: async (args: {
         artifact: unknown;
         ctx: StageRunArgs["ctx"];
         crossStageState: CrossStageState;
-      }): unknown => {
+      }): Promise<unknown> => {
         // 用 runner 绑定的 crossState（fullArgs），与其它 hook + 终态组装同一实例。
         // primitive 透传的 args.crossStageState 是 orchestrator 自己那份（记账用），
         // 与 runner 绑定那份不同——业务产物必须写绑定那份才能被 s9b/s10/终态读到。
@@ -511,6 +532,14 @@ export class DeepInsightStageBindings implements StageBindings {
           cs.get<ResearcherResult[]>(CS_KEY.researcherResults) ?? [];
         const analyst = cs.get<AnalystShape>(CS_KEY.analystOutput);
         const startedAt = cs.get<number>(CS_KEY.startedAt) ?? Date.now();
+        // ★ figure re-home（2026-06-09）：组装前对 figureCandidates 做 embedding 相关性
+        //   精排（与 playground s3 的 filterRelevantFigures 等价）。fail-open：精排失败
+        //   返回原 researcherResults，不阻断报告组装。
+        const rankedResearcherResults = await this.rankFigureCandidates(
+          researcherResults as unknown as FigureRankableResearcher[],
+          plan,
+          input.topic,
+        );
         try {
           const assembleInput = buildAssembleInput({
             profile: {
@@ -521,7 +550,7 @@ export class DeepInsightStageBindings implements StageBindings {
                 : {}),
             },
             plan: plan as PlanShape | undefined,
-            researcherResults: researcherResults as never,
+            researcherResults: rankedResearcherResults as never,
             analyst,
             writerReport: args.artifact as WriterReportShape | undefined,
             usage: {
@@ -1010,6 +1039,69 @@ export class DeepInsightStageBindings implements StageBindings {
       return Math.round(artifact.quality.overall);
     }
     return undefined;
+  }
+
+  /**
+   * figure re-home（2026-06-09）：组装前对每维 figureCandidates 做 embedding 相关性精排。
+   *
+   * 等价 playground s3 的 `filterRelevantFigures(candidates, dim.name)`：
+   *   - 按 dimension 分别精排（每维 caption 对标该维 name，缺则回退 topic）；
+   *   - 候选缺 imageUrl 不可成图，精排前剔除（但保留在结果外，不污染相关性判断）；
+   *   - FigureRelevance 入参是 ExtractedFigure（需 type）；researcher 候选是 web 抓取图，
+   *     统一映射 type="photo"（触发 caption 语义判断，正是精排目标）；
+   *   - fail-open：单维精排失败保留该维原候选；整体异常返回原 researcherResults，不阻断报告。
+   */
+  private async rankFigureCandidates(
+    researcherResults: FigureRankableResearcher[],
+    plan: PlanResult | undefined,
+    topic: string,
+  ): Promise<FigureRankableResearcher[]> {
+    try {
+      return await Promise.all(
+        researcherResults.map(async (r) => {
+          const candidates = r.figureCandidates;
+          if (!candidates || candidates.length === 0) return r;
+          // 维度名：candidate 无 dimension 锚点，用 researcher.dimension 对标该维；缺则回退 topic。
+          const dimName =
+            plan?.dimensions.find((d) => d.name === r.dimension)?.name ??
+            r.dimension ??
+            topic;
+          // 仅可成图（有 imageUrl）的候选进精排；映射成 ExtractedFigure（type=photo 触发语义判断）。
+          const rankable = candidates.filter(
+            (c): c is FigureCandidate & { imageUrl: string } =>
+              typeof c.imageUrl === "string" && c.imageUrl.length > 0,
+          );
+          if (rankable.length === 0) return r;
+          const figures: ExtractedFigure[] = rankable.map((c) => ({
+            imageUrl: c.imageUrl,
+            caption: c.caption ?? "",
+            type: "photo",
+          }));
+          try {
+            const relevant =
+              await this.rich.figureRelevance.filterRelevantFigures(
+                figures,
+                dimName,
+              );
+            const keptUrls = new Set(
+              relevant.map((f: ExtractedFigure) => f.imageUrl),
+            );
+            // 精排只保留通过的候选（顺序保持），其余（含无 imageUrl 的）一律剔除——
+            // 无 imageUrl 的候选本就不可渲染成图，不应入图库。
+            const kept = candidates.filter(
+              (c) => typeof c.imageUrl === "string" && keptUrls.has(c.imageUrl),
+            );
+            return { ...r, figureCandidates: kept };
+          } catch {
+            // 单维精排失败 fail-open：保留该维原候选。
+            return r;
+          }
+        }),
+      );
+    } catch {
+      // 整体异常 fail-open：返回原 researcherResults，不阻断报告组装。
+      return researcherResults;
+    }
   }
 
   /** s8b 补救后 section 内容变了 → 重建 content.fullMarkdown（标题 ## + body 拼接）。 */
