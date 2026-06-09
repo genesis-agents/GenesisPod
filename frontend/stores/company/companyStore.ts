@@ -327,6 +327,9 @@ interface CompanyState {
       description?: string;
       depth?: 'quick' | 'standard' | 'deep';
       language?: 'zh-CN' | 'en-US';
+      withFigures?: boolean;
+      knowledgeBaseIds?: string[];
+      searchTimeRange?: '30d' | '90d' | '180d' | '365d' | '730d' | 'all';
     }
   ) => Promise<string | null>;
 }
@@ -893,6 +896,9 @@ export const useCompanyStore = create<CompanyState>((set, get) => ({
           description: opts?.description,
           depth: opts?.depth,
           language: opts?.language,
+          withFigures: opts?.withFigures,
+          knowledgeBaseIds: opts?.knowledgeBaseIds,
+          searchTimeRange: opts?.searchTimeRange,
         }
       );
       const mission = adaptMission(raw);

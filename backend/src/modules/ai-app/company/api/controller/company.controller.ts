@@ -338,6 +338,9 @@ export class CompanyController {
         description: dto.description,
         depth: dto.depth,
         language: dto.language,
+        withFigures: dto.withFigures,
+        knowledgeBaseIds: dto.knowledgeBaseIds,
+        searchTimeRange: dto.searchTimeRange,
       },
     );
   }

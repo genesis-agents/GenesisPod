@@ -16,29 +16,10 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import type { CompanyHero, CompanyMission } from "@prisma/client";
 import { CompanyMissionService } from "./company-mission.service";
+import { CapabilityRegistry } from "@/modules/ai-app/marketplace/capability";
 
 /** 零 hero 时自动配置的默认能力。 */
 const DEFAULT_CAPABILITY_ID = "deep-insight";
-
-/**
- * 英雄雅称池 —— 英雄的名字是「身份」，与「职能」（capability 标题，如深度洞察研究）分离。
- * 采用时按用户现有英雄数取一个，循环递进，保证多名英雄各有雅称、不重名。
- * 取意洞察 / 谋略 / 明辨的清雅二字名。
- */
-const HERO_NAMES = [
-  "知微",
-  "洞玄",
-  "明察",
-  "衡之",
-  "策然",
-  "鉴心",
-  "澄怀",
-  "观澜",
-  "寻渊",
-  "慎思",
-  "格物",
-  "览胜",
-] as const;
 
 export interface UpdateHeroInput {
   name?: string;
@@ -55,6 +36,7 @@ export class CompanyHeroService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly missionService: CompanyMissionService,
+    private readonly capabilityRegistry: CapabilityRegistry,
   ) {}
 
   /**
@@ -75,19 +57,19 @@ export class CompanyHeroService {
 
   /**
    * 采用一个市场能力为 hero。
-   * 名称取雅称池中的下一个（按用户现有英雄数循环），与职能（capability 标题）分离。
+   * 默认名 = 能力 manifest 职能标题（解析不到则用 capabilityId 兜底）；
+   * 同名（同前缀）已存在则追加序号，保证可区分。用户后续可手动改名。
    */
   async adoptHero(userId: string, capabilityId: string): Promise<CompanyHero> {
-    const count = await this.prisma.companyHero.count({ where: { userId } });
-    const name = HERO_NAMES[count % HERO_NAMES.length];
+    const baseName =
+      this.capabilityRegistry.resolve(capabilityId)?.manifest.title ??
+      capabilityId;
+    const sameName = await this.prisma.companyHero.count({
+      where: { userId, name: { startsWith: baseName } },
+    });
+    const name = sameName === 0 ? baseName : `${baseName} ${sameName + 1}`;
     return this.prisma.companyHero.create({
-      data: {
-        userId,
-        capabilityId,
-        name,
-        models: [],
-        autoFallback: true,
-      },
+      data: { userId, capabilityId, name, models: [], autoFallback: true },
     });
   }
 
@@ -134,6 +116,9 @@ export class CompanyHeroService {
       description?: string;
       depth?: "quick" | "standard" | "deep";
       language?: "zh-CN" | "en-US";
+      withFigures?: boolean;
+      knowledgeBaseIds?: string[];
+      searchTimeRange?: "30d" | "90d" | "180d" | "365d" | "730d" | "all";
     },
   ): Promise<CompanyMission> {
     const hero = await this.prisma.companyHero.findFirst({

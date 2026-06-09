@@ -11,6 +11,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Min,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
@@ -116,6 +117,25 @@ export class CreateMissionDto {
   @IsOptional()
   @IsIn(["zh-CN", "en-US"])
   language?: "zh-CN" | "en-US";
+
+  @ApiPropertyOptional({ description: "researcher 抽图开关" })
+  @IsOptional()
+  @IsBoolean()
+  withFigures?: boolean;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: "本地知识库 ids（uuid）",
+  })
+  @IsOptional()
+  @IsArray()
+  @IsUUID("4", { each: true })
+  knowledgeBaseIds?: string[];
+
+  @ApiPropertyOptional({ enum: ["30d", "90d", "180d", "365d", "730d", "all"] })
+  @IsOptional()
+  @IsIn(["30d", "90d", "180d", "365d", "730d", "all"])
+  searchTimeRange?: "30d" | "90d" | "180d" | "365d" | "730d" | "all";
 }
 
 export class RenameMissionDto {

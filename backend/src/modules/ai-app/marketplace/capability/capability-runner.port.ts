@@ -22,6 +22,12 @@ export interface CapabilityRunInput {
    * 不传时与 playground 默认行为一致（按 TaskProfile + BYOK 选模型）。
    */
   readonly preferredModelId?: string;
+  /** researcher 抽图开关（withFigures=true → web-scraper extractImages）。 */
+  readonly withFigures?: boolean;
+  /** 本地知识库 ids（researcher rag-search 召回限定；空/缺省 → 纯 web）。 */
+  readonly knowledgeBaseIds?: readonly string[];
+  /** 搜索时效窗口（透传 researcher + envelope.metadata，给 search tool 兜底）。 */
+  readonly searchTimeRange?: "30d" | "90d" | "180d" | "365d" | "730d" | "all";
 }
 
 /** 执行流事件（消费方桥到自己的 WS / 进度）。 */
@@ -107,6 +113,18 @@ export interface CapabilityRunResult {
   }>;
   /** 各阶段富输出快照（by step id）。 */
   readonly byStage?: Readonly<Record<string, unknown>>;
+  /**
+   * 内部评审合成判定（runner 从内部 reviewer/critic 已有产出直接映射，
+   * 无额外 LLM 调用）。消费方据此对接验收 gate。
+   */
+  readonly reviewVerdict?: {
+    /** 0-100 综合分（来自内部 reviewer score）。 */
+    readonly score?: number;
+    /** 内部 reviewer 三档判定。 */
+    readonly verdict?: "approve" | "revise" | "reject";
+    /** reviewer 备注 / critic 盲点（展示用）。 */
+    readonly notes?: readonly string[];
+  };
 }
 
 /**

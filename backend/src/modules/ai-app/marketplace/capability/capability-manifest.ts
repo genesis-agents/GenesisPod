@@ -45,6 +45,22 @@ export interface CapabilityManifest {
    *   一套权限/沙箱栈**。第三方 runner 那天经 plugin-backed 适配器落地（见 ADR 009）。
    */
   readonly permissions?: readonly string[];
+  /**
+   * 验收 rubric —— 消费方据此对能力产出做 gate（通过/重跑）。
+   * 缺省时消费方按能力类型套默认 rubric（如 deep-insight 默认 passThreshold=60）。
+   */
+  readonly rubric?: {
+    /** 通过分数下限（0-100）；产出综合分 < 此值 → 不通过。 */
+    readonly passThreshold: number;
+    /** 最大验收重跑次数（含首跑），防死循环。缺省 2。 */
+    readonly maxAttempts?: number;
+    /** 维度权重（可选，今天 deep-insight 单一综合分即可，预留）。 */
+    readonly dimensions?: ReadonlyArray<{
+      id: string;
+      name: string;
+      weight: number;
+    }>;
+  };
 }
 
 /** 组合 id@version 解析键。 */

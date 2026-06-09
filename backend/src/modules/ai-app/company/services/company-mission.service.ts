@@ -59,6 +59,9 @@ type HeroMissionExtra = {
   description?: string;
   depth?: "quick" | "standard" | "deep";
   language?: "zh-CN" | "en-US";
+  withFigures?: boolean;
+  knowledgeBaseIds?: string[];
+  searchTimeRange?: "30d" | "90d" | "180d" | "365d" | "730d" | "all";
 };
 
 /**
@@ -70,6 +73,10 @@ const TIER_TO_MODEL_TYPE: Record<string, AIModelType> = {
   Sonnet: AIModelType.CHAT_FAST,
   Haiku: AIModelType.CHAT_FAST,
 };
+
+/** 验收兜底阈值/封顶（manifest.rubric 缺省时用）。 */
+const DEFAULT_ACCEPTANCE_THRESHOLD = 60;
+const DEFAULT_ACCEPTANCE_MAX_ATTEMPTS = 2;
 
 // ── service ───────────────────────────────────────────────────────────────────
 
@@ -539,6 +546,7 @@ export class CompanyMissionService {
     preferredModelId?: string,
     signal?: AbortSignal,
     extra?: HeroMissionExtra,
+    attempt = 1,
   ): Promise<void> {
     const result = await runner.run(
       {
@@ -547,6 +555,15 @@ export class CompanyMissionService {
         ...(extra?.description ? { description: extra.description } : {}),
         ...(extra?.depth ? { depth: extra.depth } : {}),
         ...(extra?.language ? { language: extra.language } : {}),
+        ...(extra?.withFigures !== undefined
+          ? { withFigures: extra.withFigures }
+          : {}),
+        ...(extra?.knowledgeBaseIds?.length
+          ? { knowledgeBaseIds: extra.knowledgeBaseIds }
+          : {}),
+        ...(extra?.searchTimeRange
+          ? { searchTimeRange: extra.searchTimeRange }
+          : {}),
       },
       {
         userId,
@@ -588,6 +605,46 @@ export class CompanyMissionService {
     const collab = toJson(this.collabBuffers.get(missionId) ?? []);
 
     if (result.status === "completed") {
+      // ── 验收 gate：surface runner 内部 verdict，按 manifest.rubric 阈值判定 ──
+      const rubric = runner.manifest.rubric;
+      const threshold = rubric?.passThreshold ?? DEFAULT_ACCEPTANCE_THRESHOLD;
+      const maxAttempts =
+        rubric?.maxAttempts ?? DEFAULT_ACCEPTANCE_MAX_ATTEMPTS;
+      const rv = result.reviewVerdict;
+      const score = typeof rv?.score === "number" ? rv.score : undefined;
+      // 有分用分；无分但有三档 verdict → reject 判不通过；都没有 → 放行（不阻塞无评审能力）。
+      const passed =
+        score !== undefined
+          ? score >= threshold
+          : rv?.verdict
+            ? rv.verdict !== "reject"
+            : true;
+
+      // 不通过且未到封顶 → 重跑（仅对"跑成功但质量不达标"重跑，绝不对 error 无脑重试）。
+      if (!passed && attempt < maxAttempts && !signal?.aborted) {
+        this.log.warn(
+          `CompanyMission ${missionId} acceptance below threshold ` +
+            `(score=${score ?? "n/a"} verdict=${rv?.verdict ?? "n/a"} < ${threshold}); ` +
+            `retry attempt ${attempt + 1}/${maxAttempts}`,
+        );
+        await this.emit("company.stage:lifecycle", missionId, userId, {
+          stage: "review",
+          status: "started",
+          label: `质量不达标，重跑（第 ${attempt + 1} 次）`,
+        });
+        await this.runViaCapability(
+          missionId,
+          userId,
+          topic,
+          runner,
+          preferredModelId,
+          signal,
+          extra,
+          attempt + 1,
+        );
+        return;
+      }
+
       await this.updateMission(missionId, {
         status: "done",
         progress: 100,
@@ -601,6 +658,15 @@ export class CompanyMissionService {
             totalTokens: result.usage?.totalTokens ?? 0,
             totalCostCents: result.usage?.totalCostCents ?? 0,
           },
+          // ── 验收结果落 result JSON（无 schema 变更）──
+          review: toJson({
+            score: score ?? null,
+            verdict: rv?.verdict ?? null,
+            passed,
+            threshold,
+            attempts: attempt,
+            notes: rv?.notes ?? [],
+          }),
           capabilityId: runner.manifest.id,
           completedAt: new Date().toISOString(),
         },
@@ -609,7 +675,8 @@ export class CompanyMissionService {
         missionId,
       });
       this.log.log(
-        `CompanyMission ${missionId} completed via capability "${runner.manifest.id}"`,
+        `CompanyMission ${missionId} completed via capability "${runner.manifest.id}" ` +
+          `(score=${score ?? "n/a"} passed=${passed} attempts=${attempt})`,
       );
       return;
     }

@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Send, Loader2 } from 'lucide-react';
 import { Modal } from '@/components/ui/dialogs';
+import { MissionDialogShell } from '@/components/common/dialogs/MissionDialogShell';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { Button } from '@/components/ui/primitives/button';
 import { Input } from '@/components/ui/form/Input';
@@ -75,6 +75,39 @@ const DEPTH_OPTIONS = [
   { value: 'deep', label: '深度', hint: '~20 分钟' },
 ] as const;
 
+/** 下发任务表单字段壳（label + 选填提示 + 内容），对齐 playground 视觉。 */
+function Field({
+  label,
+  required,
+  hint,
+  hintInline,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  hint?: string;
+  hintInline?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="mb-1.5 flex items-baseline justify-between">
+        <label className="block text-sm font-medium text-gray-700">
+          {label}
+          {required && <span className="ml-0.5 text-red-500">*</span>}
+          {hintInline && (
+            <span className="ml-2 text-xs font-normal text-gray-400">
+              {hintInline}
+            </span>
+          )}
+        </label>
+        {hint && <span className="text-xs text-gray-400">{hint}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export function MissionRunView({
   embedded = false,
 }: {
@@ -116,6 +149,10 @@ export function MissionRunView({
   const [description, setDescription] = useState('');
   const [depth, setDepth] = useState<'quick' | 'standard' | 'deep'>('deep');
   const [language, setLanguage] = useState<'zh-CN' | 'en-US'>('zh-CN');
+  const [withFigures, setWithFigures] = useState(false);
+  const [searchTimeRange, setSearchTimeRange] = useState<
+    '30d' | '90d' | '180d' | '365d' | '730d' | 'all'
+  >('all');
 
   const { events: wsEvents } = useCompanyMissionStream(activeMissionId);
   // 详情态第二路订阅：为当前打开的报告 mission 订阅实时事件（注入 collab tab）
@@ -229,6 +266,8 @@ export function MissionRunView({
       description: taskDescription || undefined,
       depth,
       language,
+      withFigures,
+      searchTimeRange,
     });
     if (!missionId) {
       setRunning(false);
@@ -356,33 +395,18 @@ export function MissionRunView({
   // ── 列表态：canonical MissionGalleryView（搜索 + 卡片网格 + 新建占位卡）──
   return (
     <>
-      <Modal
-        open={dispatchOpen}
+      <MissionDialogShell
+        isOpen={dispatchOpen}
         onClose={() => setDispatchOpen(false)}
         title="下发任务"
         subtitle="选择专家、描述要做的事，交给专家执行"
-        size="lg"
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setDispatchOpen(false)}>
-              取消
-            </Button>
-            <Button
-              onClick={() => void dispatch()}
-              disabled={!title.trim() || running || heroes.length === 0}
-            >
-              {running ? (
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="mr-1.5 h-4 w-4" />
-              )}
-              下发任务
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          {heroes.length === 0 ? (
+        submitLabel="下发任务"
+        submitting={running}
+        submitDisabled={!title.trim() || heroes.length === 0}
+        onSubmit={() => void dispatch()}
+        advancedLabel="高级配置"
+        primary={
+          heroes.length === 0 ? (
             <EmptyState
               type="default"
               size="sm"
@@ -391,10 +415,7 @@ export function MissionRunView({
             />
           ) : (
             <>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-500">
-                  派给哪个专家
-                </label>
+              <Field label="派给哪个专家" required>
                 <select
                   value={heroId}
                   onChange={(e) => setHeroId(e.target.value)}
@@ -406,11 +427,9 @@ export function MissionRunView({
                     </option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-500">
-                  任务话题
-                </label>
+              </Field>
+
+              <Field label="任务话题" required>
                 <Input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
@@ -419,14 +438,12 @@ export function MissionRunView({
                   }}
                   placeholder="例如：调研 Q3 竞品定价并给出建议"
                 />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-500">
-                  研究描述
-                  <span className="ml-2 font-normal text-gray-400">
-                    选填——给更完整的背景 / 关注角度 / 约束，明显提升拆解质量
-                  </span>
-                </label>
+              </Field>
+
+              <Field
+                label="研究描述"
+                hintInline="选填——背景 / 关注角度 / 约束，明显提升拆解质量"
+              >
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -435,52 +452,80 @@ export function MissionRunView({
                   placeholder="例如：聚焦头部 3 家厂商，时间窗口近 12 个月，重点对比定价策略与商业化打法。"
                   className="w-full resize-y rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
                 />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-500">
-                    调研规模
-                  </label>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {DEPTH_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setDepth(opt.value)}
-                        className={`flex flex-col items-center rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors ${
-                          depth === opt.value
-                            ? 'border-primary bg-primary/5 text-primary'
-                            : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                        }`}
-                      >
-                        {opt.label}
-                        <span className="mt-0.5 text-xs font-normal text-gray-400">
-                          {opt.hint}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
+              </Field>
+
+              <Field label="调研规模" required>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {DEPTH_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setDepth(opt.value)}
+                      className={`flex flex-col items-center rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors ${
+                        depth === opt.value
+                          ? 'border-primary bg-primary/5 text-primary'
+                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
+                    >
+                      {opt.label}
+                      <span className="mt-0.5 text-xs font-normal text-gray-400">
+                        {opt.hint}
+                      </span>
+                    </button>
+                  ))}
                 </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-500">
-                    输出语言
-                  </label>
-                  <select
-                    value={language}
-                    onChange={(e) =>
-                      setLanguage(e.target.value as 'zh-CN' | 'en-US')
-                    }
-                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="zh-CN">中文</option>
-                    <option value="en-US">English</option>
-                  </select>
-                </div>
-              </div>
+              </Field>
             </>
-          )}
-        </div>
-      </Modal>
+          )
+        }
+        advanced={
+          heroes.length === 0 ? undefined : (
+            <>
+              <Field label="输出语言">
+                <select
+                  value={language}
+                  onChange={(e) =>
+                    setLanguage(e.target.value as 'zh-CN' | 'en-US')
+                  }
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="zh-CN">中文</option>
+                  <option value="en-US">English</option>
+                </select>
+              </Field>
+
+              <Field label="搜索时效" hint="限定取证的时间窗口">
+                <select
+                  value={searchTimeRange}
+                  onChange={(e) =>
+                    setSearchTimeRange(e.target.value as typeof searchTimeRange)
+                  }
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="all">不限</option>
+                  <option value="30d">近 30 天</option>
+                  <option value="90d">近 90 天</option>
+                  <option value="180d">近 180 天</option>
+                  <option value="365d">近 1 年</option>
+                  <option value="730d">近 2 年</option>
+                </select>
+              </Field>
+
+              <Field label="图文并茂" hintInline="抓取配图，报告含图表">
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={withFigures}
+                    onChange={(e) => setWithFigures(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  开启图文抓取
+                </label>
+              </Field>
+            </>
+          )
+        }
+      />
 
       <MissionGalleryView
         hideHeader={embedded}

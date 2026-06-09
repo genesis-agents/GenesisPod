@@ -62,6 +62,7 @@ const MANIFEST: CapabilityManifest = {
   ],
   missionType: "deep-insight",
   permissions: ["web-search"],
+  rubric: { passThreshold: 60, maxAttempts: 2 },
 };
 
 @Injectable()
@@ -92,6 +93,9 @@ export class DeepInsightDefaultRunner
     // 用户选定的 model id 透传到每个 agentRunner.run，与 playground 共享同一
     // resolvePreferredModel 路径（第一优先，bypass election，走 BYOK 默认解析链）
     const preferredModelId = input.preferredModelId;
+    const withFigures = input.withFigures ?? false;
+    const knowledgeBaseIds = input.knowledgeBaseIds;
+    const searchTimeRange = input.searchTimeRange;
     const billing = (operationType: string) => ({
       userId,
       moduleType: "marketplace-deep-insight",
@@ -234,7 +238,19 @@ export class DeepInsightDefaultRunner
           try {
             const r = await this.agentRunner.run(
               Researcher,
-              { topic, dimension: d.name, language, withFigures: false },
+              {
+                topic,
+                dimension: d.name,
+                language,
+                withFigures,
+                ...(input.description
+                  ? { description: input.description }
+                  : {}),
+                ...(knowledgeBaseIds?.length
+                  ? { knowledgeBaseIds: [...knowledgeBaseIds] }
+                  : {}),
+                ...(searchTimeRange ? { searchTimeRange } : {}),
+              },
               {
                 userId,
                 ...(preferredModelId ? { preferredModelId } : {}),
@@ -529,6 +545,7 @@ export class DeepInsightDefaultRunner
         usage: { totalTokens, totalCostCents },
         dimensionPipelines,
         verdicts,
+        reviewVerdict: this.synthReviewVerdict(reviewerOutput),
         byStage: {
           plan,
           reconciliation: rec,
@@ -652,6 +669,39 @@ export class DeepInsightDefaultRunner
         });
     }
     return [];
+  }
+
+  /**
+   * 从内部 reviewer 输出（MissionReviewerAgent: {score, verdict, notes[]}）
+   * 合成 reviewVerdict。纯数据映射，无额外 LLM。reviewer 降级（output=null）→ undefined。
+   */
+  private synthReviewVerdict(
+    reviewerOutput: unknown,
+  ):
+    | {
+        score?: number;
+        verdict?: "approve" | "revise" | "reject";
+        notes?: string[];
+      }
+    | undefined {
+    if (!reviewerOutput || typeof reviewerOutput !== "object") return undefined;
+    const r = reviewerOutput as Record<string, unknown>;
+    const score = typeof r.score === "number" ? r.score : undefined;
+    const verdict =
+      r.verdict === "approve" ||
+      r.verdict === "revise" ||
+      r.verdict === "reject"
+        ? r.verdict
+        : undefined;
+    const notes = Array.isArray(r.notes)
+      ? r.notes.filter((n): n is string => typeof n === "string")
+      : undefined;
+    if (score === undefined && verdict === undefined) return undefined;
+    return {
+      ...(score !== undefined ? { score } : {}),
+      ...(verdict !== undefined ? { verdict } : {}),
+      ...(notes?.length ? { notes } : {}),
+    };
   }
 
   private assembleReport(report: unknown): string {
