@@ -7,6 +7,7 @@ import { EmptyState } from '@/components/ui/states/EmptyState';
 import { Button } from '@/components/ui/primitives/button';
 import { Input } from '@/components/ui/form/Input';
 import { MissionGalleryView } from '@/components/common/missions/MissionGalleryView';
+import { KnowledgeBaseSelector } from '@/components/common/selectors';
 import type { MissionListItem } from '@/services/agent-playground/api';
 import { MODULE_THEMES } from '@/lib/design/module-themes';
 import { useCompanyStore } from '@/stores/company/companyStore';
@@ -156,6 +157,7 @@ export function MissionRunView({
   const [searchTimeRange, setSearchTimeRange] = useState<
     '30d' | '90d' | '180d' | '365d' | '730d' | 'all'
   >('all');
+  const [knowledgeBaseIds, setKnowledgeBaseIds] = useState<string[]>([]);
 
   const { events: wsEvents } = useCompanyMissionStream(activeMissionId);
   // 详情态第二路订阅：为当前打开的报告 mission 订阅实时事件（注入 collab tab）
@@ -264,6 +266,7 @@ export function MissionRunView({
     const taskDescription = description.trim();
     setTitle('');
     setDescription('');
+    setKnowledgeBaseIds([]);
     setStageStatus({ planning: 'active' });
     setActiveMissionId(null);
     processedTsRef.current = 0;
@@ -277,6 +280,8 @@ export function MissionRunView({
       language,
       withFigures,
       searchTimeRange,
+      knowledgeBaseIds:
+        knowledgeBaseIds.length > 0 ? knowledgeBaseIds : undefined,
     });
     if (!missionId) {
       setRunning(false);
@@ -530,6 +535,20 @@ export function MissionRunView({
                   />
                   开启图文抓取
                 </label>
+              </Field>
+
+              <Field
+                label="知识源"
+                hintInline="不选则纯 web-search；选了则先 KB 召回再补 web"
+              >
+                <KnowledgeBaseSelector
+                  selectedIds={knowledgeBaseIds}
+                  onSelectionChange={(ids) => setKnowledgeBaseIds(ids)}
+                  multiple
+                  maxSelections={10}
+                  filterType="ALL"
+                  onlyReady
+                />
               </Field>
             </>
           )
