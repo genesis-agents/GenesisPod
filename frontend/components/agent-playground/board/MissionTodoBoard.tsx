@@ -856,7 +856,7 @@ export function MissionTodoBoard({
                 Mission 失败 · 任务列表为空
               </p>
               <p className="mt-1 text-[12px] leading-relaxed text-red-800">
-                Leader 在维度规划阶段就挂了，没有产生任何子任务。
+                本次执行未产生任何子任务清单，具体失败原因见下方。
               </p>
               {missionFailedMessage && (
                 <pre className="font-mono mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-white/70 p-2 text-[11px] leading-relaxed text-red-900 ring-1 ring-red-200">

@@ -195,6 +195,8 @@ export function MissionRunView() {
       return;
     }
     setActiveMissionId(missionId);
+    // 下发后直接进入该任务的详情卡（整屏 DeepInsightMissionDetail），实时看协作过程
+    setReportMissionId(missionId);
   };
 
   // gallery 数据源：从 store 读取并映射为 canonical MissionListItem（稳定引用）

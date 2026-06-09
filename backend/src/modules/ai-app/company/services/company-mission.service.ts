@@ -388,6 +388,29 @@ export class CompanyMissionService {
     const toJson = (v: unknown): Prisma.InputJsonValue =>
       JSON.parse(JSON.stringify(v ?? null)) as Prisma.InputJsonValue;
 
+    // 维度 → 子任务 steps：让前端"任务列表"tab 有内容（成功按各 researcher pipeline
+    // 状态，失败按已规划维度标 failed），不再永远空白。
+    const pipelines = result.dimensionPipelines ?? {};
+    const planObj = result.stageOutputs?.plan as
+      | { dimensions?: Array<{ name?: string }> }
+      | undefined;
+    const planDimNames = (planObj?.dimensions ?? [])
+      .map((d) => d?.name)
+      .filter((n): n is string => typeof n === "string" && n.length > 0);
+    const dimNames =
+      Object.keys(pipelines).length > 0 ? Object.keys(pipelines) : planDimNames;
+    const dimSteps = dimNames.map((d) => {
+      const p = pipelines[d];
+      return {
+        label: d,
+        role: "Researcher",
+        dimension: d,
+        status: p?.state === "completed" ? "done" : "failed",
+        ...(typeof p?.tokensUsed === "number" ? { tokens: p.tokensUsed } : {}),
+        ...(typeof p?.costCents === "number" ? { costCents: p.costCents } : {}),
+      };
+    });
+
     if (result.status === "completed") {
       await this.updateMission(missionId, {
         status: "done",
@@ -395,6 +418,8 @@ export class CompanyMissionService {
         result: {
           summary: result.report ?? "",
           references: toJson(result.references ?? []),
+          dimensions: dimNames,
+          steps: toJson(dimSteps),
           usage: {
             totalTokens: result.usage?.totalTokens ?? 0,
             totalCostCents: result.usage?.totalCostCents ?? 0,
@@ -413,10 +438,16 @@ export class CompanyMissionService {
     }
 
     // failed —— 不伪装成功：真实 error 落库 + emit（前端失败空态据此显示真因）。
+    // 仍带上已规划维度（标 failed），让"任务列表"展示尝试过的子任务而非空白。
     const message = result.error ?? "capability run failed";
     await this.updateMission(missionId, {
       status: "failed",
-      result: { error: message, failedAt: new Date().toISOString() },
+      result: {
+        error: message,
+        dimensions: dimNames,
+        steps: toJson(dimSteps),
+        failedAt: new Date().toISOString(),
+      },
     });
     await this.emit("company.mission:failed", missionId, userId, {
       missionId,

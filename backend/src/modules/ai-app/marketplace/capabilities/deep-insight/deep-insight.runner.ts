@@ -253,7 +253,15 @@ export class DeepInsightDefaultRunner
               costCents: r.costCents,
               modelTrail: r.modelTrail,
             });
-            return { dimension: d.name, output: r.output, ok: true, t: r };
+            // ok 仅当真有产出：ReActLoop 到 maxIterations 未 finalize 时不抛错但
+            // output=null，若按 ok:true 计入会让下游 analyst 收到 [null] 触发
+            // researcherResults.0 schema 崩溃。必须按 output 判定真成功。
+            return {
+              dimension: d.name,
+              output: r.output,
+              ok: r.output != null,
+              t: r,
+            };
           } catch (err) {
             this.log.warn(
               `researcher "${d.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -272,14 +280,17 @@ export class DeepInsightDefaultRunner
       for (const o of outcomes)
         if (o.ok && o.t) tally(o.t.tokensUsed, o.t.costCents);
       const researcherResults = outcomes
-        .filter((o) => o.ok)
+        .filter((o) => o.ok && o.output != null)
         .map((o) => o.output);
       if (researcherResults.length === 0) {
         void emit("stage:failed", "research", "并发调研");
         return {
           status: "failed",
           stageOutputs: { plan },
-          error: "deep-insight: all researchers failed",
+          error:
+            "调研阶段未产出有效结果：所有 researcher 都没拿到可用资料" +
+            "（通常是网页搜索全部不可用 / 模型未在限定步数内完成）。" +
+            `已规划 ${plan.dimensions.length} 个研究维度，但无一完成取证。`,
         };
       }
       void emit("stage:completed", "research", "并发调研");

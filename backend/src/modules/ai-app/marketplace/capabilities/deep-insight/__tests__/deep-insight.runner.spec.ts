@@ -124,6 +124,25 @@ describe("DeepInsightDefaultRunner", () => {
       { userId: "u", missionId: "m" },
     );
     expect(res.status).toBe("failed");
-    expect(res.error).toMatch(/all researchers failed/);
+    expect(res.error).toMatch(/未产出有效结果/);
+  });
+
+  it("researcher 返回 null output（未 finalize）→ 不计入、不崩 analyst，整体 failed", async () => {
+    const { runner, agentRunner, chatFacade } = makeRunner();
+    chatFacade.chat.mockResolvedValue({ content: PLAN_JSON, tokensUsed: 1 });
+    // 不抛错但 output=null（ReActLoop 到 maxIterations 未 finalize 的真实形态）
+    agentRunner.run.mockResolvedValue({
+      output: null,
+      state: "completed",
+      tokensUsed: { total: 3 },
+      costCents: 0,
+    });
+    const res = await runner.run(
+      { topic: "t" },
+      { userId: "u", missionId: "m" },
+    );
+    // 关键：不应抛 analyst schema 崩溃，而是优雅降级为 failed
+    expect(res.status).toBe("failed");
+    expect(res.error).toMatch(/未产出有效结果/);
   });
 });
