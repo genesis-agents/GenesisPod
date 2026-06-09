@@ -20,9 +20,11 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
   type OnModuleInit,
 } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
+import { MissionFailedPreset } from "@/modules/platform/facade";
 import { CompanyMissionPersistenceAdapter } from "./company-mission-persistence.adapter";
 import { EventBus, ChatFacade, AgentRunner } from "@/modules/ai-harness/facade";
 import { SkillRegistry } from "@/modules/ai-engine/facade";
@@ -169,7 +171,34 @@ export class CompanyMissionService implements OnModuleInit {
     // ★ 运行态持久化（枢纽）：注入能力核的 ctx.persistence → 每阶段 checkpoint 落库 +
     //   终态首写赢仲裁（取消/完成/失败竞态）。W4 已建本适配器但此前未接线。
     private readonly persistenceAdapter: CompanyMissionPersistenceAdapter,
+    // ★ 失败通知（email/站内）：company mission 失败/僵尸清理时通知用户，别让用户
+    //   无声等待。@Optional —— NotificationDispatcherModule 未装配时优雅缺省。
+    @Optional() private readonly missionFailedPreset?: MissionFailedPreset,
   ) {}
+
+  /** 发 mission 失败通知（fire-and-forget，best-effort，不阻断主流程）。 */
+  private async notifyMissionFailed(args: {
+    missionId: string;
+    userId: string;
+    title: string;
+    reason: string;
+    failureCode?: string;
+  }): Promise<void> {
+    await this.missionFailedPreset
+      ?.notify({
+        userId: args.userId,
+        missionId: args.missionId,
+        missionTitle: args.title || "专家任务",
+        missionUrl: "/agents",
+        reason: args.reason,
+        ...(args.failureCode ? { failureCode: args.failureCode } : {}),
+      })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `notifyMissionFailed ${args.missionId} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+  }
 
   /**
    * ★ 耐久恢复（P0）：boot 时扫 stale running orphan。pod 重启会丢失内存里的
@@ -293,6 +322,13 @@ export class CompanyMissionService implements OnModuleInit {
           await this.emit("company.mission:failed", o.id, o.userId, {
             missionId: o.id,
             message,
+          });
+          await this.notifyMissionFailed({
+            missionId: o.id,
+            userId: o.userId,
+            title: o.title,
+            reason: message,
+            failureCode: "DISPATCHER_BOOT_ORPHAN_CLEANUP",
           });
         }
       }
@@ -463,6 +499,12 @@ export class CompanyMissionService implements OnModuleInit {
       await this.emit("company.mission:failed", missionId, userId, {
         missionId,
         message,
+      });
+      await this.notifyMissionFailed({
+        missionId,
+        userId,
+        title,
+        reason: message,
       });
     } finally {
       this.abortControllers.delete(missionId);
@@ -895,6 +937,12 @@ export class CompanyMissionService implements OnModuleInit {
       await this.emit("company.mission:failed", missionId, userId, {
         missionId,
         message,
+      });
+      await this.notifyMissionFailed({
+        missionId,
+        userId,
+        title: topic,
+        reason: message,
       });
     }
   }
