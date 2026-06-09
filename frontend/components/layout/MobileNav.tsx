@@ -49,23 +49,61 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
     activeClass: 'bg-violet-50',
   };
 
-  // Knowledge Hub section
-  const materialsItems = [
+  // ★ 与桌面 Sidebar 同 IA（单一来源缺失时手动对齐）：
+  //   AI 广场（发现/购买/试用能力） + 我的工作台 + 深度洞察。
+  //   推演决策 / 内容工坊已在桌面隐藏，移动端同步移除。
+
+  // AI 广场：AI探索 + 英雄市场 + AI实验场
+  const squareItems = [
     {
       href: '/explore',
       label: t('nav.aiExplore'),
       icon: 'search',
       activeClass: 'bg-pink-50',
+      prefix: false,
     },
+    {
+      href: '/marketplace',
+      label: t('nav.marketplace'),
+      icon: 'store',
+      activeClass: 'bg-emerald-50',
+      prefix: true,
+    },
+    {
+      href: '/agent-playground',
+      label: t('nav.playground'),
+      icon: 'flask',
+      activeClass: 'bg-purple-50',
+      prefix: true,
+    },
+  ];
+
+  // 我的工作台：我的知识库 + 我的英雄 + 我的任务
+  const workbenchItems = [
     {
       href: '/library',
       label: t('nav.myLibrary'),
       icon: 'book',
       activeClass: 'bg-indigo-50',
+      prefix: false,
+    },
+    {
+      href: '/agents',
+      label: '我的英雄',
+      icon: 'users',
+      activeClass: 'bg-gray-100',
+      prefix: true,
+    },
+    {
+      href: '/missions',
+      label: '我的任务',
+      icon: 'clipboard',
+      activeClass: 'bg-gray-100',
+      prefix: true,
     },
   ];
 
-  // Insights Hub section
+  // 深度洞察：AI雷达 + AI洞察 + AI研究
   const researchItems = [
     {
       href: '/ai-radar',
@@ -89,73 +127,6 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
       prefix: true,
     },
   ];
-
-  // Decision Studio section
-  const planningItems = [
-    {
-      href: '/ai-teams',
-      label: t('nav.myTeams'),
-      icon: 'users',
-      activeClass: 'bg-green-50',
-      prefix: true,
-    },
-    {
-      href: '/ai-planning',
-      label: t('nav.aiPlanning'),
-      icon: 'clipboard',
-      activeClass: 'bg-amber-50',
-      prefix: true,
-    },
-    {
-      href: '/ai-simulation',
-      label: t('nav.aiSimulation'),
-      icon: 'grid',
-      activeClass: 'bg-indigo-50',
-      prefix: true,
-    },
-  ];
-
-  // Content Studio section
-  const creativeItems = [
-    {
-      href: '/ai-office',
-      label: t('nav.aiReports'),
-      icon: 'pie',
-      activeClass: 'bg-blue-50',
-      prefix: true,
-    },
-    {
-      href: '/ai-writing',
-      label: t('nav.aiWriting'),
-      icon: 'pen',
-      activeClass: 'bg-amber-50',
-      prefix: true,
-    },
-  ];
-
-  // Admin-only creative tools — AI 社媒 仅管理员可见
-  const adminCreativeItems: typeof creativeItems = [
-    {
-      href: '/ai-social',
-      label: t('nav.aiSocial'),
-      icon: 'share',
-      activeClass: 'bg-rose-50',
-      prefix: true,
-    },
-  ];
-
-  // AI Lab section
-  const collabLabItems = [
-    {
-      href: '/agent-playground',
-      label: t('nav.playground'),
-      icon: 'flask',
-      activeClass: 'bg-purple-50',
-      prefix: true,
-    },
-  ];
-
-  // 工具市场 / AI 商店 — 暂时不要
 
   const bottomNavItems = [
     { href: '/notifications', label: t('nav.notifications'), icon: 'bell' },
@@ -571,12 +542,14 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
                 <span>{quickEntry.label}</span>
               </Link>
 
-              {/* Section: Knowledge Hub */}
+              {/* Section: AI 广场 */}
               <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                {t('nav.sections.materialsKnowledge')}
+                AI 广场
               </div>
-              {materialsItems.map((item) => {
-                const active = isActive(item.href);
+              {squareItems.map((item) => {
+                const active = item.prefix
+                  ? isActivePrefix(item.href)
+                  : isActive(item.href);
                 return (
                   <Link
                     key={item.href}
@@ -593,7 +566,31 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
                 );
               })}
 
-              {/* Section: Insights Hub */}
+              {/* Section: 我的工作台 */}
+              <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                我的工作台
+              </div>
+              {workbenchItems.map((item) => {
+                const active = item.prefix
+                  ? isActivePrefix(item.href)
+                  : isActive(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                      active
+                        ? `${item.activeClass} text-gray-900`
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {getIcon(item.icon)}
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+
+              {/* Section: 深度洞察 */}
               <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                 {t('nav.sections.researchAnalysis')}
               </div>
@@ -616,100 +613,6 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
                   </Link>
                 );
               })}
-
-              {/* Section: Decision Studio */}
-              <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                {t('nav.sections.planningDecision')}
-              </div>
-              {planningItems.map((item) => {
-                const active = item.prefix
-                  ? isActivePrefix(item.href)
-                  : isActive(item.href);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                      active
-                        ? `${item.activeClass} text-gray-900`
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    {getIcon(item.icon)}
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-
-              {/* Section: Content Studio */}
-              <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                {t('nav.sections.creativeWriting')}
-              </div>
-              {creativeItems.map((item) => {
-                const active = item.prefix
-                  ? isActivePrefix(item.href)
-                  : isActive(item.href);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                      active
-                        ? `${item.activeClass} text-gray-900`
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    {getIcon(item.icon)}
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-              {isAdmin &&
-                adminCreativeItems.map((item) => {
-                  const active = item.prefix
-                    ? isActivePrefix(item.href)
-                    : isActive(item.href);
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                        active
-                          ? `${item.activeClass} text-gray-900`
-                          : 'text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      {getIcon(item.icon)}
-                      <span>{item.label}</span>
-                    </Link>
-                  );
-                })}
-
-              {/* Section: AI Lab */}
-              <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                {t('nav.sections.collabLab')}
-              </div>
-              {collabLabItems.map((item) => {
-                const active = item.prefix
-                  ? isActivePrefix(item.href)
-                  : isActive(item.href);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                      active
-                        ? `${item.activeClass} text-gray-900`
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    {getIcon(item.icon)}
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-
-              {/* AI 商店 / 工具市场 — 暂时不要 */}
             </div>
           </div>
 
