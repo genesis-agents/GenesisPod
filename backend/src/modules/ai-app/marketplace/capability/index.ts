@@ -13,5 +13,7 @@ export {
   type CapabilityRunContext,
   type CapabilityRunEvent,
   type CapabilityRunResult,
+  type MissionPersistencePort,
+  type MissionTerminalDetails,
 } from "./capability-runner.port";
 export { CapabilityRegistry } from "./capability-registry";

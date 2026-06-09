@@ -78,6 +78,46 @@ const TIER_TO_MODEL_TYPE: Record<string, AIModelType> = {
 const DEFAULT_ACCEPTANCE_THRESHOLD = 60;
 const DEFAULT_ACCEPTANCE_MAX_ATTEMPTS = 2;
 
+/**
+ * 14 阶段 systemStageId → company 3 桶（planning / execution / review）。
+ * 锚点见 capability-execution-architecture.md §5 + step-id-mapping.contract.ts
+ * （s1-budget … s12-self-evolution）。company 把 14 阶段折叠回自己已有的 3 桶视图。
+ */
+const SYSTEM_STAGE_TO_COMPANY_BUCKET: Record<
+  string,
+  "planning" | "execution" | "review"
+> = {
+  "s1-budget": "planning",
+  "s2-leader-plan": "planning",
+  "s3-researcher-collect": "execution",
+  "s4-leader-assess": "execution",
+  "s5-reconciler": "execution",
+  "s6-analyst": "execution",
+  "s7-writer-outline": "execution",
+  "s8-writer": "execution",
+  "s8b-quality-enhancement": "execution",
+  "s9-critic": "review",
+  "s9b-objective-eval": "review",
+  "s10-leader-foreword-signoff": "review",
+  "s11-persist": "review",
+  "s12-self-evolution": "review",
+};
+
+/**
+ * 兜底：6 阶段精简版 stepId → company 3 桶（systemStageId 缺省时用，不删不退化）。
+ */
+const STEP_ID_TO_COMPANY_BUCKET: Record<
+  string,
+  "planning" | "execution" | "review"
+> = {
+  plan: "planning",
+  research: "execution",
+  reconcile: "execution",
+  analyze: "execution",
+  write: "execution",
+  review: "review",
+};
+
 // ── service ───────────────────────────────────────────────────────────────────
 
 @Injectable()
@@ -706,16 +746,10 @@ export class CompanyMissionService {
     userId: string,
     event: CapabilityRunEvent,
   ): Promise<void> {
-    const stageMap: Record<string, "planning" | "execution" | "review"> = {
-      plan: "planning",
-      research: "execution",
-      reconcile: "execution",
-      analyze: "execution",
-      write: "execution",
-      review: "review",
-    };
     if (event.type === "stage:started" || event.type === "stage:completed") {
-      const stage = event.stepId ? stageMap[event.stepId] : undefined;
+      // 优先用结构化 telemetry.systemStageId（14 阶段锚点，W2 后能力 runner 填充）；
+      // 缺省时回退到 stepId→3桶硬编码 map（6 阶段精简版兜底，不删不退化）。
+      const stage = this.resolveCompanyStage(event);
       if (stage) {
         const done = event.type === "stage:completed";
         await this.emit("company.stage:lifecycle", missionId, userId, {
@@ -723,10 +757,19 @@ export class CompanyMissionService {
           status: done ? "completed" : "started",
           label: event.label,
         });
-        // 渐进任务：plan→规划任务；review→评审任务
-        if (event.stepId === "plan" || event.stepId === "review") {
+        // 渐进任务：planning 桶起点 → 规划任务；review 桶 → 评审任务。
+        // 锚点优先用 systemStageId（s2-leader-plan / s10-leader-signoff…），
+        // 退回旧 stepId（plan / review）保持兼容。
+        const sys = event.telemetry?.systemStageId;
+        const isPlanAnchor = sys
+          ? sys === "s2-leader-plan"
+          : event.stepId === "plan";
+        const isReviewAnchor = sys
+          ? stage === "review"
+          : event.stepId === "review";
+        if (isPlanAnchor || isReviewAnchor) {
           const st = this.liveState(missionId);
-          if (event.stepId === "plan")
+          if (isPlanAnchor)
             st.planning = done ? "done" : (st.planning ?? "running");
           else st.review = done ? "done" : (st.review ?? "running");
           await this.persistLiveProgress(missionId);
@@ -826,6 +869,26 @@ export class CompanyMissionService {
         }
       }
     }
+  }
+
+  /**
+   * 把能力执行事件归类到 company 的 3 桶（planning / execution / review）。
+   *
+   * 优先级：
+   *   1. event.telemetry.systemStageId（14 阶段结构化锚点，s1-budget … s12-self-evolution，
+   *      W2 后能力 runner 填充）→ 经 SYSTEM_STAGE_TO_COMPANY_BUCKET 归桶。
+   *   2. 兜底 event.stepId（6 阶段精简版的 plan/research/…，老 runner 用）→ STEP_ID_TO_COMPANY_BUCKET。
+   *
+   * 兜底 map 保留不删——W2 未接前/能力降级时仍能正确点亮 3 桶，不退化。
+   */
+  private resolveCompanyStage(
+    event: CapabilityRunEvent,
+  ): "planning" | "execution" | "review" | undefined {
+    const sys = event.telemetry?.systemStageId;
+    if (sys && SYSTEM_STAGE_TO_COMPANY_BUCKET[sys]) {
+      return SYSTEM_STAGE_TO_COMPANY_BUCKET[sys];
+    }
+    return event.stepId ? STEP_ID_TO_COMPANY_BUCKET[event.stepId] : undefined;
   }
 
   /** 取/建某 mission 的渐进任务状态。 */

@@ -1,48 +1,50 @@
 /**
  * DeepInsightDefaultRunner —— deep-insight 能力的**默认执行实现**（平台共享）。
  *
- * 定位（对照 design.md §4.3 + 能力 manifest/port 设计）：
- *   - 能力本体住在共享层；本 runner 是它的**默认进程内实现**，注册进 CapabilityRegistry。
- *   - 任意消费方（company / 其他 app）按 `manifest.id` 解析到本 runner 真跑——**用同一批
- *     共享 @DefineAgent（researcher/reconciler/analyst/writer/reviewer），跑在 harness 的
- *     AgentRunner 上**，模型解析与 playground 一致（带 billing.userId，不掉默认网关）。
- *   - **纯执行**：产出结果 + 流式事件，不碰任何 app 的库；持久化归消费方。
- *   - 未来公开市场：同一 ICapabilityRunner 端口可换成沙箱/远程/MCP 实现，消费方不变。
+ * W2（2026-06-09 能力即产品）重构：run() 从「手写 6 阶段」升级为
+ * 「MissionPipelineOrchestrator + recipe(13-step config) + 共享 @DefineAgent」跑
+ * 真 14 阶段执行内核。
  *
- * 与 playground 的关系（历史能力不退化）：playground 仍跑自己注册的 14 阶段富 pipeline
- * （含 checkpoint / 记忆 / foresight / 质量地板等增强），**本 runner 不动它**；本 runner 是
- * 给"无 playground 宿主"的消费方用的**精简但真实**的默认执行（plan→并发研究→对账→综合
- * →写作→评审）。
+ * 定位（docs/architecture/capability-execution-architecture.md §1 / §2 / §4）：
+ *   - 执行内核（StageBindings）住能力家 pipeline/，跑 harness 原语 + 共享 agent，
+ *     **零 app import**；中间态全程走 harness CrossStageState（deep-insight.* 前缀），
+ *     零 app DB。
+ *   - 消费方（company / playground / 未来 app）只经 ICapabilityRunner 消费，注入
+ *     自己的 MissionPersistencePort + onEvent；缺 persistence → 用内存端口纯跑不落库。
+ *   - 持久化（checkpoint/resume + 终态仲裁）经 ctx.persistence 端口由消费方落库；
+ *     能力内核不直连任何 store。
  */
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import {
   AgentRunner,
   ChatFacade,
   CapabilityRegistry,
-  AIModelType,
-  type IAgentEvent,
+  MissionPipelineOrchestrator,
+  MissionPipelineRegistry,
+  CrossStageState,
   type CapabilityManifest,
   type ICapabilityRunner,
   type CapabilityRunInput,
   type CapabilityRunContext,
   type CapabilityRunResult,
+  type PipelineMissionEvent,
+  type MissionPersistencePort,
+  type MissionTerminalDetails,
 } from "./runner-deps";
-import { resolveAgentSpec } from "@/modules/ai-app/contracts/agent-spec-catalog";
+import { DEEP_INSIGHT_PIPELINE } from "./recipe/deep-insight.recipe";
+import {
+  DeepInsightStageBindings,
+  attachState,
+  detachState,
+} from "./pipeline/bindings";
+import {
+  CS_KEY,
+  type AgentInvocation,
+  type DeepInsightPipelineInput,
+} from "./pipeline/ports";
 
-/** plan 阶段产物（维度拆解）。 */
-interface PlanResult {
-  themeSummary: string;
-  dimensions: { id: string; name: string; rationale: string }[];
-  tokens: number;
-}
-
-/** reconcile 阶段产物（可降级 → null）。 */
-interface ReconResult {
-  reconciliationReport?: string;
-  factTable?: unknown[];
-  overlaps?: unknown[];
-  gaps?: unknown[];
-}
+/** 能力家自洽的 pipeline 注册 id（与 playground 私有注册 id="playground" 区分）。 */
+const DEEP_INSIGHT_PIPELINE_ID = "deep-insight";
 
 const MANIFEST: CapabilityManifest = {
   id: "deep-insight",
@@ -50,19 +52,54 @@ const MANIFEST: CapabilityManifest = {
   kind: "workflow",
   title: "深度洞察研究",
   description:
-    "Leader 领衔的多角色深度研究：拆解维度 → 并发调研 → 跨维对账 → 综合分析 → 撰写报告 → 质量评审。",
-  roles: ["researcher", "reconciler", "analyst", "writer", "reviewer"],
+    "Leader 领衔的多角色深度研究 14 阶段执行内核：预算闸 → 规划 → 并行调研 → " +
+    "Leader 评估 → 跨维对账 → 综合分析 → 大纲 → 成稿 → 质量增强 → 元批评 → " +
+    "客观评估 → Leader 序言签发 → 持久化。",
+  roles: [
+    "leader",
+    "researcher",
+    "reconciler",
+    "analyst",
+    "writer",
+    "reviewer",
+    "verifier",
+    "steward",
+  ],
   stages: [
-    "拆解维度",
-    "并发调研",
+    "预算闸",
+    "Leader 规划",
+    "并行调研",
+    "Leader 评估",
     "跨维对账",
     "综合分析",
-    "撰写报告",
-    "质量评审",
+    "大纲规划",
+    "报告初稿",
+    "质量增强",
+    "元批评",
+    "客观评估",
+    "Leader 序言签发",
+    "最终持久化",
   ],
   missionType: "deep-insight",
   permissions: ["web-search"],
   rubric: { passThreshold: 60, maxAttempts: 2 },
+};
+
+/** stepId（recipe 13 step）→ 中文 label（事件展示用）。 */
+const STEP_LABEL: Record<string, string> = {
+  "s1-budget": "预算闸",
+  "s2-leader-plan": "Leader 规划",
+  "s3-researcher-collect": "并行调研",
+  "s4-leader-assess": "Leader 评估",
+  "s5-reconciler": "跨维对账",
+  "s6-analyst": "综合分析",
+  "s7-writer-outline": "大纲规划",
+  "s8-writer": "报告初稿",
+  "s8b-quality-enhancement": "质量增强",
+  "s9-critic": "元批评",
+  "s9b-objective-eval": "客观评估",
+  "s10-leader-foreword-signoff": "Leader 序言签发",
+  "s11-persist": "最终持久化",
 };
 
 @Injectable()
@@ -71,15 +108,51 @@ export class DeepInsightDefaultRunner
 {
   readonly manifest = MANIFEST;
   private readonly log = new Logger(DeepInsightDefaultRunner.name);
+  private readonly bindings: DeepInsightStageBindings;
+  private pipelineRegistered = false;
 
   constructor(
     private readonly agentRunner: AgentRunner,
     private readonly chatFacade: ChatFacade,
-    private readonly registry: CapabilityRegistry,
-  ) {}
+    private readonly capabilityRegistry: CapabilityRegistry,
+    private readonly pipelineRegistry: MissionPipelineRegistry,
+    private readonly orchestrator: MissionPipelineOrchestrator,
+  ) {
+    void this.chatFacade; // 保留注入（plan 等结构化抽取的未来用途）；当前 14 步全走 AgentRunner。
+    this.bindings = new DeepInsightStageBindings(this.agentRunner);
+  }
 
   onModuleInit(): void {
-    this.registry.register(this);
+    this.capabilityRegistry.register(this);
+    this.registerPipeline();
+  }
+
+  /**
+   * 据 recipe 派生 id="deep-insight" 的 config（挂能力家 bindings hooks），注册进
+   * MissionPipelineRegistry（一次性）。
+   *
+   * 不直接注册 recipe 本体（其 id="playground" 由 playground onModuleInit 注册，
+   * W2 不接消费方 → 避免重复注册同 id 碰撞）。hooks 内部从 ctx.input.invocation 取
+   * per-run 数据，故 bindings 无状态、config 只注册一次。
+   */
+  private registerPipeline(): void {
+    if (
+      this.pipelineRegistered ||
+      this.pipelineRegistry.has(DEEP_INSIGHT_PIPELINE_ID)
+    ) {
+      this.pipelineRegistered = true;
+      return;
+    }
+    const stepsWithHooks = DEEP_INSIGHT_PIPELINE.steps.map((step) => ({
+      ...step,
+      hooks: this.bindings.buildHooksForStep(step.id),
+    }));
+    this.pipelineRegistry.register({
+      ...DEEP_INSIGHT_PIPELINE,
+      id: DEEP_INSIGHT_PIPELINE_ID,
+      steps: stepsWithHooks,
+    });
+    this.pipelineRegistered = true;
   }
 
   async run(
@@ -88,536 +161,370 @@ export class DeepInsightDefaultRunner
   ): Promise<CapabilityRunResult> {
     const topic = input.topic;
     const language = input.language ?? "zh-CN";
-    const depth = input.depth ?? "standard";
-    const { userId } = ctx;
-    // 用户选定的 model id 透传到每个 agentRunner.run，与 playground 共享同一
-    // resolvePreferredModel 路径（第一优先，bypass election，走 BYOK 默认解析链）
-    const preferredModelId = input.preferredModelId;
-    const withFigures = input.withFigures ?? false;
-    const knowledgeBaseIds = input.knowledgeBaseIds;
-    const searchTimeRange = input.searchTimeRange;
-    const billing = (operationType: string) => ({
+    const { userId, missionId } = ctx;
+    const persistence = ctx.persistence ?? new InMemoryPersistencePort();
+
+    // per-run agent 调用上下文（透传 RunOptions + 实时 agent 事件 relay）。
+    const invocation: AgentInvocation = {
       userId,
-      moduleType: "marketplace-deep-insight",
-      operationType,
-    });
-    const emit = (
-      type: Parameters<NonNullable<CapabilityRunContext["onEvent"]>>[0]["type"],
-      stepId?: string,
-      label?: string,
-      payload?: Record<string, unknown>,
-    ) => ctx.onEvent?.({ type, stepId, label, timestamp: Date.now(), payload });
-
-    /**
-     * IAgentEvent → CapabilityRunEvent(agent-trace) relay。
-     * 把 harness 真实 agent 事件（thinking/action_planned/action_executed/error）
-     * 翻译成 agent-trace 类型事件经 ctx.onEvent 上抛。
-     * relay 内部 try-catch 吞错，失败不拖死 run。
-     */
-    const relayAgentEvent = (
-      stepId: string,
-      role: string,
-      dimension: string | undefined,
-      ev: IAgentEvent,
-    ) => {
-      try {
-        let kind: string;
-        let text: string | undefined;
-        let tag: string | undefined;
-        let toolId: string | undefined;
-
-        switch (ev.type) {
-          case "thinking": {
-            kind = "thinking";
-            const p = ev.payload as
-              | { text?: string; content?: string }
-              | undefined;
-            text = p?.text ?? p?.content ?? undefined;
-            break;
-          }
-          case "action_planned": {
-            kind = "action_planned";
-            const p = ev.payload as
-              | { action?: { toolId?: string; description?: string } }
-              | undefined;
-            toolId = p?.action?.toolId;
-            text = p?.action?.description ?? toolId;
-            break;
-          }
-          case "action_executed": {
-            kind = "action_executed";
-            const p = ev.payload as
-              | { action?: { toolId?: string }; result?: unknown }
-              | undefined;
-            toolId = p?.action?.toolId;
-            text = toolId ? `Tool ${toolId} executed` : "Action executed";
-            break;
-          }
-          case "error": {
-            kind = "error";
-            tag = "error";
-            const p = ev.payload as { message?: string } | undefined;
-            text = p?.message ?? "Agent error";
-            break;
-          }
-          default:
-            // 其余事件类型（output/terminated/tools_recalled 等）不向上传
-            return;
+      ...(input.preferredModelId
+        ? { preferredModelId: input.preferredModelId }
+        : {}),
+      ...(input.withFigures !== undefined
+        ? { withFigures: input.withFigures }
+        : {}),
+      ...(input.knowledgeBaseIds?.length
+        ? { knowledgeBaseIds: [...input.knowledgeBaseIds] }
+        : {}),
+      ...(input.searchTimeRange
+        ? { searchTimeRange: input.searchTimeRange }
+        : {}),
+      ...(input.description ? { description: input.description } : {}),
+      ...(input.depth ? { depth: input.depth } : {}),
+      onAgentEvent: (stepId, role, dimension, ev) => {
+        try {
+          this.relayAgentEvent(ctx, stepId, role, dimension, ev);
+        } catch {
+          // relay 失败不拖死 run。
         }
-
-        void ctx.onEvent?.({
-          type: "agent-trace",
-          stepId,
-          label: dimension,
-          timestamp: ev.timestamp ?? Date.now(),
-          payload: {
-            kind,
-            ...(text !== undefined ? { text } : {}),
-            role,
-            ...(tag !== undefined ? { tag } : {}),
-            ...(dimension !== undefined ? { dimension } : {}),
-            ...(toolId !== undefined ? { toolId } : {}),
-            agentId: ev.agentId,
-          },
-        });
-      } catch {
-        // relay 失败不拖死 run
-      }
+      },
     };
 
-    const Researcher = resolveAgentSpec("playground.researcher");
-    const Reconciler = resolveAgentSpec("playground.reconciler");
-    const Analyst = resolveAgentSpec("playground.analyst");
-    const Writer = resolveAgentSpec("playground.writer");
-    const Reviewer = resolveAgentSpec("playground.reviewer");
-    if (!Researcher || !Analyst || !Writer) {
-      return {
-        status: "failed",
-        stageOutputs: {},
-        error: "deep-insight core agents unavailable in registry",
-      };
+    const pipelineInput: DeepInsightPipelineInput = {
+      topic,
+      language,
+      invocation,
+    };
+
+    // 中间态 crossStageState：缺省新建；有 checkpoint 则 hydrate（crash-resume）。
+    let crossStageState = new CrossStageState();
+    let resumeFromStepId: string | undefined;
+    try {
+      const cp = await persistence.loadCheckpoint(missionId);
+      if (cp) {
+        crossStageState = CrossStageState.fromJSON({ ...cp.crossState });
+        resumeFromStepId = cp.lastStepId;
+      }
+    } catch (err) {
+      this.log.warn(
+        `[deep-insight ${missionId}] loadCheckpoint failed (ignore, run fresh): ${this.errMsg(err)}`,
+      );
     }
 
-    let totalTokens = 0;
-    let totalCostCents = 0;
-    const tally = (t: { total: number }, c: number) => {
-      totalTokens += t.total;
-      totalCostCents += c;
-    };
+    // 把 crossStageState 绑到 missionId，hooks 内据 ctx.missionId 取回。
+    attachState(missionId, crossStageState);
 
     try {
-      void emit("started");
+      const result = await this.orchestrator.run<DeepInsightPipelineInput>({
+        missionId,
+        pipelineId: DEEP_INSIGHT_PIPELINE_ID,
+        input: pipelineInput,
+        userId,
+        ...(ctx.signal ? { signal: ctx.signal } : {}),
+        ...(resumeFromStepId ? { resumeFromStepId } : {}),
+        initialCrossStageState: crossStageState.toJSON(),
+        onEvent: (ev) =>
+          this.bridgeMissionEvent(ctx, persistence, crossStageState, ev, topic),
+      });
 
-      // ── plan：拆解研究维度 ───────────────────────────────────────────────────
-      void emit("stage:started", "plan", "拆解维度");
-      const plan = await this.planDimensions(
-        topic,
-        billing("plan"),
-        preferredModelId,
-      );
-      totalTokens += plan.tokens;
-      void emit("stage:completed", "plan", "拆解维度");
+      // 终态产物全在 runner 持有的 crossStageState（bindings 全程写它，经 attachState
+      // 据 missionId 取回同一引用）；orchestrator 内部那份只承载 primitive 自身的
+      // decision 记账，不含业务产物，故直接用 runner 这份。
+      const finalState = crossStageState;
 
-      // ── research：并发调研（真 web-search）────────────────────────────────────
-      void emit("stage:started", "research", "并发调研");
-      const outcomes = await Promise.all(
-        plan.dimensions.map(async (d) => {
-          // 发送 lifecycle-started 启动卡片
-          void ctx.onEvent?.({
-            type: "agent-trace",
-            stepId: "research",
-            label: d.name,
-            timestamp: Date.now(),
-            payload: {
-              kind: "lifecycle-started",
-              role: "researcher",
-              dimension: d.name,
-              phase: "started",
-            },
-          });
-          try {
-            const r = await this.agentRunner.run(
-              Researcher,
-              {
-                topic,
-                dimension: d.name,
-                language,
-                withFigures,
-                ...(input.description
-                  ? { description: input.description }
-                  : {}),
-                ...(knowledgeBaseIds?.length
-                  ? { knowledgeBaseIds: [...knowledgeBaseIds] }
-                  : {}),
-                ...(searchTimeRange ? { searchTimeRange } : {}),
-              },
-              {
-                userId,
-                ...(preferredModelId ? { preferredModelId } : {}),
-                onEvent: (ev: IAgentEvent) => {
-                  relayAgentEvent("research", "researcher", d.name, ev);
-                },
-              },
-            );
-            void emit("agent-lifecycle", "research", d.name, {
-              agentId: "researcher",
-              dimension: d.name,
-              role: "researcher",
-              phase: r.state === "completed" ? "completed" : "failed",
-              state: r.state,
-              tokensUsed: r.tokensUsed.total,
-              costCents: r.costCents,
-              modelTrail: r.modelTrail,
-            });
-            // ok 仅当真有产出：ReActLoop 到 maxIterations 未 finalize 时不抛错但
-            // output=null，若按 ok:true 计入会让下游 analyst 收到 [null] 触发
-            // researcherResults.0 schema 崩溃。必须按 output 判定真成功。
-            return {
-              dimension: d.name,
-              output: r.output,
-              ok: r.output != null,
-              t: r,
-            };
-          } catch (err) {
-            this.log.warn(
-              `researcher "${d.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
-            );
-            void emit("agent-lifecycle", "research", d.name, {
-              agentId: "researcher",
-              dimension: d.name,
-              role: "researcher",
-              phase: "failed",
-              state: "failed",
-            });
-            return { dimension: d.name, output: null, ok: false, t: null };
-          }
-        }),
-      );
-      for (const o of outcomes)
-        if (o.ok && o.t) tally(o.t.tokensUsed, o.t.costCents);
-      const researcherResults = outcomes
-        .filter((o) => o.ok && o.output != null)
-        .map((o) => o.output);
-      if (researcherResults.length === 0) {
-        void emit("stage:failed", "research", "并发调研");
-        return {
-          status: "failed",
-          stageOutputs: { plan },
-          error:
+      if (result.status === "completed") {
+        // 调研全失败兜底：research primitive 用 allSettled 吞单维失败，整 stage 仍
+        // completed；但无任何有效 researcher 产出时不能伪装成功（与旧 6 步契约一致）。
+        const researcherResults =
+          finalState.get<unknown[]>(CS_KEY.researcherResults) ?? [];
+        if (researcherResults.length === 0) {
+          const errorMessage =
             "调研阶段未产出有效结果：所有 researcher 都没拿到可用资料" +
-            "（通常是网页搜索全部不可用 / 模型未在限定步数内完成）。" +
-            `已规划 ${plan.dimensions.length} 个研究维度，但无一完成取证。`,
-        };
-      }
-      void emit("stage:completed", "research", "并发调研");
-
-      // ── reconcile：跨维对账（可降级）──────────────────────────────────────────
-      void emit("stage:started", "reconcile", "跨维对账");
-      let rec: ReconResult | null = null;
-      if (Reconciler) {
-        void ctx.onEvent?.({
-          type: "agent-trace",
-          stepId: "reconcile",
-          label: "跨维对账",
-          timestamp: Date.now(),
-          payload: {
-            kind: "lifecycle-started",
-            role: "reconciler",
-            phase: "started",
-          },
-        });
-        try {
-          const r = await this.agentRunner.run(
-            Reconciler,
-            { topic, language, plan, researcherResults },
-            {
-              userId,
-              ...(preferredModelId ? { preferredModelId } : {}),
-              onEvent: (ev: IAgentEvent) => {
-                relayAgentEvent("reconcile", "reconciler", undefined, ev);
-              },
-            },
-          );
-          rec = r.output as ReconResult;
-          tally(r.tokensUsed, r.costCents);
-          void emit("agent-lifecycle", "reconcile", "跨维对账", {
-            agentId: "reconciler",
-            role: "reconciler",
-            phase: r.state === "completed" ? "completed" : "failed",
-            state: r.state,
-            tokensUsed: r.tokensUsed.total,
-            costCents: r.costCents,
-            modelTrail: r.modelTrail,
+            "（通常是网页搜索全部不可用 / 模型未在限定步数内完成）。";
+          await this.applyTerminal(persistence, missionId, "failed", {
+            errorMessage,
+            tokensUsed: this.usage(finalState).totalTokens,
+            costCents: this.usage(finalState).totalCostCents,
           });
-        } catch (err) {
-          this.log.warn(
-            `reconciler failed (degrade): ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-      }
-      void emit("stage:completed", "reconcile", "跨维对账");
-
-      // ── analyze：综合洞察 ────────────────────────────────────────────────────
-      void emit("stage:started", "analyze", "综合分析");
-      void ctx.onEvent?.({
-        type: "agent-trace",
-        stepId: "analyze",
-        label: "综合分析",
-        timestamp: Date.now(),
-        payload: {
-          kind: "lifecycle-started",
-          role: "analyst",
-          phase: "started",
-        },
-      });
-      const analystRes = await this.agentRunner.run(
-        Analyst,
-        {
-          topic,
-          language,
-          researcherResults,
-          reconciliationReport: {
-            reconciliationReport: rec?.reconciliationReport ?? "",
-            factTable: rec?.factTable ?? [],
-            overlaps: rec?.overlaps ?? [],
-            gaps: rec?.gaps ?? [],
-          },
-        },
-        {
-          userId,
-          ...(preferredModelId ? { preferredModelId } : {}),
-          onEvent: (ev: IAgentEvent) => {
-            relayAgentEvent("analyze", "analyst", undefined, ev);
-          },
-        },
-      );
-      tally(analystRes.tokensUsed, analystRes.costCents);
-      void emit("agent-lifecycle", "analyze", "综合分析", {
-        agentId: "analyst",
-        role: "analyst",
-        phase: analystRes.state === "completed" ? "completed" : "failed",
-        state: analystRes.state,
-        tokensUsed: analystRes.tokensUsed.total,
-        costCents: analystRes.costCents,
-        modelTrail: analystRes.modelTrail,
-      });
-      const analysis = analystRes.output as {
-        insights: unknown[];
-        themeSummary?: string;
-        contradictions?: unknown[];
-      };
-      void emit("stage:completed", "analyze", "综合分析");
-
-      // ── write：撰写报告 ──────────────────────────────────────────────────────
-      void emit("stage:started", "write", "撰写报告");
-      void ctx.onEvent?.({
-        type: "agent-trace",
-        stepId: "write",
-        label: "撰写报告",
-        timestamp: Date.now(),
-        payload: {
-          kind: "lifecycle-started",
-          role: "writer",
-          phase: "started",
-        },
-      });
-      const writerRes = await this.agentRunner.run(
-        Writer,
-        {
-          topic,
-          depth,
-          language,
-          insights: analysis.insights,
-          themeSummary: analysis.themeSummary ?? plan.themeSummary,
-          ...(analysis.contradictions
-            ? { contradictions: analysis.contradictions }
-            : {}),
-        },
-        {
-          userId,
-          ...(preferredModelId ? { preferredModelId } : {}),
-          onEvent: (ev: IAgentEvent) => {
-            relayAgentEvent("write", "writer", undefined, ev);
-          },
-        },
-      );
-      tally(writerRes.tokensUsed, writerRes.costCents);
-      void emit("agent-lifecycle", "write", "撰写报告", {
-        agentId: "writer",
-        role: "writer",
-        phase: writerRes.state === "completed" ? "completed" : "failed",
-        state: writerRes.state,
-        tokensUsed: writerRes.tokensUsed.total,
-        costCents: writerRes.costCents,
-        modelTrail: writerRes.modelTrail,
-      });
-      const report = writerRes.output;
-      void emit("stage:completed", "write", "撰写报告");
-
-      // ── review：质量评审（可降级）────────────────────────────────────────────
-      void emit("stage:started", "review", "质量评审");
-      let reviewerOutput: unknown = null;
-      if (Reviewer) {
-        void ctx.onEvent?.({
-          type: "agent-trace",
-          stepId: "review",
-          label: "质量评审",
-          timestamp: Date.now(),
-          payload: {
-            kind: "lifecycle-started",
-            role: "reviewer",
-            phase: "started",
-          },
-        });
-        try {
-          const r = await this.agentRunner.run(
-            Reviewer,
-            { topic, language, draftReport: report },
-            {
-              userId,
-              ...(preferredModelId ? { preferredModelId } : {}),
-              onEvent: (ev: IAgentEvent) => {
-                relayAgentEvent("review", "reviewer", undefined, ev);
-              },
-            },
-          );
-          tally(r.tokensUsed, r.costCents);
-          reviewerOutput = r.output;
-          void emit("agent-lifecycle", "review", "质量评审", {
-            agentId: "reviewer",
-            role: "reviewer",
-            phase: r.state === "completed" ? "completed" : "failed",
-            state: r.state,
-            tokensUsed: r.tokensUsed.total,
-            costCents: r.costCents,
-            modelTrail: r.modelTrail,
-          });
-        } catch (err) {
-          this.log.warn(
-            `reviewer failed (degrade): ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-      }
-      void emit("stage:completed", "review", "质量评审");
-
-      void emit("completed");
-
-      // 组装各维度 pipeline 状态（按 dimension id 索引）
-      const dimensionPipelines: Record<
-        string,
-        {
-          agentId: string;
-          state: string;
-          tokensUsed?: number;
-          costCents?: number;
-          modelTrail?: readonly {
-            modelId: string;
-            promptTokens: number;
-            completionTokens: number;
-          }[];
-        }
-      > = {};
-      for (const o of outcomes) {
-        if (o.ok && o.t) {
-          dimensionPipelines[o.dimension] = {
-            agentId: "researcher",
-            state: o.t.state,
-            tokensUsed: o.t.tokensUsed.total,
-            costCents: o.t.costCents,
-            modelTrail: o.t.modelTrail,
+          return {
+            status: "failed",
+            stageOutputs: this.collectStageOutputs(finalState),
+            usage: this.usage(finalState),
+            error: errorMessage,
           };
         }
+        return await this.assembleCompleted(missionId, finalState, persistence);
       }
-
-      // 从 reviewer 产出中抽取 verdicts（结构不定，保持容错）
-      const verdicts = this.extractVerdicts(reviewerOutput);
-
+      // failed / aborted
+      const outcome = result.status === "aborted" ? "cancelled" : "failed";
+      const errorMessage = this.errMsg(result.error);
+      await this.applyTerminal(persistence, missionId, outcome, {
+        errorMessage,
+        tokensUsed: finalState.get<number>(CS_KEY.tokensUsed) ?? 0,
+        costCents: finalState.get<number>(CS_KEY.costCents) ?? 0,
+      });
       return {
-        status: "completed",
-        report: this.assembleReport(report),
-        references: this.extractReferences(researcherResults),
-        stageOutputs: {
-          plan,
-          report,
-          reconciliation: rec,
-          analysis,
-        },
-        usage: { totalTokens, totalCostCents },
-        dimensionPipelines,
-        verdicts,
-        reviewVerdict: this.synthReviewVerdict(reviewerOutput),
-        byStage: {
-          plan,
-          reconciliation: rec,
-          analysis,
-          review: reviewerOutput,
-        },
+        status: "failed",
+        stageOutputs: this.collectStageOutputs(finalState),
+        usage: this.usage(finalState),
+        error: errorMessage || "deep-insight pipeline 未完成",
       };
     } catch (err) {
-      const message = err instanceof Error ? err.message : "unknown error";
-      this.log.error(`deep-insight run failed: ${message}`);
-      void emit("failed");
+      const errorMessage = this.errMsg(err);
+      this.log.error(`[deep-insight ${missionId}] run failed: ${errorMessage}`);
+      await this.applyTerminal(persistence, missionId, "failed", {
+        errorMessage,
+      });
       return {
         status: "failed",
         stageOutputs: {},
-        usage: { totalTokens, totalCostCents },
-        error: message,
+        error: errorMessage,
       };
+    } finally {
+      detachState(missionId);
     }
   }
 
-  /** plan：把 topic 拆成 2–4 个研究维度（结构化 LLM；带 billing.userId 走严格 BYOK）。 */
-  private async planDimensions(
-    topic: string,
-    billing: { userId: string; moduleType: string; operationType: string },
-    preferredModelId?: string,
-  ): Promise<PlanResult> {
-    const systemPrompt = [
-      "You are a research lead. Break the topic into 2-4 distinct, non-overlapping research dimensions.",
-      'Respond ONLY with JSON: {"themeSummary": string, "dimensions": [{"id": string, "name": string, "rationale": string}]}.',
-    ].join(" ");
-    const res = await this.chatFacade.chat({
-      messages: [{ role: "user", content: `Topic: ${topic}` }],
-      systemPrompt,
-      taskProfile: { creativity: "low", outputLength: "short" },
-      modelType: AIModelType.CHAT,
-      operationName: "deep-insight-plan",
-      billing,
-      // 用户选定的真实 model id 透传（空字符串视为未设置，符合"fallback 用空串"红线）
-      ...(preferredModelId ? { model: preferredModelId } : {}),
+  /** 终态组装（completed）：从 crossStageState 取产物 + 落库 + 返回 CapabilityRunResult。 */
+  private async assembleCompleted(
+    missionId: string,
+    state: CrossStageState,
+    persistence: MissionPersistencePort,
+  ): Promise<CapabilityRunResult> {
+    const report = state.get(CS_KEY.report);
+    const reportArtifact = state.get(CS_KEY.reportArtifact);
+    const plan = state.get<{
+      themeSummary?: string;
+      dimensions?: unknown[];
+    }>(CS_KEY.plan);
+    const researcherResults =
+      state.get<unknown[]>(CS_KEY.researcherResults) ?? [];
+    const reviewVerdict = state.get<{
+      score?: number;
+      verdict?: "approve" | "revise" | "reject";
+      notes?: string[];
+    }>(CS_KEY.reviewVerdict);
+    const leaderSignOff = state.get(CS_KEY.leaderSignOff);
+    const verdicts = state.get(CS_KEY.verifierVerdicts);
+    const usage = this.usage(state);
+
+    await this.applyTerminal(persistence, missionId, "completed", {
+      report,
+      reportArtifact,
+      themeSummary: plan?.themeSummary,
+      dimensions: plan?.dimensions,
+      verdicts,
+      leaderSignOff,
+      ...(reviewVerdict?.score !== undefined
+        ? { finalScore: reviewVerdict.score }
+        : {}),
+      tokensUsed: usage.totalTokens,
+      costCents: usage.totalCostCents,
     });
-    const parsed = this.safeParseJson(res.content);
-    const rawDims = Array.isArray(parsed?.dimensions) ? parsed.dimensions : [];
-    const dimensions = rawDims
-      .filter(
-        (d): d is { id?: unknown; name: string; rationale?: unknown } =>
-          !!d && typeof (d as { name?: unknown }).name === "string",
-      )
-      .slice(0, 4)
-      .map((d, i) => ({
-        id: typeof d.id === "string" ? d.id : `dim-${i + 1}`,
-        name: String(d.name),
-        rationale: typeof d.rationale === "string" ? d.rationale : "",
-      }));
-    if (dimensions.length === 0)
-      dimensions.push({ id: "dim-1", name: topic, rationale: "" });
+    await persistence.clearCheckpoint(missionId).catch((err) => {
+      this.log.warn(
+        `[deep-insight ${missionId}] clearCheckpoint failed (non-fatal): ${this.errMsg(err)}`,
+      );
+    });
+
     return {
-      themeSummary:
-        typeof parsed?.themeSummary === "string" ? parsed.themeSummary : topic,
-      dimensions,
-      tokens: res.tokensUsed ?? 0,
+      status: "completed",
+      report: this.assembleReport(report),
+      references: this.extractReferences(researcherResults),
+      stageOutputs: this.collectStageOutputs(state),
+      usage,
+      ...(verdicts ? { verdicts: this.normalizeVerdicts(verdicts) } : {}),
+      ...(reviewVerdict ? { reviewVerdict } : {}),
     };
   }
 
-  private safeParseJson(
-    text: string,
-  ): { themeSummary?: unknown; dimensions?: unknown } | null {
-    try {
-      const m = text.match(/\{[\s\S]*\}/);
-      return m ? (JSON.parse(m[0]) as Record<string, unknown>) : null;
-    } catch {
-      return null;
+  /** 把 harness MissionEvent 翻译成 CapabilityRunEvent，调 ctx.onEvent 上抛 + 推进 checkpoint。 */
+  private bridgeMissionEvent(
+    ctx: CapabilityRunContext,
+    persistence: MissionPersistencePort,
+    crossStageState: CrossStageState,
+    ev: PipelineMissionEvent,
+    topic: string,
+  ): void {
+    const stepId = ev.stepId;
+    const label = stepId ? STEP_LABEL[stepId] : undefined;
+    const baseTelemetry = stepId ? { systemStageId: stepId } : undefined;
+    switch (ev.type) {
+      case "mission:started":
+        void ctx.onEvent?.({ type: "started", timestamp: ev.timestamp });
+        break;
+      case "stage:started":
+        void ctx.onEvent?.({
+          type: "stage:started",
+          ...(stepId ? { stepId } : {}),
+          ...(label ? { label } : {}),
+          timestamp: ev.timestamp,
+          ...(baseTelemetry ? { telemetry: baseTelemetry } : {}),
+        });
+        break;
+      case "stage:completed":
+        void ctx.onEvent?.({
+          type: "stage:completed",
+          ...(stepId ? { stepId } : {}),
+          ...(label ? { label } : {}),
+          timestamp: ev.timestamp,
+          ...(baseTelemetry ? { telemetry: baseTelemetry } : {}),
+        });
+        // milestone checkpoint：每个 stage 完成后存盘（crash-resume 用，fire-and-forget）。
+        if (stepId) {
+          void persistence
+            .markStageProgress(ctx.missionId, stepId)
+            .catch(() => undefined);
+          void persistence
+            .saveCheckpoint(ctx.missionId, {
+              lastStepId: stepId,
+              topic,
+              crossState: crossStageState.toJSON(),
+            })
+            .catch(() => undefined);
+        }
+        break;
+      case "stage:failed":
+        void ctx.onEvent?.({
+          type: "stage:failed",
+          ...(stepId ? { stepId } : {}),
+          ...(label ? { label } : {}),
+          timestamp: ev.timestamp,
+          ...(baseTelemetry ? { telemetry: baseTelemetry } : {}),
+        });
+        break;
+      case "stage:degraded":
+        void ctx.onEvent?.({
+          type: "stage:degraded",
+          ...(stepId ? { stepId } : {}),
+          ...(label ? { label } : {}),
+          timestamp: ev.timestamp,
+          ...(ev.reason ? { payload: { reason: ev.reason } } : {}),
+          ...(baseTelemetry ? { telemetry: baseTelemetry } : {}),
+        });
+        break;
+      case "stage:stalled":
+        void ctx.onEvent?.({
+          type: "stage:stalled",
+          ...(stepId ? { stepId } : {}),
+          ...(label ? { label } : {}),
+          timestamp: ev.timestamp,
+          ...(ev.reason ? { payload: { reason: ev.reason } } : {}),
+          ...(baseTelemetry ? { telemetry: baseTelemetry } : {}),
+        });
+        break;
+      case "mission:completed":
+        void ctx.onEvent?.({ type: "completed", timestamp: ev.timestamp });
+        break;
+      case "mission:failed":
+      case "mission:aborted":
+        void ctx.onEvent?.({ type: "failed", timestamp: ev.timestamp });
+        break;
+      default:
+        break;
     }
+  }
+
+  /** IAgentEvent → CapabilityRunEvent(agent-trace) relay。 */
+  private relayAgentEvent(
+    ctx: CapabilityRunContext,
+    stepId: string,
+    role: string,
+    dimension: string | undefined,
+    ev: import("./runner-deps").IAgentEvent,
+  ): void {
+    let kind: string;
+    let text: string | undefined;
+    let tag: string | undefined;
+    let toolId: string | undefined;
+    switch (ev.type) {
+      case "thinking": {
+        kind = "thinking";
+        const p = ev.payload as { text?: string; content?: string } | undefined;
+        text = p?.text ?? p?.content;
+        break;
+      }
+      case "action_planned": {
+        kind = "action_planned";
+        const p = ev.payload as
+          | { action?: { toolId?: string; description?: string } }
+          | undefined;
+        toolId = p?.action?.toolId;
+        text = p?.action?.description ?? toolId;
+        break;
+      }
+      case "action_executed": {
+        kind = "action_executed";
+        const p = ev.payload as { action?: { toolId?: string } } | undefined;
+        toolId = p?.action?.toolId;
+        text = toolId ? `Tool ${toolId} executed` : "Action executed";
+        break;
+      }
+      case "error": {
+        kind = "error";
+        tag = "error";
+        const p = ev.payload as { message?: string } | undefined;
+        text = p?.message ?? "Agent error";
+        break;
+      }
+      default:
+        return;
+    }
+    void ctx.onEvent?.({
+      type: "agent-trace",
+      stepId,
+      ...(dimension ? { label: dimension } : {}),
+      timestamp: ev.timestamp ?? Date.now(),
+      payload: {
+        kind,
+        ...(text !== undefined ? { text } : {}),
+        role,
+        ...(tag !== undefined ? { tag } : {}),
+        ...(dimension !== undefined ? { dimension } : {}),
+        ...(toolId !== undefined ? { toolId } : {}),
+        agentId: ev.agentId,
+      },
+      telemetry: { systemStageId: stepId, ...(dimension ? { dimension } : {}) },
+    });
+  }
+
+  private async applyTerminal(
+    persistence: MissionPersistencePort,
+    missionId: string,
+    outcome: "completed" | "failed" | "cancelled",
+    details: MissionTerminalDetails,
+  ): Promise<void> {
+    try {
+      await persistence.applyTerminalIfRunning(missionId, outcome, details);
+    } catch (err) {
+      this.log.warn(
+        `[deep-insight ${missionId}] applyTerminalIfRunning(${outcome}) failed (non-fatal): ${this.errMsg(err)}`,
+      );
+    }
+  }
+
+  private usage(state: CrossStageState): {
+    totalTokens: number;
+    totalCostCents: number;
+  } {
+    return {
+      totalTokens: state.get<number>(CS_KEY.tokensUsed) ?? 0,
+      totalCostCents: state.get<number>(CS_KEY.costCents) ?? 0,
+    };
+  }
+
+  private collectStageOutputs(
+    state: CrossStageState,
+  ): Readonly<Record<string, unknown>> {
+    return {
+      plan: state.get(CS_KEY.plan) ?? null,
+      researcherResults: state.get(CS_KEY.researcherResults) ?? [],
+      reconciliation: state.get(CS_KEY.reconciliationReport) ?? null,
+      analysis: state.get(CS_KEY.analystOutput) ?? null,
+      report: state.get(CS_KEY.report) ?? null,
+      reviewScore: state.get(CS_KEY.reviewScore) ?? null,
+      leaderSignOff: state.get(CS_KEY.leaderSignOff) ?? null,
+    };
   }
 
   private extractReferences(
@@ -640,84 +547,106 @@ export class DeepInsightDefaultRunner
         seen.add(src);
         refs.push({
           source: src,
-          title: f.sourceTitle,
-          snippet: f.sourceSnippet,
+          ...(f.sourceTitle ? { title: f.sourceTitle } : {}),
+          ...(f.sourceSnippet ? { snippet: f.sourceSnippet } : {}),
         });
       }
     }
     return refs;
   }
 
-  /** 从 reviewer 输出中容错提取 verdict 列表。 */
-  private extractVerdicts(
-    reviewerOutput: unknown,
+  private normalizeVerdicts(
+    verdicts: unknown,
   ): Array<{ dimension?: string; score?: number; comment?: string }> {
-    if (!reviewerOutput || typeof reviewerOutput !== "object") return [];
-    const r = reviewerOutput as Record<string, unknown>;
-    if (Array.isArray(r.verdicts)) {
-      return (r.verdicts as unknown[])
-        .filter((v) => !!v && typeof v === "object")
-        .map((v) => {
-          const vr = v as Record<string, unknown>;
-          return {
-            ...(typeof vr.dimension === "string"
-              ? { dimension: vr.dimension }
-              : {}),
-            ...(typeof vr.score === "number" ? { score: vr.score } : {}),
-            ...(typeof vr.comment === "string" ? { comment: vr.comment } : {}),
-          };
-        });
-    }
-    return [];
-  }
-
-  /**
-   * 从内部 reviewer 输出（MissionReviewerAgent: {score, verdict, notes[]}）
-   * 合成 reviewVerdict。纯数据映射，无额外 LLM。reviewer 降级（output=null）→ undefined。
-   */
-  private synthReviewVerdict(
-    reviewerOutput: unknown,
-  ):
-    | {
-        score?: number;
-        verdict?: "approve" | "revise" | "reject";
-        notes?: string[];
-      }
-    | undefined {
-    if (!reviewerOutput || typeof reviewerOutput !== "object") return undefined;
-    const r = reviewerOutput as Record<string, unknown>;
-    const score = typeof r.score === "number" ? r.score : undefined;
-    const verdict =
-      r.verdict === "approve" ||
-      r.verdict === "revise" ||
-      r.verdict === "reject"
-        ? r.verdict
-        : undefined;
-    const notes = Array.isArray(r.notes)
-      ? r.notes.filter((n): n is string => typeof n === "string")
-      : undefined;
-    if (score === undefined && verdict === undefined) return undefined;
-    return {
-      ...(score !== undefined ? { score } : {}),
-      ...(verdict !== undefined ? { verdict } : {}),
-      ...(notes?.length ? { notes } : {}),
-    };
+    if (!verdicts || typeof verdicts !== "object") return [];
+    const arr = Array.isArray(verdicts)
+      ? verdicts
+      : (verdicts as { verdicts?: unknown[] }).verdicts;
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter((v) => !!v && typeof v === "object")
+      .map((v) => {
+        const vr = v as Record<string, unknown>;
+        return {
+          ...(typeof vr.dimension === "string"
+            ? { dimension: vr.dimension }
+            : {}),
+          ...(typeof vr.score === "number" ? { score: vr.score } : {}),
+          ...(typeof vr.comment === "string" ? { comment: vr.comment } : {}),
+        };
+      });
   }
 
   private assembleReport(report: unknown): string {
     const r = report as {
       title?: string;
-      sections?: { heading?: string; body?: string }[];
+      sections?: { heading?: string; title?: string; body?: string }[];
     } | null;
     if (r?.sections && Array.isArray(r.sections)) {
       const parts: string[] = [];
       if (r.title) parts.push(`# ${r.title}`);
       for (const s of r.sections) {
-        if (s.heading) parts.push(`## ${s.heading}`);
+        const heading = s.heading ?? s.title;
+        if (heading) parts.push(`## ${heading}`);
         if (s.body) parts.push(s.body);
       }
       if (parts.length) return parts.join("\n\n");
     }
     return typeof report === "string" ? report : JSON.stringify(report ?? null);
+  }
+
+  private errMsg(err: unknown): string {
+    return err instanceof Error ? err.message : String(err ?? "");
+  }
+}
+
+/**
+ * 内存持久化端口（缺 ctx.persistence 时的纯跑 fallback）。
+ *
+ * 不落任何 app DB：checkpoint 存内存 Map，终态仲裁恒返回 true（无并发竞争）。
+ * 用于「无消费方宿主」的纯执行 / 单测探针（断言 0 真实 DB 写）。
+ */
+class InMemoryPersistencePort implements MissionPersistencePort {
+  private readonly checkpoints = new Map<
+    string,
+    {
+      lastStepId: string;
+      topic: string;
+      crossState: Readonly<Record<string, unknown>>;
+    }
+  >();
+
+  markStageProgress(): Promise<void> {
+    // no-op（内存纯跑无需进度索引）。
+    return Promise.resolve();
+  }
+
+  saveCheckpoint(
+    missionId: string,
+    snapshot: {
+      lastStepId: string;
+      topic: string;
+      crossState: Readonly<Record<string, unknown>>;
+    },
+  ): Promise<boolean> {
+    this.checkpoints.set(missionId, snapshot);
+    return Promise.resolve(true);
+  }
+
+  loadCheckpoint(missionId: string): Promise<{
+    lastStepId: string;
+    topic: string;
+    crossState: Readonly<Record<string, unknown>>;
+  } | null> {
+    return Promise.resolve(this.checkpoints.get(missionId) ?? null);
+  }
+
+  clearCheckpoint(missionId: string): Promise<void> {
+    this.checkpoints.delete(missionId);
+    return Promise.resolve();
+  }
+
+  applyTerminalIfRunning(): Promise<boolean> {
+    return Promise.resolve(true);
   }
 }

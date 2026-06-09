@@ -30,6 +30,7 @@ import type {
   TeamTopologyNode,
   TeamTopologyConnection,
 } from '@/components/common/team-topology';
+import type { SystemStageId } from '@/lib/features/agent-playground/mission-todo.types';
 
 // ── playground 运行态结构镜像（DI* 前缀，与 mission-presentation.types 结构兼容）──
 //
@@ -166,6 +167,12 @@ export interface MissionStep {
   status: 'done' | 'failed' | 'skipped' | 'running';
   tokens?: number;
   costCents?: number;
+  /**
+   * 14 阶段点亮锚点（W5）。后端 W1 契约 telemetry.systemStageId 透传到这里 →
+   * buildTodosFromSteps 透传给 MissionTodo.systemStageId → MissionFlowView 点亮 14-chip。
+   * 缺省（后端尚未带）→ undefined，走 deriveLiveSteps 的粗粒度 3 段降级。
+   */
+  systemStageId?: SystemStageId;
 }
 
 /** 算力消耗汇总归一（company cents / playground USD 在 adapter 内换算成 cents）。 */
@@ -582,13 +589,126 @@ function companyMissionStatus(
 }
 
 /**
+ * systemStageId → 14-chip 标签 / role 对照表（W5 单源）。
+ *
+ * ★ 防漂移：order/label/role 必须与 playground 对齐——
+ *   - 阶段 id + 顺序：`MissionFlowView.tsx` 的 STAGE_ORDER（14 步）
+ *     与 `mission-todo.types.ts` 的 SystemStageId 联合类型。
+ *   - 主要 role：`MissionFlowView.tsx` 的 STAGE_TO_ROLE。
+ *   后端能力内核 stepId → systemStageId 的对照在
+ *   `frontend/lib/features/agent-playground/stage-id-mapping.ts`（逆映射，后端单源）。
+ *   后端若改 stage 名，必须同步那张表 + 这张表（frontend-contract spec 兜底）。
+ *
+ * MissionFlowView 仅消费 MissionTodo.systemStageId 点亮 chip（与 label/role 无关），
+ * 但任务列表（MissionTodoBoard）展示 label/role，故一并固化在此。
+ */
+const SYSTEM_STAGE_LABEL: Record<
+  SystemStageId,
+  { label: string; role: string }
+> = {
+  's1-budget': { label: '预算估算', role: 'Leader' },
+  's2-leader-plan': { label: '维度规划', role: 'Leader' },
+  's3-researchers': { label: '并行研究', role: 'Researcher' },
+  's4-leader-assess': { label: '研究初审', role: 'Leader' },
+  's5-reconciler': { label: '跨维对账', role: 'Reconciler' },
+  's6-analyst': { label: '综合分析', role: 'Analyst' },
+  's7-writer-outline': { label: '章节规划', role: 'Writer' },
+  's8-writer-draft': { label: '撰写报告', role: 'Writer' },
+  's8b-quality-enhancement': { label: '质量闭环', role: 'Writer' },
+  's9-critic-l4': { label: '独立复审', role: 'Reviewer' },
+  's9b-objective-evaluation': { label: '客观评审', role: 'Reviewer' },
+  's10-leader-signoff': { label: '终审签字', role: 'Leader' },
+  's11-persist': { label: '落库归档', role: 'Leader' },
+  's12-self-evolution': { label: '自我进化', role: 'Leader' },
+};
+
+/** 14 阶段顺序（与 MissionFlowView.STAGE_ORDER 字节级对齐，防漂移）。 */
+const SYSTEM_STAGE_ORDER: SystemStageId[] = [
+  's1-budget',
+  's2-leader-plan',
+  's3-researchers',
+  's4-leader-assess',
+  's5-reconciler',
+  's6-analyst',
+  's7-writer-outline',
+  's8-writer-draft',
+  's8b-quality-enhancement',
+  's9-critic-l4',
+  's9b-objective-evaluation',
+  's10-leader-signoff',
+  's11-persist',
+  's12-self-evolution',
+];
+
+/** 从事件 payload 取 systemStageId（W1 契约 telemetry.systemStageId 优先，裸 systemStageId 兜底）。 */
+function readSystemStageId(
+  payload: Record<string, unknown>
+): SystemStageId | undefined {
+  const telemetry =
+    typeof payload.telemetry === 'object' && payload.telemetry !== null
+      ? (payload.telemetry as Record<string, unknown>)
+      : undefined;
+  const raw =
+    (telemetry && typeof telemetry.systemStageId === 'string'
+      ? telemetry.systemStageId
+      : undefined) ??
+    (typeof payload.systemStageId === 'string'
+      ? payload.systemStageId
+      : undefined);
+  if (!raw) return undefined;
+  return SYSTEM_STAGE_ORDER.includes(raw as SystemStageId)
+    ? (raw as SystemStageId)
+    : undefined;
+}
+
+/**
  * 从实时事件流派生 live 任务列表（mission 运行中、result.steps 尚未落库时用）。
- * 让"任务列表"tab 在运行中就逐个展示：意图理解→各维度研究→综合评审，并逐个推进，
- * 而不是一直空白等结束。事件来自 company.stage:lifecycle / company.agent:lifecycle。
+ *
+ * 两条路径：
+ *  ① 后端事件带 systemStageId（W1 契约 telemetry.systemStageId / 裸 systemStageId）→
+ *     按 14 阶段点亮：每个出现过的 systemStageId 派生一步并带 systemStageId 锚点，
+ *     buildTodosFromSteps 透传给 MissionTodo.systemStageId → MissionFlowView 点亮对应 chip。
+ *  ② 未带 systemStageId（后端 W4 尚未接）→ 优雅降级到原粗粒度：
+ *     意图理解 → 各维度研究 → 综合评审，逐个推进（行为完全不变）。
+ *
+ * 事件来自 company.stage:lifecycle / company.agent:lifecycle。
  */
 function deriveLiveSteps(events: unknown[]): MissionStep[] {
   type Ev = { type?: string; payload?: Record<string, unknown> };
   const evs = (events ?? []) as Ev[];
+
+  // ── 路径 ①：systemStageId 锚点（14 阶段点亮）──
+  // 先扫一遍看后端有没有带 systemStageId；带了就走 14 阶段路径。
+  const sysStatus = new Map<SystemStageId, 'running' | 'done' | 'failed'>();
+  const sysOrder: SystemStageId[] = [];
+  for (const e of evs) {
+    if (e.type !== 'company.stage:lifecycle') continue;
+    const p = e.payload ?? {};
+    const sid = readSystemStageId(p);
+    if (!sid) continue;
+    if (!sysStatus.has(sid)) sysOrder.push(sid);
+    const status = typeof p.status === 'string' ? p.status : undefined;
+    if (status === 'completed') sysStatus.set(sid, 'done');
+    else if (status === 'failed') sysStatus.set(sid, 'failed');
+    else if ((sysStatus.get(sid) ?? 'running') === 'running')
+      sysStatus.set(sid, 'running');
+  }
+
+  if (sysOrder.length > 0) {
+    // 按标准 14 阶段顺序排（只渲染已出现过的阶段，未出现的不造假壳）。
+    const seen = new Set(sysOrder);
+    return SYSTEM_STAGE_ORDER.filter((sid) => seen.has(sid)).map((sid) => {
+      const meta = SYSTEM_STAGE_LABEL[sid];
+      return {
+        label: meta.label,
+        role: meta.role,
+        status: sysStatus.get(sid) ?? 'running',
+        systemStageId: sid,
+      };
+    });
+  }
+
+  // ── 路径 ②：粗粒度降级（后端未带 systemStageId，保持原行为）──
   let planning: 'running' | 'done' | undefined;
   let review: 'running' | 'done' | undefined;
   const dimOrder: string[] = [];

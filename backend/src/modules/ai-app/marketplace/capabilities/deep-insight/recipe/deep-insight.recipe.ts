@@ -64,7 +64,7 @@ function buildSkillSpecFromMd(agentDir: string): ResolvedRole["skillSpec"] {
  * 注：角色 agent 不在此登记 —— 由 contracts/agent-spec-catalog.ts 的真 @DefineAgent
  * 类经 readDefineAgentMeta 投影到 Agent 货架（单一源、可执行解析）。
  */
-const PLAYGROUND_CATALOG: PipelineCatalogMeta = {
+const DEEP_INSIGHT_CATALOG: PipelineCatalogMeta = {
   name: "深度研究 Mission（14 阶段）",
   description:
     "Leader 领衔的 8 角色深度研究流水线：预算闸 → 规划 → 并行调研 → 评估 → 跨维对账 → 综合分析 → 大纲 → 成稿 → 质量增强 → 元批评 → 客观评估 → 序言签发 → 持久化。",
@@ -540,13 +540,24 @@ export const PLAYGROUND_PIPELINE: MissionPipelineConfig = defineMissionPipeline(
       //   stage:lifecycle 上让前端误以为是 mission 一部分进度。前端 todo-ledger 单独
       //   按 mission:postlude:* 推 s12 todo 状态。
     ],
-    defaultStepTimeoutMs: 10 * 60_000, // 10 分钟 / step（playground 长任务保守值）
+    defaultStepTimeoutMs: 10 * 60_000, // 10 分钟 / step（深度研究长任务保守值）
     meta: {
-      description: "playground full mission pipeline (v5.1)",
+      description: "deep-insight full mission pipeline (v5.1)",
       eventPrefix: "playground",
       runtimeVersion: "pipeline-v1",
       // ★ 2026-06-07: 市场投影展示元数据（标准 28，单源归位）
-      catalog: PLAYGROUND_CATALOG,
+      catalog: DEEP_INSIGHT_CATALOG,
     },
   },
 );
+
+/**
+ * ★ W2（能力即产品）：deep-insight 自洽命名别名。
+ *
+ * recipe 当前同时作 playground 私有 pipeline（id="playground"，由 playground
+ * onModuleInit 注册）。能力家 DeepInsightDefaultRunner 不直接注册本 config，而是
+ * 据它派生出 id="deep-insight" 的副本（挂能力家 bindings 的 hooks）再注册——
+ * 故此处仅提供命名别名，**不**改 id（改 id 会破 playground 存量注册）。
+ * W3 playground 改消费能力后，可把 id 收口为 deep-insight 单源。
+ */
+export const DEEP_INSIGHT_PIPELINE = PLAYGROUND_PIPELINE;

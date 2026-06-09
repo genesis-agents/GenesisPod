@@ -13,6 +13,7 @@
 import { Global, Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
+import { MissionPipelineOrchestrator } from "@/modules/ai-harness/facade";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { CapabilityRegistry } from "./capability/capability-registry";
 import { DeepInsightDefaultRunner } from "./capabilities/deep-insight/deep-insight.runner";
@@ -40,6 +41,10 @@ import { MarketplaceController } from "./catalog/marketplace.controller";
   controllers: [MarketplaceController],
   providers: [
     CapabilityRegistry,
+    // MissionPipelineOrchestrator 非 @Global（各 app module 各自注册，见 playground/
+    // radar/social/writing module）；deep-insight 14 阶段 runner 经它跑 recipe，故在此注册。
+    // 其依赖 MissionPipelineRegistry 由 @Global HarnessModule 提供。
+    MissionPipelineOrchestrator,
     // 上架能力的默认执行实现（onModuleInit 自注册进 CapabilityRegistry）。
     DeepInsightDefaultRunner,
     // 市场目录投影服务（registry → 货架）。

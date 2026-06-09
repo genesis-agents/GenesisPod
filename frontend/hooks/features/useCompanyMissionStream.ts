@@ -18,7 +18,16 @@ export interface CompanyMissionStartedPayload {
 
 export interface CompanyStageLifecyclePayload {
   stage: string;
-  status: 'started' | 'completed';
+  status: 'started' | 'completed' | 'failed';
+  label?: string;
+  /**
+   * W5 14-chip 点亮锚点。后端 W1 契约把 CapabilityRunEvent.telemetry.systemStageId
+   * 透传到 company.stage:lifecycle payload（s1-budget … s11-persist，gateway .passthrough()）。
+   * 前端 deriveLiveSteps 优先读 telemetry.systemStageId，裸 systemStageId 兜底；
+   * 两者皆缺（后端 W4 尚未接）→ 优雅降级到粗粒度 planning/execution/review 3 段。
+   */
+  systemStageId?: string;
+  telemetry?: { systemStageId?: string };
 }
 
 export interface CompanyMissionCompletedPayload {

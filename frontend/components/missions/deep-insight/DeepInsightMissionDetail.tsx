@@ -738,17 +738,20 @@ const STEP_STATUS_TO_TODO: Record<
 function buildTodosFromSteps(steps: MissionStep[]): MissionTodo[] {
   return steps.map((s, i) => ({
     id: `step-${i}`,
-    origin: 'leader-plan',
-    createdBy: 'leader',
+    origin: s.systemStageId ? 'system-stage' : 'leader-plan',
+    createdBy: s.systemStageId ? 'system' : 'leader',
     createdAt: 0,
     reasonText: '',
-    scope: 'mission',
+    // systemStageId 锚定的步骤 scope=system，MissionFlowView 据 systemStageId 点亮 14-chip。
+    scope: s.systemStageId ? 'system' : 'mission',
     title: s.label,
     assignee: { role: normalizeTodoRole(s.role) },
     status: STEP_STATUS_TO_TODO[s.status],
     artifacts: [],
     narrativeLog: [],
     dimensionRef: s.dimension,
+    // W5：透传 systemStageId → MissionFlowView 的 systemTodoMap 据此点亮对应 chip。
+    systemStageId: s.systemStageId,
   })) as unknown as MissionTodo[];
 }
 
