@@ -37,6 +37,8 @@ export {
   type QualityTraceContext,
   type QualityTrace,
 } from "@/modules/ai-harness/facade";
+// ★ S12 自进化 postlude：postmortem 分类（harness 共享，全 @Global HarnessModule）。
+export { PostmortemClassifierService } from "@/modules/ai-harness/facade";
 // ★ figure re-home（2026-06-09）：FigureRelevance Stage-3 相关性精排（embedding）。
 //   归位到 ai-engine/content/figure（零 app/harness 依赖），能力家经 ai-engine/facade 注入
 //   （R1-safe，单向不穿透）。s8 reportArtifactAssembler 前对 figureCandidates 精排，

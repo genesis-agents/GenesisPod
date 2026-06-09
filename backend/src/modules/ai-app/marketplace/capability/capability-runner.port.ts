@@ -144,6 +144,34 @@ export interface MissionPersistencePort {
     details: MissionTerminalDetails,
   ): Promise<boolean>;
 
+  // ── 可选：S12 自进化 postlude（能力核 fire-and-forget 调；消费方实现写 harness_vector_memory）──
+  /**
+   * 把 mission postmortem 写入 harness_vector_memory（实现由消费方提供；缺省跳过写入）。
+   *
+   * namespace=userId，tags 含 'deep-insight'/'mission-postmortem'/signed|unsigned。
+   * 沉淀承诺：失败只 log warn，不破坏 mission 终态。
+   */
+  recordPostmortem?(args: {
+    readonly missionId: string;
+    readonly userId: string;
+    readonly topic: string;
+    readonly summary: string;
+    readonly recommendations: readonly string[];
+    readonly leaderSigned: boolean | null;
+    readonly qualityScore: number | null;
+    readonly tokensUsed: number;
+    readonly costUsd: number;
+    /** source 标签（如 'deep-insight:mission'）。 */
+    readonly source: string;
+    /** tags 写入 harness_vector_memory.tags。 */
+    readonly tags: readonly string[];
+    readonly failureClassification?: {
+      readonly mode: string;
+      readonly signals: readonly string[];
+      readonly confidence: number;
+    };
+  }): Promise<void>;
+
   // ── 可选：trajectory（UI 展示 / 重跑复用，能力内核不依赖）──
   saveResearchResult?(args: {
     missionId: string;

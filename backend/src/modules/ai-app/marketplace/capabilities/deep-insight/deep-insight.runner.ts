@@ -28,6 +28,7 @@ import {
   ReportEvaluationService,
   QualityTraceComputeService,
   FigureRelevanceService,
+  PostmortemClassifierService,
   type CapabilityManifest,
   type ICapabilityRunner,
   type CapabilityRunInput,
@@ -37,6 +38,10 @@ import {
   type MissionPersistencePort,
   type MissionTerminalDetails,
 } from "./runner-deps";
+import {
+  fireSelfEvolutionPostlude,
+  type SelfEvolutionPostludeDeps,
+} from "./postlude/self-evolution.postlude";
 import { DEEP_INSIGHT_PIPELINE } from "./recipe/deep-insight.recipe";
 import {
   DeepInsightStageBindings,
@@ -131,6 +136,8 @@ export class DeepInsightDefaultRunner
     private readonly qualityTrace: QualityTraceComputeService,
     // ★ figure re-home：embedding 相关性精排（engine 层，经 facade 注入，R1-safe）。
     private readonly figureRelevance: FigureRelevanceService,
+    // ★ S12 自进化 postlude：postmortem 分类（harness 共享，@Global HarnessModule 提供）。
+    private readonly postmortemClassifier: PostmortemClassifierService,
   ) {
     void this.chatFacade; // 保留注入（plan 等结构化抽取的未来用途）；当前 14 步全走 AgentRunner。
     this.bindings = new DeepInsightStageBindings(this.agentRunner, {
@@ -184,6 +191,8 @@ export class DeepInsightDefaultRunner
     const language = input.language ?? "zh-CN";
     const { userId, missionId } = ctx;
     const persistence = ctx.persistence ?? new InMemoryPersistencePort();
+    // S12 postlude 需要 run 起始时间（用于 wallTimeMs 计算）。
+    const runStartedAt = Date.now();
 
     // per-run agent 调用上下文（透传 RunOptions + 实时 agent 事件 relay）。
     const invocation: AgentInvocation = {
@@ -298,7 +307,14 @@ export class DeepInsightDefaultRunner
             error: errorMessage,
           };
         }
-        return await this.assembleCompleted(missionId, finalState, persistence);
+        return await this.assembleCompleted(
+          missionId,
+          userId,
+          topic,
+          finalState,
+          persistence,
+          runStartedAt,
+        );
       }
       // failed / aborted
       const outcome = result.status === "aborted" ? "cancelled" : "failed";
@@ -330,17 +346,24 @@ export class DeepInsightDefaultRunner
     }
   }
 
-  /** 终态组装（completed）：从 crossStageState 取产物 + 落库 + 返回 CapabilityRunResult。 */
+  /**
+   * 终态组装（completed）：从 crossStageState 取产物 + 落库 + fire S12 postlude +
+   * 返回 CapabilityRunResult。
+   */
   private async assembleCompleted(
     missionId: string,
+    userId: string,
+    topic: string,
     state: CrossStageState,
     persistence: MissionPersistencePort,
+    runStartedAt: number,
   ): Promise<CapabilityRunResult> {
     const report = state.get(CS_KEY.report);
     const reportArtifact = state.get(CS_KEY.reportArtifact);
     const plan = state.get<{
       themeSummary?: string;
       dimensions?: unknown[];
+      goals?: { qualityBar?: { minCoverage?: number } };
     }>(CS_KEY.plan);
     const researcherResults =
       state.get<unknown[]>(CS_KEY.researcherResults) ?? [];
@@ -349,7 +372,7 @@ export class DeepInsightDefaultRunner
       verdict?: "approve" | "revise" | "reject";
       notes?: string[];
     }>(CS_KEY.reviewVerdict);
-    const leaderSignOff = state.get(CS_KEY.leaderSignOff);
+    const leaderSignOff = state.get<{ signed?: boolean }>(CS_KEY.leaderSignOff);
     const verdicts = state.get(CS_KEY.verifierVerdicts);
     const usage = this.usage(state);
     // ★ W2.5：finalScore 优先用 s10 QualityTrace 客观计算（10 维评估融合），缺则回退 reviewScore。
@@ -372,6 +395,31 @@ export class DeepInsightDefaultRunner
         `[deep-insight ${missionId}] clearCheckpoint failed (non-fatal): ${this.errMsg(err)}`,
       );
     });
+
+    // ★ S12 自进化 postlude（fire-and-forget，不阻塞终态返回）。
+    // 沉淀到 harness_vector_memory（经 persistence.recordPostmortem? 端口由消费方实现）。
+    const postludeDeps: SelfEvolutionPostludeDeps = {
+      postmortemClassifier: this.postmortemClassifier,
+      log: this.log,
+    };
+    fireSelfEvolutionPostlude(
+      {
+        missionId,
+        userId,
+        topic,
+        leaderSignOff: leaderSignOff ?? null,
+        reportArtifact: reportArtifact as {
+          quality?: { overall?: number };
+        } | null,
+        plan: plan ?? null,
+        finalScore,
+        tokensUsed: usage.totalTokens,
+        costCents: usage.totalCostCents,
+        startedAt: runStartedAt,
+        persistence,
+      },
+      postludeDeps,
+    );
 
     return {
       status: "completed",

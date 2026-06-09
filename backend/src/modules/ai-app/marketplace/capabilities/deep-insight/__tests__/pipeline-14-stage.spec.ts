@@ -335,9 +335,21 @@ function makeRichStubs() {
   };
 }
 
+/** 最小 PostmortemClassifierService stub（classify 返回 success for completed）。 */
+function makePostmortemClassifier() {
+  return {
+    classify: jest.fn(() => ({
+      mode: "success" as const,
+      signals: [],
+      confidence: 1,
+    })),
+  };
+}
+
 function makeRunnerWith(
   agentRunner: ReturnType<typeof makeAgentRunner>,
   rich: ReturnType<typeof makeRichStubs>,
+  postmortemClassifier = makePostmortemClassifier(),
 ) {
   const pipelineRegistry = new MissionPipelineRegistry();
   const orchestrator = new MissionPipelineOrchestrator(pipelineRegistry);
@@ -354,13 +366,25 @@ function makeRunnerWith(
     rich.reportEvaluation as never,
     rich.qualityTrace as never,
     rich.figureRelevance as never,
+    postmortemClassifier as never,
   );
   runner.onModuleInit();
-  return { runner, agentRunner, pipelineRegistry, capabilityRegistry, rich };
+  return {
+    runner,
+    agentRunner,
+    pipelineRegistry,
+    capabilityRegistry,
+    rich,
+    postmortemClassifier,
+  };
 }
 
 function makeRunner() {
-  return makeRunnerWith(makeAgentRunner(), makeRichStubs());
+  return makeRunnerWith(
+    makeAgentRunner(),
+    makeRichStubs(),
+    makePostmortemClassifier(),
+  );
 }
 
 describe("deep-insight 14 阶段执行内核（W2）", () => {
