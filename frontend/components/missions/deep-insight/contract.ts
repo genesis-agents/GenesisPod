@@ -25,6 +25,7 @@
  */
 
 import { Crown, Search, PenLine, Gavel } from 'lucide-react';
+import { config } from '@/lib/utils/config';
 import type {
   TeamTopologyNode,
   TeamTopologyConnection,
@@ -297,8 +298,13 @@ export interface DeepInsightMissionView extends BaseMissionView {
   memory?: DIMemoryIndexState;
   /** verifier 裁决列表（评分卡 / collab）。 */
   verdicts: DIVerifierVerdict[];
-  /** graph（MissionGraphTab）是否可用（company 无 graph API → false，tab 隐藏）。 */
+  /** graph（MissionGraphTab）是否可用（有报告正文即可构建；无报告 → false）。 */
   hasGraph: boolean;
+  /**
+   * graph API base 覆盖（透传 MissionGraphTab.basePath）。company 走
+   * `${apiBaseUrl}/api/v1/company`；playground 留空走默认 playground base。
+   */
+  graphBasePath?: string;
   /** 研究主题概述（tasks tab themeSummary；真实字段，非 statusDetail 误用）。 */
   themeSummary?: string;
   /** 完成时刻（epoch ms）；与 createdAt 算真实运行耗时，不显示假 0s。 */
@@ -605,7 +611,9 @@ export function fromCompanyMissionResult(
     cost,
     memory: undefined,
     verdicts,
-    hasGraph: false,
+    // 有报告正文即可构建图谱（company endpoint 用平台共享构建器从 report 抽图）。
+    hasGraph: !!result.summary,
+    graphBasePath: `${config.apiBaseUrl}/api/v1/company`,
     // 旧契约兼容承载
     score,
     reviewNotes: review?.notes ?? [],

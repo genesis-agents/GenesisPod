@@ -953,10 +953,11 @@ export async function fetchMissionDagCascade(
  * 若从未生成，返回 { status: 'NONE', graph: null, analyses: null, generatedAt: null }。
  */
 export async function getMissionGraph(
-  id: string
+  id: string,
+  basePath: string = API_BASE
 ): Promise<MissionGraphArtifact> {
   const res = await fetch(
-    `${API_BASE}/missions/${encodeURIComponent(id)}/graph`,
+    `${basePath}/missions/${encodeURIComponent(id)}/graph`,
     { headers: { ...getAuthHeader() } }
   );
   if (!res.ok) {
@@ -973,10 +974,11 @@ export async function getMissionGraph(
  * POST /missions/:id/graph — 触发图谱分析构建（同步，完成后返回 READY 结果）。
  */
 export async function buildMissionGraph(
-  id: string
+  id: string,
+  basePath: string = API_BASE
 ): Promise<MissionGraphArtifact> {
   const res = await fetch(
-    `${API_BASE}/missions/${encodeURIComponent(id)}/graph`,
+    `${basePath}/missions/${encodeURIComponent(id)}/graph`,
     {
       method: 'POST',
       headers: { ...getAuthHeader() },
@@ -994,10 +996,11 @@ export async function buildMissionGraph(
 
 export async function enrichGraphNode(
   missionId: string,
-  nodeId: string
+  nodeId: string,
+  basePath: string = API_BASE
 ): Promise<NodeEnrichment> {
   const res = await fetch(
-    `${API_BASE}/missions/${encodeURIComponent(
+    `${basePath}/missions/${encodeURIComponent(
       missionId
     )}/graph/node/${encodeURIComponent(nodeId)}/enrich`,
     { headers: { ...getAuthHeader() } }

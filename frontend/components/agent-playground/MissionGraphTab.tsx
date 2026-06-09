@@ -32,9 +32,14 @@ import type {
 
 interface MissionGraphTabProps {
   missionId: string;
+  /**
+   * 图谱 API base（覆盖默认 playground base）。company 消费方传
+   * `${apiBaseUrl}/api/v1/company`，使 graph 调用打到 company endpoint。
+   */
+  basePath?: string;
 }
 
-export function MissionGraphTab({ missionId }: MissionGraphTabProps) {
+export function MissionGraphTab({ missionId, basePath }: MissionGraphTabProps) {
   const [artifact, setArtifact] = useState<MissionGraphArtifact | null>(null);
   const [loading, setLoading] = useState(true);
   const [building, setBuilding] = useState(false);
@@ -44,14 +49,14 @@ export function MissionGraphTab({ missionId }: MissionGraphTabProps) {
     setLoading(true);
     setError(null);
     try {
-      const result = await getMissionGraph(missionId);
+      const result = await getMissionGraph(missionId, basePath);
       setArtifact(result);
     } catch (e) {
       setError(e instanceof Error ? e : new Error(String(e)));
     } finally {
       setLoading(false);
     }
-  }, [missionId]);
+  }, [missionId, basePath]);
 
   useEffect(() => {
     void fetchGraph();
@@ -61,14 +66,14 @@ export function MissionGraphTab({ missionId }: MissionGraphTabProps) {
     setBuilding(true);
     setError(null);
     try {
-      const result = await buildMissionGraph(missionId);
+      const result = await buildMissionGraph(missionId, basePath);
       setArtifact(result);
     } catch (e) {
       setError(e instanceof Error ? e : new Error(String(e)));
     } finally {
       setBuilding(false);
     }
-  }, [missionId]);
+  }, [missionId, basePath]);
 
   if (loading) {
     return <LoadingState text="加载图谱数据..." />;
@@ -118,7 +123,14 @@ export function MissionGraphTab({ missionId }: MissionGraphTabProps) {
   const graph = artifact.graph as MissionGraph;
   const analyses = artifact.analyses as Analyses;
 
-  return <ReadyGraph graph={graph} analyses={analyses} missionId={missionId} />;
+  return (
+    <ReadyGraph
+      graph={graph}
+      analyses={analyses}
+      missionId={missionId}
+      basePath={basePath}
+    />
+  );
 }
 
 // ─── READY 态：拆成独立组件，让 useMemo / useState（全屏）等 hooks 合法且稳定 ───
@@ -126,10 +138,12 @@ function ReadyGraph({
   graph,
   analyses,
   missionId,
+  basePath,
 }: {
   graph: MissionGraph;
   analyses: Analyses;
   missionId: string;
+  basePath?: string;
 }) {
   const [fullscreen, setFullscreen] = useState(false);
   const [selectedNode, setSelectedNode] = useState<{
@@ -160,7 +174,7 @@ function ReadyGraph({
       setEnrich(null);
       setEnrichLoading(true);
       setEnrichError(false);
-      enrichGraphNode(missionId, node.id)
+      enrichGraphNode(missionId, node.id, basePath)
         .then((r) => {
           enrichCache.current.set(node.id, r);
           setEnrich(r);
@@ -168,7 +182,7 @@ function ReadyGraph({
         .catch(() => setEnrichError(true))
         .finally(() => setEnrichLoading(false));
     },
-    [missionId]
+    [missionId, basePath]
   );
   const graphCardRef = useRef<HTMLDivElement>(null);
 

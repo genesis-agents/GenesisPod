@@ -10,6 +10,7 @@ import { CompanyMissionGateway } from "./api/controller/company-mission.gateway"
 import { CompanyRepository } from "./services/company.repository";
 import { CompanyService } from "./services/company.service";
 import { CompanyMissionService } from "./services/company-mission.service";
+import { CompanyMissionGraphService } from "./services/company-mission-graph.service";
 import { COMPANY_MISSION_EVENTS } from "./events/company.events";
 
 /**
@@ -40,6 +41,7 @@ import { COMPANY_MISSION_EVENTS } from "./events/company.events";
     CompanyRepository,
     CompanyService,
     CompanyMissionService,
+    CompanyMissionGraphService,
     CompanyMissionGateway,
   ],
   exports: [],

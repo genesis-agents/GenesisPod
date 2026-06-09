@@ -11230,3 +11230,20 @@ model CompanyMission {
   @@index([teamId])
   @@map("company_missions")
 }
+
+// ── CompanyMissionGraph ─────────────────────────────────────────────────────
+// 2026-06-08: company mission 的知识图谱产物（与 playground_mission_graphs 同形）。
+// 由平台共享 MissionGraphBuilderService 从 mission 报告正文构建后落库。
+model CompanyMissionGraph {
+  id          String   @id @default(uuid())
+  missionId   String   @unique @map("mission_id")
+  ownerId     String   @map("owner_id")
+  status      String   @default("NONE")
+  graph       Json
+  analyses    Json
+  generatedAt DateTime @default(now()) @map("generated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("company_mission_graphs")
+}

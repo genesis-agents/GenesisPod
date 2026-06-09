@@ -43,10 +43,16 @@ import {
   ApiQuery,
   ApiTags,
 } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import type { RequestWithUser } from "@/common/types/express-request.types";
+import type {
+  MissionGraphArtifact,
+  NodeEnrichment,
+} from "@/modules/ai-app/marketplace/graph";
 import { CompanyService } from "../../services/company.service";
 import { CompanyMissionService } from "../../services/company-mission.service";
+import { CompanyMissionGraphService } from "../../services/company-mission-graph.service";
 import {
   AcquireWorkflowDto,
   InstantiateTeamFromWorkflowDto,
@@ -71,6 +77,7 @@ export class CompanyController {
   constructor(
     private readonly companyService: CompanyService,
     private readonly missionService: CompanyMissionService,
+    private readonly graphService: CompanyMissionGraphService,
   ) {}
 
   // ── helpers ─────────────────────────────────────────────────────────────────
@@ -324,5 +331,42 @@ export class CompanyController {
   ) {
     await this.missionService.deleteMission(this.getUserId(req), id);
     return { success: true };
+  }
+
+  // ── mission graph（知识图谱，平台共享构建器）────────────────────────────────
+
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Get("missions/:id/graph")
+  @ApiOperation({ summary: "获取 Mission 知识图谱（未构建则 status=NONE）" })
+  async getMissionGraph(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+  ): Promise<MissionGraphArtifact> {
+    return this.graphService.getArtifact(this.getUserId(req), id);
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Post("missions/:id/graph")
+  @ApiOperation({
+    summary: "构建/重建 Mission 知识图谱（同步，2 次 LLM 调用）",
+  })
+  async buildMissionGraph(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+  ): Promise<MissionGraphArtifact> {
+    return this.graphService.build(this.getUserId(req), id);
+  }
+
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @Get("missions/:id/graph/node/:nodeId/enrich")
+  @ApiOperation({
+    summary: "按需综合单个图谱节点的实体画像（web-search + LLM）",
+  })
+  async enrichMissionGraphNode(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+    @Param("nodeId") nodeId: string,
+  ): Promise<NodeEnrichment> {
+    return this.graphService.enrichNode(this.getUserId(req), id, nodeId);
   }
 }

@@ -611,7 +611,10 @@ export function DeepInsightMissionDetail({
 
         {safeActiveTab === 'graph' &&
           (data.hasGraph ? (
-            <MissionGraphTab missionId={data.id} />
+            <MissionGraphTab
+              missionId={data.id}
+              basePath={data.graphBasePath}
+            />
           ) : (
             <div className="rounded-2xl border border-gray-100 bg-white p-10 text-center text-sm text-gray-500 shadow-sm">
               暂无图谱数据

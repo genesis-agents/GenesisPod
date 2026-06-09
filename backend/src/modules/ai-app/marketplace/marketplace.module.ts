@@ -16,6 +16,7 @@ import { JwtModule } from "@nestjs/jwt";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { CapabilityRegistry } from "./capability/capability-registry";
 import { DeepInsightDefaultRunner } from "./capabilities/deep-insight/deep-insight.runner";
+import { MissionGraphBuilderService } from "./graph/mission-graph-builder.service";
 import { MarketplaceCatalogService } from "./catalog/marketplace-catalog.service";
 import { MarketplaceController } from "./catalog/marketplace.controller";
 
@@ -43,7 +44,13 @@ import { MarketplaceController } from "./catalog/marketplace.controller";
     DeepInsightDefaultRunner,
     // 市场目录投影服务（registry → 货架）。
     MarketplaceCatalogService,
+    // 平台共享图谱构建器（报告正文 → 图谱）；playground / company 复用。
+    MissionGraphBuilderService,
   ],
-  exports: [CapabilityRegistry, MarketplaceCatalogService],
+  exports: [
+    CapabilityRegistry,
+    MarketplaceCatalogService,
+    MissionGraphBuilderService,
+  ],
 })
 export class MarketplaceModule {}
