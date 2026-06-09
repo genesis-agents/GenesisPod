@@ -97,6 +97,11 @@ export function MissionRunView() {
   const runningRef = useRef(false);
   // gallery 重载触发器：store missions 变化时 +1，让卡片随 WS 进度刷新
   const [galleryReload, setGalleryReload] = useState(0);
+  // 重命名弹窗（替代 window.prompt）
+  const [renameTarget, setRenameTarget] = useState<MissionListItem | null>(
+    null
+  );
+  const [renameValue, setRenameValue] = useState('');
 
   const { events: wsEvents } = useCompanyMissionStream(activeMissionId);
   // 详情态第二路订阅：为当前打开的报告 mission 订阅实时事件（注入 collab tab）
@@ -196,6 +201,15 @@ export function MissionRunView() {
   const fetchMissions = useCallback(async () => {
     return useCompanyStore.getState().missions.map(toListItem);
   }, []);
+
+  // 提交重命名（重命名弹窗确认 / 回车）
+  const submitRename = () => {
+    const next = renameValue.trim();
+    if (renameTarget && next && next !== renameTarget.topic) {
+      void renameMission(renameTarget.id, next);
+    }
+    setRenameTarget(null);
+  };
 
   // ── 详情态：整页 DeepInsightMissionDetail（L4 kit，吃归一契约）─────────
   const reportMission = missions.find((m) => m.id === reportMissionId) ?? null;
@@ -377,10 +391,8 @@ export function MissionRunView() {
         fetchMissions={fetchMissions}
         onMissionClick={(m) => setReportMissionId(m.id)}
         onEdit={(m) => {
-          const next = window.prompt('重命名任务：', m.topic);
-          if (next && next.trim() && next !== m.topic) {
-            void renameMission(m.id, next.trim());
-          }
+          setRenameTarget(m);
+          setRenameValue(m.topic);
         }}
         onDelete={(m) => void deleteMission(m.id)}
         searchPlaceholder="搜索任务标题…"
@@ -391,6 +403,34 @@ export function MissionRunView() {
         }}
         reloadKey={galleryReload}
       />
+
+      {/* 重命名弹窗（canonical Modal + Input + Button，替代 window.prompt）*/}
+      <Modal
+        open={!!renameTarget}
+        onClose={() => setRenameTarget(null)}
+        title="重命名任务"
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setRenameTarget(null)}>
+              取消
+            </Button>
+            <Button onClick={submitRename} disabled={!renameValue.trim()}>
+              保存
+            </Button>
+          </>
+        }
+      >
+        <Input
+          value={renameValue}
+          onChange={(e) => setRenameValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') submitRename();
+          }}
+          placeholder="任务标题"
+          autoFocus
+        />
+      </Modal>
     </>
   );
 }

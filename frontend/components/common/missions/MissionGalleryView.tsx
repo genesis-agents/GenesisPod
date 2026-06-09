@@ -22,12 +22,19 @@ import {
   Globe,
   Lock,
   Loader2,
+  Plus,
+  Search,
   Sparkles,
   Trophy,
   Users,
   XCircle,
 } from 'lucide-react';
 import { ErrorState } from '@/components/ui/states/ErrorState';
+import { EmptyState } from '@/components/ui/states/EmptyState';
+import { LoadingState } from '@/components/ui/states/LoadingState';
+import { Button } from '@/components/ui/primitives/button';
+import { Input } from '@/components/ui/form/Input';
+import { CreateCard } from '@/components/ui/cards/CreateCard';
 import {
   AssetCard,
   type AssetCardBadge,
@@ -111,38 +118,6 @@ const VISIBILITY_OPTIONS: Record<AssetVisibility, AssetVisibilityOption> = {
     className: 'bg-green-100 text-green-600',
   },
 };
-
-const SearchIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-    />
-  </svg>
-);
-
-const PlusIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M12 4v16m8-8H4"
-    />
-  </svg>
-);
 
 // ─── MissionCard（抽自 PlaygroundIndexPage）────────────────────────────────
 function MissionCard({
@@ -403,25 +378,21 @@ export function MissionGalleryView({
           iconShadowClass={iconShadowClass}
           actions={
             showSignInPrompt ? null : (
-              <button
-                type="button"
-                onClick={onCreateMission}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-xl hover:shadow-violet-500/30"
-              >
-                <PlusIcon className="h-5 w-5" />
+              <Button onClick={onCreateMission}>
+                <Plus className="mr-2 h-5 w-5" />
                 {createButtonLabel}
-              </button>
+              </Button>
             )
           }
         >
           <div className="relative">
-            <SearchIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
+            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <Input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={searchPlaceholder}
-              className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+              className="rounded-xl py-3 pl-12"
             />
           </div>
         </PageHeaderHero>
@@ -435,37 +406,33 @@ export function MissionGalleryView({
             description="登录或注册后即可启动多智能体研究 mission、查看历史记录与结果"
           />
         ) : loading ? (
-          <div className="rounded-xl border border-dashed border-gray-200 bg-white p-12 text-center">
-            <Loader2 className="mx-auto mb-3 h-7 w-7 animate-spin text-gray-400" />
-            <p className="text-sm text-gray-500">加载 mission 历史…</p>
-          </div>
+          <LoadingState text="加载 mission 历史…" />
         ) : error ? (
           <ErrorState error={error} title="加载失败" onRetry={triggerReload} />
         ) : filtered.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gray-200 bg-white p-12 text-center">
-            <Sparkles className="mx-auto mb-3 h-10 w-10 text-violet-300" />
-            <h3 className="text-lg font-semibold text-gray-900">
-              {missions.length === 0
+          <EmptyState
+            type="noData"
+            icon={<Sparkles className="h-10 w-10 text-gray-300" />}
+            title={
+              missions.length === 0
                 ? (emptyState?.title ?? '还没有 Mission')
-                : '没有匹配项'}
-            </h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {missions.length === 0
+                : '没有匹配项'
+            }
+            description={
+              missions.length === 0
                 ? (emptyState?.hint ??
                   '基于 Harness runtime 启动你的第一个研究 mission')
-                : '换个关键字试试'}
-            </p>
-            {missions.length === 0 && (
-              <button
-                type="button"
-                onClick={onCreateMission}
-                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-500/25"
-              >
-                <PlusIcon className="h-5 w-5" />
-                {emptyState?.ctaLabel ?? '启动研究 Mission'}
-              </button>
-            )}
-          </div>
+                : '换个关键字试试'
+            }
+            action={
+              missions.length === 0
+                ? {
+                    label: emptyState?.ctaLabel ?? '启动研究 Mission',
+                    onClick: onCreateMission,
+                  }
+                : undefined
+            }
+          />
         ) : (
           <>
             {/* 2026-05-13 #67: 删除"可继续 banner" —— 续跑入口迁到详情页 */}
@@ -492,16 +459,7 @@ export function MissionGalleryView({
                   }
                 />
               ))}
-              <button
-                type="button"
-                onClick={onCreateMission}
-                className="flex h-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-violet-400 hover:bg-violet-50"
-              >
-                <PlusIcon className="h-10 w-10 text-gray-400" />
-                <span className="mt-2 text-sm font-medium text-gray-600">
-                  {createButtonLabel}
-                </span>
-              </button>
+              <CreateCard title={createButtonLabel} onClick={onCreateMission} />
             </div>
           </>
         )}
