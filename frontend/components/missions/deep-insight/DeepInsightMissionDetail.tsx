@@ -726,6 +726,7 @@ const STEP_STATUS_TO_TODO: Record<
   done: 'done',
   failed: 'failed',
   skipped: 'cancelled',
+  running: 'in_progress',
 };
 
 /**

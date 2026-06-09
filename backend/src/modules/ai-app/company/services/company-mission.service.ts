@@ -75,6 +75,14 @@ export class CompanyMissionService {
    * pod 只翻 DB 状态，原 pod 的 run 由下次心跳/终态收口（已知局限，待共享信号补强）。
    */
   private readonly abortControllers = new Map<string, AbortController>();
+  /**
+   * 协作动态事件缓存（按 missionId）。run 期间累积 agent/stage 级事件，
+   * 终态时落 result.collab 供详情重开回放（解决 live WS 流断开后协作动态丢失）。
+   */
+  private readonly collabBuffers = new Map<
+    string,
+    Array<{ type: string; payload: unknown; timestamp: number }>
+  >();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -239,6 +247,7 @@ export class CompanyMissionService {
       });
     } finally {
       this.abortControllers.delete(missionId);
+      this.collabBuffers.delete(missionId);
     }
   }
 
@@ -543,6 +552,9 @@ export class CompanyMissionService {
       };
     });
 
+    // 协作动态：累积的 agent/stage 事件落库，详情重开可回放。
+    const collab = toJson(this.collabBuffers.get(missionId) ?? []);
+
     if (result.status === "completed") {
       await this.updateMission(missionId, {
         status: "done",
@@ -552,6 +564,7 @@ export class CompanyMissionService {
           references: toJson(result.references ?? []),
           dimensions: dimNames,
           steps: toJson(dimSteps),
+          collab,
           usage: {
             totalTokens: result.usage?.totalTokens ?? 0,
             totalCostCents: result.usage?.totalCostCents ?? 0,
@@ -578,6 +591,7 @@ export class CompanyMissionService {
         error: message,
         dimensions: dimNames,
         steps: toJson(dimSteps),
+        collab,
         failedAt: new Date().toISOString(),
       },
     });
@@ -1018,12 +1032,22 @@ export class CompanyMissionService {
     userId: string,
     payload: Record<string, unknown>,
   ): Promise<void> {
+    const timestamp = Date.now();
+    // 协作动态持久化：缓存 agent/stage 级事件，mission 终态时落库 result.collab，
+    // 重开详情可回放（live WS 流断开后不再丢）。封顶 500 条防膨胀。
+    if (type.startsWith("company.agent") || type.startsWith("company.stage")) {
+      const buf = this.collabBuffers.get(missionId) ?? [];
+      if (buf.length < 500) {
+        buf.push({ type, payload, timestamp });
+        this.collabBuffers.set(missionId, buf);
+      }
+    }
     await this.eventBus
       .emit({
         type,
         scope: { missionId, userId },
         payload,
-        timestamp: Date.now(),
+        timestamp,
       })
       .catch((err: unknown) => {
         this.log.warn(

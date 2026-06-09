@@ -163,7 +163,7 @@ export interface MissionStep {
   label: string;
   role: string;
   dimension?: string;
-  status: 'done' | 'failed' | 'skipped';
+  status: 'done' | 'failed' | 'skipped' | 'running';
   tokens?: number;
   costCents?: number;
 }
@@ -446,6 +446,8 @@ export interface MissionReportResultLike {
   reconciliationReport?: string;
   steps?: MissionStep[];
   usage?: ComputeUsage;
+  /** 持久化协作动态事件（终态落库；详情重开时回放，live WS 断开后不丢）。 */
+  collab?: unknown[];
   /** 失败时后端写入的真实错误信息（runMission catch → result.error）。 */
   error?: string;
   /** 完成时刻 ISO（runViaCapability 写入 completedAt）；算真实运行耗时。 */
@@ -506,11 +508,68 @@ function companyMissionStatus(
 }
 
 /**
- * company deepdive 静态结果 → DeepInsightMissionView。
+ * 从实时事件流派生 live 任务列表（mission 运行中、result.steps 尚未落库时用）。
+ * 让"任务列表"tab 在运行中就逐个展示：意图理解→各维度研究→综合评审，并逐个推进，
+ * 而不是一直空白等结束。事件来自 company.stage:lifecycle / company.agent:lifecycle。
+ */
+function deriveLiveSteps(events: unknown[]): MissionStep[] {
+  type Ev = { type?: string; payload?: Record<string, unknown> };
+  const evs = (events ?? []) as Ev[];
+  let planning: 'running' | 'done' | undefined;
+  let review: 'running' | 'done' | undefined;
+  const dimOrder: string[] = [];
+  const dimStatus = new Map<string, 'running' | 'done' | 'failed'>();
+
+  for (const e of evs) {
+    const p = e.payload ?? {};
+    if (e.type === 'company.stage:lifecycle') {
+      const done = p.status === 'completed';
+      if (p.stage === 'planning')
+        planning = done ? 'done' : (planning ?? 'running');
+      else if (p.stage === 'review')
+        review = done ? 'done' : (review ?? 'running');
+    } else if (e.type === 'company.agent:lifecycle') {
+      const dim = typeof p.dimension === 'string' ? p.dimension : undefined;
+      const phase = typeof p.phase === 'string' ? p.phase : undefined;
+      if (dim) {
+        if (!dimStatus.has(dim)) dimOrder.push(dim);
+        if (phase === 'completed') dimStatus.set(dim, 'done');
+        else if (phase === 'failed') dimStatus.set(dim, 'failed');
+        else if ((dimStatus.get(dim) ?? 'running') === 'running')
+          dimStatus.set(dim, 'running');
+      }
+    }
+  }
+
+  const steps: MissionStep[] = [];
+  if (planning)
+    steps.push({
+      label: '意图理解 · 维度拆解',
+      role: 'Leader',
+      status: planning === 'done' ? 'done' : 'running',
+    });
+  for (const dim of dimOrder)
+    steps.push({
+      label: dim,
+      role: 'Researcher',
+      dimension: dim,
+      status: dimStatus.get(dim) ?? 'running',
+    });
+  if (review)
+    steps.push({
+      label: '综合评审',
+      role: 'Reviewer',
+      status: review === 'done' ? 'done' : 'running',
+    });
+  return steps;
+}
+
+/**
+ * company deepdive 结果 → DeepInsightMissionView。
  *
- * 按 companyDataGap 降级：缺 live agent/stage/events/graph → 造静态全 completed
- * 拓扑、空 events（collab 隐藏）、hasGraph=false（graph 隐藏）；
- * cost.byStage / memory / dimensionPipelines 留空（cost tab 显汇总条）。
+ * 运行中：从实时事件派生 live 任务列表 + live 拓扑（逐个推进）。
+ * 终态：用持久化 result.steps + 全 completed 拓扑。
+ * cost.byStage / memory 留空（cost tab 显汇总条）。
  */
 export function fromCompanyMissionResult(
   input: CompanyMissionInput
@@ -518,7 +577,16 @@ export function fromCompanyMissionResult(
   const result = input.result ?? {};
   const review = result.review ?? null;
   const dimensions = result.dimensions ?? [];
-  const steps = result.steps ?? [];
+  const persistedSteps = result.steps ?? [];
+  const isTerminal =
+    input.status === 'done' ||
+    input.status === 'failed' ||
+    input.status === 'cancelled';
+  // 运行中 result.steps 尚未落库 → 用事件派生 live 任务，逐个展示并推进。
+  const steps =
+    persistedSteps.length > 0
+      ? persistedSteps
+      : deriveLiveSteps(input.events ?? []);
   const references = result.references ?? [];
   const facts = result.factTable ?? [];
 
@@ -576,7 +644,7 @@ export function fromCompanyMissionResult(
     status: companyStatus(input.status),
     statusDetail: undefined,
     createdAt: input.createdAt,
-    team: buildDeepInsightTopology(dimNames, true),
+    team: buildDeepInsightTopology(dimNames, isTerminal),
     steps,
     usage: result.usage,
     actions: input.actions,
@@ -601,7 +669,11 @@ export function fromCompanyMissionResult(
     failedMessage:
       companyStatus(input.status) === 'failed' ? result.error : undefined,
     // 右侧 tab
-    events: input.events ?? [],
+    // live WS 事件优先；无（重开已完成任务）→ 回放持久化的 result.collab。
+    events:
+      input.events && input.events.length > 0
+        ? input.events
+        : (result.collab ?? []),
     reportArtifact: undefined,
     report: result.summary,
     dimensionPipelines: [],
