@@ -110,8 +110,11 @@ function Field({
 
 export function MissionRunView({
   embedded = false,
+  onDetailOpenChange,
 }: {
   embedded?: boolean;
+  /** 进入/退出任务详情态时上报父级（嵌「我的团队」时用于隐藏团队页头 + Tab）。 */
+  onDetailOpenChange?: (open: boolean) => void;
 } = {}) {
   const {
     heroes,
@@ -165,6 +168,12 @@ export function MissionRunView({
     void loadMissions();
     void loadHeroes();
   }, [loadCompany, loadMissions, loadHeroes]);
+
+  // 详情态开关上报父级：进入任务详情（整屏 DeepInsightMissionDetail）时，
+  // 让「我的团队」隐藏页头 + Tab，详情全屏接管。
+  useEffect(() => {
+    onDetailOpenChange?.(reportMissionId !== null);
+  }, [reportMissionId, onDetailOpenChange]);
 
   // 运行中打开详情：每 3s 刷新该任务的持久化结果（后端实时落 result.steps/collab），
   // 让任务列表/协作动态逐个推进且持久化（刷新/重开仍在，非事后补）。

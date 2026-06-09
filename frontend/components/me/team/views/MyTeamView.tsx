@@ -18,40 +18,44 @@ type TeamTab = 'roster' | 'missions';
  */
 export function MyTeamView() {
   const [tab, setTab] = useState<TeamTab>('roster');
+  // 任务详情态：进入整屏 mission 详情时隐藏团队页头 + Tab，让详情全屏接管。
+  const [detailOpen, setDetailOpen] = useState(false);
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-gray-50/50">
-      <div className="flex-shrink-0">
-        <PageHeaderHero
-          module="ask"
-          icon={<Users className="h-7 w-7 text-white" />}
-          title="我的团队"
-          subtitle="麾下专家各司其职，配好模型即可下任务，调遣他们替你完成深度工作"
-          actions={
-            <Button asChild variant="outline" size="sm">
-              <Link href="/marketplace">
-                <Store className="mr-2 h-4 w-4" />
-                去专家市场
-              </Link>
-            </Button>
-          }
-        >
-          <Tabs
-            items={[
-              { key: 'roster', label: '我的专家', icon: Crown },
-              { key: 'missions', label: '专家任务', icon: ListChecks },
-            ]}
-            value={tab}
-            onChange={(k) => setTab(k as TeamTab)}
-          />
-        </PageHeaderHero>
-      </div>
+      {!detailOpen && (
+        <div className="flex-shrink-0">
+          <PageHeaderHero
+            module="ask"
+            icon={<Users className="h-7 w-7 text-white" />}
+            title="我的团队"
+            subtitle="麾下专家各司其职，配好模型即可下任务，调遣他们替你完成深度工作"
+            actions={
+              <Button asChild variant="outline" size="sm">
+                <Link href="/marketplace">
+                  <Store className="mr-2 h-4 w-4" />
+                  去专家市场
+                </Link>
+              </Button>
+            }
+          >
+            <Tabs
+              items={[
+                { key: 'roster', label: '我的专家', icon: Crown },
+                { key: 'missions', label: '专家任务', icon: ListChecks },
+              ]}
+              value={tab}
+              onChange={(k) => setTab(k as TeamTab)}
+            />
+          </PageHeaderHero>
+        </div>
+      )}
 
       <div className="min-h-0 flex-1 overflow-hidden">
         {tab === 'roster' ? (
           <HeroRosterView onDispatch={() => setTab('missions')} />
         ) : (
-          <MissionRunView embedded />
+          <MissionRunView embedded onDetailOpenChange={setDetailOpen} />
         )}
       </div>
     </div>
