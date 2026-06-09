@@ -37,6 +37,8 @@ export interface CapabilityRunEvent {
     | "stage:started"
     | "stage:completed"
     | "stage:failed"
+    | "stage:degraded"
+    | "stage:stalled"
     | "agent-lifecycle"
     /**
      * 过程级 agent 事件（流式中间态，区别于完成快照 'agent-lifecycle'）。
@@ -59,6 +61,88 @@ export interface CapabilityRunEvent {
   readonly timestamp: number;
   /** agent-lifecycle / agent-trace 事件的补充载荷（含 agentId / tokensUsed / costCents / modelTrail 等）。 */
   readonly payload?: Record<string, unknown>;
+  /**
+   * 结构化阶段元数据（消费方可选消费；14 阶段点亮 + 计费用）。
+   * systemStageId 是前端 14-chip 点亮锚点（如 s1-budget … s11-persist）。
+   */
+  readonly telemetry?: {
+    readonly systemStageId?: string;
+    readonly tokensUsed?: number;
+    readonly costCents?: number;
+    readonly dimension?: string;
+    readonly agentId?: string;
+    readonly phase?: "started" | "completed" | "failed";
+  };
+}
+
+/** 终态写入细节（消费方落库 + 终态仲裁用）。 */
+export interface MissionTerminalDetails {
+  readonly report?: unknown;
+  readonly reportArtifact?: unknown;
+  readonly themeSummary?: string;
+  readonly dimensions?: ReadonlyArray<unknown>;
+  readonly verdicts?: unknown;
+  readonly leaderSignOff?: unknown;
+  readonly finalScore?: number;
+  readonly elapsedWallTimeMs?: number;
+  readonly tokensUsed?: number;
+  readonly costCents?: number;
+  readonly errorMessage?: string;
+  readonly failureCode?: string;
+}
+
+/**
+ * MissionPersistencePort —— 多阶段执行的持久化契约（**消费方注入**）。
+ *
+ * 能力内核执行期不碰任何 app DB：中间态走 harness CrossStageState；
+ * 仅 checkpoint/resume + 终态仲裁经此端口由消费方落库（company 落 company 库、
+ * playground 落 MissionStore）。是 harness IMissionStore 的"能力侧最小投影 +
+ * terminal arbiter 扩展"——消费方可让自家 store 一套实现同时满足两个视图。
+ *
+ * 缺省（不注入）→ runner 用内存实现纯跑、不落库。
+ */
+export interface MissionPersistencePort {
+  // ── 核心：crash-resume（MUST）──
+  markStageProgress(missionId: string, stepId: string): Promise<void>;
+  saveCheckpoint(
+    missionId: string,
+    snapshot: {
+      lastStepId: string;
+      topic: string;
+      crossState: Readonly<Record<string, unknown>>;
+    },
+  ): Promise<boolean>;
+  loadCheckpoint(missionId: string): Promise<{
+    lastStepId: string;
+    topic: string;
+    crossState: Readonly<Record<string, unknown>>;
+  } | null>;
+  clearCheckpoint(missionId: string): Promise<void>;
+
+  // ── 终态：条件写仲裁（MUST；WHERE status='running' 首写赢）──
+  applyTerminalIfRunning(
+    missionId: string,
+    outcome: "completed" | "failed" | "cancelled",
+    details: MissionTerminalDetails,
+  ): Promise<boolean>;
+
+  // ── 可选：trajectory（UI 展示 / 重跑复用，能力内核不依赖）──
+  saveResearchResult?(args: {
+    missionId: string;
+    dimension: string;
+    findings: ReadonlyArray<unknown>;
+    summary: string;
+    state: "completed" | "failed";
+  }): Promise<boolean>;
+  saveReportVersion?(args: {
+    missionId: string;
+    triggerType: "initial" | "rerun-fresh";
+    reportFull?: unknown;
+    reportTitle?: string;
+    reportSummary?: string;
+    finalScore?: number;
+    leaderSigned?: boolean;
+  }): Promise<number>;
 }
 
 /** 执行上下文（归属 + 关联 + 流式回调 + 取消）。 */
@@ -70,6 +154,11 @@ export interface CapabilityRunContext {
   /** 流式事件回调。 */
   readonly onEvent?: (event: CapabilityRunEvent) => void | Promise<void>;
   readonly signal?: AbortSignal;
+  /**
+   * 消费方注入的持久化端口（checkpoint/resume + 终态仲裁）。
+   * 缺省 → runner 用内存实现纯跑、不落库。事件仍全过 onEvent，不另加注入对象。
+   */
+  readonly persistence?: MissionPersistencePort;
 }
 
 /** 能力执行结果（消费方据此写自己的运行记录）。 */
