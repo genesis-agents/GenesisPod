@@ -10,15 +10,15 @@
     "frontend/lib/design/tokens.ts"
   ],
   "totals": {
-    "all": 1903,
+    "all": 1905,
     "byLayer": {
-      "engine": 521,
+      "engine": 523,
       "frontend": 244,
       "harness": 1088,
       "platform": 50
     },
     "byDomain": {
-      "engine/content": 199,
+      "engine/content": 201,
       "engine/credentials": 17,
       "engine/facade": 39,
       "engine/knowledge": 28,
@@ -395,6 +395,22 @@
       "domain": "content",
       "source": "backend/src/modules/ai-engine/content/figure/index.ts",
       "import": "import { FigureExtractorService } from \"@/modules/ai-engine/facade\";"
+    },
+    {
+      "name": "FigureRelevanceConfig",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "content",
+      "source": "backend/src/modules/ai-engine/content/figure/index.ts",
+      "import": "import { FigureRelevanceConfig } from \"@/modules/ai-engine/facade\";"
+    },
+    {
+      "name": "FigureRelevanceService",
+      "kind": "value",
+      "layer": "engine",
+      "domain": "content",
+      "source": "backend/src/modules/ai-engine/content/figure/index.ts",
+      "import": "import { FigureRelevanceService } from \"@/modules/ai-engine/facade\";"
     },
     {
       "name": "ForeignLanguageBlock",
