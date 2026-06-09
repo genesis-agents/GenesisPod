@@ -97,6 +97,9 @@ export function MissionRunView() {
   const [galleryReload, setGalleryReload] = useState(0);
 
   const { events: wsEvents } = useCompanyMissionStream(activeMissionId);
+  // 详情态第二路订阅：为当前打开的报告 mission 订阅实时事件（注入 collab tab）
+  const { events: reportMissionEvents } =
+    useCompanyMissionStream(reportMissionId);
 
   // 首次加载：公司快照（团队/成员）+ 已有任务
   useEffect(() => {
@@ -206,6 +209,7 @@ export function MissionRunView() {
       result: reportResult,
       depth: reportResult?.depth,
       language: reportResult?.language,
+      events: reportMissionEvents,
       actions: [
         {
           variant: 'primary',

@@ -32,12 +32,26 @@ export interface CapabilityRunEvent {
     | "stage:completed"
     | "stage:failed"
     | "agent-lifecycle"
+    /**
+     * 过程级 agent 事件（流式中间态，区别于完成快照 'agent-lifecycle'）。
+     * 来自 IAgentEvent relay，纯流式不落库。
+     * payload 承载翻译后的 {kind, text, role, tag, dimension, toolId}。
+     * kind 值：
+     *   - 'lifecycle-started'    agent 启动卡片（phase='started'）
+     *   - 'lifecycle-completed'  agent 完成卡片（phase='completed'）
+     *   - 'lifecycle-failed'     agent 失败卡片（phase='failed'）
+     *   - 'thinking'             LLM 思考步骤
+     *   - 'action_planned'       决定调用工具
+     *   - 'action_executed'      工具调用完成
+     *   - 'error'                错误事件（tag='error'）
+     */
+    | "agent-trace"
     | "completed"
     | "failed";
   readonly stepId?: string;
   readonly label?: string;
   readonly timestamp: number;
-  /** agent-lifecycle 事件的补充载荷（含 agentId / tokensUsed / costCents / modelTrail 等）。 */
+  /** agent-lifecycle / agent-trace 事件的补充载荷（含 agentId / tokensUsed / costCents / modelTrail 等）。 */
   readonly payload?: Record<string, unknown>;
 }
 

@@ -18,7 +18,9 @@ import {
 } from "@nestjs/websockets";
 import type { Server, Socket } from "socket.io";
 import { JwtService } from "@nestjs/jwt";
+import { z } from "zod";
 import { EventBus, SocketBroadcastAdapter } from "@/modules/ai-harness/facade";
+import { EventRegistry } from "@/modules/ai-harness/facade";
 import { wsCorsOrigin } from "@/common/config/ws-cors";
 import { CacheService } from "@/common/cache/cache.service";
 import { BLOCKLIST_PREFIX } from "@/modules/platform/auth/strategies/jwt.strategy";
@@ -41,6 +43,7 @@ export class CompanyMissionGateway implements OnGatewayInit {
     private readonly eventBus: EventBus,
     private readonly jwt: JwtService,
     private readonly cache: CacheService,
+    private readonly eventRegistry: EventRegistry,
   ) {}
 
   afterInit(): void {
@@ -52,6 +55,42 @@ export class CompanyMissionGateway implements OnGatewayInit {
         roomPrefix: "company",
       }),
     );
+
+    // 注册 agent-trace 衍生事件类型（company.module.ts COMPANY_MISSION_EVENTS 不含，补在此处）
+    // registerAll 遇已注册的 type 会 warn 并覆盖，EventRegistry.register 已有此语义。
+    this.eventRegistry.registerAll([
+      {
+        type: "company.agent:lifecycle",
+        schema: z
+          .object({
+            phase: z.string().optional(),
+            role: z.string().optional(),
+          })
+          .passthrough(),
+      },
+      {
+        type: "company.agent:narrative",
+        schema: z
+          .object({
+            text: z.string(),
+            role: z.string().optional(),
+            tag: z.string().optional(),
+            dimension: z.string().optional(),
+          })
+          .passthrough(),
+      },
+      // 放宽 company.stage:lifecycle schema，允许携带 label 字段（原 schema 仅 stage+status）
+      {
+        type: "company.stage:lifecycle",
+        schema: z
+          .object({
+            stage: z.string(),
+            status: z.string(),
+          })
+          .passthrough(),
+      },
+    ]);
+
     this.log.log("CompanyMissionGateway initialized (namespace=company)");
   }
 

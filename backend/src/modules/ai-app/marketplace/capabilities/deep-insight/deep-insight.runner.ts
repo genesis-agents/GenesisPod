@@ -20,6 +20,7 @@ import {
   ChatFacade,
   CapabilityRegistry,
   AIModelType,
+  type IAgentEvent,
   type CapabilityManifest,
   type ICapabilityRunner,
   type CapabilityRunInput,
@@ -103,6 +104,83 @@ export class DeepInsightDefaultRunner
       payload?: Record<string, unknown>,
     ) => ctx.onEvent?.({ type, stepId, label, timestamp: Date.now(), payload });
 
+    /**
+     * IAgentEvent → CapabilityRunEvent(agent-trace) relay。
+     * 把 harness 真实 agent 事件（thinking/action_planned/action_executed/error）
+     * 翻译成 agent-trace 类型事件经 ctx.onEvent 上抛。
+     * relay 内部 try-catch 吞错，失败不拖死 run。
+     */
+    const relayAgentEvent = (
+      stepId: string,
+      role: string,
+      dimension: string | undefined,
+      ev: IAgentEvent,
+    ) => {
+      try {
+        let kind: string;
+        let text: string | undefined;
+        let tag: string | undefined;
+        let toolId: string | undefined;
+
+        switch (ev.type) {
+          case "thinking": {
+            kind = "thinking";
+            const p = ev.payload as
+              | { text?: string; content?: string }
+              | undefined;
+            text = p?.text ?? p?.content ?? undefined;
+            break;
+          }
+          case "action_planned": {
+            kind = "action_planned";
+            const p = ev.payload as
+              | { action?: { toolId?: string; description?: string } }
+              | undefined;
+            toolId = p?.action?.toolId;
+            text = p?.action?.description ?? toolId;
+            break;
+          }
+          case "action_executed": {
+            kind = "action_executed";
+            const p = ev.payload as
+              | { action?: { toolId?: string }; result?: unknown }
+              | undefined;
+            toolId = p?.action?.toolId;
+            text = toolId ? `Tool ${toolId} executed` : "Action executed";
+            break;
+          }
+          case "error": {
+            kind = "error";
+            tag = "error";
+            const p = ev.payload as { message?: string } | undefined;
+            text = p?.message ?? "Agent error";
+            break;
+          }
+          default:
+            // 其余事件类型（output/terminated/tools_recalled 等）不向上传
+            return;
+        }
+
+        void ctx.onEvent?.({
+          type: "agent-trace",
+          stepId,
+          label: dimension,
+          timestamp: ev.timestamp ?? Date.now(),
+          payload: {
+            kind,
+            ...(text !== undefined ? { text } : {}),
+            role,
+            ...(tag !== undefined ? { tag } : {}),
+            ...(dimension !== undefined ? { dimension } : {}),
+            ...(toolId !== undefined ? { toolId } : {}),
+            agentId: ev.agentId,
+          },
+        });
+      } catch {
+        // relay 失败不拖死 run
+      }
+    };
+
     const Researcher = resolveAgentSpec("playground.researcher");
     const Reconciler = resolveAgentSpec("playground.reconciler");
     const Analyst = resolveAgentSpec("playground.analyst");
@@ -140,15 +218,36 @@ export class DeepInsightDefaultRunner
       void emit("stage:started", "research", "并发调研");
       const outcomes = await Promise.all(
         plan.dimensions.map(async (d) => {
+          // 发送 lifecycle-started 启动卡片
+          void ctx.onEvent?.({
+            type: "agent-trace",
+            stepId: "research",
+            label: d.name,
+            timestamp: Date.now(),
+            payload: {
+              kind: "lifecycle-started",
+              role: "researcher",
+              dimension: d.name,
+              phase: "started",
+            },
+          });
           try {
             const r = await this.agentRunner.run(
               Researcher,
               { topic, dimension: d.name, language, withFigures: false },
-              { userId, ...(preferredModelId ? { preferredModelId } : {}) },
+              {
+                userId,
+                ...(preferredModelId ? { preferredModelId } : {}),
+                onEvent: (ev: IAgentEvent) => {
+                  relayAgentEvent("research", "researcher", d.name, ev);
+                },
+              },
             );
             void emit("agent-lifecycle", "research", d.name, {
               agentId: "researcher",
               dimension: d.name,
+              role: "researcher",
+              phase: r.state === "completed" ? "completed" : "failed",
               state: r.state,
               tokensUsed: r.tokensUsed.total,
               costCents: r.costCents,
@@ -159,6 +258,13 @@ export class DeepInsightDefaultRunner
             this.log.warn(
               `researcher "${d.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
             );
+            void emit("agent-lifecycle", "research", d.name, {
+              agentId: "researcher",
+              dimension: d.name,
+              role: "researcher",
+              phase: "failed",
+              state: "failed",
+            });
             return { dimension: d.name, output: null, ok: false, t: null };
           }
         }),
@@ -182,16 +288,35 @@ export class DeepInsightDefaultRunner
       void emit("stage:started", "reconcile", "跨维对账");
       let rec: ReconResult | null = null;
       if (Reconciler) {
+        void ctx.onEvent?.({
+          type: "agent-trace",
+          stepId: "reconcile",
+          label: "跨维对账",
+          timestamp: Date.now(),
+          payload: {
+            kind: "lifecycle-started",
+            role: "reconciler",
+            phase: "started",
+          },
+        });
         try {
           const r = await this.agentRunner.run(
             Reconciler,
             { topic, language, plan, researcherResults },
-            { userId, ...(preferredModelId ? { preferredModelId } : {}) },
+            {
+              userId,
+              ...(preferredModelId ? { preferredModelId } : {}),
+              onEvent: (ev: IAgentEvent) => {
+                relayAgentEvent("reconcile", "reconciler", undefined, ev);
+              },
+            },
           );
           rec = r.output as ReconResult;
           tally(r.tokensUsed, r.costCents);
           void emit("agent-lifecycle", "reconcile", "跨维对账", {
             agentId: "reconciler",
+            role: "reconciler",
+            phase: r.state === "completed" ? "completed" : "failed",
             state: r.state,
             tokensUsed: r.tokensUsed.total,
             costCents: r.costCents,
@@ -207,6 +332,17 @@ export class DeepInsightDefaultRunner
 
       // ── analyze：综合洞察 ────────────────────────────────────────────────────
       void emit("stage:started", "analyze", "综合分析");
+      void ctx.onEvent?.({
+        type: "agent-trace",
+        stepId: "analyze",
+        label: "综合分析",
+        timestamp: Date.now(),
+        payload: {
+          kind: "lifecycle-started",
+          role: "analyst",
+          phase: "started",
+        },
+      });
       const analystRes = await this.agentRunner.run(
         Analyst,
         {
@@ -220,11 +356,19 @@ export class DeepInsightDefaultRunner
             gaps: rec?.gaps ?? [],
           },
         },
-        { userId, ...(preferredModelId ? { preferredModelId } : {}) },
+        {
+          userId,
+          ...(preferredModelId ? { preferredModelId } : {}),
+          onEvent: (ev: IAgentEvent) => {
+            relayAgentEvent("analyze", "analyst", undefined, ev);
+          },
+        },
       );
       tally(analystRes.tokensUsed, analystRes.costCents);
       void emit("agent-lifecycle", "analyze", "综合分析", {
         agentId: "analyst",
+        role: "analyst",
+        phase: analystRes.state === "completed" ? "completed" : "failed",
         state: analystRes.state,
         tokensUsed: analystRes.tokensUsed.total,
         costCents: analystRes.costCents,
@@ -239,6 +383,17 @@ export class DeepInsightDefaultRunner
 
       // ── write：撰写报告 ──────────────────────────────────────────────────────
       void emit("stage:started", "write", "撰写报告");
+      void ctx.onEvent?.({
+        type: "agent-trace",
+        stepId: "write",
+        label: "撰写报告",
+        timestamp: Date.now(),
+        payload: {
+          kind: "lifecycle-started",
+          role: "writer",
+          phase: "started",
+        },
+      });
       const writerRes = await this.agentRunner.run(
         Writer,
         {
@@ -251,11 +406,19 @@ export class DeepInsightDefaultRunner
             ? { contradictions: analysis.contradictions }
             : {}),
         },
-        { userId, ...(preferredModelId ? { preferredModelId } : {}) },
+        {
+          userId,
+          ...(preferredModelId ? { preferredModelId } : {}),
+          onEvent: (ev: IAgentEvent) => {
+            relayAgentEvent("write", "writer", undefined, ev);
+          },
+        },
       );
       tally(writerRes.tokensUsed, writerRes.costCents);
       void emit("agent-lifecycle", "write", "撰写报告", {
         agentId: "writer",
+        role: "writer",
+        phase: writerRes.state === "completed" ? "completed" : "failed",
         state: writerRes.state,
         tokensUsed: writerRes.tokensUsed.total,
         costCents: writerRes.costCents,
@@ -268,16 +431,35 @@ export class DeepInsightDefaultRunner
       void emit("stage:started", "review", "质量评审");
       let reviewerOutput: unknown = null;
       if (Reviewer) {
+        void ctx.onEvent?.({
+          type: "agent-trace",
+          stepId: "review",
+          label: "质量评审",
+          timestamp: Date.now(),
+          payload: {
+            kind: "lifecycle-started",
+            role: "reviewer",
+            phase: "started",
+          },
+        });
         try {
           const r = await this.agentRunner.run(
             Reviewer,
             { topic, language, draftReport: report },
-            { userId, ...(preferredModelId ? { preferredModelId } : {}) },
+            {
+              userId,
+              ...(preferredModelId ? { preferredModelId } : {}),
+              onEvent: (ev: IAgentEvent) => {
+                relayAgentEvent("review", "reviewer", undefined, ev);
+              },
+            },
           );
           tally(r.tokensUsed, r.costCents);
           reviewerOutput = r.output;
           void emit("agent-lifecycle", "review", "质量评审", {
             agentId: "reviewer",
+            role: "reviewer",
+            phase: r.state === "completed" ? "completed" : "failed",
             state: r.state,
             tokensUsed: r.tokensUsed.total,
             costCents: r.costCents,

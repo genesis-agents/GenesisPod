@@ -448,12 +448,69 @@ export class CompanyMissionService {
         });
       }
     } else if (event.type === "agent-lifecycle") {
-      // agent 级生命周期事件：桥转到 company.agent:lifecycle 供前端实时展示 token/model 进度
+      // 完成快照：桥转到 company.agent:lifecycle 供前端实时展示 token/model 进度
+      const p = event.payload ?? {};
+      const state = typeof p.state === "string" ? p.state : undefined;
+      const phase =
+        typeof p.phase === "string"
+          ? p.phase
+          : state === "succeeded" || state === "completed"
+            ? "completed"
+            : state === "failed"
+              ? "failed"
+              : "completed";
+      const role =
+        typeof p.role === "string" ? p.role : (p.agentId as string | undefined);
       await this.emit("company.agent:lifecycle", missionId, userId, {
         stepId: event.stepId,
         label: event.label,
-        ...(event.payload ?? {}),
+        phase,
+        role,
+        ...p,
       });
+    } else if (event.type === "agent-trace") {
+      // 过程级 agent 事件：按 kind 分流
+      const p = event.payload ?? {};
+      const kind = typeof p.kind === "string" ? p.kind : "";
+      const role = typeof p.role === "string" ? p.role : undefined;
+      const dimension =
+        typeof p.dimension === "string" ? p.dimension : undefined;
+
+      if (
+        kind === "lifecycle-started" ||
+        kind === "lifecycle-completed" ||
+        kind === "lifecycle-failed"
+      ) {
+        // 生命周期节点 → company.agent:lifecycle
+        const phase =
+          kind === "lifecycle-started"
+            ? "started"
+            : kind === "lifecycle-completed"
+              ? "completed"
+              : "failed";
+        await this.emit("company.agent:lifecycle", missionId, userId, {
+          phase,
+          role,
+          ...(dimension !== undefined ? { dimension } : {}),
+          ...(typeof p.agentId === "string" ? { agentId: p.agentId } : {}),
+          ...(typeof p.tokensUsed === "number"
+            ? { tokensUsed: p.tokensUsed }
+            : {}),
+          ...(p.modelTrail !== undefined ? { modelTrail: p.modelTrail } : {}),
+        });
+      } else {
+        // thinking / action_planned / action_executed / error → company.agent:narrative
+        const text = typeof p.text === "string" ? p.text : undefined;
+        const tag = typeof p.tag === "string" ? p.tag : undefined;
+        if (text !== undefined) {
+          await this.emit("company.agent:narrative", missionId, userId, {
+            text,
+            ...(role !== undefined ? { role } : {}),
+            ...(tag !== undefined ? { tag } : {}),
+            ...(dimension !== undefined ? { dimension } : {}),
+          });
+        }
+      }
     }
   }
 

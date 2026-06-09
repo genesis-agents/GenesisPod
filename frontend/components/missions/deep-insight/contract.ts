@@ -461,6 +461,11 @@ export interface CompanyMissionInput {
   language?: string;
   /** 预算上限 credits（无则 undefined）。 */
   maxCredits?: number;
+  /**
+   * 运行期 WS 事件流（company.* 前缀事件，由 useCompanyMissionStream 累积）。
+   * 有值时注入 collab tab；无则降级空数组（tab 显示空态，不造假）。
+   */
+  events?: unknown[];
 }
 
 /** company 原始 status → 归一三态。 */
@@ -590,7 +595,7 @@ export function fromCompanyMissionResult(
     failedMessage:
       companyStatus(input.status) === 'failed' ? result.error : undefined,
     // 右侧 tab
-    events: [],
+    events: input.events ?? [],
     reportArtifact: undefined,
     report: result.summary,
     dimensionPipelines: [],
