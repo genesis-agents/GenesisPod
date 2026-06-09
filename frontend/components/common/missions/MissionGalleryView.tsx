@@ -367,7 +367,7 @@ export function MissionGalleryView({
     : undefined;
 
   return (
-    <div className="h-full overflow-auto bg-gray-50">
+    <div className="h-full min-w-0 flex-1 overflow-auto bg-gray-50">
       {/* Header — 走公共 PageHeaderHero */}
       <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
         <PageHeaderHero
