@@ -280,7 +280,15 @@ function scanAll() {
 }
 
 function hitKey(h) {
-  return `${h.file}:${h.line}:${h.column}:${h.kind}`;
+  // 2026-06-10 治本：key 不含 line/column —— 行号漂移（增删行）/ lint 格式化不再
+  //   被误报为"新违规"（此前每次无关改动都让既有命中行号下移 → newKeys 假阳 →
+  //   反复手动 update baseline 的恶性循环）。只认 file + 违规类型 + 规范化代码片段。
+  //   真新增仍被拦：新片段 → newKeys 非空；同片段多一处 → 总 count 上涨（见 main 的
+  //   count > baseline.count 检查）。snippet 规范化掉多余空白，免格式化误判。
+  const normSnippet = String(h.snippet ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return `${h.file}:${h.kind}:${normSnippet}`;
 }
 
 function loadBaseline() {
