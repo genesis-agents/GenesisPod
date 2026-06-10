@@ -22,7 +22,6 @@ import { PlaygroundBusinessOrchestrator } from "../playground-business-orchestra
 import { PlaygroundCrossStageState } from "../playground-cross-stage-state";
 import type { MissionRuntimeShellService } from "../mission-runtime-shell.service";
 import type { MissionRuntimeSession } from "../mission-runtime-shell.service";
-import type { MissionStageBindingsService } from "../mission-stage-bindings.service";
 import type { AgentInvoker, LeaderService } from "../../roles";
 import type {
   CapabilityRunContext,
@@ -110,21 +109,6 @@ function makeDispatcherBundle(
       reason: checkpointMock.canResume ? "ok" : "no-checkpoint",
     }),
   };
-  const fakeStageBindings = {
-    buildDeps: jest.fn().mockReturnValue({
-      store: storeProxy,
-      log: {
-        log: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-      },
-      emit: jest.fn().mockResolvedValue(undefined),
-      lifecycle: jest.fn(),
-    }),
-    buildCtx: jest.fn((args: Record<string, unknown>) => ({ ...args })),
-  } as unknown as MissionStageBindingsService;
-
   const fakeLeaderService = {
     create: jest.fn().mockReturnValue({ plan: jest.fn() }),
   } as unknown as LeaderService;
@@ -142,10 +126,6 @@ function makeDispatcherBundle(
     unregisterAdapter: jest.fn(),
   };
   const fakeElectionTracker = { clear: jest.fn() };
-  const fakeEventBuffer = {
-    read: jest.fn().mockReturnValue([]),
-    broadcast: jest.fn().mockResolvedValue(undefined),
-  };
   const fakeLeaderInvocationFactory = {
     build: jest.fn().mockReturnValue(jest.fn()),
   };
@@ -197,12 +177,10 @@ function makeDispatcherBundle(
 
   const dispatcher = new PlaygroundPipelineDispatcher(
     shell,
-    fakeStageBindings,
     fakeLeaderService,
     fakeInvoker,
     fakeLeaderInvocationFactory as never,
     fakeCheckpoint as never,
-    fakeEventBuffer as never,
     storeProxy as never,
     fakeElectionTracker as never,
     fakeEventBus as never,

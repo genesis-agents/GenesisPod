@@ -11,16 +11,14 @@
  *      budget_exhausted / mission_wall_time_exceeded
  *   4. 增量复用透传：inheritFromMissionId 场景 inheritedBaseline 下沉给能力 runner（#16a）
  */
-// fireSelfEvolutionPostlude（S12 fire-and-forget）调 runSelfEvolutionStage —— stub 掉。
-jest.mock("../stages/s12-self-evolution.stage", () => ({
-  runSelfEvolutionStage: jest.fn(async (_args: unknown, _deps: unknown) => {}),
-}));
+// ★ #16b env2（2026-06-09）：runSelfEvolutionStage import 已从 playground.pipeline.ts 删除。
+// S12 postlude 现由能力核 deep-insight.runner.ts（assembleCompleted → fireSelfEvolutionPostlude）
+// 负责，dispatcher 不再双写，mock 随之移除。
 
 import { PlaygroundPipelineDispatcher } from "../playground.pipeline";
 import { PlaygroundBusinessOrchestrator } from "../playground-business-orchestrator.service";
 import type { MissionRuntimeShellService } from "../mission-runtime-shell.service";
 import type { MissionRuntimeSession } from "../mission-runtime-shell.service";
-import type { MissionStageBindingsService } from "../mission-stage-bindings.service";
 import type { AgentInvoker, LeaderService } from "../../roles";
 import type {
   CapabilityRunContext,
@@ -98,30 +96,6 @@ function makeFakeSession(
   } as unknown as MissionRuntimeSession;
 }
 
-function makeFakeStageBindings() {
-  const storeProxy = new Proxy({} as Record<string, jest.Mock>, {
-    get(target, prop: string) {
-      if (!(prop in target))
-        target[prop] = jest.fn().mockResolvedValue(undefined);
-      return target[prop];
-    },
-  });
-  return {
-    buildDeps: jest.fn().mockReturnValue({
-      store: storeProxy,
-      log: {
-        log: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-      },
-      emit: jest.fn().mockResolvedValue(undefined),
-      lifecycle: jest.fn(),
-    }),
-    buildCtx: jest.fn((args: Record<string, unknown>) => ({ ...args })),
-  } as unknown as MissionStageBindingsService;
-}
-
 interface MakeBundleOpts {
   runnerBehavior?: RunnerBehavior;
   withRunner?: boolean;
@@ -138,7 +112,6 @@ function makeDispatcherBundle(opts: MakeBundleOpts = {}) {
         );
   const capabilityRegistry = makeFakeCapabilityRegistry(runner);
 
-  const stageBindings = makeFakeStageBindings();
   const fakeLeaderService = {
     create: jest.fn().mockReturnValue({ plan: jest.fn() } as never),
   } as unknown as LeaderService;
@@ -162,10 +135,6 @@ function makeDispatcherBundle(opts: MakeBundleOpts = {}) {
       snapshot: null,
       completedKeys: new Set(),
     }),
-  };
-  const fakeEventBuffer = {
-    read: jest.fn().mockReturnValue([]),
-    broadcast: jest.fn().mockResolvedValue(undefined),
   };
   const fakeStore = {
     markStageComplete: jest.fn().mockResolvedValue(undefined),
@@ -238,12 +207,10 @@ function makeDispatcherBundle(opts: MakeBundleOpts = {}) {
 
   const dispatcher = new PlaygroundPipelineDispatcher(
     shell,
-    stageBindings,
     fakeLeaderService,
     fakeInvoker,
     fakeLeaderInvocationFactory as never,
     fakeCheckpoint as never,
-    fakeEventBuffer as never,
     fakeStore as never,
     fakeElectionTracker as never,
     fakeEventBus as never,

@@ -311,6 +311,11 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
         // facade (mirrors kb-query pattern). One public entry: LibraryExportService.
         // Internals (google-drive integration) remain encapsulated inside library.
         { targetApp: "library", subPathPrefix: "export/" },
+        // ★ 2026-06-09: library/sediment/ is the sanctioned cross-app mission-sediment
+        // facade (mirrors kb-query/export). One public entry: MissionSedimentService
+        // (+ SedimentModule for DI). playground / company 完成后把报告落 library notes，
+        // notes/collections 内部细节封装在 library 内，对外只暴露沉淀入口。
+        { targetApp: "library", subPathPrefix: "sediment/" },
         // （deep-insight 能力的 P1/P2 过渡债已全部清零：evidence-budget 已下沉能力家、
         //   researcher 的 minFindings 已改走能力级 research-tuning；marketplace 不再反依赖
         //   playground 任何内部路径。）
