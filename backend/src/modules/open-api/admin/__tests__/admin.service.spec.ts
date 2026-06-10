@@ -976,6 +976,62 @@ describe("AdminService", () => {
         }),
       );
     });
+
+    // ─── isReasoning 数据根因兜底（创建时 infer，让 DB 存对）──────────────────
+    it("infers isReasoning=true for reasoning modelId when not explicitly set", async () => {
+      mockPrismaService.aIModel.findFirst.mockResolvedValue(null);
+      mockPrismaService.aIModel.create.mockResolvedValue({
+        id: "new-gpt5",
+        name: "gpt-5.4",
+        apiKey: null,
+        secretKey: null,
+        isUpdate: false,
+      });
+
+      // admin 建 gpt-5.4（OpenAI reasoning，须用 max_completion_tokens），未显式标 isReasoning
+      await service.createAIModel({
+        name: "gpt-5.4",
+        displayName: "gpt-5.4",
+        provider: "openai",
+        modelId: "gpt-5.4",
+        icon: "icon",
+        color: "#000",
+        apiEndpoint: "https://api.openai.com",
+      });
+
+      expect(mockPrismaService.aIModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ isReasoning: true }),
+        }),
+      );
+    });
+
+    it("infers isReasoning=false for non-reasoning modelId when not set", async () => {
+      mockPrismaService.aIModel.findFirst.mockResolvedValue(null);
+      mockPrismaService.aIModel.create.mockResolvedValue({
+        id: "new-4o",
+        name: "gpt-4o",
+        apiKey: null,
+        secretKey: null,
+        isUpdate: false,
+      });
+
+      await service.createAIModel({
+        name: "gpt-4o",
+        displayName: "gpt-4o",
+        provider: "openai",
+        modelId: "gpt-4o",
+        icon: "icon",
+        color: "#000",
+        apiEndpoint: "https://api.openai.com",
+      });
+
+      expect(mockPrismaService.aIModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ isReasoning: false }),
+        }),
+      );
+    });
   });
 
   describe("updateAIModel", () => {

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-06-10T15:17:23.771Z",
+  "generatedAt": "2026-06-10T16:08:53.114Z",
   "count": 184,
   "note": "v3.1 F baseline (TYPE B routing + TYPE C decoration). C/D 已清的真 P0 决策文件由 capability-provider-string-match.contract.spec.ts 锁零；本基线许可的是 §0 D5 路由 / 装饰类既有命中，新代码不得让总数上涨。",
   "hits": [
@@ -328,98 +328,98 @@
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 144,
+      "line": 149,
       "column": 10,
       "kind": "binary-eq",
       "snippet": "provider.toLowerCase() === \"openai\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 257,
+      "line": 262,
       "column": 33,
       "kind": "method-call",
       "snippet": "modelId?.toLowerCase().includes(\"imagen\")"
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 339,
+      "line": 344,
       "column": 15,
       "kind": "method-call",
       "snippet": "modelId?.includes(\"gemini-2.0-flash-exp\")"
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 545,
+      "line": 550,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "provider.toLowerCase() === \"anthropic\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 546,
+      "line": 551,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "provider.toLowerCase() === \"claude\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 550,
+      "line": 555,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "provider.toLowerCase() === \"google\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 551,
+      "line": 556,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "provider.toLowerCase() === \"gemini\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 1145,
+      "line": 1150,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "providerLower === \"openai\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 1199,
+      "line": 1204,
       "column": 11,
       "kind": "binary-eq",
       "snippet": "providerLower === \"google\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 1199,
+      "line": 1204,
       "column": 41,
       "kind": "binary-eq",
       "snippet": "providerLower === \"gemini\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 1262,
+      "line": 1267,
       "column": 11,
       "kind": "binary-eq",
       "snippet": "p === \"openai\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 1262,
+      "line": 1267,
       "column": 29,
       "kind": "binary-eq",
       "snippet": "p === \"gpt\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 1305,
+      "line": 1310,
       "column": 11,
       "kind": "binary-eq",
       "snippet": "p === \"google\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 1305,
+      "line": 1310,
       "column": 29,
       "kind": "binary-eq",
       "snippet": "p === \"gemini\""
@@ -566,154 +566,154 @@
     },
     {
       "file": "modules/ai-engine/llm/chat/ai-chat.service.ts",
-      "line": 523,
+      "line": 524,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "p === \"anthropic\""
     },
     {
       "file": "modules/ai-engine/llm/chat/ai-chat.service.ts",
-      "line": 523,
+      "line": 524,
       "column": 30,
       "kind": "binary-eq",
       "snippet": "p === \"claude\""
     },
     {
       "file": "modules/ai-engine/llm/chat/ai-chat.service.ts",
-      "line": 524,
+      "line": 525,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "p === \"google\""
     },
     {
       "file": "modules/ai-engine/llm/chat/ai-chat.service.ts",
-      "line": 524,
+      "line": 525,
       "column": 27,
       "kind": "binary-eq",
       "snippet": "p === \"gemini\""
     },
     {
       "file": "modules/ai-engine/llm/chat/ai-chat.service.ts",
-      "line": 525,
+      "line": 526,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "p === \"xai\""
     },
     {
       "file": "modules/ai-engine/llm/chat/ai-chat.service.ts",
-      "line": 525,
+      "line": 526,
       "column": 24,
       "kind": "binary-eq",
       "snippet": "p === \"grok\""
     },
     {
       "file": "modules/ai-engine/llm/chat/ai-chat.service.ts",
-      "line": 544,
+      "line": 545,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "modelLower === \"grok\""
     },
     {
       "file": "modules/ai-engine/llm/chat/ai-chat.service.ts",
-      "line": 544,
+      "line": 545,
       "column": 34,
       "kind": "method-call",
       "snippet": "modelLower.includes(\"grok\")"
     },
     {
       "file": "modules/ai-engine/llm/chat/ai-chat.service.ts",
-      "line": 547,
+      "line": 548,
       "column": 7,
       "kind": "binary-eq",
       "snippet": "modelLower === \"gpt-4\""
     },
     {
       "file": "modules/ai-engine/llm/chat/ai-chat.service.ts",
-      "line": 548,
+      "line": 549,
       "column": 7,
       "kind": "method-call",
       "snippet": "modelLower.includes(\"gpt\")"
     },
     {
       "file": "modules/ai-engine/llm/chat/ai-chat.service.ts",
-      "line": 549,
+      "line": 550,
       "column": 7,
       "kind": "method-call",
       "snippet": "modelLower.startsWith(\"o1\")"
     },
     {
       "file": "modules/ai-engine/llm/chat/ai-chat.service.ts",
-      "line": 550,
+      "line": 551,
       "column": 7,
       "kind": "method-call",
       "snippet": "modelLower.startsWith(\"o3\")"
     },
     {
       "file": "modules/ai-engine/llm/chat/ai-chat.service.ts",
-      "line": 553,
+      "line": 554,
       "column": 16,
       "kind": "binary-eq",
       "snippet": "modelLower === \"claude\""
     },
     {
       "file": "modules/ai-engine/llm/chat/ai-chat.service.ts",
-      "line": 553,
+      "line": 554,
       "column": 43,
       "kind": "method-call",
       "snippet": "modelLower.includes(\"claude\")"
     },
     {
       "file": "modules/ai-engine/llm/chat/ai-chat.service.ts",
-      "line": 555,
+      "line": 556,
       "column": 16,
       "kind": "binary-eq",
       "snippet": "modelLower === \"gemini\""
     },
     {
       "file": "modules/ai-engine/llm/chat/ai-chat.service.ts",
-      "line": 555,
+      "line": 556,
       "column": 43,
       "kind": "method-call",
       "snippet": "modelLower.includes(\"gemini\")"
     },
     {
       "file": "modules/ai-engine/llm/chat/ai-chat.service.ts",
-      "line": 2455,
+      "line": 2460,
       "column": 7,
       "kind": "binary-eq",
       "snippet": "dbApiFormat === \"openai\""
     },
     {
       "file": "modules/ai-engine/llm/chat/ai-chat.service.ts",
-      "line": 2456,
+      "line": 2461,
       "column": 7,
       "kind": "binary-eq",
       "snippet": "dbApiFormat === \"anthropic\""
     },
     {
       "file": "modules/ai-engine/llm/chat/ai-chat.service.ts",
-      "line": 2457,
+      "line": 2462,
       "column": 7,
       "kind": "binary-eq",
       "snippet": "dbApiFormat === \"google\""
     },
     {
       "file": "modules/ai-engine/llm/chat/ai-chat.service.ts",
-      "line": 2458,
+      "line": 2463,
       "column": 7,
       "kind": "binary-eq",
       "snippet": "dbApiFormat === \"xai\""
     },
     {
       "file": "modules/ai-engine/llm/chat/ai-chat.service.ts",
-      "line": 2507,
+      "line": 2512,
       "column": 11,
       "kind": "binary-eq",
       "snippet": "apiFormat === \"openai\""
     },
     {
       "file": "modules/ai-engine/llm/chat/ai-chat.service.ts",
-      "line": 2522,
+      "line": 2532,
       "column": 18,
       "kind": "binary-eq",
       "snippet": "apiFormat === \"anthropic\""
@@ -783,133 +783,133 @@
     },
     {
       "file": "modules/ai-engine/llm/models/catalog/ai-model-discovery.service.ts",
-      "line": 43,
+      "line": 46,
       "column": 9,
       "kind": "method-call",
       "snippet": "modelLower.includes(\"gemini\")"
     },
     {
       "file": "modules/ai-engine/llm/models/catalog/ai-model-discovery.service.ts",
-      "line": 46,
+      "line": 49,
       "column": 11,
       "kind": "method-call",
       "snippet": "modelLower.includes(\"imagen\")"
     },
     {
       "file": "modules/ai-engine/llm/models/catalog/ai-model-discovery.service.ts",
-      "line": 49,
+      "line": 52,
       "column": 9,
       "kind": "method-call",
       "snippet": "modelLower.includes(\"grok\")"
     },
     {
       "file": "modules/ai-engine/llm/models/catalog/ai-model-discovery.service.ts",
-      "line": 50,
+      "line": 53,
       "column": 9,
       "kind": "method-call",
       "snippet": "modelLower.includes(\"gpt-4\")"
     },
     {
       "file": "modules/ai-engine/llm/models/catalog/ai-model-discovery.service.ts",
-      "line": 51,
+      "line": 54,
       "column": 9,
       "kind": "method-call",
       "snippet": "modelLower.includes(\"gpt-5\")"
     },
     {
       "file": "modules/ai-engine/llm/models/catalog/ai-model-discovery.service.ts",
-      "line": 52,
+      "line": 55,
       "column": 9,
       "kind": "method-call",
       "snippet": "modelLower.startsWith(\"o1\")"
     },
     {
       "file": "modules/ai-engine/llm/models/catalog/ai-model-discovery.service.ts",
-      "line": 53,
+      "line": 56,
       "column": 9,
       "kind": "method-call",
       "snippet": "modelLower.startsWith(\"o3\")"
     },
     {
       "file": "modules/ai-engine/llm/models/catalog/ai-model-discovery.service.ts",
-      "line": 54,
+      "line": 57,
       "column": 9,
       "kind": "method-call",
       "snippet": "modelLower.includes(\"claude\")"
     },
     {
       "file": "modules/ai-engine/llm/models/catalog/ai-model-discovery.service.ts",
-      "line": 73,
+      "line": 76,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "providerLower === \"xai\""
     },
     {
       "file": "modules/ai-engine/llm/models/catalog/ai-model-discovery.service.ts",
-      "line": 73,
+      "line": 76,
       "column": 36,
       "kind": "binary-eq",
       "snippet": "providerLower === \"grok\""
     },
     {
       "file": "modules/ai-engine/llm/models/catalog/ai-model-discovery.service.ts",
-      "line": 75,
+      "line": 78,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "providerLower === \"openai\""
     },
     {
       "file": "modules/ai-engine/llm/models/catalog/ai-model-discovery.service.ts",
-      "line": 75,
+      "line": 78,
       "column": 39,
       "kind": "binary-eq",
       "snippet": "providerLower === \"gpt\""
     },
     {
       "file": "modules/ai-engine/llm/models/catalog/ai-model-discovery.service.ts",
-      "line": 77,
+      "line": 80,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "providerLower === \"anthropic\""
     },
     {
       "file": "modules/ai-engine/llm/models/catalog/ai-model-discovery.service.ts",
-      "line": 77,
+      "line": 80,
       "column": 42,
       "kind": "binary-eq",
       "snippet": "providerLower === \"claude\""
     },
     {
       "file": "modules/ai-engine/llm/models/catalog/ai-model-discovery.service.ts",
-      "line": 79,
+      "line": 82,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "providerLower === \"google\""
     },
     {
       "file": "modules/ai-engine/llm/models/catalog/ai-model-discovery.service.ts",
-      "line": 79,
+      "line": 82,
       "column": 39,
       "kind": "binary-eq",
       "snippet": "providerLower === \"gemini\""
     },
     {
       "file": "modules/ai-engine/llm/models/catalog/ai-model-discovery.service.ts",
-      "line": 242,
+      "line": 245,
       "column": 16,
       "kind": "method-call",
       "snippet": "name.includes(\"imagen\")"
     },
     {
       "file": "modules/ai-engine/llm/models/catalog/ai-model-discovery.service.ts",
-      "line": 249,
+      "line": 252,
       "column": 13,
       "kind": "method-call",
       "snippet": "name.includes(\"gemini\")"
     },
     {
       "file": "modules/ai-engine/llm/models/catalog/ai-model-discovery.service.ts",
-      "line": 259,
+      "line": 262,
       "column": 13,
       "kind": "method-call",
       "snippet": "name.includes(\"gemini\")"
@@ -986,126 +986,126 @@
     },
     {
       "file": "modules/ai-engine/llm/models/config/ai-model-config.service.ts",
-      "line": 1450,
+      "line": 1456,
       "column": 9,
       "kind": "method-call",
       "snippet": "lowerName.includes(\"grok\")"
     },
     {
       "file": "modules/ai-engine/llm/models/config/ai-model-config.service.ts",
-      "line": 1450,
+      "line": 1456,
       "column": 39,
       "kind": "binary-eq",
       "snippet": "lowerProvider === \"xai\""
     },
     {
       "file": "modules/ai-engine/llm/models/config/ai-model-config.service.ts",
-      "line": 1454,
+      "line": 1460,
       "column": 7,
       "kind": "method-call",
       "snippet": "lowerName.includes(\"gpt\")"
     },
     {
       "file": "modules/ai-engine/llm/models/config/ai-model-config.service.ts",
-      "line": 1456,
+      "line": 1462,
       "column": 7,
       "kind": "binary-eq",
       "snippet": "lowerProvider === \"openai\""
     },
     {
       "file": "modules/ai-engine/llm/models/config/ai-model-config.service.ts",
-      "line": 1460,
+      "line": 1466,
       "column": 9,
       "kind": "method-call",
       "snippet": "lowerName.includes(\"claude\")"
     },
     {
       "file": "modules/ai-engine/llm/models/config/ai-model-config.service.ts",
-      "line": 1460,
+      "line": 1466,
       "column": 41,
       "kind": "binary-eq",
       "snippet": "lowerProvider === \"anthropic\""
     },
     {
       "file": "modules/ai-engine/llm/models/config/ai-model-config.service.ts",
-      "line": 1463,
+      "line": 1469,
       "column": 9,
       "kind": "method-call",
       "snippet": "lowerName.includes(\"gemini\")"
     },
     {
       "file": "modules/ai-engine/llm/models/config/ai-model-config.service.ts",
-      "line": 1463,
+      "line": 1469,
       "column": 41,
       "kind": "binary-eq",
       "snippet": "lowerProvider === \"google\""
     },
     {
       "file": "modules/ai-engine/llm/models/config/ai-model-config.service.ts",
-      "line": 1473,
+      "line": 1479,
       "column": 9,
       "kind": "method-call",
       "snippet": "lowerName.includes(\"deepseek\")"
     },
     {
       "file": "modules/ai-engine/llm/models/config/ai-model-config.service.ts",
-      "line": 1473,
+      "line": 1479,
       "column": 43,
       "kind": "binary-eq",
       "snippet": "lowerProvider === \"deepseek\""
     },
     {
       "file": "modules/ai-engine/llm/models/config/ai-model-config.service.ts",
-      "line": 1477,
+      "line": 1483,
       "column": 7,
       "kind": "method-call",
       "snippet": "lowerName.includes(\"qwen\")"
     },
     {
       "file": "modules/ai-engine/llm/models/selection/model-fallback.service.ts",
-      "line": 767,
+      "line": 770,
       "column": 27,
       "kind": "binary-eq",
       "snippet": "model.apiFormat === \"openai\""
     },
     {
       "file": "modules/ai-engine/llm/models/selection/model-fallback.service.ts",
-      "line": 810,
+      "line": 817,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "lower === \"anthropic\""
     },
     {
       "file": "modules/ai-engine/llm/models/selection/model-fallback.service.ts",
-      "line": 810,
+      "line": 817,
       "column": 34,
       "kind": "binary-eq",
       "snippet": "lower === \"claude\""
     },
     {
       "file": "modules/ai-engine/llm/models/selection/model-fallback.service.ts",
-      "line": 811,
+      "line": 818,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "lower === \"google\""
     },
     {
       "file": "modules/ai-engine/llm/models/selection/model-fallback.service.ts",
-      "line": 811,
+      "line": 818,
       "column": 31,
       "kind": "binary-eq",
       "snippet": "lower === \"gemini\""
     },
     {
       "file": "modules/ai-engine/llm/models/selection/model-fallback.service.ts",
-      "line": 812,
+      "line": 819,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "lower === \"xai\""
     },
     {
       "file": "modules/ai-engine/llm/models/selection/model-fallback.service.ts",
-      "line": 812,
+      "line": 819,
       "column": 28,
       "kind": "binary-eq",
       "snippet": "lower === \"grok\""

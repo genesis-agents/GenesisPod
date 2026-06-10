@@ -181,6 +181,51 @@ describe("UserModelConfigsService", () => {
       );
     });
 
+    // ─── isReasoning 数据根因兜底（保存时 infer，让 DB 存对）─────────────────
+    it("infers isReasoning=true for reasoning modelId when not explicitly set", async () => {
+      prisma._tx.userModelConfig.create.mockResolvedValueOnce(SAMPLE_CONFIG);
+      // gpt-5.4 是 OpenAI reasoning 模型（max_completion_tokens），用户没显式标 isReasoning
+      await service.create("user-1", {
+        ...BASE_INPUT,
+        modelId: "gpt-5.4",
+        isReasoning: undefined,
+      });
+      expect(prisma._tx.userModelConfig.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ isReasoning: true }),
+        }),
+      );
+    });
+
+    it("infers isReasoning=false for non-reasoning modelId when not set", async () => {
+      prisma._tx.userModelConfig.create.mockResolvedValueOnce(SAMPLE_CONFIG);
+      await service.create("user-1", {
+        ...BASE_INPUT,
+        modelId: "gpt-4o",
+        isReasoning: undefined,
+      });
+      expect(prisma._tx.userModelConfig.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ isReasoning: false }),
+        }),
+      );
+    });
+
+    it("respects explicit isReasoning=false even for a reasoning modelId", async () => {
+      prisma._tx.userModelConfig.create.mockResolvedValueOnce(SAMPLE_CONFIG);
+      // 显式传 false 时尊重调用方，不被启发式覆盖
+      await service.create("user-1", {
+        ...BASE_INPUT,
+        modelId: "gpt-5.4",
+        isReasoning: false,
+      });
+      expect(prisma._tx.userModelConfig.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ isReasoning: false }),
+        }),
+      );
+    });
+
     it("applies unknown-provider fallback to openai apiFormat", async () => {
       prisma._tx.userModelConfig.create.mockResolvedValueOnce(SAMPLE_CONFIG);
       // 'custom-llm' is not in PROVIDER_API_DEFAULTS → falls back to openai format

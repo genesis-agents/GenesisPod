@@ -458,8 +458,14 @@ describe("AiModelConfigService", () => {
       // Act: 走 DB 缓存路径
       const isReasoning = service.isReasoningModel("o1-mini");
 
-      // Assert: 即使启发式会判 true，DB 值 false 必须优先
-      expect(isReasoning).toBe(false);
+      // Assert（2026-06-10 契约变更）：isReasoning 列是 Boolean @default(false) NOT NULL，
+      //   "漏标"与"显式 false"不可区分，且 isReasoning 同时驱动 tokenParamName /
+      //   supportsTemperature / reasoning_effort —— 对 reasoning 名模型（o1-mini）若判
+      //   false 会自相矛盾（发 max_tokens + temperature 双双触发 OpenAI INVALID_REQUEST）。
+      //   故对 reasoning 名模型做启发式 OR 兜底：DB false 仍判 true。
+      //   admin 若需把某 reasoning 名模型强制当普通模型，显式设 tokenParamName=max_tokens
+      //   （该字段直读、不被本兜底覆盖）。
+      expect(isReasoning).toBe(true);
     });
 
     it("should fall back to heuristic when DB cache has no match for modelId", async () => {

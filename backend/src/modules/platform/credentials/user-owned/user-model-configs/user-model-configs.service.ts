@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { AIModelType, Prisma, UserModelConfig } from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { inferIsReasoning } from "../../../../ai-engine/llm/types/model.utils";
 
 const PROVIDER_NAME_PATTERN = /^[a-z0-9-]+$/;
 // 2026-05-11 P2: 删除 PROVIDER_DEFAULTS 硬编码。apiFormat 没填且 DB 也没配
@@ -111,7 +112,11 @@ export class UserModelConfigsService {
       temperature: input.temperature ?? 0.7,
       embeddingDimensions: input.embeddingDimensions ?? null,
       maxInputTokens: input.maxInputTokens ?? null,
-      isReasoning: input.isReasoning ?? false,
+      // 数据根因修复：用户保存模型配置时若未显式标 isReasoning，按 modelId 启发式兜底。
+      // 让 reasoning 模型（gpt-5.x / o1/o3/o4 等）落库时 isReasoning=true，下游
+      // token 参数决策（max_completion_tokens vs max_tokens）才不会因 DB false 而发错。
+      // 显式传了就尊重用户/调用方的值。
+      isReasoning: input.isReasoning ?? inferIsReasoning(input.modelId),
       apiFormat,
       supportsTemperature: input.supportsTemperature ?? true,
       supportsStreaming: input.supportsStreaming ?? true,

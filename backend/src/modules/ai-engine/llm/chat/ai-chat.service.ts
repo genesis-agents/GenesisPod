@@ -10,6 +10,7 @@ import { AIModelType } from "@prisma/client";
 import { RequestContext } from "@/common/context/request-context";
 import { withUserContext } from "@/common/context/with-user-context";
 import { TaskProfile, ChatMessage } from "../types";
+import { inferIsReasoning } from "../types/model.utils";
 import { TaskProfileMapperService } from "./task-profile-mapper.service";
 import {
   AiModelConfigService,
@@ -865,7 +866,11 @@ export class AiChatService {
 
     const apiFormat = config.apiFormat || "openai";
     const supportsTemp = config.supportsTemperature ?? true;
-    const isReasoning = config.isReasoning ?? false;
+    // ★ 用 || 而非 ??：DB isReasoning 是 Boolean @default(false) NOT NULL，
+    //   "用户漏标"塌缩为 false（非 null），?? 不触发兜底。|| 让 false/undefined
+    //   都回退 modelId 启发式，救回被漏标的 reasoning 模型；admin 强制非推理走
+    //   显式 tokenParamName=max_tokens（直读、不被覆盖）。
+    const isReasoning = config.isReasoning || inferIsReasoning(modelId);
     const tokenParamName =
       config.tokenParamName ||
       (isReasoning ? "max_completion_tokens" : "max_tokens");
@@ -2505,9 +2510,14 @@ export class AiChatService {
       >;
 
       if (apiFormat === "openai") {
+        // ★ 约束：DB 显式设了 isReasoning 就用 DB；没设（用户配置时漏标）则按
+        //   modelId 启发式兜底。否则 reasoning 模型（gpt-5.x/o1/o3/o4 等）流式会被
+        //   发 max_tokens 而非 max_completion_tokens，OpenAI 直接 INVALID_REQUEST。
+        const isReasoning =
+          modelConfig.isReasoning || inferIsReasoning(modelConfig.modelId);
         const tokenParamName =
           modelConfig.tokenParamName ||
-          (modelConfig.isReasoning ? "max_completion_tokens" : "max_tokens");
+          (isReasoning ? "max_completion_tokens" : "max_tokens");
         streamGenerator = this.streamHandlerService.streamOpenAICompatible(
           effectiveStreamEndpoint,
           apiKey,
@@ -2516,7 +2526,7 @@ export class AiChatService {
           effectiveMaxTokens,
           effectiveTemperature,
           tokenParamName,
-          modelConfig.isReasoning ?? false,
+          isReasoning,
           taskProfile?.reasoningDepth,
         );
       } else if (apiFormat === "anthropic") {

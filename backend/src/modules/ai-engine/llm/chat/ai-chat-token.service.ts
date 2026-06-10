@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { inferIsReasoning } from "../types/model.utils";
 
 interface LlmResponseWithUsage {
   usage?: {
@@ -68,10 +69,15 @@ export class AiChatTokenService {
   }
 
   /**
-   * 获取推荐的 token 参数名（基于模型类型）
+   * 获取推荐的 token 参数名（基于模型类型）。
+   *
+   * ★ 约束：isReasoning 为 undefined（DB 未显式设置）时按 modelId 启发式兜底，
+   *   避免 reasoning 模型（gpt-5.x/o1/o3/o4 等）误发 max_tokens 触发
+   *   OpenAI INVALID_REQUEST。显式 boolean（含 false）以传入值为准。
    */
-  getTokenParamName(isReasoning: boolean): string {
-    return isReasoning ? "max_completion_tokens" : "max_tokens";
+  getTokenParamName(isReasoning?: boolean, modelId?: string): string {
+    const effective = isReasoning ?? inferIsReasoning(modelId ?? "");
+    return effective ? "max_completion_tokens" : "max_tokens";
   }
 
   /**

@@ -19,6 +19,9 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { RequestContext } from "@/common/context/request-context";
 import { AIModelConfig } from "../../index";
+// 2026-06-10 P0：tokenParamName 决策点的 isReasoning 启发式兜底（DB 未标 reasoning
+// 模型时，避免对 gpt-5.x/o1/o3/o4 等发 max_tokens → OpenAI INVALID_REQUEST 全失败）。
+import { inferIsReasoning } from "../../types/model.utils";
 import {
   AIError,
   AIErrorClassifier,
@@ -767,7 +770,11 @@ export class ModelFallbackService {
       !model.apiFormat || model.apiFormat === "openai"
         ? inferredFormat
         : model.apiFormat;
-    const isReasoning = model.isReasoning;
+    // 2026-06-10 P0：DB 的 isReasoning 列是 NOT NULL @default(false)，故"未标记"
+    // 与"显式 false"在此层无法区分。对 reasoning 名模型（gpt-5.x/o1/o3/o4/...）做
+    // 启发式 OR 兜底：DB 为 true 直用；DB 为 false 但模型名是 reasoning → 仍判 true，
+    // 避免发 max_tokens → OpenAI INVALID_REQUEST 全失败。
+    const isReasoning = model.isReasoning || inferIsReasoning(model.modelId);
     return {
       id: model.id,
       name: model.name,

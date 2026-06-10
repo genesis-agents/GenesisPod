@@ -330,6 +330,67 @@ describe("AiChatFailoverCallerService", () => {
     });
   });
 
+  describe("callAPIWithFailover — tokenParamName (reasoning fallback)", () => {
+    // index 7 of callOpenAICompatibleAPI positional args = tokenParamName
+    const TOKEN_PARAM_ARG = 7;
+
+    it("infers max_completion_tokens when isReasoning unset for a reasoning modelId (★ user failure path: gpt-5.4)", async () => {
+      await call(
+        build(),
+        makeConfig({ modelId: "gpt-5.4", isReasoning: undefined }),
+      );
+      const tokenParamArg =
+        apiCaller.callOpenAICompatibleAPI.mock.calls[0][TOKEN_PARAM_ARG];
+      expect(tokenParamArg).toBe("max_completion_tokens");
+    });
+
+    it("infers max_completion_tokens when isReasoning is FALSE (DB NOT NULL collapse) for a reasoning modelId (★ 真实 DB 场景：?? 会漏、必须 ||)", async () => {
+      // isReasoning 列是 Boolean @default(false) NOT NULL —— 用户漏标的 gpt-5.4 落库即 false（非 undefined）。
+      // 这正是 ?? 失效、|| 救回的判别 case：?? 会保留 false → max_tokens → 线上 INVALID_REQUEST。
+      await call(
+        build(),
+        makeConfig({ modelId: "gpt-5.4", isReasoning: false }),
+      );
+      const tokenParamArg =
+        apiCaller.callOpenAICompatibleAPI.mock.calls[0][TOKEN_PARAM_ARG];
+      expect(tokenParamArg).toBe("max_completion_tokens");
+    });
+
+    it("uses max_tokens when isReasoning explicitly false on a non-reasoning modelId", async () => {
+      await call(
+        build(),
+        makeConfig({ modelId: "gpt-4o", isReasoning: false }),
+      );
+      const tokenParamArg =
+        apiCaller.callOpenAICompatibleAPI.mock.calls[0][TOKEN_PARAM_ARG];
+      expect(tokenParamArg).toBe("max_tokens");
+    });
+
+    it("honors explicit DB isReasoning=true even on a non-reasoning-looking modelId", async () => {
+      await call(
+        build(),
+        makeConfig({ modelId: "custom-model", isReasoning: true }),
+      );
+      const tokenParamArg =
+        apiCaller.callOpenAICompatibleAPI.mock.calls[0][TOKEN_PARAM_ARG];
+      expect(tokenParamArg).toBe("max_completion_tokens");
+    });
+
+    it("respects an explicit tokenParamName override regardless of inference", async () => {
+      await call(
+        build(),
+        makeConfig({
+          modelId: "gpt-5.4",
+          isReasoning: undefined,
+          tokenParamName: "max_tokens",
+        }),
+      );
+      const tokenParamArg =
+        apiCaller.callOpenAICompatibleAPI.mock.calls[0][TOKEN_PARAM_ARG];
+      expect(tokenParamArg).toBe("max_tokens");
+    });
+  });
+
   describe("callAPIWithFailover — apiKeySource", () => {
     it("keeps an explicit apiKeySource from the result", async () => {
       keyExecutor.execute.mockImplementation(

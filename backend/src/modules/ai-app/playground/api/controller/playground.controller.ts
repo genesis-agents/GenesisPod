@@ -401,7 +401,7 @@ export class AgentPlaygroundController extends BaseMissionController {
    * 修改 mission 配置：topic（任意状态可改）+ 预算字段（仅非运行状态可改）。
    *
    * 预算字段：
-   *   - maxCredits：1 credit ≈ 1k tokens（10 - 100000）
+   *   - maxCredits：1 credit ≈ 1k tokens（范围见 BUDGET_FIELD_LIMITS.maxCredits 单一源）
    *   - budgetMultiplierOverride：每个 sub-agent token/iter 缩放（0.3 - 10）
    *   - wallTimeCapMs：mission 总时长上限毫秒（60000 - 86400000，即 1min-24h）
    * status 必须为 terminal（completed/cancelled/failed/quality-failed/rejected）；
@@ -447,9 +447,12 @@ export class AgentPlaygroundController extends BaseMissionController {
     if (hasBudget) {
       if (
         typeof body.maxCredits === "number" &&
-        (body.maxCredits < 10 || body.maxCredits > 100_000)
+        (body.maxCredits < BUDGET_FIELD_LIMITS.maxCredits.min ||
+          body.maxCredits > BUDGET_FIELD_LIMITS.maxCredits.max)
       ) {
-        throw new BadRequestException("maxCredits must be 10..100000");
+        throw new BadRequestException(
+          `maxCredits must be ${BUDGET_FIELD_LIMITS.maxCredits.min}..${BUDGET_FIELD_LIMITS.maxCredits.max}`,
+        );
       }
       if (
         typeof body.budgetMultiplierOverride === "number" &&

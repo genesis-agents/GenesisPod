@@ -126,6 +126,20 @@ describe("AiChatTokenService", () => {
     it("should return max_tokens for non-reasoning models", () => {
       expect(service.getTokenParamName(false)).toBe("max_tokens");
     });
+
+    it("falls back to modelId heuristic when isReasoning is undefined (gpt-5.4 → max_completion_tokens)", () => {
+      expect(service.getTokenParamName(undefined, "gpt-5.4")).toBe(
+        "max_completion_tokens",
+      );
+    });
+
+    it("falls back to max_tokens for a non-reasoning modelId when isReasoning undefined", () => {
+      expect(service.getTokenParamName(undefined, "gpt-4o")).toBe("max_tokens");
+    });
+
+    it("honors explicit false even for a reasoning-looking modelId", () => {
+      expect(service.getTokenParamName(false, "gpt-5.4")).toBe("max_tokens");
+    });
   });
 
   // ==================== parseTokenUsage ====================

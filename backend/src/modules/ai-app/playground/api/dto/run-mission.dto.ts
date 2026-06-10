@@ -54,9 +54,16 @@ export const RunMissionInputSchema = z
     /**
      * ★ 2026-05-22 单一数据源：mission 级 maxCredits 上限改为**可选覆盖**。
      * 缺省时由 depth（调研规模档位）经 DEPTH_BUDGET_TIERS 解析（见 resolveMissionCredits）；
-     * 仅当用户在「高级」里显式自定义时才传。1 credit ≈ 1k tokens。范围 10 - 100000。
+     * 仅当用户在「高级」里显式自定义时才传。1 credit ≈ 1k tokens。
+     *
+     * ★ 2026-06-10 BYOK 放宽：硬上限提到 500000（≈ cost cap $1000）。BYOK（personal key）
+     *   用户花自己 provider 的钱，不该被平台 100k 档位卡死。此处只放宽**输入上限**——
+     *   它本质是"防 mission bug 失控烧爆"的 backstop，500k 仍保留该保护（不是取消）。
+     *   平台 credit 用户的真实约束仍是余额（S1 estimateAffordable 余额不足即 abort），
+     *   故放宽输入上限对平台用户无副作用（余额不够照样挡）。BYOK 走 estimateAffordable
+     *   豁免分支，可用满 500k 头寸。
      */
-    maxCredits: z.number().int().min(10).max(100_000).optional(),
+    maxCredits: z.number().int().min(10).max(500_000).optional(),
     /**
      * 用户自定义 wall-time cap（毫秒）覆盖。不传则按 depth 档位（DEPTH_BUDGET_TIERS）解析。
      * 范围 60s ~ 24h（2026-05-27 上调以应对本地模型深度分析时长需求）。
@@ -154,9 +161,13 @@ export const DEPTH_BUDGET_TIERS: Record<
   },
 };
 
-/** 预算字段的硬上下限（DTO clamp 单一源，GET /budget-tiers 一并返回给前端） */
+/**
+ * 预算字段的硬上下限（DTO clamp 单一源，GET /budget-tiers 一并返回给前端）。
+ * ★ 2026-06-10 maxCredits 硬上限 100k → 500k（BYOK 放宽，见 RunMissionInputSchema.maxCredits
+ *   注释）。前端「高级」滑块上限随此值；平台用户实际仍受余额约束。
+ */
 export const BUDGET_FIELD_LIMITS = {
-  maxCredits: { min: 10, max: 100_000 },
+  maxCredits: { min: 10, max: 500_000 },
   budgetMultiplier: { min: 0.3, max: 10 },
   // ★ 2026-05-27：本地模型深度分析需要更长时间窗
   wallTimeMinutes: { min: 1, max: 1440 },

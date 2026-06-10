@@ -63,17 +63,22 @@ export class AiConnectionTestService {
   }
 
   /**
-   * 推断模型是否为推理模型（用于 tokenParamName 决策）
+   * 推断模型是否为推理模型（用于 tokenParamName 决策）。
    *
-   * 优先走 modelConfigService（读 DB + 缓存），DI 未完整时回落到
-   * types/model.utils.ts 的统一名单——不再维护本地 fallback 副本，
-   * 避免多份"推理模型名单"漂移。
+   * 连接测试发生在「模型配置保存前」（用户填 key → 选模型 → 点测试，此时 DB
+   * 还没有这条 UserModelConfig/AIModel）。此时 modelConfigService.isReasoningModel
+   * 走 5min 全量缓存 + DB 兜底均 miss → 落到自身的 inferIsReasoning 启发式。
+   * 为防该委托链上任一环（含 case-insensitive 命中到一条旧的非推理配置）误返
+   * false，这里 DB 判断与 model.utils 启发式取**或**：任一命中即视为推理模型，
+   * 用 max_completion_tokens。否则 reasoning 模型（gpt-5/o1/o3 等）测试会因
+   * max_tokens 触发 OpenAI "Unsupported parameter: max_tokens" 假阴性失败。
    */
   private inferIsReasoning(modelId: string): boolean {
+    const heuristic = inferIsReasoning(modelId);
     if (this.modelConfigService) {
-      return this.modelConfigService.isReasoningModel(modelId);
+      return this.modelConfigService.isReasoningModel(modelId) || heuristic;
     }
-    return inferIsReasoning(modelId);
+    return heuristic;
   }
 
   /**

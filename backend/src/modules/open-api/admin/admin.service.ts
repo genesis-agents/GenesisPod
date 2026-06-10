@@ -631,7 +631,10 @@ export class AdminService {
         description: data.description,
         isEnabled: true,
         isDefault: false,
-        isReasoning: data.isReasoning ?? false,
+        // 数据根因修复：admin 建模型时未显式标 isReasoning，按 modelId 启发式兜底，
+        // 让 reasoning 模型（gpt-5.x / o1/o3/o4 等）落库即 isReasoning=true，
+        // 下游 token 参数决策（max_completion_tokens）才正确。显式传了就尊重。
+        isReasoning: data.isReasoning ?? inferIsReasoning(data.modelId),
         // ★ 新增：模型能力配置字段
         apiFormat: data.apiFormat ?? "openai",
         supportsTemperature: data.supportsTemperature ?? true,

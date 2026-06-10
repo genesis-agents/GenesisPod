@@ -137,6 +137,59 @@ describe("AiConnectionTestService", () => {
         );
       });
 
+      // ★ 根因回归：连接测试发生在「模型配置保存前」，此时 DB 还没有这条 config，
+      //   modelConfigService.isReasoningModel 走缓存 + DB 兜底均 miss 返 false。
+      //   修复前 inferIsReasoning 仅信 isReasoningModel → tokenParamName 走 max_tokens
+      //   → OpenAI reasoning 模型（gpt-5.4）报 "Unsupported parameter: max_tokens" 假阴性。
+      //   修复后 DB 判断与 model.utils 启发式取或：启发式认 gpt-5 → max_completion_tokens。
+      it("uses max_completion_tokens for gpt-5.4 even when DB isReasoningModel returns false (pre-save test)", async () => {
+        const modelConfigMock = {
+          // 模拟测试时 DB 无该模型：缓存 + DB fallback 全 miss → 启发式也没命中（这里强制 false）
+          isReasoningModel: jest.fn().mockReturnValue(false),
+          getModelConfig: jest.fn().mockResolvedValue(null),
+        };
+        const module: TestingModule = await Test.createTestingModule({
+          providers: [
+            AiConnectionTestService,
+            { provide: HttpService, useValue: mockHttpService },
+            {
+              provide: (
+                await import("../../models/config/ai-model-config.service")
+              ).AiModelConfigService,
+              useValue: modelConfigMock,
+            },
+          ],
+        }).compile();
+        const svcWithDb = module.get<AiConnectionTestService>(
+          AiConnectionTestService,
+        );
+
+        mockHttpService.post.mockReturnValue(
+          of({
+            data: { choices: [{ message: { content: "OK" } }] },
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            config: {} as any,
+          } as AxiosResponse),
+        );
+
+        await svcWithDb.testModelConnectionWithKey(
+          "openai",
+          "gpt-5.4",
+          "test-api-key",
+          "https://api.openai.com/v1/chat/completions",
+        );
+
+        // DB 返 false 但 model.utils 启发式认 gpt-5 → OR → max_completion_tokens
+        expect(modelConfigMock.isReasoningModel).toHaveBeenCalledWith(
+          "gpt-5.4",
+        );
+        const body = mockHttpService.post.mock.calls[0][1];
+        expect(body).toHaveProperty("max_completion_tokens", 50);
+        expect(body).not.toHaveProperty("max_tokens");
+      });
+
       it("should use max_completion_tokens for deepseek-r1 reasoning model", async () => {
         const mockResponse: AxiosResponse = {
           data: {

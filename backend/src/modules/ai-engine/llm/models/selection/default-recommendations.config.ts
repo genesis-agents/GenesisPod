@@ -188,8 +188,9 @@ export const DEFAULT_RECOMMENDATIONS: DefaultRecommendation[] = [
   },
 
   // ============ Anthropic ============（代际通配）
-  // 注意：Anthropic 没有公开 /v1/models API，discovery 用静态列表，
-  // 所以这里的 pattern 只在 getAnthropicModels 已列入的 id 范围里生效。
+  // Anthropic 自 2024-11 起提供官方 GET /v1/models，discovery 走动态发现并按
+  // 版本号降序排（sortByRecencyDesc），所以 pattern 只判"族"（opus/sonnet/haiku），
+  // 谁最新由 discovery 排序决定——claude-opus-4-x / claude-sonnet-4-x 自动胜出。
   {
     provider: "anthropic",
     modelType: AIModelType.CHAT,

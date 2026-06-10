@@ -43,17 +43,26 @@ const SRC_ROOT = path.resolve(__dirname, "../../..");
  * Spec / 测试文件本身不计入（只盯运行时业务代码）。
  */
 const EXPECTED_CALLERS: ReadonlyArray<readonly [string, number]> = [
-  [
-    "modules/ai-app/insight/services/dimension/section-writer.service.ts",
-    2,
-  ],
+  ["modules/ai-app/insight/services/dimension/section-writer.service.ts", 2],
   // v3.1 A0：ai-chat-model-config.service.ts 已 thin-wrapper 化，
   // 原 2 处 `inferIsReasoning(...)` 调用随 buildModelConfig / isReasoningModel
   // 委托给 canonical AiModelConfigService 而被消除。
   ["modules/ai-engine/llm/byok/ai-connection-test.service.ts", 1],
+  // 2026-06-10 reasoning tokenParam 全仓兜底（gpt-5.4 P0）：以下 token 决策点 /
+  // 数据层保存点新增直接 inferIsReasoning 兜底——DB isReasoning 列是
+  // Boolean @default(false) NOT NULL，漏标的 reasoning 模型会被发 max_tokens
+  // 触发 OpenAI INVALID_REQUEST，故在这些点 || 启发式兜底。
+  ["modules/ai-engine/llm/chat/ai-chat-failover-caller.service.ts", 1],
+  ["modules/ai-engine/llm/chat/ai-chat-token.service.ts", 1],
+  ["modules/ai-engine/llm/chat/ai-chat.service.ts", 2],
   ["modules/ai-engine/llm/models/config/ai-model-config.service.ts", 3],
+  ["modules/ai-engine/llm/models/selection/model-fallback.service.ts", 1],
   ["modules/ai-harness/tracing/observability/ai-observability.service.ts", 1],
-  ["modules/open-api/admin/admin.service.ts", 1],
+  ["modules/open-api/admin/admin.service.ts", 2],
+  [
+    "modules/platform/credentials/user-owned/user-model-configs/user-model-configs.service.ts",
+    1,
+  ],
 ];
 
 function listTsFiles(dir: string, acc: string[] = []): string[] {

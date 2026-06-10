@@ -39,6 +39,7 @@ import { BYOKError } from "@/modules/platform/credentials/resolution/key-resolve
 import type { ChatCompletionResult } from "./ai-chat.service";
 import type { StructuredOutputStrategy } from "../output/structured/structured-output-strategy.types";
 import type { FunctionDefinition } from "../../tools/abstractions/tool.interface";
+import { inferIsReasoning } from "../types/model.utils";
 
 @Injectable()
 export class AiChatFailoverCallerService {
@@ -186,7 +187,12 @@ export class AiChatFailoverCallerService {
     const { modelId, apiEndpoint, provider } = config;
     const apiFormat = config.apiFormat || "openai";
     const supportsTemp = config.supportsTemperature ?? true;
-    const isReasoning = config.isReasoning ?? false;
+    // ★ 用 || 而非 ??：DB isReasoning 是 Boolean @default(false) NOT NULL，
+    //   "用户漏标"塌缩为 false（非 null），?? 不触发兜底。|| 让 false/undefined
+    //   都回退 modelId 启发式，救回被漏标的 reasoning 模型（gpt-5.x/o1/o3/o4），
+    //   否则发 max_tokens → OpenAI INVALID_REQUEST 全失败。admin 若需强制非推理，
+    //   显式设 tokenParamName=max_tokens（直读、不被覆盖）。
+    const isReasoning = config.isReasoning || inferIsReasoning(modelId);
     const tokenParamName =
       config.tokenParamName ||
       (isReasoning ? "max_completion_tokens" : "max_tokens");

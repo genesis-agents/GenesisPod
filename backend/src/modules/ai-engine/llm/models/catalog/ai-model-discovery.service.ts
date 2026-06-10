@@ -2,11 +2,14 @@ import { forwardRef, Inject, Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { UserApiKeysService } from "../../../../platform/credentials/user-owned/user-api-keys/user-api-keys.service";
+import { sortByRecencyDesc } from "./model-recency.util";
 
 export interface DiscoveredModel {
   id: string;
   name: string;
   description?: string;
+  /** provider 返回的创建时间（OpenAI /v1/models 的 epoch 秒）；用于 newest-first 排序 */
+  created?: number;
 }
 
 export interface FetchModelsResult {
@@ -264,20 +267,21 @@ export class AiModelDiscoveryService {
       );
     }
 
-    filteredModels.sort((a, b) =>
-      a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
-    );
+    // ★ Gemini /v1beta/models 无 `created` 字段；旧实现按字母升序排，导致
+    //   gemini-1.5-pro 排在 gemini-2.5-pro 前面 → auto-configure 选到旧代。
+    //   改为版本号降序（newest-first），让代际通配 pattern 命中最新代。
+    const mapped = filteredModels.map((m) => {
+      const modelId = m.name.replace("models/", "");
+      return {
+        id: modelId,
+        name: m.displayName || modelId,
+        description: m.description || `Google ${m.displayName}`,
+      };
+    });
 
     return {
       success: true,
-      models: filteredModels.map((m) => {
-        const modelId = m.name.replace("models/", "");
-        return {
-          id: modelId,
-          name: m.displayName || modelId,
-          description: m.description || `Google ${m.displayName}`,
-        };
-      }),
+      models: sortByRecencyDesc(mapped),
     };
   }
 
@@ -300,7 +304,7 @@ export class AiModelDiscoveryService {
 
     const response = await firstValueFrom(
       this.httpService.get<{
-        data?: Array<{ id: string; description?: string }>;
+        data?: Array<{ id: string; description?: string; created?: number }>;
       }>(endpoint, {
         headers: {
           Authorization: `Bearer ${apiKey}`,
@@ -317,13 +321,20 @@ export class AiModelDiscoveryService {
       );
     }
 
+    // ★ newest-first：OpenAI /v1/models 返回带 `created` epoch 但顺序随机，
+    //   不排序会让 auto-configure 的代际通配 pattern 命中列表里第一个匹配项
+    //   （可能是旧版 gpt-4o 而非 gpt-5.4）。统一过 sortByRecencyDesc：
+    //   有 created 按时间降序，无 created（部分 OpenAI 兼容 provider）按版本号兜底。
     return {
       success: true,
-      models: models.map((m) => ({
-        id: m.id,
-        name: m.id,
-        description: m.description || `${providerName} ${m.id}`,
-      })),
+      models: sortByRecencyDesc(
+        models.map((m) => ({
+          id: m.id,
+          name: m.id,
+          description: m.description || `${providerName} ${m.id}`,
+          created: m.created,
+        })),
+      ),
     };
   }
 
@@ -373,7 +384,9 @@ export class AiModelDiscoveryService {
       if (modelType === "EMBEDDING" || modelType === "RERANK") {
         models = [];
       }
-      return { success: true, models };
+      // ★ Anthropic /v1/models 默认 newest-first，但不作保证；统一过版本号降序
+      //   让代际通配（claude-opus-4-x / claude-sonnet-4-x）稳定命中最新代。
+      return { success: true, models: sortByRecencyDesc(models) };
     } catch (err) {
       this.logger.warn(
         `[fetchAnthropicModels] failed: ${err instanceof Error ? err.message : String(err)}`,

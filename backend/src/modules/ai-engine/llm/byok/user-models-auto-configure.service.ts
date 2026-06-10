@@ -316,12 +316,11 @@ export class AutoConfigureService {
   }
 
   /**
-   * 从 availableIds 里挑一个符合任一 pattern 的 modelId。
+   * 从 availableIds 里挑符合 pattern 的 modelId。
    *
-   * ★ 外层走 availableIds（假定已按 `created` desc 排序——`fetchOpenAIModels`
-   *   等 discovery 服务保证这点），内层走 patterns。**第一个能命中任何 pattern
-   *   的 id 就是最新的**——pattern 顺序不再决定胜负，provider 的 /v1/models 里
-   *   真实返回的时间戳决定。
+   * ★ 外层走 availableIds（discovery 已 newest-first 排序），内层走 patterns。
+   *   **第一个能命中任何 pattern 的 id 就是最新代**——pattern 顺序不决定胜负，
+   *   discovery 的 sortByRecencyDesc（created / 版本号）决定。
    *
    * 好处：
    *   - 添加新代际模型（如 gpt-6）不用改 pattern 顺序，只要 pattern 能涵盖它，
@@ -329,9 +328,10 @@ export class AutoConfigureService {
    *   - 避免 pattern 列表追模型发布节奏的问题。
    */
   /**
-   * 返回 availableIds 里**所有**命中 patterns 的 modelId，保持原有顺序
-   *（provider 的 /v1/models 已按 created desc 排过序，所以最新的在前面）。
-   * auto-configure 会逐个 probe，找到第一个能 chat 通的。
+   * 返回 availableIds 里**所有**命中 patterns 的 modelId，保持传入顺序。
+   * discovery 层（AiModelDiscoveryService）已用 sortByRecencyDesc 把列表排成
+   * newest-first（有 created 按时间降序，无 created 按版本号兜底），所以这里
+   * 最新代在前。auto-configure 会逐个 probe，找到第一个能 chat 通的。
    */
   private allMatches(availableIds: string[], patterns: string[]): string[] {
     const compiled: RegExp[] = [];

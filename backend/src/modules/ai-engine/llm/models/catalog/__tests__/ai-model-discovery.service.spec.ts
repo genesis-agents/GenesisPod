@@ -181,6 +181,127 @@ describe("AiModelDiscoveryService", () => {
     });
   });
 
+  // ==================== newest-first 排序 ====================
+  // 根因回归测试：discovery 必须返回 newest-first，否则 auto-configure 的代际通配
+  // pattern 命中列表里第一个匹配项（可能是旧版 gpt-4o 而非 gpt-5.4）。
+
+  describe("fetchAvailableModels — newest-first ordering", () => {
+    it("OpenAI-compatible: sorts by created desc (newest first)", async () => {
+      const mockUserApiKeys = (service as any).userApiKeysService;
+      mockUserApiKeys.resolveProviderDefaults.mockResolvedValueOnce({
+        endpoint: "https://api.openai.com/v1",
+        apiFormat: "openai",
+      });
+      mockHttpService.get.mockReturnValueOnce(
+        of(
+          makeHttpResponse({
+            data: [
+              { id: "gpt-4o-2024-05-13", created: 1715000000 },
+              { id: "gpt-5.4", created: 1740000000 },
+              { id: "gpt-4-turbo", created: 1712000000 },
+            ],
+          }),
+        ) as any,
+      );
+
+      const result = await service.fetchAvailableModels(
+        "openai",
+        "test-key",
+        undefined,
+        "CHAT",
+      );
+      expect(result.success).toBe(true);
+      // 最新代必须排第一，让 auto-configure firstMatch 命中它
+      expect(result.models![0].id).toBe("gpt-5.4");
+    });
+
+    it("OpenAI-compatible: version fallback when created missing", async () => {
+      const mockUserApiKeys = (service as any).userApiKeysService;
+      mockUserApiKeys.resolveProviderDefaults.mockResolvedValueOnce({
+        endpoint: "https://api.openai.com/v1",
+        apiFormat: "openai",
+      });
+      mockHttpService.get.mockReturnValueOnce(
+        of(
+          makeHttpResponse({
+            data: [{ id: "gpt-4o-2024-05" }, { id: "gpt-5.4" }],
+          }),
+        ) as any,
+      );
+
+      const result = await service.fetchAvailableModels(
+        "openai",
+        "test-key",
+        undefined,
+        "CHAT",
+      );
+      expect(result.success).toBe(true);
+      expect(result.models![0].id).toBe("gpt-5.4");
+    });
+
+    it("Gemini: sorts generations newest-first (2.5 before 1.5)", async () => {
+      const mockUserApiKeys = (service as any).userApiKeysService;
+      mockUserApiKeys.resolveProviderDefaults.mockResolvedValueOnce({
+        endpoint: "https://generativelanguage.googleapis.com/v1beta",
+        apiFormat: "google",
+      });
+      mockHttpService.get.mockReturnValueOnce(
+        of(
+          makeHttpResponse({
+            models: [
+              {
+                name: "models/gemini-1.5-pro",
+                displayName: "Gemini 1.5 Pro",
+                supportedGenerationMethods: ["generateContent"],
+              },
+              {
+                name: "models/gemini-2.5-pro",
+                displayName: "Gemini 2.5 Pro",
+                supportedGenerationMethods: ["generateContent"],
+              },
+            ],
+          }),
+        ) as any,
+      );
+
+      const result = await service.fetchAvailableModels(
+        "google",
+        "test-key",
+        undefined,
+        "CHAT",
+      );
+      expect(result.success).toBe(true);
+      expect(result.models![0].id).toBe("gemini-2.5-pro");
+    });
+
+    it("Anthropic: sorts generations newest-first (opus-4 before 3-5-sonnet)", async () => {
+      const mockUserApiKeys = (service as any).userApiKeysService;
+      mockUserApiKeys.resolveProviderDefaults.mockResolvedValueOnce({
+        endpoint: "https://api.anthropic.com",
+        apiFormat: "anthropic",
+      });
+      mockHttpService.get.mockReturnValueOnce(
+        of(
+          makeHttpResponse({
+            data: [
+              { id: "claude-3-5-sonnet-20241022", type: "model" },
+              { id: "claude-opus-4-1-20250805", type: "model" },
+            ],
+          }),
+        ) as any,
+      );
+
+      const result = await service.fetchAvailableModels(
+        "anthropic",
+        "test-key",
+        undefined,
+        "CHAT",
+      );
+      expect(result.success).toBe(true);
+      expect(result.models![0].id).toBe("claude-opus-4-1-20250805");
+    });
+  });
+
   // ==================== fetchAvailableModels ====================
   // ★ fb63df767 改为数据驱动路由后，以下测试使用旧的硬编码 endpoint 方式，
   //   spec 标注 skip（原 commit 61a68cf65 已说明"spec 待重写"），待新版本覆盖后移除 skip。

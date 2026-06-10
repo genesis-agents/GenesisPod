@@ -231,8 +231,14 @@ export class AiModelConfigService {
    * ★ 统一处理所有字段，兼容新旧数据库
    */
   private buildModelConfig(model: Record<string, unknown>): AIModelConfig {
+    // 2026-06-10 P0：AIModel.isReasoning 列是 NOT NULL @default(false)，故"未标记"
+    // 与"显式 false"在此层不可区分。对 reasoning 名模型（gpt-5.x/o1/o3/o4/...）做
+    // 启发式 OR 兜底：DB true 直用；DB false 但模型名是 reasoning → 仍判 true，
+    // 让下方 tokenParamName 走 max_completion_tokens，避免发 max_tokens 被 OpenAI
+    // INVALID_REQUEST 全失败。代价：admin 若真想对 reasoning 名模型强制非推理，
+    // 需显式设 tokenParamName=max_tokens（该字段直读，不被本兜底覆盖）。
     const isReasoning =
-      (model.isReasoning as boolean | undefined) ??
+      (model.isReasoning as boolean | undefined) ||
       this.inferIsReasoning(model.modelId as string);
 
     return {

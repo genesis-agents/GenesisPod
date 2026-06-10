@@ -446,6 +446,53 @@ describe("BillingRuntimeEnvAdapter", () => {
       expect(result.suggestion).toBe("proceed");
     });
 
+    it("BYOK (personal): affordable=true without consulting balance even at zero balance", async () => {
+      const credits = makeCredits(0); // 平台余额为 0
+      const adapter = new BillingRuntimeEnvAdapter(
+        "u1",
+        undefined,
+        credits as never,
+        makeRuntimeEnv({ hasByok: true }) as never,
+      );
+      const result = await adapter.estimateAffordable({ maxTokens: 100_000 });
+      expect(result.affordable).toBe(true);
+      expect(result.suggestion).toBe("proceed");
+      expect(result.shortfall).toBe(0);
+      // 不该查 balance —— BYOK 花自己 key 的钱
+      expect(credits.getBalance).not.toHaveBeenCalled();
+      // estimatedCredits 仍正确计算供展示
+      expect(result.estimatedCredits).toBe(100_000 / CREDITS_TO_TOKENS);
+    });
+
+    it("platform (no byok): still gated by balance (abort at zero balance)", async () => {
+      const credits = makeCredits(0);
+      const adapter = new BillingRuntimeEnvAdapter(
+        "u1",
+        undefined,
+        credits as never,
+        makeRuntimeEnv({ hasByok: false }) as never,
+      );
+      const result = await adapter.estimateAffordable({ maxTokens: 100_000 });
+      expect(result.affordable).toBe(false);
+      expect(result.suggestion).toBe("abort");
+      // 平台用户必须查 balance
+      expect(credits.getBalance).toHaveBeenCalled();
+    });
+
+    it("assigned (shared key, not personal): still gated by balance", async () => {
+      const credits = makeCredits(0);
+      const adapter = new BillingRuntimeEnvAdapter(
+        "u1",
+        undefined,
+        credits as never,
+        makeRuntimeEnv({ sharedKeyAvailable: true }) as never,
+      );
+      const result = await adapter.estimateAffordable({ maxTokens: 100_000 });
+      // 'assigned' 不是 'personal'，仍走平台余额判定
+      expect(result.affordable).toBe(false);
+      expect(credits.getBalance).toHaveBeenCalled();
+    });
+
     it("R2-#45: estimatedCredits uses CREDITS_TO_TOKENS constant (not raw /1000 literal)", async () => {
       // CREDITS_TO_TOKENS = 1000 currently, but the invariant we protect is that
       // estimatedCredits = ceil(maxTokens / CREDITS_TO_TOKENS) — if the constant

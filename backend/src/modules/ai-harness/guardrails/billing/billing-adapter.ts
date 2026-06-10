@@ -270,13 +270,28 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
     estimatedCredits: number;
     currentBalance: number;
   }> {
-    const acct = await this.getCachedBalance();
-    // ★ R2-#45: route through CREDITS_TO_TOKENS (single source in ResolvedBudgetCaps).
+    // ★ R2-#46: route through CREDITS_TO_TOKENS (single source in ResolvedBudgetCaps).
     //   Eliminates the divergent inline /1000 literal so this matches the pre-flight
     //   gate in s1-mission-estimate-budget.stage.ts exactly.
     const estimatedCredits = Math.ceil(
       (budget.maxTokens ?? 0) / CREDITS_TO_TOKENS,
     );
+    // ★ BYOK 豁免：personal key 用户花自己 provider 的钱，chat.facade 已确认不扣平台
+    //   credit（consumeCredits 跳过 personal）。因此平台余额（可能为 0）不该卡住 mission
+    //   启动——单点在此豁免，所有调用方（s1 预检等）自动受益。仍返回 estimatedCredits
+    //   供前端展示，但不查 balance、永远 affordable。currentBalance 用 -1 表示
+    //   "BYOK 不适用平台余额"（避免 Infinity 进事件 JSON），下游仅在非 affordable
+    //   分支才读它，BYOK 走 affordable 分支不会暴露。
+    if ((await this.getByokStatus()) === "personal") {
+      return {
+        affordable: true,
+        shortfall: 0,
+        suggestion: "proceed",
+        estimatedCredits,
+        currentBalance: -1,
+      };
+    }
+    const acct = await this.getCachedBalance();
     if (acct.balance >= estimatedCredits) {
       return {
         affordable: true,
