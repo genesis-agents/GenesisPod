@@ -3,6 +3,12 @@
 > 5 段并行深度推理：dispatch 生命周期 / S1-S3 / S4-S6 / S7-S12 / 消费面（任务列表·Drawer·协作动态·模型/算力列）。
 > 覆盖 happy path + corner case 全分支，每处输出（事件发射）与三个用户面的消费逐一对照。
 > 本文档同时标注：✅ 已在 588f89e83 及之前修复 / ⏳ 已立案待修（按严重度排序见末节）。
+>
+> **勘误（2026-06-10 晚，25cedf347）**：下文标 ⏳P1 的 5 项（成本恒 $0、失败通知仲裁、S4 catch
+> 全维卡死、extractWeakDimensions 字段、quality-failed 不可达）与 4 项 P2（budget/validation
+> 警告透传、S2 复用提示、S5 单维短路、mission:started/completed 桥）已全部闭环；company gateway
+> 同步补注册 8 个新 domain 事件。剩余待修以第 6 节扣除上述项后为准
+> （主要：S4 retry 闭环、S8 章节流式、S3 全败 early-abort、abort 状态-事件 DB 矫正）。
 
 ## 0. 总根因（一句话）
 
