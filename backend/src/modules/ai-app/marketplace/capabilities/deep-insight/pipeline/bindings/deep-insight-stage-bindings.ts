@@ -33,7 +33,7 @@ import type {
   ExtractedFigure,
 } from "../../runner-deps";
 import { CS_KEY, readPipelineInput, type StageBindings } from "../ports";
-import { invokeAgent } from "./agent-invoke.helper";
+import { invokeAgent, emitDomain } from "./agent-invoke.helper";
 import {
   buildAssembleInput,
   buildChapterInputs,
@@ -114,6 +114,14 @@ interface FigureRankableResearcher {
   [key: string]: unknown;
 }
 
+/** leaderJournal 单条记录（s2/s4/s10 各 append 一条）。 */
+interface LeaderJournalEntry {
+  stage: string;
+  decision: string;
+  summary: string;
+  ts: number;
+}
+
 export class DeepInsightStageBindings implements StageBindings {
   constructor(
     private readonly runner: AgentRunner,
@@ -171,6 +179,7 @@ export class DeepInsightStageBindings implements StageBindings {
       runRole: async (args: { ctx: StageRunArgs["ctx"] }): Promise<unknown> => {
         const full = this.fullArgs(args.ctx);
         const input = readPipelineInput(full.ctx);
+        const onEvent = input.invocation.onEvent;
         // ★ #16a 增量复用：plan 已由 inheritedBaseline seed（消费方"更新"场景）→ 直接复用，
         //   跳过 leader plan LLM。等价 OFF 路 hydrateInheritedPlan 后 S2 跳过。fresh run 时
         //   S2 入口 CS_KEY.plan 必为 undefined（只有本 hook 写它），crash-resume 整步跳过 S2，
@@ -179,6 +188,13 @@ export class DeepInsightStageBindings implements StageBindings {
         if (seededPlan) {
           return seededPlan;
         }
+        // ★ #16b narrate：S2 开始
+        emitDomain(onEvent, "agent:narrative", {
+          stage: "s2-leader-plan",
+          role: "leader",
+          tag: "thinking",
+          text: "Leader 开始分析 topic，准备维度规划与声明 successCriteria",
+        });
         const res = await invokeAgent({
           runner: this.runner,
           specId: "playground.leader",
@@ -192,6 +208,10 @@ export class DeepInsightStageBindings implements StageBindings {
             ...(input.invocation.description
               ? { description: input.invocation.description }
               : {}),
+            // ★ env5 task3：透传历史 postmortem（leader plan 阶段看到历史教训再规划）。
+            priorPostmortems: input.invocation.priorPostmortems
+              ? [...input.invocation.priorPostmortems]
+              : [],
           },
           invocation: input.invocation,
           crossStageState: full.crossStageState,
@@ -199,6 +219,7 @@ export class DeepInsightStageBindings implements StageBindings {
           stepId: "s2-leader-plan",
           role: "leader",
           operationType: "plan",
+          onEvent,
         });
         const plan = this.normalizePlan(res.output, input.topic);
         full.crossStageState.set<PlanResult>(CS_KEY.plan, plan);
@@ -206,6 +227,38 @@ export class DeepInsightStageBindings implements StageBindings {
         if (plan.goals) {
           full.crossStageState.set<GoalsShape>(CS_KEY.goals, plan.goals);
         }
+        // ★ F2/F1 leaderJournal：s2 plan 决策追加一条。
+        full.crossStageState.append<LeaderJournalEntry>(CS_KEY.leaderJournal, {
+          stage: "s2-leader-plan",
+          decision: "plan",
+          summary: `规划 ${plan.dimensions.length} 个研究维度：${plan.dimensions
+            .slice(0, 3)
+            .map((d) => d.name)
+            .join("、")}${plan.dimensions.length > 3 ? " 等" : ""}`,
+          ts: Date.now(),
+        });
+        // ★ #16b P1：emit leader:goals-set domain 事件（对齐 OFF 路 s2 emitExtras）。
+        emitDomain(onEvent, "leader:goals-set", {
+          goals: plan.goals ?? {},
+          initialRisks: [],
+          dimensions: plan.dimensions,
+        });
+        // ★ #16b narrate：S2 完成
+        emitDomain(onEvent, "agent:narrative", {
+          stage: "s2-leader-plan",
+          role: "leader",
+          tag: "planning",
+          text: `Leader 拆出 ${plan.dimensions.length} 个研究维度：${plan.dimensions
+            .slice(0, 3)
+            .map((d) => d.name)
+            .join(" / ")}${plan.dimensions.length > 3 ? " 等" : ""}`,
+        });
+        // ★ #16b P1：stage:metrics（S2 完成，dimensions 数）
+        emitDomain(onEvent, "stage:metrics", {
+          stepId: "s2-leader-plan",
+          dimensions: plan.dimensions.length,
+          themeSummary: plan.themeSummary,
+        });
         return plan;
       },
       extractPlanFields: (raw: unknown) => {
@@ -224,6 +277,15 @@ export class DeepInsightStageBindings implements StageBindings {
         if (!plan) {
           throw new Error("[s3-researcher-collect] 无 plan（s2 未产出）");
         }
+        // ★ #16b narrate：S3 开始派遣
+        const input = readPipelineInput(full.ctx);
+        const onEvent = input.invocation.onEvent;
+        emitDomain(onEvent, "agent:narrative", {
+          stage: "s3-researcher-collect",
+          role: "researcher",
+          tag: "info",
+          text: `派遣 ${plan.dimensions.length} 个 Researcher 并行采集维度`,
+        });
         return plan.dimensions;
       },
       perItemPipeline: async (args: {
@@ -232,7 +294,13 @@ export class DeepInsightStageBindings implements StageBindings {
       }): Promise<unknown> => {
         const full = this.fullArgs(args.ctx);
         const input = readPipelineInput(full.ctx);
+        const onEvent = input.invocation.onEvent;
         const dim = args.item as { id: string; name: string };
+        // ★ #16b P0：dimension:research:started
+        emitDomain(onEvent, "dimension:research:started", {
+          dimension: dim.name,
+          stepId: "s3-researcher-collect",
+        });
         // ★ #16a 增量复用：该维已有上次 mission 的 researcher 产物（inheritedBaseline seed 进
         //   暂存桶）→ 复用、跳过 web 检索（增量场景最贵/最慢的一段）。append 到 researcherResults
         //   走与 fresh 同一路径（终态产物形状一致），从暂存桶取避免重复 append。
@@ -247,6 +315,12 @@ export class DeepInsightStageBindings implements StageBindings {
             CS_KEY.researcherResults,
             reused,
           );
+          emitDomain(onEvent, "dimension:research:completed", {
+            dimension: dim.name,
+            findingsCount: reused.findings?.length ?? 0,
+            summary: reused.summary ?? "",
+            reused: true,
+          });
           return reused;
         }
         const res = await invokeAgent({
@@ -274,6 +348,7 @@ export class DeepInsightStageBindings implements StageBindings {
           role: "researcher",
           dimension: dim.name,
           operationType: "research",
+          onEvent,
         });
         // ReActLoop 到 maxIterations 未 finalize 时 output=null，不能伪装成功。
         if (res.output == null) {
@@ -286,6 +361,12 @@ export class DeepInsightStageBindings implements StageBindings {
           CS_KEY.researcherResults,
           result,
         );
+        // ★ #16b P0：dimension:research:completed
+        emitDomain(onEvent, "dimension:research:completed", {
+          dimension: dim.name,
+          findingsCount: result.findings?.length ?? 0,
+          summary: result.summary ?? "",
+        });
         return result;
       },
       onPatchFailure: (_args: { item: unknown; error: unknown }): void => {
@@ -314,11 +395,19 @@ export class DeepInsightStageBindings implements StageBindings {
       runRole: async (args: { ctx: StageRunArgs["ctx"] }): Promise<unknown> => {
         const full = this.fullArgs(args.ctx);
         const input = readPipelineInput(full.ctx);
+        const onEvent = input.invocation.onEvent;
         const plan = full.crossStageState.get<PlanResult>(CS_KEY.plan);
         const researcherResults =
           full.crossStageState.get<ResearcherResult[]>(
             CS_KEY.researcherResults,
           ) ?? [];
+        // ★ #16b narrate：S4 开始评审
+        emitDomain(onEvent, "agent:narrative", {
+          stage: "s4-leader-assess",
+          role: "leader",
+          tag: "thinking",
+          text: `Leader 开始评审 ${plan?.dimensions.length ?? 0} 个维度的产出，决定是否需要补研究`,
+        });
         // ★ goals + dimensions 合成真实 myPlan（对齐 s4-leader-assess-research.stage.ts:84-124）。
         const goals: GoalsShape = full.crossStageState.get<GoalsShape>(
           CS_KEY.goals,
@@ -390,8 +479,48 @@ export class DeepInsightStageBindings implements StageBindings {
             stepId: "s4-leader-assess",
             role: "leader",
             operationType: "assess",
+            onEvent,
           });
-          return res.output ?? { decision: "accept-all" };
+          const output = res.output ?? { decision: "accept-all" };
+          // ★ #16b P1：leader:decision domain 事件（对齐 OFF 路 leader.assessResearchers → narrate）。
+          const decisionVal = this.readLeaderAssessDecision(output);
+          emitDomain(onEvent, "leader:decision", {
+            phase: "assess-research",
+            decision: decisionVal,
+            perDimension:
+              (output as { perDimension?: unknown }).perDimension ?? [],
+          });
+          emitDomain(onEvent, "agent:narrative", {
+            stage: "s4-leader-assess",
+            role: "leader",
+            tag: "signing",
+            text: `Leader 评估完成：决定 ${decisionVal}（${researcherOutcomes.filter((o) => o.state === "completed").length}/${researcherOutcomes.length} 维度达标）`,
+          });
+          // ★ #16b P1：stage:metrics
+          emitDomain(onEvent, "stage:metrics", {
+            stepId: "s4-leader-assess",
+            dimensions: researcherOutcomes.length,
+            accepted: researcherOutcomes.filter((o) => o.state === "completed")
+              .length,
+            degraded: researcherOutcomes.filter((o) => o.state === "degraded")
+              .length,
+            failed: researcherOutcomes.filter((o) => o.state === "failed")
+              .length,
+          });
+          // ★ F2/F1 leaderJournal：s4 assess 决策追加一条。
+          full.crossStageState.append<LeaderJournalEntry>(
+            CS_KEY.leaderJournal,
+            {
+              stage: "s4-leader-assess",
+              decision: decisionVal,
+              summary:
+                `评估 ${researcherOutcomes.length} 个维度，` +
+                `通过 ${researcherOutcomes.filter((o) => o.state === "completed").length} 个，` +
+                `决定：${decisionVal}`,
+              ts: Date.now(),
+            },
+          );
+          return output;
         } catch {
           // assess 可降级：leader 评估失败不阻断（视为 accept-all，下游照常成稿）。
           return { decision: "accept-all" };
@@ -446,11 +575,18 @@ export class DeepInsightStageBindings implements StageBindings {
       }): Promise<unknown> => {
         const full = this.fullArgs(args.ctx);
         const input = readPipelineInput(full.ctx);
+        const onEvent = input.invocation.onEvent;
         const plan = full.crossStageState.get<PlanResult>(CS_KEY.plan);
         const researcherResults =
           full.crossStageState.get<ResearcherResult[]>(
             CS_KEY.researcherResults,
           ) ?? [];
+        emitDomain(onEvent, "agent:narrative", {
+          stage: "s5-reconciler",
+          role: "analyst",
+          tag: "analyzing",
+          text: "Reconciler 对各维度数据进行跨维对账与事实核查",
+        });
         try {
           const res = await invokeAgent({
             runner: this.runner,
@@ -467,6 +603,7 @@ export class DeepInsightStageBindings implements StageBindings {
             stepId: "s5-reconciler",
             role: "reconciler",
             operationType: "reconcile",
+            onEvent,
           });
           full.crossStageState.set(CS_KEY.reconciliationReport, res.output);
           return res.output;
@@ -487,6 +624,7 @@ export class DeepInsightStageBindings implements StageBindings {
       }): Promise<unknown> => {
         const full = this.fullArgs(args.ctx);
         const input = readPipelineInput(full.ctx);
+        const onEvent = input.invocation.onEvent;
         const researcherResults =
           full.crossStageState.get<ResearcherResult[]>(
             CS_KEY.researcherResults,
@@ -497,6 +635,12 @@ export class DeepInsightStageBindings implements StageBindings {
           overlaps?: unknown[];
           gaps?: unknown[];
         }>(CS_KEY.reconciliationReport);
+        emitDomain(onEvent, "agent:narrative", {
+          stage: "s6-analyst",
+          role: "analyst",
+          tag: "analyzing",
+          text: `Analyst 综合 ${researcherResults.length} 个维度的研究成果，提炼核心洞察`,
+        });
         const res = await invokeAgent({
           runner: this.runner,
           specId: "playground.analyst",
@@ -517,6 +661,7 @@ export class DeepInsightStageBindings implements StageBindings {
           stepId: "s6-analyst",
           role: "analyst",
           operationType: "analyze",
+          onEvent,
         });
         full.crossStageState.set(CS_KEY.analystOutput, res.output);
         return res.output;
@@ -532,8 +677,15 @@ export class DeepInsightStageBindings implements StageBindings {
       }): Promise<unknown> => {
         const full = this.fullArgs(args.ctx);
         const input = readPipelineInput(full.ctx);
+        const onEvent = input.invocation.onEvent;
         const plan = full.crossStageState.get<PlanResult>(CS_KEY.plan);
         const depth = input.invocation.depth ?? "standard";
+        emitDomain(onEvent, "agent:narrative", {
+          stage: "s7-writer-outline",
+          role: "writer",
+          tag: "planning",
+          text: "Writer 规划报告大纲结构与章节布局",
+        });
         try {
           const res = await invokeAgent({
             runner: this.runner,
@@ -542,9 +694,11 @@ export class DeepInsightStageBindings implements StageBindings {
               topic: input.topic,
               language: input.language,
               depth,
-              audienceProfile: "domain-expert",
-              styleProfile: "academic",
-              lengthProfile: "standard",
+              // ★ task5 4 档位透传：使用 invocation 档位，缺省回退原硬编码值。
+              audienceProfile:
+                input.invocation.audienceProfile ?? "domain-expert",
+              styleProfile: input.invocation.styleProfile ?? "academic",
+              lengthProfile: input.invocation.lengthProfile ?? "standard",
               withFigures: input.invocation.withFigures ?? false,
               plan: {
                 themeSummary: plan?.themeSummary ?? input.topic,
@@ -557,6 +711,7 @@ export class DeepInsightStageBindings implements StageBindings {
             stepId: "s7-writer-outline",
             role: "writer",
             operationType: "outline",
+            onEvent,
           });
           full.crossStageState.set(CS_KEY.outlinePlan, res.output);
           return res.output ?? null;
@@ -591,6 +746,13 @@ export class DeepInsightStageBindings implements StageBindings {
           contradictions?: unknown[];
         };
         const outlinePlan = full.crossStageState.get(CS_KEY.outlinePlan);
+        const onEvent = input.invocation.onEvent;
+        emitDomain(onEvent, "agent:narrative", {
+          stage: "s8-writer",
+          role: "writer",
+          tag: "writing",
+          text: "Writer 开始根据分析结果撰写完整研究报告",
+        });
         const res = await invokeAgent({
           runner: this.runner,
           specId: "playground.writer",
@@ -612,6 +774,7 @@ export class DeepInsightStageBindings implements StageBindings {
           stepId: "s8-writer",
           role: "writer",
           operationType: "write",
+          onEvent,
         });
         full.crossStageState.set(CS_KEY.report, res.output);
         return res.output ?? null;
@@ -711,7 +874,14 @@ export class DeepInsightStageBindings implements StageBindings {
       }): Promise<{ verdict: unknown }> => {
         const full = this.fullArgs(args.ctx);
         const input = readPipelineInput(full.ctx);
+        const onEvent = input.invocation.onEvent;
         const artifact = full.crossStageState.get(CS_KEY.reportArtifact);
+        emitDomain(onEvent, "agent:narrative", {
+          stage: "s9-critic",
+          role: "reviewer",
+          tag: "reviewing",
+          text: "Critic 独立复审报告，进行盲点识别与质量信号校准",
+        });
         try {
           const res = await invokeAgent({
             runner: this.runner,
@@ -719,7 +889,9 @@ export class DeepInsightStageBindings implements StageBindings {
             input: {
               topic: input.topic,
               language: input.language,
-              audienceProfile: "domain-expert",
+              // ★ task5 4 档位透传：使用 invocation 档位，缺省回退原硬编码值。
+              audienceProfile:
+                input.invocation.audienceProfile ?? "domain-expert",
               artifactSummary: buildCriticArtifactSummary(
                 asArtifact(artifact),
                 input.topic,
@@ -731,6 +903,7 @@ export class DeepInsightStageBindings implements StageBindings {
             stepId: "s9-critic",
             role: "critic",
             operationType: "meta-critic",
+            onEvent,
           });
           return { verdict: res.output };
         } catch {
@@ -870,6 +1043,16 @@ export class DeepInsightStageBindings implements StageBindings {
       sections: mappedSections,
       conclusion,
     };
+    const onEvent = input.invocation.onEvent;
+    emitDomain(onEvent, "agent:narrative", {
+      stage: stepId,
+      role: "reviewer",
+      tag: "reviewing",
+      text:
+        stepId === "s9b-objective-eval"
+          ? "Reviewer 对报告进行客观多维评估打分"
+          : "Reviewer 对报告质量进行全面评审",
+    });
     const res = await invokeAgent({
       runner: this.runner,
       specId: "playground.reviewer",
@@ -885,6 +1068,7 @@ export class DeepInsightStageBindings implements StageBindings {
       role: "reviewer",
       operationType:
         stepId === "s9b-objective-eval" ? "objective-eval" : "quality-enhance",
+      onEvent,
     });
     const verdict = res.output;
     const score = this.extractScore(verdict);
@@ -892,7 +1076,16 @@ export class DeepInsightStageBindings implements StageBindings {
       full.crossStageState.set(CS_KEY.reviewScore, score);
     }
     const synth = this.synthReviewVerdict(verdict);
-    if (synth) full.crossStageState.set(CS_KEY.reviewVerdict, synth);
+    if (synth) {
+      // 写最新单条（向后兼容读 reviewVerdict 的消费方）。
+      full.crossStageState.set(CS_KEY.reviewVerdict, synth);
+      // ★ F2/F1 #36 verdict 累积：每轮 reviewer 结果 append 到 reviewVerdicts 桶，
+      //   s10 accountability hook 据此合成共识，避免 s9b 覆盖 s8b 的独立评判。
+      full.crossStageState.append<{ stepId: string } & typeof synth>(
+        CS_KEY.reviewVerdicts,
+        { stepId, ...synth },
+      );
+    }
     return { verdict, ...(typeof score === "number" ? { score } : {}) };
   }
 
@@ -1001,6 +1194,7 @@ export class DeepInsightStageBindings implements StageBindings {
       runRole: async (args: { ctx: StageRunArgs["ctx"] }): Promise<unknown> => {
         const full = this.fullArgs(args.ctx);
         const input = readPipelineInput(full.ctx);
+        const onEvent = input.invocation.onEvent;
         const plan = full.crossStageState.get<PlanResult>(CS_KEY.plan);
         const researcherResults =
           full.crossStageState.get<ResearcherResult[]>(
@@ -1102,6 +1296,12 @@ export class DeepInsightStageBindings implements StageBindings {
             ? { objectiveFeedback: pipelineEval.feedback }
             : {}),
         };
+        emitDomain(onEvent, "agent:narrative", {
+          stage: "s10-leader-signoff",
+          role: "leader",
+          tag: "reviewing",
+          text: "Leader 开始对最终报告进行前言与签字评估...",
+        });
         try {
           // ── Phase 1: foreword ──────────────────────────────────────────────
           const forewordRes = await invokeAgent({
@@ -1133,6 +1333,7 @@ export class DeepInsightStageBindings implements StageBindings {
             stepId: "s10-leader-foreword-signoff",
             role: "leader",
             operationType: "foreword",
+            onEvent,
           });
           const forewordOutput = forewordRes.output as {
             whatWeAnswered?: Array<{
@@ -1141,7 +1342,12 @@ export class DeepInsightStageBindings implements StageBindings {
               evidence: string;
             }>;
             whatRemainsUnclear?: string[];
+            howToRead?: string;
           } | null;
+          // ★ F2/F1 leaderForeword：写入 CS_KEY（报告组装阶段读取）。
+          if (forewordOutput) {
+            full.crossStageState.set(CS_KEY.leaderForeword, forewordOutput);
+          }
           // ── Phase 2: signoff ──────────────────────────────────────────────
           const wordCount =
             typeof artifact?.metadata?.wordCount === "number"
@@ -1205,7 +1411,41 @@ export class DeepInsightStageBindings implements StageBindings {
             stepId: "s10-leader-foreword-signoff",
             role: "leader",
             operationType: "signoff",
+            onEvent,
           });
+          const signoff = signoffRes.output as
+            | { signed?: boolean }
+            | null
+            | undefined;
+          emitDomain(onEvent, "agent:narrative", {
+            stage: "s10-leader-signoff",
+            role: "leader",
+            tag: "signing",
+            text:
+              signoff?.signed === false
+                ? "Leader 拒绝签字，报告需进一步修订..."
+                : "Leader 完成签字，报告通过最终质量审核。",
+          });
+          // ★ F2/F1 leaderJournal：s10 signoff 决策追加一条。
+          full.crossStageState.append<LeaderJournalEntry>(
+            CS_KEY.leaderJournal,
+            {
+              stage: "s10-leader-foreword-signoff",
+              decision: signoff?.signed === false ? "rejected" : "signed",
+              summary:
+                signoff?.signed === false
+                  ? `Leader 拒绝签字：${
+                      (
+                        signoffRes.output as
+                          | Record<string, unknown>
+                          | null
+                          | undefined
+                      )?.refusalReason ?? "质量未达标"
+                    }`
+                  : "Leader 完成签字，报告通过最终质量审核",
+              ts: Date.now(),
+            },
+          );
           return signoffRes.output;
         } catch {
           // signoff 可降级：缺 leader 签字不阻断终态产出。
@@ -1242,6 +1482,78 @@ export class DeepInsightStageBindings implements StageBindings {
           forcedDegraded = true;
         }
         cs.set(CS_KEY.leaderSignOff, signoff ?? null);
+
+        // ★ F2/F1 增强：把 leaderForeword / leaderJournal / verdictConsensus /
+        //   citations occurrences 注入 reportArtifact.metadata（纯 CS 读写，不落库）。
+        const artifact = asArtifact(cs.get(CS_KEY.reportArtifact));
+        if (artifact) {
+          const meta = artifact.metadata ?? {};
+
+          // (1) leaderForeword：把 s10 foreword 产物写进 metadata。
+          const foreword = cs.get<{
+            whatWeAnswered?: unknown[];
+            whatRemainsUnclear?: string[];
+            howToRead?: string;
+          }>(CS_KEY.leaderForeword);
+          if (foreword) {
+            meta.leaderForeword = foreword;
+          }
+
+          // (2) leaderJournal：决策轨迹附录。
+          const journal =
+            cs.get<LeaderJournalEntry[]>(CS_KEY.leaderJournal) ?? [];
+          if (journal.length > 0) {
+            meta.leaderJournal = journal;
+          }
+
+          // (3) verdictConsensus (#36)：多轮 reviewer verdict 合成共识。
+          const accumulated =
+            cs.get<
+              Array<{
+                stepId: string;
+                score?: number;
+                verdict?: "approve" | "revise" | "reject";
+                notes?: string[];
+              }>
+            >(CS_KEY.reviewVerdicts) ?? [];
+          if (accumulated.length > 0) {
+            meta.verdictConsensus =
+              this.synthesizeVerdictConsensus(accumulated);
+          }
+
+          // (4) citations occurrences (#36)：确保 citations 数量呈现在 metadata。
+          const citationCount = Array.isArray(artifact.citations)
+            ? artifact.citations.length
+            : 0;
+          if (citationCount > 0) {
+            meta.citationsCount = citationCount;
+          }
+
+          // (5) A3：从 10 维客观评估派生逐维 verifierVerdicts，落 CS_KEY.verifierVerdicts。
+          //     满足 recipe ctxWrites 声明 + runner :425 读取 → CapabilityRunResult.verdicts
+          //     + 持久化 mission.verdicts（恢复"重载完成态显示 verdicts"；此前该 key 从无
+          //     人写，runner 读到恒 null，verdicts 字段静默缺失）。
+          const qualityDims = (
+            artifact.quality as
+              | { dimensions?: Record<string, unknown> }
+              | undefined
+          )?.dimensions;
+          if (qualityDims && typeof qualityDims === "object") {
+            const verifierVerdicts = Object.entries(qualityDims)
+              .filter(([, score]) => typeof score === "number")
+              .map(([dimension, score]) => ({
+                dimension,
+                score: score as number,
+              }));
+            if (verifierVerdicts.length > 0) {
+              cs.set(CS_KEY.verifierVerdicts, verifierVerdicts);
+            }
+          }
+
+          artifact.metadata = meta;
+          cs.set(CS_KEY.reportArtifact, artifact);
+        }
+
         return { signoff: signoff ?? null, forcedDegraded };
       },
     });
@@ -1564,6 +1876,88 @@ export class DeepInsightStageBindings implements StageBindings {
       ...(score !== undefined ? { score } : {}),
       ...(v !== undefined ? { verdict: v } : {}),
       ...(notes?.length ? { notes } : {}),
+    };
+  }
+
+  /**
+   * ★ F2/F1 #36 verdict 共识合成：
+   *   多轮 reviewer verdict（s8b + s9b）→ 加权平均分 + 多数表决。
+   *   规则：s9b 是更后的客观评分，权重 ×1.5；s8b 权重 ×1。
+   *   verdict 多数表决（approve > revise > reject 优先级，票数相同取更严格的）。
+   */
+  private synthesizeVerdictConsensus(
+    accumulated: Array<{
+      stepId: string;
+      score?: number;
+      verdict?: "approve" | "revise" | "reject";
+      notes?: string[];
+    }>,
+  ): {
+    consensusVerdict: "approve" | "revise" | "reject" | "unknown";
+    avgScore?: number;
+    sources: string[];
+    notes: string[];
+  } {
+    const WEIGHT: Record<string, number> = {
+      "s9b-objective-eval": 1.5,
+      "s8b-quality-enhancement": 1,
+    };
+    let weightedScoreSum = 0;
+    let totalWeight = 0;
+    const verdictWeights: Record<string, number> = {
+      approve: 0,
+      revise: 0,
+      reject: 0,
+    };
+    const allNotes: string[] = [];
+    const sources: string[] = [];
+
+    for (const v of accumulated) {
+      const w = WEIGHT[v.stepId] ?? 1;
+      sources.push(v.stepId);
+      if (typeof v.score === "number") {
+        weightedScoreSum += v.score * w;
+        totalWeight += w;
+      }
+      if (
+        v.verdict === "approve" ||
+        v.verdict === "revise" ||
+        v.verdict === "reject"
+      ) {
+        verdictWeights[v.verdict] = (verdictWeights[v.verdict] ?? 0) + w;
+      }
+      if (v.notes) {
+        allNotes.push(...v.notes);
+      }
+    }
+
+    const avgScore =
+      totalWeight > 0 ? Math.round(weightedScoreSum / totalWeight) : undefined;
+
+    // 多数表决：取加权最高的；同权时优先更严格（reject > revise > approve）。
+    const priority: Array<"approve" | "revise" | "reject"> = [
+      "reject",
+      "revise",
+      "approve",
+    ];
+    let consensusVerdict: "approve" | "revise" | "reject" | "unknown" =
+      "unknown";
+    let maxWeight = 0;
+    for (const label of priority) {
+      const w = verdictWeights[label] ?? 0;
+      // 严格大于：所有 reviewer 均无 verdict 字段（权重全 0）时保留 "unknown" 缺省，
+      // 不被 priority 末项 "approve" 误覆盖。
+      if (w > maxWeight) {
+        maxWeight = w;
+        consensusVerdict = label;
+      }
+    }
+
+    return {
+      consensusVerdict,
+      ...(avgScore !== undefined ? { avgScore } : {}),
+      sources,
+      notes: allNotes,
     };
   }
 }

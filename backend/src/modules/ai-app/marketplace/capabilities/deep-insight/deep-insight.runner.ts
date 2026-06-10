@@ -57,6 +57,9 @@ import {
 /** 能力家自洽的 pipeline 注册 id（与 playground 私有注册 id="playground" 区分）。 */
 const DEEP_INSIGHT_PIPELINE_ID = "deep-insight";
 
+/** env3 事件 ring buffer 上限（防超大 mission 内存压力）。run() 与 bridgeMissionEvent 共享单一源。 */
+const EVENT_BUFFER_MAX = 500;
+
 const MANIFEST: CapabilityManifest = {
   id: "deep-insight",
   version: "1.0.0",
@@ -190,9 +193,41 @@ export class DeepInsightDefaultRunner
     const topic = input.topic;
     const language = input.language ?? "zh-CN";
     const { userId, missionId } = ctx;
-    const persistence = ctx.persistence ?? new InMemoryPersistencePort();
+    const persistence: MissionPersistencePort =
+      ctx.persistence ?? new InMemoryPersistencePort();
     // S12 postlude 需要 run 起始时间（用于 wallTimeMs 计算）。
     const runStartedAt = Date.now();
+
+    // ★ env5 recall：run() 开始前召回同用户同主题历史 postmortem（best-effort，失败回退空数组）。
+    // leader plan 阶段前拿到历史经验教训，透传进 leader plan priorPostmortems。
+    let priorPostmortems: ReadonlyArray<{
+      missionId: string;
+      topic: string;
+      summary: string;
+      recommendations: string[];
+      leaderSigned: boolean | null;
+      qualityScore: number | null;
+      createdAt: string;
+    }> = [];
+    try {
+      priorPostmortems =
+        (await persistence.recallPostmortems?.({ userId, topic, limit: 3 })) ??
+        [];
+    } catch (err) {
+      this.log.warn(
+        `[deep-insight ${missionId}] recallPostmortems failed (best-effort, ignore): ${this.errMsg(err)}`,
+      );
+    }
+
+    // ★ env3 事件缓冲：runner 在 run() 期间缓冲 mission/agent 事件（轻量 ring buffer），
+    // postlude 时把缓冲的事件流传给 postmortemClassifier，让 DEEP_INSIGHT_POSTMORTEM_PATTERNS
+    // 的 substring patterns 真正生效。
+    const bufferedEvents: Array<{
+      type: string;
+      payload?: unknown;
+      ts: number;
+    }> = [];
+    const MAX_BUFFER = EVENT_BUFFER_MAX;
 
     // per-run agent 调用上下文（透传 RunOptions + 实时 agent 事件 relay）。
     const invocation: AgentInvocation = {
@@ -211,13 +246,35 @@ export class DeepInsightDefaultRunner
         : {}),
       ...(input.description ? { description: input.description } : {}),
       ...(input.depth ? { depth: input.depth } : {}),
+      // ★ 4 档位透传（task 5）：audienceProfile / styleProfile / lengthProfile / auditLayers
+      ...(input.audienceProfile
+        ? { audienceProfile: input.audienceProfile }
+        : {}),
+      ...(input.styleProfile ? { styleProfile: input.styleProfile } : {}),
+      ...(input.lengthProfile ? { lengthProfile: input.lengthProfile } : {}),
+      ...(input.auditLayers?.length
+        ? { auditLayers: [...input.auditLayers] }
+        : {}),
+      // ★ env5 priorPostmortems 透传（task 3）：让 leader plan 看到历史教训
+      ...(priorPostmortems.length > 0 ? { priorPostmortems } : {}),
       onAgentEvent: (stepId, role, dimension, ev) => {
         try {
+          // ★ env3 缓冲 agent 事件（ring buffer，满了丢头）
+          if (bufferedEvents.length >= MAX_BUFFER) {
+            bufferedEvents.shift();
+          }
+          bufferedEvents.push({
+            type: ev.type,
+            payload: ev.payload,
+            ts: ev.timestamp ?? Date.now(),
+          });
           this.relayAgentEvent(ctx, stepId, role, dimension, ev);
         } catch {
           // relay 失败不拖死 run。
         }
       },
+      // ★ #16b domain 事件：透传 ctx.onEvent，让 bindings 经 emitDomain 发中性 domain 事件。
+      onEvent: ctx.onEvent,
     };
 
     const pipelineInput: DeepInsightPipelineInput = {
@@ -278,7 +335,14 @@ export class DeepInsightDefaultRunner
         ...(resumeFromStepId ? { resumeFromStepId } : {}),
         initialCrossStageState: crossStageState.toJSON(),
         onEvent: (ev) =>
-          this.bridgeMissionEvent(ctx, persistence, crossStageState, ev, topic),
+          this.bridgeMissionEvent(
+            ctx,
+            persistence,
+            crossStageState,
+            ev,
+            topic,
+            bufferedEvents,
+          ),
       });
 
       // 终态产物全在 runner 持有的 crossStageState（bindings 全程写它，经 attachState
@@ -314,6 +378,7 @@ export class DeepInsightDefaultRunner
           finalState,
           persistence,
           runStartedAt,
+          bufferedEvents,
         );
       }
       // failed / aborted
@@ -357,6 +422,7 @@ export class DeepInsightDefaultRunner
     state: CrossStageState,
     persistence: MissionPersistencePort,
     runStartedAt: number,
+    bufferedEvents?: Array<{ type: string; payload?: unknown; ts: number }>,
   ): Promise<CapabilityRunResult> {
     const report = state.get(CS_KEY.report);
     const reportArtifact = state.get(CS_KEY.reportArtifact);
@@ -417,6 +483,8 @@ export class DeepInsightDefaultRunner
         costCents: usage.totalCostCents,
         startedAt: runStartedAt,
         persistence,
+        // ★ env3 事件流传给 postlude（让 DEEP_INSIGHT_POSTMORTEM_PATTERNS 真生效）。
+        bufferedEvents,
       },
       postludeDeps,
     );
@@ -441,7 +509,13 @@ export class DeepInsightDefaultRunner
     crossStageState: CrossStageState,
     ev: PipelineMissionEvent,
     topic: string,
+    bufferedEvents?: Array<{ type: string; payload?: unknown; ts: number }>,
   ): void {
+    // ★ env3 缓冲 mission/stage 事件（ring buffer，满了丢头；与 agent 共享 EVENT_BUFFER_MAX）
+    if (bufferedEvents) {
+      if (bufferedEvents.length >= EVENT_BUFFER_MAX) bufferedEvents.shift();
+      bufferedEvents.push({ type: ev.type, ts: ev.timestamp ?? Date.now() });
+    }
     const stepId = ev.stepId;
     const label = stepId ? STEP_LABEL[stepId] : undefined;
     const baseTelemetry = stepId ? { systemStageId: stepId } : undefined;
@@ -478,6 +552,25 @@ export class DeepInsightDefaultRunner
               crossState: crossStageState.toJSON(),
             })
             .catch(() => undefined);
+          // ★ task 4 维度持久化：s2 plan 完成后 best-effort 落维度（消费方写 store，运行中即显）。
+          if (stepId === "s2-leader-plan" && persistence.recordPlanDimensions) {
+            const plan = crossStageState.get<{
+              dimensions?: Array<{
+                id?: string;
+                name: string;
+                rationale?: string;
+              }>;
+            }>(CS_KEY.plan);
+            if (plan?.dimensions?.length) {
+              void persistence
+                .recordPlanDimensions(ctx.missionId, plan.dimensions)
+                .catch((err: unknown) => {
+                  this.log.warn(
+                    `[deep-insight ${ctx.missionId}] recordPlanDimensions failed (best-effort, ignore): ${this.errMsg(err)}`,
+                  );
+                });
+            }
+          }
         }
         break;
       case "stage:failed":

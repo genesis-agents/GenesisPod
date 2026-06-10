@@ -755,6 +755,150 @@ describe("deep-insight 14 阶段执行内核（W2）", () => {
     ).toBeGreaterThanOrEqual(2);
   });
 
+  // ── #16b domain 事件面断言（能力轨恢复完整实时事件）────────────────────────────────
+
+  it("#16b domain 事件：完整跑后 ctx.onEvent 收到 agent:lifecycle domain 事件（含 tokensUsed）", async () => {
+    const { runner } = makeRunner();
+    const domainEvents: Array<{
+      event: string;
+      data: Record<string, unknown>;
+    }> = [];
+    const ctx: CapabilityRunContext = {
+      userId: "u",
+      missionId: "m-domain-1",
+      onEvent: (e) => {
+        if (e.type === "domain") {
+          const p = e.payload as
+            | { event?: string; data?: Record<string, unknown> }
+            | undefined;
+          if (p?.event)
+            domainEvents.push({ event: p.event, data: p.data ?? {} });
+        }
+      },
+    };
+    const res = await runner.run({ topic: "AI 2026", language: "zh-CN" }, ctx);
+    expect(res.status).toBe("completed");
+    // P0：每次 invokeAgent 调用后必须有 agent:lifecycle domain 事件。
+    const lifecycleEvents = domainEvents.filter(
+      (e) => e.event === "agent:lifecycle",
+    );
+    expect(lifecycleEvents.length).toBeGreaterThan(0);
+    // 每个 lifecycle 事件必须含 tokensUsed 字段。
+    for (const ev of lifecycleEvents) {
+      expect(typeof ev.data.tokensUsed).toBe("number");
+    }
+  });
+
+  it("#16b domain 事件：S3 每个维度 dimension:research:started + dimension:research:completed", async () => {
+    const { runner } = makeRunner();
+    const domainEvents: Array<{
+      event: string;
+      data: Record<string, unknown>;
+    }> = [];
+    const ctx: CapabilityRunContext = {
+      userId: "u",
+      missionId: "m-domain-2",
+      onEvent: (e) => {
+        if (e.type === "domain") {
+          const p = e.payload as
+            | { event?: string; data?: Record<string, unknown> }
+            | undefined;
+          if (p?.event)
+            domainEvents.push({ event: p.event, data: p.data ?? {} });
+        }
+      },
+    };
+    const res = await runner.run({ topic: "AI 2026", language: "zh-CN" }, ctx);
+    expect(res.status).toBe("completed");
+    // S3 每个维度应有 started + completed 事件（2 维 → 各 2 个）。
+    const started = domainEvents.filter(
+      (e) => e.event === "dimension:research:started",
+    );
+    const completed = domainEvents.filter(
+      (e) => e.event === "dimension:research:completed",
+    );
+    expect(started.length).toBeGreaterThanOrEqual(2);
+    expect(completed.length).toBeGreaterThanOrEqual(2);
+    // 每个 started 事件包含 dimension 字段。
+    for (const ev of started) {
+      expect(typeof ev.data.dimension).toBe("string");
+    }
+  });
+
+  it("#16b domain 事件：S2 产出 leader:goals-set（含 goals/dimensions）", async () => {
+    const { runner } = makeRunner();
+    const domainEvents: Array<{
+      event: string;
+      data: Record<string, unknown>;
+    }> = [];
+    const ctx: CapabilityRunContext = {
+      userId: "u",
+      missionId: "m-domain-3",
+      onEvent: (e) => {
+        if (e.type === "domain") {
+          const p = e.payload as
+            | { event?: string; data?: Record<string, unknown> }
+            | undefined;
+          if (p?.event)
+            domainEvents.push({ event: p.event, data: p.data ?? {} });
+        }
+      },
+    };
+    const res = await runner.run({ topic: "AI 2026", language: "zh-CN" }, ctx);
+    expect(res.status).toBe("completed");
+    // P1：S2 plan 后必须有 leader:goals-set domain 事件。
+    const goalsSet = domainEvents.find((e) => e.event === "leader:goals-set");
+    expect(goalsSet).toBeDefined();
+    expect(Array.isArray(goalsSet?.data.dimensions)).toBe(true);
+  });
+
+  it("#16b domain 事件：存在 agent:narrative 叙事事件（P0 编排叙事）", async () => {
+    const { runner } = makeRunner();
+    const domainEvents: Array<{
+      event: string;
+      data: Record<string, unknown>;
+    }> = [];
+    const ctx: CapabilityRunContext = {
+      userId: "u",
+      missionId: "m-domain-4",
+      onEvent: (e) => {
+        if (e.type === "domain") {
+          const p = e.payload as
+            | { event?: string; data?: Record<string, unknown> }
+            | undefined;
+          if (p?.event)
+            domainEvents.push({ event: p.event, data: p.data ?? {} });
+        }
+      },
+    };
+    const res = await runner.run({ topic: "AI 2026", language: "zh-CN" }, ctx);
+    expect(res.status).toBe("completed");
+    // P0：编排叙事事件存在（多个 stage 都会发）。
+    const narratives = domainEvents.filter(
+      (e) => e.event === "agent:narrative",
+    );
+    expect(narratives.length).toBeGreaterThan(0);
+    // 每个 narrative 事件含 text + tag 字段。
+    for (const ev of narratives) {
+      expect(typeof ev.data.text).toBe("string");
+      expect(typeof ev.data.tag).toBe("string");
+    }
+  });
+
+  it("#16b domain 事件 best-effort：onEvent 抛错不阻断 mission 执行（仍 completed）", async () => {
+    const { runner } = makeRunner();
+    const ctx: CapabilityRunContext = {
+      userId: "u",
+      missionId: "m-domain-5",
+      onEvent: () => {
+        throw new Error("consumer bridge 故意抛错");
+      },
+    };
+    // emitDomain 吞错，mission 不受影响。
+    const res = await runner.run({ topic: "AI 2026", language: "zh-CN" }, ctx);
+    expect(res.status).toBe("completed");
+  });
+
   it("s8 figure 精排 fail-open：精排抛错不阻断报告（仍 completed，保留原候选）", async () => {
     const agentRunner = makeAgentRunner();
     agentRunner.run.mockImplementation(

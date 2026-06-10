@@ -24,6 +24,26 @@ export interface CapabilityRunInput {
   readonly preferredModelId?: string;
   /** researcher 抽图开关（withFigures=true → web-scraper extractImages）。 */
   readonly withFigures?: boolean;
+  /**
+   * 报告受众档位（透传 s7/s8/s9 writer/outline agent input；缺省 "domain-expert"）。
+   * 消费方可按用户配置覆盖，例如 "general-public" / "executive" / "domain-expert"。
+   */
+  readonly audienceProfile?: string;
+  /**
+   * 报告风格档位（透传 s7/s8/s9 writer/outline agent input；缺省 "academic"）。
+   * 消费方可按用户配置覆盖，例如 "casual" / "journalistic" / "academic"。
+   */
+  readonly styleProfile?: string;
+  /**
+   * 报告长度档位（透传 s7/s8/s9 writer/outline agent input；缺省 "standard"）。
+   * 消费方可按用户配置覆盖，例如 "brief" / "standard" / "extended"。
+   */
+  readonly lengthProfile?: string;
+  /**
+   * 审计维度配置（透传能力核内部消费点；缺省不做额外审计层）。
+   * 消费方可按合规需求注入额外审计 pass（例如 "bias-check" / "fact-check"）。
+   */
+  readonly auditLayers?: readonly string[];
   /** 本地知识库 ids（researcher rag-search 召回限定；空/缺省 → 纯 web）。 */
   readonly knowledgeBaseIds?: readonly string[];
   /** 搜索时效窗口（透传 researcher + envelope.metadata，给 search tool 兜底）。 */
@@ -72,6 +92,19 @@ export interface CapabilityRunEvent {
      *   - 'error'                错误事件（tag='error'）
      */
     | "agent-trace"
+    /**
+     * 通用业务域事件（能力核发；消费方 bridge 按各自 namespace 翻译）。
+     * payload 结构：{ event: string; data: Record<string,unknown> }
+     * event 示例：
+     *   "agent:lifecycle"             agent 完成快照（agentId/role/phase/tokensUsed/costCents）
+     *   "agent:narrative"             编排叙事（stage/role/tag/text/dimension）
+     *   "dimension:research:started"  维度研究开始（dimension）
+     *   "dimension:research:completed"维度研究完成（dimension/findingsCount/summary）
+     *   "leader:goals-set"            S2 规划后（goals/initialRisks/dimensions）
+     *   "leader:decision"             S4 评估后（phase/decision/perDimension）
+     *   "stage:metrics"               stage 统计（stepId/dimensions/findings 数等）
+     */
+    | "domain"
     | "completed"
     | "failed";
   readonly stepId?: string;
@@ -143,6 +176,41 @@ export interface MissionPersistencePort {
     outcome: "completed" | "failed" | "cancelled",
     details: MissionTerminalDetails,
   ): Promise<boolean>;
+
+  // ── 可选：维度持久化（能力核 s2 plan 产出后 fire-and-forget 调；消费方实现写各自 store）──
+  /**
+   * 把 s2 leader plan 产出的维度列表持久化（实现由消费方提供；缺省跳过写入）。
+   *
+   * 让"任务分解"在运行中即可显示（消费方在 mission 运行期即可落 dimensions 字段）。
+   * 沉淀承诺：失败只 log warn，不破坏 mission 终态。
+   */
+  recordPlanDimensions?(
+    missionId: string,
+    dims: ReadonlyArray<{ id?: string; name: string; rationale?: string }>,
+  ): Promise<void>;
+
+  // ── 可选：S12 自进化 recall（能力核 run() 开始前调；消费方实现从 harness_vector_memory 召回）──
+  /**
+   * 召回同用户同主题的历史 postmortem（实现由消费方提供；缺省返回空数组）。
+   *
+   * leader plan 阶段前召回，让 Leader 看到历史经验教训再规划。
+   * 沉淀承诺：失败只 log warn，回退到空数组（不破坏 mission）。
+   */
+  recallPostmortems?(args: {
+    userId: string;
+    topic: string;
+    limit?: number;
+  }): Promise<
+    ReadonlyArray<{
+      missionId: string;
+      topic: string;
+      summary: string;
+      recommendations: string[];
+      leaderSigned: boolean | null;
+      qualityScore: number | null;
+      createdAt: string;
+    }>
+  >;
 
   // ── 可选：S12 自进化 postlude（能力核 fire-and-forget 调；消费方实现写 harness_vector_memory）──
   /**

@@ -17,6 +17,7 @@ import type {
   IAgentEvent,
 } from "@/modules/ai-harness/facade";
 import type {
+  CapabilityRunEvent,
   MissionPersistencePort,
   MissionTerminalDetails,
 } from "../../../capability/capability-runner.port";
@@ -49,6 +50,39 @@ export interface AgentInvocation {
   /** 报告深度档位。 */
   readonly depth?: "quick" | "standard" | "deep";
   /**
+   * 报告受众档位（s7/s8/s9 writer/outline agent input；缺省 "domain-expert"）。
+   * 来自 CapabilityRunInput.audienceProfile 透传。
+   */
+  readonly audienceProfile?: string;
+  /**
+   * 报告风格档位（s7/s8/s9 writer/outline agent input；缺省 "academic"）。
+   * 来自 CapabilityRunInput.styleProfile 透传。
+   */
+  readonly styleProfile?: string;
+  /**
+   * 报告长度档位（s7/s8/s9 writer/outline agent input；缺省 "standard"）。
+   * 来自 CapabilityRunInput.lengthProfile 透传。
+   */
+  readonly lengthProfile?: string;
+  /**
+   * 审计维度配置（透传能力核内部消费点；缺省不做额外审计层）。
+   * 来自 CapabilityRunInput.auditLayers 透传。
+   */
+  readonly auditLayers?: readonly string[];
+  /**
+   * 历史 postmortem（run() 开始前由 persistence.recallPostmortems? 召回）。
+   * 透传给 s2 leader plan agent 的 priorPostmortems 字段，让 Leader 规划时参考历史教训。
+   */
+  readonly priorPostmortems?: ReadonlyArray<{
+    missionId: string;
+    topic: string;
+    summary: string;
+    recommendations: string[];
+    leaderSigned: boolean | null;
+    qualityScore: number | null;
+    createdAt: string;
+  }>;
+  /**
    * IAgentEvent → 上层流式 relay。bindings 在每次 agentRunner.run 时透传，
    * 把 thinking / action_planned / action_executed / error 上抛给消费方。
    */
@@ -58,6 +92,12 @@ export interface AgentInvocation {
     dimension: string | undefined,
     ev: IAgentEvent,
   ) => void;
+  /**
+   * CapabilityRunEvent 发送回调（best-effort domain 事件）。
+   * runner 构造 invocation 时注入，bindings 通过 emitDomain(invocation.onEvent, …) 发。
+   * 能力层 R1 隔离：仅传 CapabilityRunEvent 中性类型，不含任何 app 类型。
+   */
+  readonly onEvent?: (e: CapabilityRunEvent) => void | Promise<void>;
 }
 
 /**
@@ -136,4 +176,13 @@ export const CS_KEY = {
   // ★ goals（s2 plan → s4/s10 myPlan.goals）：leader plan 产出的 Goals 对象，
   //   供 s4 assess-research myPlan + s10 foreword/signoff myPlan 使用。
   goals: "deep-insight.goals",
+  // ★ F2/F1 增强：s10 leader foreword 产物（whatWeAnswered / whatRemainsUnclear / howToRead）。
+  //   s10 runRole 写入；accountability hook 注入 reportArtifact.metadata.leaderForeword。
+  leaderForeword: "deep-insight.leaderForeword",
+  // ★ F2/F1 增强：leader 决策轨迹（s2 plan / s4 assess / s10 signoff 各 append 一条）。
+  //   accountability hook 组装后注入 reportArtifact.metadata.leaderJournal。
+  leaderJournal: "deep-insight.leaderJournal",
+  // ★ F2/F1 增强：多轮 reviewer verdict 累积桶（s8b/s9b 各 append）。
+  //   s10 accountability hook 读此桶合成共识，写 reportArtifact.metadata.verdictConsensus。
+  reviewVerdicts: "deep-insight.reviewVerdicts",
 } as const;

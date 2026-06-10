@@ -43,6 +43,17 @@ export interface SelfEvolutionPostludeInput {
   readonly startedAt: number;
   /** 持久化端口（来自 ctx.persistence；optional.recordPostmortem 由消费方实现）。 */
   readonly persistence: MissionPersistencePort;
+  /**
+   * ★ env3：runner 在 run() 期间缓冲的 mission/agent 事件（ring buffer 快照）。
+   * 传给 postmortemClassifier.classify 让 DEEP_INSIGHT_POSTMORTEM_PATTERNS substring
+   * patterns 真正命中（之前传 [] 导致 pattern 永不命中——死代码修复）。
+   * 缺省传空数组 → 退化到原行为（仅 status 路径）。
+   */
+  readonly bufferedEvents?: ReadonlyArray<{
+    type: string;
+    payload?: unknown;
+    ts: number;
+  }>;
 }
 
 /**
@@ -106,11 +117,22 @@ async function runPostlude(
     }
 
     // ── PostmortemClassifier 分类 ─────────────────────────────────────────
+    // ★ env3 修复：使用 runner 缓冲的真实事件流（非空时 pattern 才能命中）。
+    // 把内部事件形状适配成 classifier 期望的 { type: string } 形状。
+    const classifyEvents: Array<{
+      type: string;
+      ts: number;
+      payload?: unknown;
+    }> = (input.bufferedEvents ?? []).map((e) => ({
+      type: e.type,
+      ts: e.ts,
+      payload: e.payload,
+    }));
     const missionStatus = leaderSigned === true ? "completed" : "failed";
     const classification = deps.postmortemClassifier.classify(
       {
         status: missionStatus,
-        events: [], // deep-insight runner 不持有事件流快照；传空让 classifier 用 status 路径
+        events: classifyEvents,
         metrics: { totalTokens, wallTimeMs },
       },
       DEEP_INSIGHT_POSTMORTEM_PATTERNS,
