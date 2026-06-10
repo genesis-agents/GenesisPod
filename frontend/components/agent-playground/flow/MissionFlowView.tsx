@@ -149,9 +149,14 @@ interface FlowEvent {
   tag?: string;
   /** Fix 2: 工具 ID（action_planned / action_executed 类 narrative 携带） */
   toolId?: string;
+  /** agent:lifecycle 降级完成（degraded:true）——黄色「降级」badge，不再一律全绿 */
+  degraded?: boolean;
+  /** dimension:research:completed 复用缓存结果——「复用缓存」chip */
+  reused?: boolean;
 }
 
-function buildFlowEvents(events: PlaygroundEvent[]): FlowEvent[] {
+// 导出供单测断言（verifier 守卫 / degraded / reused 等纯函数行为）。
+export function buildFlowEvents(events: PlaygroundEvent[]): FlowEvent[] {
   const out: FlowEvent[] = [];
   for (const ev of events) {
     // 2026-05-20: 规范化 namespace（同 derive.ts）—— social.* / playground.*
@@ -201,29 +206,47 @@ function buildFlowEvents(events: PlaygroundEvent[]): FlowEvent[] {
             : phase === 'failed'
               ? '失败'
               : phase;
+      // 后端把降级产出折叠进 phase='completed' + degraded:true 旁标——
+      // 不消费该旁标会把次优结果渲染成完全成功（全绿）。
+      const degraded = p.degraded === true;
       out.push({
         ts: ev.timestamp,
         kind: 'lifecycle',
         role,
         tone:
           phase === 'completed'
-            ? 'success'
+            ? degraded
+              ? 'warn'
+              : 'success'
             : phase === 'failed'
               ? 'error'
               : 'info',
         text: `${role}${dim ? `（${dim}）` : ''} ${verb}`,
+        degraded: degraded || undefined,
         agentId: ev.agentId,
       });
     } else if (t === 'verifier:verdict') {
-      const id = p.verifierId as string;
-      const score = p.score as number;
-      out.push({
-        ts: ev.timestamp,
-        kind: 'verdict',
-        role: 'reviewer',
-        tone: score >= 80 ? 'success' : score >= 60 ? 'warn' : 'error',
-        text: `Judge "${id}" 评分 ${score}/100`,
-      });
+      // 守卫：能力轨 payload 可能缺 verifierId/score —— 无 score 的评分卡没有
+      // 信息量，跳过；缺 verifierId 时用中性文案，避免 'Judge "undefined"'。
+      const id =
+        typeof p.verifierId === 'string' && p.verifierId
+          ? p.verifierId
+          : undefined;
+      const score =
+        typeof p.score === 'number' && Number.isFinite(p.score)
+          ? p.score
+          : undefined;
+      if (score != null) {
+        out.push({
+          ts: ev.timestamp,
+          kind: 'verdict',
+          role: 'reviewer',
+          tone: score >= 80 ? 'success' : score >= 60 ? 'warn' : 'error',
+          text: id
+            ? `Judge "${id}" 评分 ${score}/100`
+            : `评审评分 ${score}/100`,
+        });
+      }
     } else if (t === 'reconciliation:completed') {
       const fact = (p.factCount as number) ?? 0;
       const conflict = (p.conflictCount as number) ?? 0;
@@ -276,6 +299,8 @@ function buildFlowEvents(events: PlaygroundEvent[]): FlowEvent[] {
           tone: 'success',
           text: `「${dim}」采集完成（${findings} 条发现）`,
           meta: dim,
+          // 后端复用缓存结果时旁标 reused:true ——「复用缓存」chip
+          reused: p.reused === true || undefined,
         });
       }
     } else if (t === 'leader:goals-set') {
@@ -744,6 +769,16 @@ export function MissionFlowView({
                           {f.meta}
                         </span>
                       )}
+                      {f.degraded && (
+                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">
+                          降级
+                        </span>
+                      )}
+                      {f.reused && (
+                        <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 ring-1 ring-sky-200">
+                          复用缓存
+                        </span>
+                      )}
                       <span className="ml-auto flex items-center gap-1.5">
                         <span className="font-mono text-[10px] font-semibold text-gray-600">
                           {fmtRelative(f.ts, anchor)}
@@ -754,10 +789,14 @@ export function MissionFlowView({
                       </span>
                     </div>
                     {/* ★ Fix 2: 三路渲染策略
-                        - 思考/推理（thinking tag）且文本 > 300 字：折叠卡片
+                        - 思考/推理：tag='thinking'（ReAct 原始独白）一律默认折叠；
+                          其余 thinking 类 tag 超过 240 字才折叠。阈值必须 < 后端
+                          narrative 桥的 280 字截断（playground.pipeline
+                          buildNarrativeText），否则折叠卡永不触发（2026-06-10）。
                         - 工具调用（searching/planning tag）：紧凑 chip 行
                         - 其它：原有 ExpandableText 短文本展示 */}
-                    {isThinkingTag(f.tag) && f.text.length > 300 ? (
+                    {isThinkingTag(f.tag) &&
+                    (f.tag === 'thinking' || f.text.length > 240) ? (
                       <ThinkingCard
                         text={f.text}
                         preview={f.text.slice(0, 120)}

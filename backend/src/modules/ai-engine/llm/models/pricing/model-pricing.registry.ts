@@ -41,6 +41,12 @@ export interface ModelPricing {
   readonly cacheWritePricePerM?: number;
   /** USD per 1M cache-read tokens. */
   readonly cacheReadPricePerM?: number;
+  /**
+   * DB 行存在（costTier 已配）但 input/output 价格均未配。
+   * estimateCost 对此返回 null（与未注册同语义）而非按 0 价算出 $0 假账；
+   * cost 面板可经 get() 读此标记显示「未计价」。
+   */
+  readonly unpriced?: boolean;
 }
 
 const VALID_TIERS: ReadonlySet<ModelTier> = new Set([
@@ -116,6 +122,10 @@ export class ModelPricingRegistry implements OnApplicationBootstrap {
           outputPricePerM: row.priceOutputPerMillion
             ? Number(row.priceOutputPerMillion)
             : 0,
+          // null 区分「价格未配」与「显式免费(0)」：Decimal(0) 走上方 Number 分支
+          unpriced:
+            row.priceInputPerMillion == null &&
+            row.priceOutputPerMillion == null,
           cacheReadPricePerM: row.priceCacheReadPerMillion
             ? Number(row.priceCacheReadPerMillion)
             : undefined,
@@ -176,6 +186,19 @@ export class ModelPricingRegistry implements OnApplicationBootstrap {
             `modelId="${modelId}", costTier (basic|standard|strong), priceInputPerMillion, ` +
             `priceOutputPerMillion to enable budget tracking. Budget enforcement will treat ` +
             `this call as $0 until configured.`,
+        );
+        this.warnedUnknown.add(modelId);
+      }
+      return null;
+    }
+    // 行已注册（tier 可用于 downgrade）但价格未配 → 与未注册同语义返 null，
+    // 否则按 0 价算出 $0 会让 cost 面板/预算把「未计价」当「免费」（静默假账）。
+    if (p.unpriced) {
+      if (!this.warnedUnknown.has(modelId)) {
+        this.logger.warn(
+          `[estimateCost] modelId="${modelId}" registered (costTier=${p.tier}) but has no ` +
+            `priceInputPerMillion/priceOutputPerMillion configured. Returning null (unpriced) ` +
+            `instead of $0. Admin: fill prices at /admin/ai/models to enable cost tracking.`,
         );
         this.warnedUnknown.add(modelId);
       }

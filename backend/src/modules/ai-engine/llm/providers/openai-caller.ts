@@ -461,6 +461,31 @@ export class OpenaiCaller extends BaseHttpCaller {
       const isReasoningModelExhausted =
         reasoningTokens > 0 && reasoningTokens >= completionTokens * 0.9;
 
+      // ★ 2026-06-10：部分推理模型（日志实测 deepseek-v4-flash）finish_reason=stop
+      //   时把最终 JSON 写进 reasoning_content、content 留空。这不是预算耗尽——
+      //   直接走降级重试会白烧一轮长调用。先从 reasoning_content 提取可解析的
+      //   JSON 作为正式输出返回；提取失败才落到下方 in-request-degrade 重试。
+      if (wantsJson && finishReason === "stop" && reasoning) {
+        const salvaged = this.extractJsonCandidate(reasoning);
+        if (salvaged) {
+          this.logger.warn(
+            `[${modelId}] salvaged JSON output from reasoning_content ` +
+              `(finish=stop, content empty) — skipping degrade retry`,
+          );
+          return {
+            content: salvaged,
+            model: modelId,
+            tokensUsed: usage.total_tokens || 0,
+            inputTokens: usage.prompt_tokens || 0,
+            outputTokens: completionTokens || 0,
+            cacheReadTokens: usage.prompt_tokens_details?.cached_tokens || 0,
+            finishReason,
+            reasoning,
+            toolCalls,
+          };
+        }
+      }
+
       // ★ 2026-05-25 degenerate-success in-request degrade（机制级，无模型硬编码）：
       //   200 OK 但 content 空（且非纯 tool_call）—— 某些模型（如推理模型在被强制
       //   json_object 时）会"接受 response_format 却吐空/畸形输出"，4xx 降级网兜不到。
@@ -560,6 +585,40 @@ export class OpenaiCaller extends BaseHttpCaller {
       reasoning,
       toolCalls,
     };
+  }
+
+  /**
+   * 从 reasoning_content 文本中提取可 JSON.parse 的完整 JSON 串。
+   *
+   * 仅用于 content 空 + finish_reason=stop 的 salvage 路径。提取语义与
+   * output/structured/adapters.ts 的 extractJson 一致（剥 ```json fence、
+   * 取最早开括号到最晚闭括号的候选段），但返回原始子串而非解析对象——
+   * 下游按 string content 消费，保形透传。
+   */
+  private extractJsonCandidate(text: string): string | null {
+    let t = text.trim();
+    if (!t) return null;
+    const fence = t.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (fence) t = fence[1].trim();
+    const firstBrace = t.indexOf("{");
+    const lastBrace = t.lastIndexOf("}");
+    const firstBracket = t.indexOf("[");
+    const lastBracket = t.lastIndexOf("]");
+    const arrayRootEarlier =
+      firstBracket >= 0 && (firstBrace < 0 || firstBracket < firstBrace);
+    let candidate: string | null = null;
+    if (arrayRootEarlier && lastBracket > firstBracket) {
+      candidate = t.slice(firstBracket, lastBracket + 1);
+    } else if (firstBrace >= 0 && lastBrace > firstBrace) {
+      candidate = t.slice(firstBrace, lastBrace + 1);
+    }
+    if (!candidate) return null;
+    try {
+      JSON.parse(candidate);
+      return candidate;
+    } catch {
+      return null;
+    }
   }
 
   /**

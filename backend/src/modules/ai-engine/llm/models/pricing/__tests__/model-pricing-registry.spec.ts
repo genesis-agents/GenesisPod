@@ -121,6 +121,34 @@ describe("ModelPricingRegistry", () => {
       reg.estimateCost("ghost", 100, 50);
       // Should not throw — warning is de-duped internally
     });
+
+    it("returns null for registered-but-unpriced model (tier set, prices missing in DB)", () => {
+      const reg = make();
+      // hydrateFromDb 对 priceInput/Output 均为 null 的行注册 unpriced:true（0 价占位）
+      reg.register({
+        modelId: "deepseek-v4-flash",
+        tier: "standard",
+        inputPricePerM: 0,
+        outputPricePerM: 0,
+        unpriced: true,
+      });
+      expect(reg.estimateCost("deepseek-v4-flash", 31_087, 3_381)).toBeNull();
+      // unpriced 标记经 get() 暴露给 cost 面板（显示「未计价」而非 $0）
+      expect(reg.get("deepseek-v4-flash")!.unpriced).toBe(true);
+      // tier 仍可用于 downgrade 选型
+      expect(reg.pickModelForTier("standard")).toBe("deepseek-v4-flash");
+    });
+
+    it("explicit zero price WITHOUT unpriced flag still computes $0 (genuinely free model)", () => {
+      const reg = make();
+      reg.register({
+        modelId: "local-llama",
+        tier: "basic",
+        inputPricePerM: 0,
+        outputPricePerM: 0,
+      });
+      expect(reg.estimateCost("local-llama", 1000, 500)).toBe(0);
+    });
   });
 
   describe("pickModelForTier", () => {

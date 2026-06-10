@@ -490,6 +490,114 @@ describe("AiApiCallerService", () => {
       expect(sentFormats[1]).toBeUndefined();
     });
 
+    // ★ 2026-06-10 日志实测：deepseek-v4-flash finish=stop 把最终 JSON 写进
+    //   reasoning_content、content 留空。salvage 路径直接采用，省一轮降级长调用。
+    it("salvages JSON from reasoning_content (finish=stop, content empty) — no degrade retry", async () => {
+      const resp = {
+        choices: [
+          {
+            message: {
+              content: "",
+              reasoning_content:
+                'Let me finalize.\n{\n  "dimension": "半导体供应链",\n  "findings": [{"claim": "A16 delayed to 2027"}]\n}',
+            },
+            finish_reason: "stop",
+          },
+        ],
+        usage: {
+          total_tokens: 34468,
+          prompt_tokens: 31087,
+          completion_tokens: 3381,
+          completion_tokens_details: { reasoning_tokens: 3381 },
+        },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(resp)) as any,
+      );
+
+      const result = await service.callOpenAICompatibleAPI(
+        "https://api.deepseek.com/v1/chat/completions",
+        "test-key",
+        "deepseek-v4-flash",
+        messages,
+        25000,
+        undefined, // temperature
+        120000, // timeout
+        "max_tokens", // tokenParamName
+        "json", // responseFormat → wantsJson
+        undefined, // reasoningDepth
+        undefined, // outputSchema
+        undefined, // schemaStrict
+        true, // isReasoning
+        undefined, // structuredOutputStrategy
+        undefined, // outputJsonSchema
+        undefined, // schemaName
+        undefined, // tools
+        "deepseek", // provider
+      );
+
+      // 单次调用即成功，不触发 in-request-degrade 重试
+      expect(mockHttpService.post).toHaveBeenCalledTimes(1);
+      expect(JSON.parse(result.content)).toEqual({
+        dimension: "半导体供应链",
+        findings: [{ claim: "A16 delayed to 2027" }],
+      });
+      expect(result.outputTokens).toBe(3381);
+      expect(result.reasoning).toContain("Let me finalize.");
+    });
+
+    it("reasoning_content WITHOUT parseable JSON → still degrades (salvage falls through)", async () => {
+      const emptyResp = {
+        choices: [
+          {
+            message: { content: "", reasoning_content: "no json here at all" },
+            finish_reason: "stop",
+          },
+        ],
+        usage: {
+          total_tokens: 700,
+          prompt_tokens: 60,
+          completion_tokens: 641,
+          completion_tokens_details: { reasoning_tokens: 641 },
+        },
+      };
+      const goodResp = {
+        choices: [
+          { message: { content: '{"ok":true}' }, finish_reason: "stop" },
+        ],
+        usage: { total_tokens: 120 },
+      };
+      let calls = 0;
+      (mockHttpService.post as jest.Mock).mockImplementation(() => {
+        calls += 1;
+        return of(makeHttpResponse(calls === 1 ? emptyResp : goodResp)) as any;
+      });
+
+      const result = await service.callOpenAICompatibleAPI(
+        "https://api.deepseek.com/v1/chat/completions",
+        "test-key",
+        "deepseek-v4-flash",
+        messages,
+        25000,
+        undefined,
+        120000,
+        "max_tokens",
+        "json",
+        undefined,
+        undefined,
+        undefined,
+        true,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        "deepseek",
+      );
+
+      expect(mockHttpService.post).toHaveBeenCalledTimes(2);
+      expect(result.content).toBe('{"ok":true}');
+    });
+
     it("degenerate 200 with NO wantsJson → no degrade, throws (unchanged)", async () => {
       const emptyResp = {
         choices: [{ message: { content: "" }, finish_reason: "stop" }],

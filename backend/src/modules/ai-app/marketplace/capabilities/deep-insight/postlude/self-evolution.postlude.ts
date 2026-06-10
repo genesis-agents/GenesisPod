@@ -3,13 +3,15 @@
  *
  * mission completed / failed / aborted 后异步跑，不阻塞 run() 返回。
  * 行为：
- *   1. 经 onEvent（domain 事件桥）发 mission:postlude:started
+ *   1. 经 onEvent（domain 事件桥）发 mission:postlude:started + s12 stage:lifecycle(started)
  *   2. PostmortemClassifierService 扫描事件流 → FailureMode 分类
  *   3. 拼 postmortem summary（含 quality / cost / 经验建议）
  *   4. 经 MissionPersistencePort.recordPostmortem?（optional hook）写
- *      harness_vector_memory（消费方实现，能力层零直连 app DB）
+ *      harness_vector_memory（消费方实现，能力层零直连 app DB），
+ *      写入成功后发 memory:indexed（chunks/namespace/tags）
  *   5. leader 拒签时经 MissionPersistencePort.recordFailurePattern? 记失败模式
  *   6. 经 onEvent 发 mission:postlude:completed / mission:postlude:failed
+ *      + s12 stage:lifecycle(completed/failed)
  *
  * 铁律（R1）：本文件零 app import，只依赖 harness facade + capability 端口。
  * 异常只 log warn，沉淀失败不破坏 mission 终态。
@@ -32,13 +34,20 @@ export interface SelfEvolutionPostludeDeps {
  * 经 onEvent domain 桥发 postlude 生命周期事件（best-effort）。
  * playground dispatcher 的 domain 事件桥把 "mission:postlude:started" 等翻译成
  * "playground.mission:postlude:started"，对应 playground.events.ts 注册的 S() 事件。
+ *
+ * stage:lifecycle：postlude 不在 orchestrator steps（fire-and-forget），
+ * 拓扑图 s12 节点没有任何 lifecycle 信号会恒 idle——这里自桥。
+ * memory:indexed：postmortem 写入 harness_vector_memory 即"记忆索引完成"，
+ * 前端 MemoryIndexPanel/CapabilityMeters 按 { chunks, namespace, tags } 消费。
  */
 function emitPostludeEvent(
   onEvent: ((e: CapabilityRunEvent) => void | Promise<void>) | undefined,
   event:
     | "mission:postlude:started"
     | "mission:postlude:completed"
-    | "mission:postlude:failed",
+    | "mission:postlude:failed"
+    | "stage:lifecycle"
+    | "memory:indexed",
   data: Record<string, unknown>,
 ): void {
   if (!onEvent) return;
@@ -117,6 +126,13 @@ async function runPostlude(
     stage: "s12-self-evolution",
     startedAt: postludeStartedAt,
   });
+  // ★ 矩阵表2末行：s12 不在 orchestrator steps，无人发 stage:lifecycle →
+  //   拓扑节点恒 idle。postlude 自桥 started/completed/failed 三相。
+  emitPostludeEvent(onEvent, "stage:lifecycle", {
+    stepId: "s12-self-evolution",
+    stage: "s12-self-evolution",
+    status: "started",
+  });
 
   try {
     const wallTimeMs = Date.now() - input.startedAt;
@@ -194,8 +210,14 @@ async function runPostlude(
 
     // ── 写 harness_vector_memory（经 persistence 端口，消费方实现；optional）──
     if (persistence.recordPostmortem) {
-      await persistence
-        .recordPostmortem({
+      const memoryTags = [
+        "deep-insight",
+        "mission-postmortem",
+        leaderSigned === true ? "signed" : "unsigned",
+      ];
+      let postmortemRecorded = false;
+      try {
+        await persistence.recordPostmortem({
           missionId,
           userId,
           topic,
@@ -206,23 +228,30 @@ async function runPostlude(
           tokensUsed: totalTokens,
           costUsd: totalCostUsd,
           source: "deep-insight:mission",
-          tags: [
-            "deep-insight",
-            "mission-postmortem",
-            leaderSigned === true ? "signed" : "unsigned",
-          ],
+          tags: memoryTags,
           failureClassification: classification,
-        })
-        .catch((err: unknown) => {
-          deps.log.warn(
-            `[deep-insight ${missionId}] S12-postlude recordPostmortem failed (non-fatal): ` +
-              `${err instanceof Error ? err.message : String(err)}`,
-          );
         });
-      deps.log.log(
-        `[deep-insight ${missionId}] S12-postlude sediment recorded → harness_vector_memory` +
-          `${leaderSigned === false ? " + failure mode" : ""}`,
-      );
+        postmortemRecorded = true;
+      } catch (err: unknown) {
+        deps.log.warn(
+          `[deep-insight ${missionId}] S12-postlude recordPostmortem failed (non-fatal): ` +
+            `${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+      if (postmortemRecorded) {
+        deps.log.log(
+          `[deep-insight ${missionId}] S12-postlude sediment recorded → harness_vector_memory` +
+            `${leaderSigned === false ? " + failure mode" : ""}`,
+        );
+        // ★ 审计 #21：记忆索引完成信号（MemoryIndexedSchema: chunks/namespace/tags，
+        //   前端 dvDeriveMemoryFromEvents 要求 chunks 为 number）。
+        //   postmortem summary 单条写入 → chunks=1。
+        emitPostludeEvent(onEvent, "memory:indexed", {
+          chunks: 1,
+          namespace: "harness_vector_memory",
+          tags: memoryTags,
+        });
+      }
     } else {
       deps.log.log(
         `[deep-insight ${missionId}] S12-postlude: recordPostmortem not provided by consumer, skip write`,
@@ -251,6 +280,11 @@ async function runPostlude(
       stage: "s12-self-evolution",
       wallTimeMs: Date.now() - postludeStartedAt,
     });
+    emitPostludeEvent(onEvent, "stage:lifecycle", {
+      stepId: "s12-self-evolution",
+      stage: "s12-self-evolution",
+      status: "completed",
+    });
   } catch (err) {
     deps.log.warn(
       `[deep-insight ${missionId}] S12-postlude failed (best-effort, ignored): ` +
@@ -259,6 +293,12 @@ async function runPostlude(
     // ★ Fix C10：发 postlude:failed 生命周期事件（catch 路径）。
     emitPostludeEvent(onEvent, "mission:postlude:failed", {
       stage: "s12-self-evolution",
+      error: err instanceof Error ? err.message : String(err),
+    });
+    emitPostludeEvent(onEvent, "stage:lifecycle", {
+      stepId: "s12-self-evolution",
+      stage: "s12-self-evolution",
+      status: "failed",
       error: err instanceof Error ? err.message : String(err),
     });
   }

@@ -15,6 +15,7 @@
  *
  * 铁律（§1.2 R1/R2/R5）：零 app import；只依赖 harness facade + 共享 agent + 端口。
  */
+import { Logger } from "@nestjs/common";
 import type {
   AgentRunner,
   CrossStageState,
@@ -40,6 +41,10 @@ import {
 } from "../ports";
 import { invokeAgent, emitDomain } from "./agent-invoke.helper";
 import {
+  runGuardedSectionRemediation,
+  type RemediableSection,
+} from "./chapter-stream.helper";
+import {
   buildAssembleInput,
   buildChapterInputs,
   buildCriticArtifactSummary,
@@ -47,8 +52,11 @@ import {
   type PlanShape,
   type AnalystShape,
   type WriterReportShape,
+  type ReconciliationShape,
   type ReportArtifactLite,
 } from "./report-assembler.helper";
+
+const log = new Logger("DeepInsightStageBindings");
 
 /**
  * 富评判 / 富组装服务束（全部 @Global HarnessModule 提供，runner 构造函数注入后透传）。
@@ -339,9 +347,11 @@ export class DeepInsightStageBindings implements StageBindings {
             reused,
           );
           // Fix4：summary 截为 200 字预览，避免 multi-KB payload 洪泛 WS 总线。
+          // summary 与 summaryPreview 同值——消费方期待 summary 字段，summaryPreview 保留向后兼容。
           emitDomain(onEvent, "dimension:research:completed", {
             dimension: dim.name,
             findingsCount: reused.findings?.length ?? 0,
+            summary: (reused.summary ?? "").slice(0, 200),
             summaryPreview: (reused.summary ?? "").slice(0, 200),
             reused: true,
           });
@@ -391,6 +401,8 @@ export class DeepInsightStageBindings implements StageBindings {
           emitDomain(onEvent, "dimension:graded", {
             dimension: dim.name,
             overall: 0,
+            grade: "F",
+            summary: "采集失败（ReAct 未产出 findings），标记为不可用",
             state: "failed",
             action: "failed",
           });
@@ -412,10 +424,13 @@ export class DeepInsightStageBindings implements StageBindings {
         );
         // ★ #16b P0：dimension:research:completed
         // Fix4：summary 截为 200 字预览，避免 multi-KB payload 洪泛 WS 总线。
+        // summary 与 summaryPreview 同值——消费方期待 summary 字段，summaryPreview 保留向后兼容。
         emitDomain(onEvent, "dimension:research:completed", {
           dimension: dim.name,
           findingsCount: result.findings?.length ?? 0,
+          summary: (result.summary ?? "").slice(0, 200),
           summaryPreview: (result.summary ?? "").slice(0, 200),
+          reused: false,
         });
         // Fix4：researcher:completed（对齐 projector researcher:completed 分支 handler）。
         // 形状对标 s3-researcher-collect-findings.stage.ts:780 老 emitter。
@@ -977,9 +992,12 @@ export class DeepInsightStageBindings implements StageBindings {
         full.crossStageState.set(CS_KEY.report, res.output);
         // Fix4：chapter:writing:started + chapter:writing:completed per section。
         // projector 据这两个事件驱动 chapter todo（handler ~670/708）。
-        // 形状对标 s8-writer-draft-report.stage.ts: { dimension, heading, index, wordCount }。
+        // ★ 字段名必须是 chapterIndex（非 index）——ChapterWritingCompletedSchema 是
+        //   strict object（无 .passthrough()），chapterIndex 为必填 number；发 index 会令
+        //   event-bus safeParse 整事件丢弃 → 章节进度永远空（矩阵表3 P0）。
         // deep-insight writer 按 topic 维（无单独维度）→ 用 topic 作 dimension；
-        // 维度信息从 plan.dimensions 逐一映射章节（近似，保持 projector 可处理）。
+        // 维度信息从 plan.dimensions 逐一映射章节（近似），dimensionId 取对应维 id 显式带出
+        // （不靠 chapterIndex 近似映射），无对应维时省略。
         const writerSections =
           (
             res.output as {
@@ -987,15 +1005,15 @@ export class DeepInsightStageBindings implements StageBindings {
             } | null
           )?.sections ?? [];
         const planDims =
-          full.crossStageState.get<{ dimensions?: Array<{ name: string }> }>(
-            CS_KEY.plan,
-          )?.dimensions ?? [];
+          full.crossStageState.get<{
+            dimensions?: Array<{ id: string; name: string }>;
+          }>(CS_KEY.plan)?.dimensions ?? [];
         for (let idx = 0; idx < writerSections.length; idx++) {
           const sec = writerSections[idx];
           const heading = sec.heading ?? `Section ${idx + 1}`;
           // 尝试按索引匹配维度名；多出或少时回退 topic。
-          const dimension =
-            idx < planDims.length ? planDims[idx].name : input.topic;
+          const dim = idx < planDims.length ? planDims[idx] : undefined;
+          const dimension = dim?.name ?? input.topic;
           const wordCount =
             typeof sec.body === "string"
               ? Math.round(sec.body.length / 2)
@@ -1004,12 +1022,14 @@ export class DeepInsightStageBindings implements StageBindings {
           emitDomain(onEvent, "chapter:writing:started", {
             dimension,
             heading,
-            index: idx,
+            chapterIndex: idx,
+            ...(dim?.id ? { dimensionId: dim.id } : {}),
           });
           emitDomain(onEvent, "chapter:writing:completed", {
             dimension,
             heading,
-            index: idx,
+            chapterIndex: idx,
+            ...(dim?.id ? { dimensionId: dim.id } : {}),
             ...(wordCount !== undefined ? { wordCount } : {}),
           });
         }
@@ -1043,6 +1063,12 @@ export class DeepInsightStageBindings implements StageBindings {
           input.topic,
         );
         try {
+          // S5 对账产物（factTable/conflicts）→ assembler buildFactTable + 质量评分输入。
+          const reconciliation = cs.get<ReconciliationShape>(
+            CS_KEY.reconciliationReport,
+          );
+          // 真实模型轨迹（每次 agent 调用去重累积），填 metadata.modelTrail。
+          const modelTrail = cs.get<string[]>(CS_KEY.modelTrail) ?? [];
           const assembleInput = buildAssembleInput({
             profile: {
               topic: input.topic,
@@ -1050,16 +1076,31 @@ export class DeepInsightStageBindings implements StageBindings {
               ...(input.invocation.depth
                 ? { depth: input.invocation.depth }
                 : {}),
+              // 用户在 Dialog 选定的档位透传（非硬编码 academic/domain-expert/standard）。
+              ...(input.invocation.styleProfile
+                ? { styleProfile: input.invocation.styleProfile }
+                : {}),
+              ...(input.invocation.lengthProfile
+                ? { lengthProfile: input.invocation.lengthProfile }
+                : {}),
+              ...(input.invocation.audienceProfile
+                ? { audienceProfile: input.invocation.audienceProfile }
+                : {}),
+              ...(input.invocation.searchTimeRange
+                ? { searchTimeRange: input.invocation.searchTimeRange }
+                : {}),
             },
             plan: plan as PlanShape | undefined,
             researcherResults: rankedResearcherResults as never,
             analyst,
             writerReport: args.artifact as WriterReportShape | undefined,
+            reconciliation,
             usage: {
               totalTokens: cs.get<number>(CS_KEY.tokensUsed) ?? 0,
               totalCostCents: cs.get<number>(CS_KEY.costCents) ?? 0,
               generationTimeMs: Math.max(0, Date.now() - startedAt),
             },
+            modelTrail,
           });
           const artifact =
             this.rich.reportArtifactAssembler.assemble(assembleInput);
@@ -1215,6 +1256,20 @@ export class DeepInsightStageBindings implements StageBindings {
                 })),
               ],
             });
+            // ★ critic:verdict schema 若再漂移被 safeParse 丢弃，此完成 narrative 兜底
+            //   （基线 s9-reviewer-critic-l4.stage.ts 在 emit 后即 narrate 完成行）——
+            //   保证用户在时间线至少能看到 L4 复审结论，不再只有"开始复审"一句。
+            emitDomain(onEvent, "agent:narrative", {
+              stage: "s9-critic",
+              role: "critic",
+              tag:
+                criticOut.overallVerdict === "pass"
+                  ? "success"
+                  : criticOut.overallVerdict === "fail"
+                    ? "warning"
+                    : "info",
+              text: `L4 独立复审完成 · ${criticOut.overallVerdict} · 盲点 ${criticOut.blindspots.length} / 偏见 ${criticOut.biasFlags.length} / 建议 ${criticOut.suggestions.length}`,
+            });
           }
           return { verdict: res.output };
         } catch {
@@ -1278,9 +1333,26 @@ export class DeepInsightStageBindings implements StageBindings {
           //   + score=overallScore 触发 projector verifier:verdict handler，让 todo 得分。
           const onEvent = input.invocation.onEvent;
           if (typeof evalResult?.overallScore === "number") {
+            // ★ verifierId 是 VerifierVerdictSchema + projector（mission-view.projector:242
+            //   `typeof p.verifierId === "string"`）正确字段名——必须保留 verifierId。
+            //   富化 critique/modelId/attempt（10 维评估现成数据，无则不造）：
+            //     critique ← evalResult.feedback；modelId ← evaluatorModel；attempt=1
+            //     （单次客观评估，非多轮 judge retry）。VerifyConsensusPanel 据此展示评语/模型。
+            const ev = evalResult as {
+              overallScore: number;
+              feedback?: string;
+              evaluatorModel?: string;
+            };
             emitDomain(onEvent, "verifier:verdict", {
               verifierId: "critic-eval",
-              score: evalResult.overallScore,
+              score: ev.overallScore,
+              attempt: 1,
+              ...(typeof ev.feedback === "string" && ev.feedback
+                ? { critique: ev.feedback }
+                : {}),
+              ...(typeof ev.evaluatorModel === "string" && ev.evaluatorModel
+                ? { modelId: ev.evaluatorModel }
+                : {}),
             });
           }
         } catch {
@@ -1426,76 +1498,49 @@ export class DeepInsightStageBindings implements StageBindings {
     const sections = artifact?.sections;
     if (!artifact || !Array.isArray(sections) || sections.length === 0) return;
 
+    // S8B 三重时间护栏（审计 #34/#35）下沉 chapter-stream.helper：
+    //   单 call withTimeout（self-eval 60s / remediate 90s）+ 20min wall-time 守卫 +
+    //   auditLayers="minimal" 整段跳过。本方法只做 wiring（提供 rich 服务 deps + 回写）。
     const trace = this.rich.qualityTrace.createTrace(ctx.missionId);
-    let mutated = false;
-
-    for (const sec of sections as Array<{
-      id?: string;
-      title?: string;
-      heading?: string;
-      content?: string;
-      body?: string;
-    }>) {
-      const content = sec.content ?? sec.body ?? "";
-      const title = sec.title ?? sec.heading ?? "";
-      if (content.length < 200) continue; // 太短不值得补救
-      try {
-        const evalResult = await this.rich.sectionSelfEval.evaluateSection({
-          content,
-          sectionTitle: title,
-          topicName: input.topic,
-          language: input.language,
-        });
-        if (evalResult.overallOk || evalResult.weakAreas.length === 0) continue;
-        const actions: RemediationAction[] =
+    const result = await runGuardedSectionRemediation<RemediationAction>({
+      sections: sections as RemediableSection[],
+      topic: input.topic,
+      language: input.language,
+      auditLayers: input.invocation.auditLayers ?? [],
+      ...(input.invocation.preferredModelId
+        ? { preferredModelId: input.invocation.preferredModelId }
+        : {}),
+      deps: {
+        evaluateSection: (i) => this.rich.sectionSelfEval.evaluateSection(i),
+        determineRemediationActions: (e, t, l) =>
+          // helper 把 eval 结果标注为更宽的 SelfEvalLite（readonly weakAreas）；
+          // 运行时 e 即 evaluateSection 真实返回的 SectionSelfEvalResult，安全收窄。
           this.rich.sectionSelfEval.determineRemediationActions(
-            evalResult,
-            7,
-            input.language,
-          );
-        if (actions.length === 0) continue;
-        const remediated = await this.rich.sectionRemediation.remediate({
-          content,
-          sectionTitle: title,
-          actions,
-          ...(input.invocation.preferredModelId
-            ? { originalModelId: input.invocation.preferredModelId }
-            : {}),
-          language: input.language,
-        });
-        if (remediated.skipped || !remediated.content) continue;
-        // 回写补救后内容（content / body 任一存在的字段都更新）。
-        if (sec.content !== undefined) sec.content = remediated.content;
-        if (sec.body !== undefined) sec.body = remediated.content;
-        if (sec.content === undefined && sec.body === undefined) {
-          sec.content = remediated.content;
-        }
-        mutated = true;
-        // QualityTrace 记补救闭环（before/after delta）。
-        const after = await this.rich.sectionSelfEval.evaluateSection({
-          content: remediated.content,
-          sectionTitle: title,
-          topicName: input.topic,
-          language: input.language,
-        });
-        this.rich.qualityTrace.recordDimensionRemediationLoop(
-          trace,
-          sec.id ?? title,
-          {
-            selfEvalScoresBefore: evalResult.scores,
-            selfEvalScoresAfter: after.scores,
-            weakAreasResolved: after.weakAreas.length === 0,
-            ...(input.invocation.preferredModelId
-              ? { remediationModel: input.invocation.preferredModelId }
-              : {}),
-          },
-        );
-      } catch {
-        // 单 section 补救失败降级跳过（不阻断后续 section / mission）。
-      }
-    }
+            e as Parameters<
+              SectionSelfEvalService["determineRemediationActions"]
+            >[0],
+            t,
+            l,
+          ),
+        remediate: (i) => this.rich.sectionRemediation.remediate(i),
+        recordLoop: (info) =>
+          this.rich.qualityTrace.recordDimensionRemediationLoop(
+            trace,
+            info.sectionKey,
+            {
+              selfEvalScoresBefore: info.before,
+              selfEvalScoresAfter: info.after,
+              weakAreasResolved: info.weakAreasResolved,
+              ...(info.remediationModel
+                ? { remediationModel: info.remediationModel }
+                : {}),
+            },
+          ),
+      },
+      warn: (msg) => log.warn(`[${ctx.missionId}] ${msg}`),
+    });
 
-    if (mutated) {
+    if (result.mutated) {
       // section 内容变了 → 重建 content.fullMarkdown（前端连续阅读 / 复制 markdown 用）。
       this.rebuildArtifactMarkdown(artifact);
       crossStageState.set(CS_KEY.reportArtifact, artifact);
@@ -1904,9 +1949,13 @@ export class DeepInsightStageBindings implements StageBindings {
               | undefined
           )?.dimensions;
           if (qualityDims && typeof qualityDims === "object") {
+            // ★ 正确字段名是 verifierId——mission-view.projector:206/242 按 verifierId 过滤
+            //   持久化 row.verdicts；旧写法只有 dimension 字段 → 完成态 verdicts 被滤成空数组。
+            //   保留 dimension 别名（第一波 projector 兼容回退读 dimension，不破坏）。
             const verifierVerdicts = Object.entries(qualityDims)
               .filter(([, score]) => typeof score === "number")
               .map(([dimension, score]) => ({
+                verifierId: dimension,
                 dimension,
                 score: score as number,
               }));
@@ -2139,6 +2188,7 @@ export class DeepInsightStageBindings implements StageBindings {
       dimensionName?: string;
       dimensionId?: string;
       action?: string;
+      critique?: string;
     }> =
       output != null && typeof output === "object"
         ? (((output as { perDimension?: unknown }).perDimension as
@@ -2146,6 +2196,7 @@ export class DeepInsightStageBindings implements StageBindings {
                 dimensionName?: string;
                 dimensionId?: string;
                 action?: string;
+                critique?: string;
               }>
             | undefined) ?? [])
         : [];
@@ -2165,13 +2216,40 @@ export class DeepInsightStageBindings implements StageBindings {
           : o.state === "degraded"
             ? 50
             : 30;
+      // grade：overall → 等级字符串（mission-view.projector:455 读 p.grade，缺则显示 "—"）。
+      const grade = this.scoreToGrade(overall);
+      // summary：一句话总评（projector:456 读 p.summary，缺则空）。优先 leader 逐维 critique，
+      //   缺则用状态 + finding 数合成。
+      const summary =
+        typeof perDim?.critique === "string" && perDim.critique.trim()
+          ? perDim.critique.slice(0, 200)
+          : o.state === "completed"
+            ? `采集完成，共 ${o.findingsCount} 条 findings，决策 ${action}`
+            : o.state === "degraded"
+              ? `产出退化（${o.findingsCount} 条 findings），需关注`
+              : "采集失败，无有效 findings";
+      // ★ axes（5 轴评分对象）：deep-insight 是启发式打分，无 grader 产出 5 轴分数
+      //   （leader assess perDimension 仅 action/critique，见 leader.agent.ts:225-247；
+      //   ReportEvaluation 10 维评估在 s9b 报告级、非维度级）。按任务约束不造假 axes，
+      //   故此处不发 axes 字段（DimensionGradedSchema.axes 为 optional，缺省合法）。
       emitDomain(onEvent, "dimension:graded", {
         dimension: o.dimensionName,
         overall,
+        grade,
+        summary,
         state: o.state,
         action,
       });
     }
+  }
+
+  /** overall(0-100) → 等级字符串（A/B/C/D/F），供 dimension:graded.grade。 */
+  private scoreToGrade(score: number): string {
+    if (score >= 90) return "A";
+    if (score >= 75) return "B";
+    if (score >= 60) return "C";
+    if (score >= 40) return "D";
+    return "F";
   }
 
   /**

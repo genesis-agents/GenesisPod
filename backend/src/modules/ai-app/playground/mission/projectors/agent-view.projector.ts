@@ -64,7 +64,11 @@ export function projectAgents(
     const id =
       !rawId.includes("#") && dimForBucket ? `${rawId}#${dimForBucket}` : rawId;
 
-    const role = extractRole(ev) ?? deriveRoleFromAgentId(id) ?? "unknown";
+    const rawRole = extractRole(ev);
+    const role =
+      (rawRole ? normalizeRole(rawRole) : null) ??
+      deriveRoleFromAgentId(id) ??
+      "unknown";
     const modelId = extractModelId(ev);
 
     const digest =
@@ -138,6 +142,15 @@ export function projectAgents(
         }
       }
     }
+    // verb 解析三级链：显式 agent.<verb>（DOT 旧格式）→ 事件类型 derive →
+    // agent:lifecycle 的 payload.phase。第三级是能力轨主 agent（leader/analyst/
+    // writer/critic/reconciler 等）的唯一状态来源——缺它则全部落 default 恒 running，
+    // Mission Pulse 完成计数恒 0（审计 #12/#22）。
+    const verb =
+      extractAgentVerb(ev.type) ??
+      deriveVerbFromEventType(ev.type) ??
+      (isLifecycle ? lifecycleVerbFromPhase(payload) : null);
+
     // 通用 timing 兜底：任何带 agentId 的事件——startedAt 取首事件 ts，
     // endedAt 取末事件 ts（在 chapter:writing:completed / chapter:review:completed /
     // chapter:done 等终态信号处覆盖），wallTimeMs 末态时计算。
@@ -153,9 +166,7 @@ export function projectAgents(
         }
       }
       // 终态事件 → 锁 endedAt + 计算 wallTimeMs
-      const verbNow =
-        extractAgentVerb(ev.type) ?? deriveVerbFromEventType(ev.type);
-      if (verbNow === "completed" || verbNow === "failed") {
+      if (verb === "completed" || verb === "failed") {
         digest.endedAt = ev.timestamp;
         if (digest.wallTimeMs == null && digest.startedAt != null) {
           digest.wallTimeMs = ev.timestamp - digest.startedAt;
@@ -163,7 +174,6 @@ export function projectAgents(
       }
     }
 
-    const verb = extractAgentVerb(ev.type) ?? deriveVerbFromEventType(ev.type);
     switch (verb) {
       case "started":
         digest.observed.add("running");
@@ -292,6 +302,37 @@ function deriveVerbFromEventType(
     return "started";
   }
   return null;
+}
+
+/**
+ * agent:lifecycle 事件的 payload.phase → verb。
+ * 能力轨 invokeAgent 在每次 agent 调用后 emit agent:lifecycle{phase}，
+ * type 本身（"playground.agent:lifecycle"）推不出 verb，必须读 payload。
+ * degraded 在发射端已折叠进 phase='completed'（degraded:true 旁标），此处不再分流。
+ */
+function lifecycleVerbFromPhase(
+  payload: Record<string, unknown> | null,
+): "started" | "completed" | "failed" | null {
+  const phase = payload?.phase;
+  if (phase === "started") return "started";
+  if (phase === "completed") return "completed";
+  if (phase === "failed") return "failed";
+  return null;
+}
+
+/**
+ * payload.role 原词归一到 5 个 canonical role（词表与 deriveRoleFromAgentId 一致）。
+ * 能力轨 agent:lifecycle 直接携带内部 role（critic / reconciler / verifier 等），
+ * 前端按 canonical 5 词（leader/researcher/analyst/writer/reviewer）分行——
+ * 不归一则 s5 reconciler / s9 critic 的行被整体过滤掉。
+ */
+function normalizeRole(role: string): string {
+  const r = role.toLowerCase();
+  if (r === "critic" || r === "verifier" || r === "quality-judge")
+    return "reviewer";
+  if (r === "reconciler") return "analyst";
+  if (r === "steward") return "leader";
+  return role;
 }
 
 function resolveAgentPhase(d: AgentDigest): AgentPhase {

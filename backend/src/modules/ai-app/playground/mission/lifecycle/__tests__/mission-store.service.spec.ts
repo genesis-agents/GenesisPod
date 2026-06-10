@@ -1077,5 +1077,102 @@ describe("MissionStorePersistenceAdapter", () => {
       expect(intent.status).toBe("completed");
       expect(intent.extra.detail.leaderSigned).toBeUndefined();
     });
+
+    // ★ 审计 #28：终态持久化不再丢弃 ReportArtifact v2 / reconciliationReport /
+    //   leaderOverallScore / leaderVerdict（reportFull 只落 writer v1 → 报告富数据归零）。
+    it("completed intent: report 优先取 reportArtifact v2（patch title/summary）+ reportArtifactVersion=2", async () => {
+      const { adapter, getIntent } = makeAdapterWithCapture();
+
+      await adapter.applyTerminalIfRunning("m1", "completed", {
+        report: { title: "v1 raw", sections: [] },
+        reportArtifact: {
+          content: { fullMarkdown: "# rich" },
+          quality: { overall: 88 },
+          metadata: { topic: "AI 芯片" },
+          quickView: { executiveSummary: { markdown: "执行摘要" } },
+        },
+        leaderSignOff: { signed: true },
+      });
+
+      const intent = getIntent() as {
+        extra: { detail: Record<string, unknown> };
+      };
+      const detail = intent.extra.detail;
+      const report = detail.report as Record<string, unknown>;
+      expect(detail.reportArtifactVersion).toBe(2);
+      expect(report.quality).toEqual({ overall: 88 });
+      expect(report.title).toBe("AI 芯片");
+      expect(report.summary).toBe("执行摘要");
+    });
+
+    it("completed intent: reportArtifact 缺位回退 v1 report + reportArtifactVersion=1", async () => {
+      const { adapter, getIntent } = makeAdapterWithCapture();
+
+      await adapter.applyTerminalIfRunning("m1", "completed", {
+        report: { title: "v1 raw", sections: [] },
+      });
+
+      const intent = getIntent() as {
+        extra: { detail: Record<string, unknown> };
+      };
+      expect(intent.extra.detail.reportArtifactVersion).toBe(1);
+      expect((intent.extra.detail.report as { title?: string }).title).toBe(
+        "v1 raw",
+      );
+    });
+
+    it("buildTerminalIntent 输出含 reconciliationReport 键（details 携带时透传）+ leaderOverallScore/leaderVerdict 从 leaderSignOff 提取", async () => {
+      const { adapter, getIntent } = makeAdapterWithCapture();
+
+      await adapter.applyTerminalIfRunning("m1", "completed", {
+        leaderSignOff: {
+          signed: true,
+          leaderOverallScore: 85,
+          leaderVerdict: "good",
+        },
+        // 端口尚未声明该字段，前向兼容读（runner 接线后即生效）
+        reconciliationReport: { facts: [], conflicts: [] },
+      } as never);
+
+      const intent = getIntent() as {
+        extra: { detail: Record<string, unknown> };
+      };
+      const detail = intent.extra.detail;
+      expect(detail).toHaveProperty("reconciliationReport");
+      expect(detail.reconciliationReport).toEqual({ facts: [], conflicts: [] });
+      expect(detail.leaderOverallScore).toBe(85);
+      expect(detail.leaderVerdict).toBe("good");
+    });
+
+    it("failed intent（拒签路径）同样携带 v2 report + leaderOverallScore/leaderVerdict", async () => {
+      const { adapter, getIntent } = makeAdapterWithCapture();
+
+      await adapter.applyTerminalIfRunning("m1", "failed", {
+        report: { title: "v1 raw" },
+        reportArtifact: {
+          metadata: { topic: "T" },
+          quickView: { executiveSummary: { markdown: "S" } },
+        },
+        leaderSignOff: {
+          signed: false,
+          leaderOverallScore: 35,
+          leaderVerdict: "failed",
+        },
+        errorMessage: "quality-failed",
+        failureCode: "LEADER_REFUSED_SIGN",
+      } as never);
+
+      const intent = getIntent() as {
+        status: string;
+        extra: { detail: Record<string, unknown> };
+      };
+      expect(intent.status).toBe("failed");
+      const detail = intent.extra.detail;
+      expect(detail.reportArtifactVersion).toBe(2);
+      expect((detail.report as { title?: string }).title).toBe("T");
+      expect(detail.leaderSigned).toBe(false);
+      expect(detail.leaderOverallScore).toBe(35);
+      expect(detail.leaderVerdict).toBe("failed");
+    });
   });
 });

@@ -22,6 +22,7 @@ import type { PlaygroundEvent } from '@/hooks/features/useAgentPlaygroundStream'
 import {
   STAGE_STEPS,
   aggregateStageStatus,
+  mapStepIdToStageId,
   type AgentLiveState,
   type AgentPhase,
   type AgentRole,
@@ -66,7 +67,7 @@ export function useMissionLegacyView(
   );
 }
 
-function buildLegacyDerivedView(
+export function buildLegacyDerivedView(
   view: MissionDetailView | null | undefined,
   events: PlaygroundEvent[]
 ): DerivedView {
@@ -111,6 +112,10 @@ function dvProjectMission(view: MissionDetailView): MissionState {
     out.failedMessage = m.failureMessage;
   } else if (m.status === 'cancelled') {
     out.cancelledAt = finishedAt;
+    // 取消原因写入专用字段（backend canonical view 把取消原因落在 failureMessage）。
+    //   不写 failedMessage，避免主页误触发红色「Mission 失败」横幅
+    //   （2026-05-30「取消不满屏红」决策）；Settings 弹窗专读 cancelledMessage。
+    out.cancelledMessage = m.failureMessage;
   } else if (m.status === 'quality-failed') {
     out.rejectedAt = finishedAt;
     out.rejectedReason = m.failureCode ?? undefined;
@@ -135,13 +140,19 @@ function dvProjectStages(view: MissionDetailView): StageState[] {
   const hasCompletedAt = !!(m as { completedAt?: string }).completedAt;
   const hasFailedAt = !!(m as { failedAt?: string }).failedAt;
   const hasCancelledAt = !!(m as { cancelledAt?: string }).cancelledAt;
-  // canonical status 字段只暴露 starting/running/completed/quality-failed 四值;
-  //   failure/cancel 通过 failedAt/cancelledAt 时间戳表达 (类型设计).
+  // 后端 resolvePublicStatus 暴露 6 值: starting/running/completed/quality-failed
+  //   /failed/cancelled (mission-view.projector resolvePublicStatus)。
+  //   failedAt/cancelledAt 时间戳是补充信号（status 落库 race window 兜底），
+  //   status 与时间戳任一命中都按终态处理。
   const isTerminalSuccess =
     missionStatus === 'completed' ||
     missionStatus === 'quality-failed' ||
     hasCompletedAt;
-  const isTerminalFailure = hasFailedAt || hasCancelledAt;
+  const isTerminalFailure =
+    missionStatus === 'failed' ||
+    missionStatus === 'cancelled' ||
+    hasFailedAt ||
+    hasCancelledAt;
   for (const s of view.stages) {
     let effectiveStatus = s.status;
     if (effectiveStatus === 'running') {
@@ -245,7 +256,12 @@ function dvProjectAgents(
     ?.cancelledAt;
   const isTerminalSuccess =
     status === 'completed' || status === 'quality-failed' || hasCompletedAt;
-  const isTerminalFailure = hasFailedAt || hasCancelledAt;
+  // 同 dvProjectStages：status 6 值里的 failed/cancelled 也是终态信号。
+  const isTerminalFailure =
+    status === 'failed' ||
+    status === 'cancelled' ||
+    hasFailedAt ||
+    hasCancelledAt;
   const isTerminal = isTerminalSuccess || isTerminalFailure;
   if (isTerminal) {
     for (const a of out) {
@@ -302,8 +318,12 @@ function dvProjectCost(
       summedTokens += Math.max(0, dTok);
       summedCost += Math.max(0, dCost);
       if (stage && (dTok > 0 || dCost > 0)) {
-        const prev = byStageMap.get(stage) ?? { tokensUsed: 0, costUsd: 0 };
-        byStageMap.set(stage, {
+        // 能力轨 cost:tick.stage 发 recipe stepId（如 s3-researcher-collect），
+        //   基线/旧轨发业务 stage 词（researchers 等）。先归一到 5 阶段词表再聚合，
+        //   未知值原样保留（CostBreakdownPanel / StageBars 按业务词 find）。
+        const bucket = mapStepIdToStageId(stage) ?? stage;
+        const prev = byStageMap.get(bucket) ?? { tokensUsed: 0, costUsd: 0 };
+        byStageMap.set(bucket, {
           tokensUsed: prev.tokensUsed + dTok,
           costUsd: prev.costUsd + dCost,
         });
@@ -1209,7 +1229,9 @@ function dvDeriveAgentVerbFromEventType(
 function dvMapBackendStageStatusToStep(
   status: 'pending' | 'running' | 'done' | 'failed' | 'skipped'
 ): StepStatus {
-  if (status === 'skipped') return 'done';
+  // 'skipped' 保形透传（不再降格成 'done'）——让 aggregateStageStatus 能区分
+  //   「全跳过」的 stage，TeamRosterPanel 据此渲染灰色「跳过」节点；
+  //   含 done 的混合 stage 仍聚合为 done。
   return status;
 }
 

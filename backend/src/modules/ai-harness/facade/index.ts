@@ -699,6 +699,7 @@ export {
 //   P8 (2026-05-24): 旧名 relay/ → events/ 对齐 §8.1 命名
 export {
   EventRelayFramework,
+  truncatePayload,
   type EventRelayContext,
 } from "../teams/business-team/events/event-relay.framework";
 

@@ -174,6 +174,8 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   S("report:draft", ReportDraftSchema),
   S("draft:completed", DraftCompletedSchema), // S8 写作环节完成
   S("report:assembled", ReportAssembledSchema), // S8 reportArtifact v2 装配完成
+  // 发射点：deep-insight S12 postlude（postmortem 写入 harness_vector_memory 后）
+  // + 旧 s8 stage（仅局部重跑路径仍可达）。
   S("memory:indexed", MemoryIndexedSchema),
   // ── per-dim research lifecycle ──
   S("dimension:research:started", DimensionResearchStartedSchema),

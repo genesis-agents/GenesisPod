@@ -161,6 +161,23 @@ const DIMENSION_RETRY_ORIGINS: ReadonlySet<string> = new Set([
   "leader-chat-create",
 ]);
 
+// lastCompletedStage（数字水位，mission-store STEP_ID_TO_STAGE_NUMBER 写入）→
+// SYSTEM_STAGE_PRESETS id。s8b/s9b 与 s8/s9 同号，保守映射到同号中靠前的
+// preset（不越权点亮 s8b/s9b——它们由 idx<=HW 包含规则在水位更高时覆盖）。
+const STAGE_NUMBER_TO_PRESET_ID: Readonly<Record<number, string>> = {
+  1: "s1-budget",
+  2: "s2-leader-plan",
+  3: "s3-researchers",
+  4: "s4-leader-assess",
+  5: "s5-reconciler",
+  6: "s6-analyst",
+  7: "s7-writer-outline",
+  8: "s8-writer-draft",
+  9: "s9-critic-l4",
+  10: "s10-leader-signoff",
+  11: "s11-persist",
+};
+
 // step-id → frontend stage-id（与 step-id-mapping.contract.ts 一致）
 function mapStepToFrontendStage(stepId: string): string {
   const map: Record<string, string> = {
@@ -1716,6 +1733,15 @@ class PlaygroundTodoBoardProjector extends BusinessTeamTodoBoardProjectorFramewo
       Array.isArray(row.verdicts) && (row.verdicts as unknown[]).length > 0,
     );
     bump("s10-leader-signoff", row.leaderSigned === true);
+    // ★ 审计 #26 (2026-06-10)：stage 进度水位补偿。能力轨 mid-run 不写 s3+ 的产物列
+    //   （产物在终态才落库），事件被 FIFO(5000) 挤出窗口后，上面的产物 high-water 补
+    //   不到运行中阶段——已推进的 system stage 被重放算回 pending（"列表待启动、抽屉
+    //   在滚"）。lastCompletedStage 由 markStageProgress 在每个 stage:completed 后条件
+    //   写 DB 列，永不被事件窗口挤掉，是 mid-run 唯一可靠的进度真相。
+    if (typeof row.lastCompletedStage === "number") {
+      const presetId = STAGE_NUMBER_TO_PRESET_ID[row.lastCompletedStage];
+      if (presetId) bump(presetId, true);
+    }
 
     const isSuccess = row.status === "completed" || row.status === "rejected";
     const isTerminalFailure =

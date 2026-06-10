@@ -15,6 +15,8 @@
  *     能力内核不直连任何 store。
  */
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
+// 工具 output 结构保留型截断（与基线 relay 同一实现；禁止 stringify+slice 摧毁结构）。
+import { truncatePayload } from "@/modules/ai-harness/facade";
 import {
   AgentRunner,
   ChatFacade,
@@ -265,6 +267,12 @@ export class DeepInsightDefaultRunner
         : {}),
       ...(input.description ? { description: input.description } : {}),
       ...(input.depth ? { depth: input.depth } : {}),
+      // ★ concurrency 用户档位透传：接通 research.primitive 已就绪的
+      //   ctx.input.invocation.concurrency 读取链路，让用户 1-10 并行档位真正生效
+      //   （未传则 primitive 走 params.concurrency > min(维度数, 6) 默认兜底）。
+      ...(typeof input.concurrency === "number"
+        ? { concurrency: input.concurrency }
+        : {}),
       // ★ 4 档位透传（task 5）：audienceProfile / styleProfile / lengthProfile / auditLayers
       ...(input.audienceProfile
         ? { audienceProfile: input.audienceProfile }
@@ -364,6 +372,7 @@ export class DeepInsightDefaultRunner
             crossStageState,
             ev,
             topic,
+            input,
             pushBuffered,
           ),
       });
@@ -433,6 +442,8 @@ export class DeepInsightDefaultRunner
       const errorMessage = this.errMsg(result.error);
       await this.applyTerminal(persistence, missionId, outcome, {
         errorMessage,
+        // ★ reconciliationReport 接线：failed/aborted 若已跑过 s5 也落对账产物（state 无则 undefined）。
+        reconciliationReport: finalState.get(CS_KEY.reconciliationReport),
         tokensUsed: finalState.get<number>(CS_KEY.tokensUsed) ?? 0,
         costCents: finalState.get<number>(CS_KEY.costCents) ?? 0,
       });
@@ -552,6 +563,8 @@ export class DeepInsightDefaultRunner
         dimensions: plan?.dimensions,
         verdicts,
         leaderSignOff,
+        // ★ reconciliationReport 接线：拒签终态也落对账产物（已跑到 s5，UI 仍可看对账）。
+        reconciliationReport: state.get(CS_KEY.reconciliationReport),
         ...(finalScore !== undefined ? { finalScore } : {}),
         tokensUsed: usage.totalTokens,
         costCents: usage.totalCostCents,
@@ -599,6 +612,9 @@ export class DeepInsightDefaultRunner
       dimensions: plan?.dimensions,
       verdicts,
       leaderSignOff,
+      // ★ reconciliationReport 接线：s5 reconciler 产物随终态落库（ReconciliationPanel 数据源）；
+      //   消费方 adapter 已前向兼容读，runner 一传即落（state 无数据则 undefined，adapter 跳过）。
+      reconciliationReport: state.get(CS_KEY.reconciliationReport),
       ...(finalScore !== undefined ? { finalScore } : {}),
       tokensUsed: usage.totalTokens,
       costCents: usage.totalCostCents,
@@ -704,6 +720,7 @@ export class DeepInsightDefaultRunner
     crossStageState: CrossStageState,
     ev: PipelineMissionEvent,
     topic: string,
+    input: CapabilityRunInput,
     pushBuffered?: (type: string) => void,
   ): void {
     // ★ env3 缓冲 mission/stage 事件（ring buffer，通过外部 pushBuffered helper 写）
@@ -713,7 +730,30 @@ export class DeepInsightDefaultRunner
     const baseTelemetry = stepId ? { systemStageId: stepId } : undefined;
     switch (ev.type) {
       case "mission:started":
-        void ctx.onEvent?.({ type: "started", timestamp: ev.timestamp });
+        // payload 携带 topic + 用户档位（消费方事件日志/replay 据此显示任务入参；
+        // 回归审计 #7：裸 started 让 RawEventLog 显示 "(no topic)"）。
+        void ctx.onEvent?.({
+          type: "started",
+          timestamp: ev.timestamp,
+          payload: {
+            topic,
+            ...(input.depth ? { depth: input.depth } : {}),
+            ...(input.language ? { language: input.language } : {}),
+            ...(input.styleProfile ? { styleProfile: input.styleProfile } : {}),
+            ...(input.lengthProfile
+              ? { lengthProfile: input.lengthProfile }
+              : {}),
+            ...(input.audienceProfile
+              ? { audienceProfile: input.audienceProfile }
+              : {}),
+            ...(input.withFigures !== undefined
+              ? { withFigures: input.withFigures }
+              : {}),
+            ...(input.searchTimeRange
+              ? { searchTimeRange: input.searchTimeRange }
+              : {}),
+          },
+        });
         break;
       case "stage:started":
         void ctx.onEvent?.({
@@ -775,27 +815,32 @@ export class DeepInsightDefaultRunner
         });
         break;
       case "stage:degraded":
+      case "stage:stalled": {
+        // reason + elapsedMs 全量透传（契约矩阵表 3：卡顿/降级只有"发生了"没有"为什么"）。
+        const extra = {
+          ...(ev.reason ? { reason: ev.reason } : {}),
+          ...(typeof ev.elapsedMs === "number"
+            ? { elapsedMs: ev.elapsedMs }
+            : {}),
+        };
         void ctx.onEvent?.({
-          type: "stage:degraded",
+          type: ev.type,
           ...(stepId ? { stepId } : {}),
           ...(label ? { label } : {}),
           timestamp: ev.timestamp,
-          ...(ev.reason ? { payload: { reason: ev.reason } } : {}),
+          ...(Object.keys(extra).length > 0 ? { payload: extra } : {}),
           ...(baseTelemetry ? { telemetry: baseTelemetry } : {}),
         });
         break;
-      case "stage:stalled":
-        void ctx.onEvent?.({
-          type: "stage:stalled",
-          ...(stepId ? { stepId } : {}),
-          ...(label ? { label } : {}),
-          timestamp: ev.timestamp,
-          ...(ev.reason ? { payload: { reason: ev.reason } } : {}),
-          ...(baseTelemetry ? { telemetry: baseTelemetry } : {}),
-        });
-        break;
+      }
       case "mission:completed":
-        void ctx.onEvent?.({ type: "completed", timestamp: ev.timestamp });
+        // 终态统计随事件下发（回归审计 #7：完成通知 adapter / 事件日志都吃 payload；
+        // 数据全在 runner 持有的 crossStageState，零额外 IO）。
+        void ctx.onEvent?.({
+          type: "completed",
+          timestamp: ev.timestamp,
+          payload: this.buildCompletedStats(crossStageState, topic),
+        });
         break;
       case "mission:failed":
       case "mission:aborted":
@@ -808,9 +853,14 @@ export class DeepInsightDefaultRunner
 
   /** IAgentEvent → CapabilityRunEvent(agent-trace) relay。
    *
-   * Fix3：payload 携带结构化字段（bridge 用于 tool-call timeline）：
-   *   { kind, text?, toolId?, input?, output?, role, dimension?, stepId }
-   * action_executed 从 IActionResult 透传 toolId + input，output 截断至 500 字。
+   * 与基线 EventRelayFramework.relayAgentEvents 同语义（2026-06-10 回归审计 #1/#2/#8/#9/#14）：
+   *   - output 走 truncatePayload（对象 ≤32K 保形透传；超限 results[] 裁前 10；
+   *     极端 {_truncated, preview}）——禁止 JSON.stringify+slice 摧毁结构；
+   *   - parallel_tool_call subResults 逐 sub 扇出独立事件（toolId/input/output/
+   *     latencyMs/tokensUsed/error 全透传）；
+   *   - action_planned 透传 calls[]（并发调用卡）+ input；
+   *   - thinking 透传 modelId；补 reflection；
+   *   - text 语义化（从 input 提取 query/url 摘要，不再 "Action executed" 兜底）。
    */
   private relayAgentEvent(
     ctx: CapabilityRunContext,
@@ -819,70 +869,192 @@ export class DeepInsightDefaultRunner
     dimension: string | undefined,
     ev: import("./runner-deps").IAgentEvent,
   ): void {
-    let kind: string;
-    let text: string | undefined;
-    let tag: string | undefined;
-    let toolId: string | undefined;
-    let toolInput: unknown;
-    let toolOutput: unknown;
+    const baseTs = ev.timestamp ?? Date.now();
+    const emit = (fields: Record<string, unknown>, tsOffset = 0): void => {
+      void ctx.onEvent?.({
+        type: "agent-trace",
+        stepId,
+        ...(dimension ? { label: dimension } : {}),
+        timestamp: baseTs + tsOffset,
+        payload: {
+          ...fields,
+          role,
+          ...(dimension !== undefined ? { dimension } : {}),
+          stepId,
+          agentId: ev.agentId,
+        },
+        telemetry: {
+          systemStageId: stepId,
+          ...(dimension ? { dimension } : {}),
+        },
+      });
+    };
 
     switch (ev.type) {
       case "thinking": {
-        kind = "thinking";
-        const p = ev.payload as { text?: string; content?: string } | undefined;
-        text = p?.text ?? p?.content;
-        break;
+        const p = ev.payload as
+          | { text?: string; content?: string; modelId?: string }
+          | undefined;
+        const text = p?.text ?? p?.content;
+        emit({
+          kind: "thinking",
+          ...(text !== undefined ? { text } : {}),
+          ...(typeof p?.modelId === "string" && p.modelId
+            ? { modelId: p.modelId }
+            : {}),
+        });
+        return;
       }
       case "action_planned": {
-        kind = "action_planned";
-        // IActionPlannedEvent.payload 是 IAction（有 kind / toolId / input 字段）。
+        // payload 是 IAction（tool_call: toolId/input；parallel_tool_call: calls[]）。
         const p = ev.payload as
           | {
               kind?: string;
               toolId?: string;
+              skillId?: string;
+              name?: string;
               input?: unknown;
-              description?: string;
+              calls?: ReadonlyArray<{ toolId?: string; input?: unknown }>;
             }
           | undefined;
-        toolId = p?.toolId;
-        text =
-          (p as { description?: string } | undefined)?.description ?? toolId;
-        break;
+        const calls = Array.isArray(p?.calls) ? p.calls : undefined;
+        emit({
+          kind: "action_planned",
+          text: this.describeAction("计划调用", p?.toolId, p?.input, {
+            kind: p?.kind,
+            skillId: p?.skillId,
+            subagentName: p?.name,
+            callCount: calls?.length,
+          }),
+          ...(p?.toolId ? { toolId: p.toolId } : {}),
+          ...(p?.input !== undefined ? { input: p.input } : {}),
+          ...(calls && calls.length > 0 ? { calls } : {}),
+        });
+        return;
       }
       case "action_executed": {
-        kind = "action_executed";
-        // IActionExecutedEvent.payload 是 IActionResult（action.toolId / action.input / output）。
+        // payload 是 IActionResult；parallel_tool_call 带 subResults[]。
         const p = ev.payload as
           | {
-              action?: { kind?: string; toolId?: string; input?: unknown };
+              action?: {
+                kind?: string;
+                toolId?: string;
+                input?: unknown;
+              };
               output?: unknown;
+              error?: { message?: string };
+              latencyMs?: number;
+              tokensUsed?: number;
+              subResults?: ReadonlyArray<{
+                action?: { kind?: string; toolId?: string; input?: unknown };
+                output?: unknown;
+                error?: { message?: string };
+                latencyMs?: number;
+                tokensUsed?: number;
+              }>;
             }
           | undefined;
-        toolId = p?.action?.toolId;
-        toolInput = p?.action?.input;
-        // output 截断至 500 字（大型 observation 不洪泛 WS 总线）。
-        const rawOut = p?.output;
-        if (rawOut !== undefined) {
-          const s =
-            typeof rawOut === "string" ? rawOut : JSON.stringify(rawOut);
-          toolOutput = s.length > 500 ? s.slice(0, 500) + "…" : s;
+        if (
+          p?.action?.kind === "parallel_tool_call" &&
+          p.subResults &&
+          p.subResults.length > 0
+        ) {
+          // 扇出：每个 sub 一条独立 trace（基线 #91 同款；同 batch 毫秒序号微调保时序）。
+          p.subResults.forEach((sub, i) => {
+            emit(
+              {
+                kind: "action_executed",
+                text: this.describeAction(
+                  "调用",
+                  sub.action?.toolId,
+                  sub.action?.input,
+                  {
+                    kind: sub.action?.kind,
+                    failed: !!sub.error,
+                  },
+                ),
+                ...(sub.action?.toolId ? { toolId: sub.action.toolId } : {}),
+                ...(sub.action?.input !== undefined
+                  ? { input: sub.action.input }
+                  : {}),
+                ...(sub.output !== undefined
+                  ? { output: truncatePayload(sub.output) }
+                  : {}),
+                ...(typeof sub.latencyMs === "number"
+                  ? { latencyMs: sub.latencyMs }
+                  : {}),
+                ...(typeof sub.tokensUsed === "number"
+                  ? { tokensUsed: sub.tokensUsed }
+                  : {}),
+                ...(sub.error?.message ? { error: sub.error.message } : {}),
+              },
+              i * 0.001,
+            );
+          });
+          return;
         }
-        text = toolId ? `Tool ${toolId} executed` : "Action executed";
-        break;
+        emit({
+          kind: "action_executed",
+          text: this.describeAction(
+            "调用",
+            p?.action?.toolId,
+            p?.action?.input,
+            {
+              kind: p?.action?.kind,
+              failed: !!p?.error,
+            },
+          ),
+          ...(p?.action?.toolId ? { toolId: p.action.toolId } : {}),
+          ...(p?.action?.input !== undefined ? { input: p.action.input } : {}),
+          ...(p?.output !== undefined
+            ? { output: truncatePayload(p.output) }
+            : {}),
+          ...(typeof p?.latencyMs === "number"
+            ? { latencyMs: p.latencyMs }
+            : {}),
+          ...(typeof p?.tokensUsed === "number"
+            ? { tokensUsed: p.tokensUsed }
+            : {}),
+          ...(p?.error?.message ? { error: p.error.message } : {}),
+        });
+        return;
+      }
+      case "reflection": {
+        // Reflexion verifier 打分轮（基线 agent:reflection 等价）。
+        const p = ev.payload as
+          | {
+              revision?: number;
+              score?: number | null;
+              note?: string;
+              verdict?: string;
+              text?: string;
+            }
+          | undefined;
+        const detail = p?.text ?? p?.note ?? p?.verdict;
+        emit({
+          kind: "reflection",
+          text:
+            `自评第 ${p?.revision ?? "?"} 轮：` +
+            `${typeof p?.score === "number" ? `${p.score} 分` : "无评分"}` +
+            (detail ? `——${detail}` : ""),
+          ...(typeof p?.score === "number" ? { score: p.score } : {}),
+          ...(typeof p?.revision === "number" ? { revision: p.revision } : {}),
+        });
+        return;
       }
       case "error": {
-        kind = "error";
-        tag = "error";
         const p = ev.payload as { message?: string } | undefined;
-        text = p?.message ?? "Agent error";
-        break;
+        emit({
+          kind: "error",
+          tag: "error",
+          text: p?.message ?? "Agent error",
+        });
+        return;
       }
       // P2-a：budget_warning / validation_failed → kind:"error"（桥译 tag:"warning"）。
-      // 语义选择：kind="error" 是桥接层认可的 4 种 kind 之一；text 明确区分两类，
+      // 语义选择：kind="error" 是桥接层认可的 kind 之一；text 明确区分两类，
       //   避免语义造假（不用 "thinking"/"action_planned"/"action_executed"）。
       case "budget_warning": {
-        kind = "error";
-        tag = "warning";
         const p = ev.payload as {
           tokensUsed?: number;
           severity?: string;
@@ -890,46 +1062,101 @@ export class DeepInsightDefaultRunner
         const tokensUsed =
           typeof p?.tokensUsed === "number" ? p.tokensUsed : undefined;
         const severity = typeof p?.severity === "string" ? p.severity : "";
-        text = `预算警告：已用 ${tokensUsed ?? "?"} tokens（${severity || "warning"}）`;
-        break;
+        emit({
+          kind: "error",
+          tag: "warning",
+          text: `预算警告：已用 ${tokensUsed ?? "?"} tokens（${severity || "warning"}）`,
+        });
+        return;
       }
       case "validation_failed": {
-        kind = "error";
-        tag = "warning";
         const p = ev.payload as {
           rejectCount?: number;
           maxRejects?: number;
-          issues?: string;
         } | null;
         const rejectCount =
           typeof p?.rejectCount === "number" ? p.rejectCount : "?";
         const maxRejects =
           typeof p?.maxRejects === "number" ? p.maxRejects : "?";
-        text = `产出校验未通过（第 ${rejectCount}/${maxRejects} 次），框架将重试或降级`;
-        break;
+        emit({
+          kind: "error",
+          tag: "warning",
+          text: `产出校验未通过（第 ${rejectCount}/${maxRejects} 次），框架将重试或降级`,
+        });
+        return;
       }
       default:
         return;
     }
-    void ctx.onEvent?.({
-      type: "agent-trace",
-      stepId,
-      ...(dimension ? { label: dimension } : {}),
-      timestamp: ev.timestamp ?? Date.now(),
-      payload: {
-        kind,
-        ...(text !== undefined ? { text } : {}),
-        role,
-        ...(tag !== undefined ? { tag } : {}),
-        ...(dimension !== undefined ? { dimension } : {}),
-        ...(toolId !== undefined ? { toolId } : {}),
-        ...(toolInput !== undefined ? { input: toolInput } : {}),
-        ...(toolOutput !== undefined ? { output: toolOutput } : {}),
-        stepId,
-        agentId: ev.agentId,
-      },
-      telemetry: { systemStageId: stepId, ...(dimension ? { dimension } : {}) },
-    });
+  }
+
+  /**
+   * 工具/动作的人读摘要：优先 input.query / input.url，再按 action kind 兜底
+   * （并发调用列计数、skill/subagent 用各自 id）。绝不返回 "Action executed" 类空话。
+   */
+  private describeAction(
+    verb: string,
+    toolId: string | undefined,
+    input: unknown,
+    opts?: {
+      kind?: string;
+      skillId?: string;
+      subagentName?: string;
+      callCount?: number;
+      failed?: boolean;
+    },
+  ): string {
+    if (opts?.callCount && opts.callCount > 0) {
+      return `并发调用 ${opts.callCount} 个工具`;
+    }
+    if (opts?.kind === "finalize") return "整理最终产出";
+    const target =
+      toolId ??
+      opts?.skillId ??
+      opts?.subagentName ??
+      (opts?.kind === "llm_generate" ? "LLM 生成" : opts?.kind);
+    const inp = input as Record<string, unknown> | undefined;
+    const q =
+      typeof inp?.query === "string"
+        ? inp.query
+        : typeof inp?.url === "string"
+          ? inp.url
+          : undefined;
+    const summary = q ? `：${q.length > 120 ? `${q.slice(0, 120)}…` : q}` : "";
+    return `${verb} ${target ?? "工具"}${opts?.failed ? " 失败" : ""}${summary}`;
+  }
+
+  /**
+   * mission:completed 终态统计（全部来自 runner 持有的 crossStageState，零额外 IO）。
+   * 消费方（playground 桥）在此之上补业务路由字段（appBasePath/relatedType）后
+   * 喂给 MissionCompletionBroadcastAdapter（站内完成通知的硬条件）。
+   */
+  private buildCompletedStats(
+    state: CrossStageState,
+    topic: string,
+  ): Record<string, unknown> {
+    const usage = this.usage(state);
+    const reviewScore =
+      state.get<number>(CS_KEY.finalScore) ??
+      state.get<number>(CS_KEY.reviewScore);
+    const leaderSignOff = state.get<{ signed?: boolean }>(CS_KEY.leaderSignOff);
+    const verdicts = this.normalizeVerdicts(state.get(CS_KEY.verifierVerdicts));
+    const startedAt = state.get<number>(CS_KEY.startedAt);
+    const reportArtifact = state.get<{ title?: string }>(CS_KEY.reportArtifact);
+    const plan = state.get<{ themeSummary?: string }>(CS_KEY.plan);
+    return {
+      costUsd: usage.totalCostCents / 100,
+      tokensUsed: usage.totalTokens,
+      ...(typeof startedAt === "number"
+        ? { elapsedWallTimeMs: Date.now() - startedAt }
+        : {}),
+      ...(reviewScore !== undefined ? { reviewScore } : {}),
+      ...(leaderSignOff?.signed !== undefined
+        ? { leaderSigned: leaderSignOff.signed }
+        : {}),
+      ...(verdicts.length > 0 ? { verifierVerdicts: verdicts } : {}),
+      missionTitle: reportArtifact?.title ?? plan?.themeSummary ?? topic,
+    };
   }
 
   private async applyTerminal(

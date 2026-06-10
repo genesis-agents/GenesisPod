@@ -212,9 +212,10 @@ export const PLAYGROUND_PIPELINE: MissionPipelineConfig = defineMissionPipeline(
         roleId: "researcher",
         mode: "byPlanDimensions",
         timeoutMs: 1_200_000,
-        // ★ 并发派遣（2026-06-10）：research.primitive 默认 concurrency=1——缺此参数时
-        //   deep 档 12 个维度纯串行，S3 耗时数倍于旧 OFF-path（旧版并行 3）。
-        params: { concurrency: 3 },
+        // ★ 并发派遣（2026-06-10）：不配 params.concurrency——research.primitive
+        //   滑动窗并发，解析优先级为 用户档位（input.invocation.concurrency）>
+        //   params.concurrency > min(维度数, 6)（= 基线 fc22d9a Phase A 语义，
+        //   deep 档 12 维 6 路并行）。此处配死数值会盖掉 min(dims,6) 默认。
         dag: {
           ctxReads: ["plan", "input"],
           ctxWrites: ["researcherResults"],

@@ -783,8 +783,16 @@ describe("deep-insight 14 阶段执行内核（W2）", () => {
       (e) => e.event === "agent:lifecycle",
     );
     expect(lifecycleEvents.length).toBeGreaterThan(0);
-    // 每个 lifecycle 事件必须含 tokensUsed 字段。
-    for (const ev of lifecycleEvents) {
+    // 双发语义（审计 #11/#27）：每次 invokeAgent 前发 phase=started（无终态字段），
+    // 完成后发 completed/failed（含 tokensUsed）。
+    expect(lifecycleEvents.some((ev) => ev.data.phase === "started")).toBe(
+      true,
+    );
+    const terminalEvents = lifecycleEvents.filter(
+      (ev) => ev.data.phase !== "started",
+    );
+    expect(terminalEvents.length).toBeGreaterThan(0);
+    for (const ev of terminalEvents) {
       expect(typeof ev.data.tokensUsed).toBe("number");
     }
   });

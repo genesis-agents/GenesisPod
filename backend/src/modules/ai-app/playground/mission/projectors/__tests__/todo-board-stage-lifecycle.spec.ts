@@ -294,3 +294,49 @@ describe("§ todo-board projector × stage:lifecycle (Screenshot_52 regression g
     expect(s3!.status).toBe("in_progress");
   });
 });
+
+describe("§ lastCompletedStage 进度水位补偿（审计 #26 FIFO 回放窗口截断）", () => {
+  it("运行中 + 早期事件全部被挤出窗口 → lastCompletedStage=5 仍把 s1..s5 补 done", () => {
+    const row = fakeRow();
+    (row as { lastCompletedStage: number | null }).lastCompletedStage = 5;
+    // 模拟 FIFO 截断后的事件后缀：只剩 s6 的 started（早期 stage:lifecycle 全被挤掉）
+    const out = projectTodoBoard(row, [
+      {
+        type: "playground.stage:lifecycle",
+        payload: { stepId: "s6-analyst", status: "started" },
+        timestamp: 1700000010000,
+      },
+    ]);
+    const items = out.kind === "todo-board" ? (out.items ?? []) : [];
+    const byStage = (id: string) => items.find((t) => t.systemStageId === id);
+    expect(byStage("s1-budget")!.status).toBe("done");
+    expect(byStage("s2-leader-plan")!.status).toBe("done");
+    expect(byStage("s3-researchers")!.status).toBe("done");
+    expect(byStage("s5-reconciler")!.status).toBe("done");
+    // live in_progress 不被下调
+    expect(byStage("s6-analyst")!.status).toBe("in_progress");
+    // 水位之上不越权点亮
+    expect(byStage("s7-writer-outline")!.status).toBe("pending");
+    expect(byStage("s12-self-evolution")!.status).toBe("pending");
+  });
+
+  it("s8b/s9b 与 s8/s9 同号 → 保守映射，不越权点亮 s8b", () => {
+    const row = fakeRow();
+    (row as { lastCompletedStage: number | null }).lastCompletedStage = 8;
+    const out = projectTodoBoard(row, []);
+    const items = out.kind === "todo-board" ? (out.items ?? []) : [];
+    const byStage = (id: string) => items.find((t) => t.systemStageId === id);
+    expect(byStage("s8-writer-draft")!.status).toBe("done");
+    expect(byStage("s8b-quality-enhancement")!.status).toBe("pending");
+  });
+
+  it("lastCompletedStage=null（legacy/未开跑）→ 行为不变，全部 pending", () => {
+    const out = projectTodoBoard(fakeRow(), []);
+    const items = out.kind === "todo-board" ? (out.items ?? []) : [];
+    expect(
+      items
+        .filter((t) => t.scope === "system")
+        .every((t) => t.status === "pending"),
+    ).toBe(true);
+  });
+});

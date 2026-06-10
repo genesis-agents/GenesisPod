@@ -44,6 +44,12 @@ export interface CapabilityRunInput {
    * 消费方可按合规需求注入额外审计 pass（例如 "bias-check" / "fact-check"）。
    */
   readonly auditLayers?: readonly string[];
+  /**
+   * S3 维度派遣并发档位（1-10；消费方按用户配置透传）。能力核 research.primitive
+   * 读 ctx.input.invocation.concurrency 作滑动窗并发度，优先于 recipe params 与
+   * min(维度数, 6) 默认。缺省/非法 → 走默认兜底（与用户未配行为一致）。
+   */
+  readonly concurrency?: number;
   /** 本地知识库 ids（researcher rag-search 召回限定；空/缺省 → 纯 web）。 */
   readonly knowledgeBaseIds?: readonly string[];
   /** 搜索时效窗口（透传 researcher + envelope.metadata，给 search tool 兜底）。 */
@@ -142,6 +148,13 @@ export interface MissionTerminalDetails {
   readonly dimensions?: ReadonlyArray<unknown>;
   readonly verdicts?: unknown;
   readonly leaderSignOff?: unknown;
+  /**
+   * 跨维对账报告（s5 reconciler 产物：reconciliationReport 全文 + deduplicationStats）。
+   * 消费方落 ReconciliationPanel 数据源列；缺省/null 时 adapter 跳过写入。
+   * leaderOverallScore / leaderVerdict 不在此声明——消费方 adapter 从 leaderSignOff 提取
+   *   （s10 signoff 对象自带这两字段），无需 runner 另传顶层键。
+   */
+  readonly reconciliationReport?: unknown;
   readonly finalScore?: number;
   readonly elapsedWallTimeMs?: number;
   readonly tokensUsed?: number;

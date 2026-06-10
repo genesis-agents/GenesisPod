@@ -189,3 +189,101 @@ describe("§ agent-view.projector — derive 生命周期 from 业务事件", ()
     expect(agents[0].phase).toBe("completed");
   });
 });
+
+describe("§ agent-view.projector — agent:lifecycle payload.phase 消费（审计 #12/#22）", () => {
+  it("lifecycle{phase:'completed'} → agents[].phase==='completed'（能力轨主 agent 唯一状态来源）", () => {
+    const agents = projectAgents([
+      {
+        type: "playground.agent:lifecycle",
+        payload: {
+          agentId: "analyst",
+          role: "analyst",
+          phase: "completed",
+          tokensUsed: 1000,
+        },
+        timestamp: 1700000002000,
+      },
+    ]);
+    expect(agents).toHaveLength(1);
+    expect(agents[0].id).toBe("analyst");
+    expect(agents[0].phase).toBe("completed");
+    expect(agents[0].endedAt).toBe(1700000002000);
+  });
+
+  it("lifecycle{phase:'started'} → running；后续 completed 覆盖 + wallTimeMs", () => {
+    const started = projectAgents([
+      {
+        type: "playground.agent:lifecycle",
+        payload: { agentId: "writer", role: "writer", phase: "started" },
+        timestamp: 1700000000000,
+      },
+    ]);
+    expect(started[0].phase).toBe("running");
+
+    const done = projectAgents([
+      {
+        type: "playground.agent:lifecycle",
+        payload: { agentId: "writer", role: "writer", phase: "started" },
+        timestamp: 1700000000000,
+      },
+      {
+        type: "playground.agent:lifecycle",
+        payload: { agentId: "writer", role: "writer", phase: "completed" },
+        timestamp: 1700000005000,
+      },
+    ]);
+    expect(done[0].phase).toBe("completed");
+    expect(done[0].startedAt).toBe(1700000000000);
+    expect(done[0].wallTimeMs).toBe(5000);
+  });
+
+  it("lifecycle{phase:'failed'} → failed", () => {
+    const agents = projectAgents([
+      {
+        type: "playground.agent:lifecycle",
+        payload: { agentId: "leader", role: "leader", phase: "failed" },
+        timestamp: 1700000000000,
+      },
+    ]);
+    expect(agents[0].phase).toBe("failed");
+  });
+
+  it("lifecycle degraded（phase='completed' + degraded:true）按 completed 处理", () => {
+    const agents = projectAgents([
+      {
+        type: "playground.agent:lifecycle",
+        payload: {
+          agentId: "researcher#X",
+          role: "researcher",
+          phase: "completed",
+          degraded: true,
+        },
+        timestamp: 1700000000000,
+      },
+    ]);
+    expect(agents[0].phase).toBe("completed");
+  });
+
+  it("payload.role 归一：critic→reviewer / reconciler→analyst（s5/s9 行可被前端 canonical 5 词消费）", () => {
+    const agents = projectAgents([
+      {
+        type: "playground.agent:lifecycle",
+        payload: { agentId: "critic", role: "critic", phase: "completed" },
+        timestamp: 1700000000000,
+      },
+      {
+        type: "playground.agent:lifecycle",
+        payload: {
+          agentId: "reconciler",
+          role: "reconciler",
+          phase: "completed",
+        },
+        timestamp: 1700000001000,
+      },
+    ]);
+    const critic = agents.find((a) => a.id === "critic");
+    const reconciler = agents.find((a) => a.id === "reconciler");
+    expect(critic?.role).toBe("reviewer");
+    expect(reconciler?.role).toBe("analyst");
+  });
+});

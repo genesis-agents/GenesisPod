@@ -1194,9 +1194,20 @@ export class MissionStorePersistenceAdapter implements MissionPersistencePort {
       typeof details.costCents === "number"
         ? details.costCents / 100
         : undefined;
-    // report：端口为 unknown，arbiter detail 期望 { title?, summary?, ... } 形状；
-    // 仅当是 object 时透传，否则忽略（不杜撰）。
-    const report =
+    // ★ 审计 #28 (2026-06-10)：报告载荷优先 ReportArtifact v2（assembler 富组装产物，
+    //   quality/quickView/figures/factTable/metadata 全在其中），缺位才回退 writer v1
+    //   原始报告——对齐基线 s11-mission-persist.stage.ts 的 reportPayload 语义。
+    //   v2 顶层无 title/summary，从 metadata.topic / quickView.executiveSummary 补
+    //   （reportTitle/reportSummary 列由 lifecycle helper 从 report.title/summary 截取）。
+    const artifact =
+      details.reportArtifact && typeof details.reportArtifact === "object"
+        ? (details.reportArtifact as {
+            metadata?: { topic?: string };
+            quickView?: { executiveSummary?: { markdown?: string } };
+            [k: string]: unknown;
+          })
+        : undefined;
+    const rawReport =
       details.report && typeof details.report === "object"
         ? (details.report as {
             title?: string;
@@ -1204,14 +1215,39 @@ export class MissionStorePersistenceAdapter implements MissionPersistencePort {
             [k: string]: unknown;
           })
         : undefined;
+    const report: typeof rawReport = artifact
+      ? {
+          ...artifact,
+          ...(typeof artifact.metadata?.topic === "string"
+            ? { title: artifact.metadata.topic }
+            : {}),
+          ...(typeof artifact.quickView?.executiveSummary?.markdown === "string"
+            ? { summary: artifact.quickView.executiveSummary.markdown }
+            : {}),
+        }
+      : rawReport;
+    const reportArtifactVersion =
+      report !== undefined ? (artifact ? 2 : 1) : undefined;
+    // reconciliationReport：端口 MissionTerminalDetails 尚未声明该字段（runner 侧
+    // 接线待补），前向兼容读——details 一旦携带即透传落列（ReconciliationPanel 数据源）。
+    const reconciliationReport = (details as { reconciliationReport?: unknown })
+      .reconciliationReport;
     // ★ Fix 4 (2026-06-09)：leaderSigned 从 details.leaderSignOff.signed 提取（能力端口把
     //   leader signoff 整体放 leaderSignOff，signed 布尔在其中）。确认 schema 有 leader_signed 列。
+    // ★ 审计 #28：leaderOverallScore / leaderVerdict 同源提取（s10 signoff LLM 产出携带）。
+    const signOff =
+      details.leaderSignOff && typeof details.leaderSignOff === "object"
+        ? (details.leaderSignOff as Record<string, unknown>)
+        : undefined;
     const leaderSignedFromSignOff =
-      details.leaderSignOff &&
-      typeof details.leaderSignOff === "object" &&
-      typeof (details.leaderSignOff as Record<string, unknown>).signed ===
-        "boolean"
-        ? ((details.leaderSignOff as Record<string, unknown>).signed as boolean)
+      typeof signOff?.signed === "boolean" ? signOff.signed : undefined;
+    const leaderOverallScore =
+      typeof signOff?.leaderOverallScore === "number"
+        ? signOff.leaderOverallScore
+        : undefined;
+    const leaderVerdict =
+      typeof signOff?.leaderVerdict === "string"
+        ? signOff.leaderVerdict
         : undefined;
 
     if (outcome === "cancelled") {
@@ -1243,13 +1279,21 @@ export class MissionStorePersistenceAdapter implements MissionPersistencePort {
               ? { dimensions: details.dimensions }
               : {}),
             ...(report !== undefined ? { report } : {}),
+            ...(reportArtifactVersion !== undefined
+              ? { reportArtifactVersion }
+              : {}),
+            ...(reconciliationReport !== undefined
+              ? { reconciliationReport }
+              : {}),
             ...(details.verdicts !== undefined
               ? { verdicts: details.verdicts }
               : {}),
-            // leaderSigned=false が仲裁側で quality-failed に昇格（既存ロジック）。
+            // leaderSigned=false 由仲裁侧升格为 quality-failed（既有逻辑）。
             ...(leaderSignedFromSignOff !== undefined
               ? { leaderSigned: leaderSignedFromSignOff }
               : {}),
+            ...(leaderOverallScore !== undefined ? { leaderOverallScore } : {}),
+            ...(leaderVerdict !== undefined ? { leaderVerdict } : {}),
           },
         },
       };
@@ -1277,6 +1321,12 @@ export class MissionStorePersistenceAdapter implements MissionPersistencePort {
             ? { dimensions: details.dimensions }
             : {}),
           ...(report !== undefined ? { report } : {}),
+          ...(reportArtifactVersion !== undefined
+            ? { reportArtifactVersion }
+            : {}),
+          ...(reconciliationReport !== undefined
+            ? { reconciliationReport }
+            : {}),
           ...(details.verdicts !== undefined
             ? { verdicts: details.verdicts }
             : {}),
@@ -1284,6 +1334,8 @@ export class MissionStorePersistenceAdapter implements MissionPersistencePort {
           ...(leaderSignedFromSignOff !== undefined
             ? { leaderSigned: leaderSignedFromSignOff }
             : {}),
+          ...(leaderOverallScore !== undefined ? { leaderOverallScore } : {}),
+          ...(leaderVerdict !== undefined ? { leaderVerdict } : {}),
         },
       },
     };

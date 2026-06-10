@@ -7,6 +7,7 @@
 
 import { LeaderChatService } from "../leader-chat.service";
 import { AIModelType } from "@prisma/client";
+import { DimensionsAppendedSchema } from "../../../events/playground.event-schemas";
 
 function makeRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -444,5 +445,63 @@ describe("LeaderChatService.send", () => {
     eventBus.emit.mockRejectedValue(new Error("bus error"));
     // Should not throw
     await expect(service.send("m-1", "u-1", "add dim")).resolves.toBeDefined();
+  });
+
+  // ★ 2026-06-10 契约矩阵 P0：source 'user-chat' 不在 DimensionsAppendedSchema
+  //   枚举（leader-chat/leader-decision/auto），EventBus safeParse 失败会整条 drop
+  //   ——前端永远收不到追加通知。锁住 emit 实发 payload 必须过 schema。
+  it("dimensions:appended payload 用 source 'leader-chat' 且通过 DimensionsAppendedSchema", async () => {
+    const { service, prisma, chat, store, eventBus } = buildService();
+    prisma.agentPlaygroundLeaderChat.findMany.mockResolvedValue([]);
+    store.getById.mockResolvedValue(makeMission({ status: "running" }));
+    chat.chat.mockResolvedValue({
+      content:
+        '{"decisionType":"CREATE_TODO","response":"Added","todo":[{"name":"NewDim","rationale":"why"}]}',
+      usage: { totalTokens: 50 },
+    });
+    await service.send("m-1", "u-1", "add a dimension");
+
+    const appendedCall = eventBus.emit.mock.calls.find(
+      (c: unknown[]) =>
+        (c[0] as { type: string }).type === "playground.dimensions:appended",
+    );
+    expect(appendedCall).toBeDefined();
+    const payload = (appendedCall![0] as { payload: Record<string, unknown> })
+      .payload;
+    expect(payload.source).toBe("leader-chat");
+    expect(DimensionsAppendedSchema.safeParse(payload).success).toBe(true);
+  });
+
+  it("appendDimensions 部分失败（返回 id 数 < todo 数）→ items 截断到实际 id 数，不产生 id=undefined", async () => {
+    const { service, prisma, chat, store, eventBus } = buildService();
+    prisma.agentPlaygroundLeaderChat.findMany.mockResolvedValue([]);
+    store.getById.mockResolvedValue(makeMission({ status: "running" }));
+    // 两条 todo 只成功落库一条。
+    store.appendDimensions.mockResolvedValue(["dim-only-1"]);
+    chat.chat.mockResolvedValue({
+      content:
+        '{"decisionType":"CREATE_TODO","response":"Added","todo":[{"name":"DimA","rationale":"a"},{"name":"DimB","rationale":"b"}]}',
+      usage: { totalTokens: 50 },
+    });
+    await service.send("m-1", "u-1", "add two dimensions");
+
+    const appendedCall = eventBus.emit.mock.calls.find(
+      (c: unknown[]) =>
+        (c[0] as { type: string }).type === "playground.dimensions:appended",
+    );
+    expect(appendedCall).toBeDefined();
+    const payload = (
+      appendedCall![0] as {
+        payload: { items: Array<{ id: string; name: string }> };
+      }
+    ).payload;
+    expect(payload.items).toHaveLength(1);
+    expect(payload.items[0]).toMatchObject({ id: "dim-only-1", name: "DimA" });
+    // id=undefined 会让 items[].id（必填 string）safeParse 失败整条 drop。
+    expect(
+      DimensionsAppendedSchema.safeParse(
+        payload as unknown as Record<string, unknown>,
+      ).success,
+    ).toBe(true);
   });
 });

@@ -91,11 +91,11 @@ export class TaskProfileMapperService {
         profile.outputLength === "minimal" ||
         profile.outputLength === "short"
       ) {
-        // ★ 关键修复：原 0.3 倍率 + 8000 上限 → 7500 tokens 给 reasoning 模型
-        //   不够。gpt-5.4 / o1 这类 CoT 吃 6-8k 后只剩 <1k visible，
-        //   在 response_format=json_object 强制下憋出最简空 JSON 假装 finalize。
-        //   提到 0.5 倍率 + 16000 上限 → 12500 tokens（CoT 6.5k + visible 6k）
-        const scaledMin = Math.min(Math.ceil(reasoningMin * 0.5), 16000);
+        // minimal/short 分档上限：统一 0.5 倍率 + 16000 上限会把分类/标签类任务
+        // （minimal 500）也推到 12500，模型把预算全花在长推理上（2026-06-10 日志实测）。
+        // minimal=分类/提取（CoT 2-3k + visible <1k 足够）；short=摘要（CoT 5-6k + visible 1.5k）。
+        const boostCap = profile.outputLength === "minimal" ? 4000 : 8000;
+        const scaledMin = Math.min(Math.ceil(reasoningMin * 0.5), boostCap);
         effectiveMaxTokens = Math.max(baseMaxTokens, scaledMin);
       } else {
         effectiveMaxTokens = Math.max(baseMaxTokens, reasoningMin);

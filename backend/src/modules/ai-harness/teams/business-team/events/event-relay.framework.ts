@@ -41,6 +41,44 @@ export interface EventRelayContext {
   role: string;
 }
 
+/**
+ * 工具 output 的 WS 防洪截断（结构保留型）：
+ *   - 字符串 > 8K → 截断；
+ *   - 对象序列化 ≤ 32K → 原样保形透传（前端结构化摘要管线依赖）；
+ *   - 超 32K 且有 results[] → 结构化裁前 10 条（_resultsTruncated 标记）；
+ *   - 极端兜底 → { _truncated, preview }（前端有专门摘要渲染分支）。
+ *
+ * 抽为独立函数供能力轨 relay（deep-insight runner）复用——禁止 stringify+slice
+ * 摧毁结构（2026-06-10 回归审计 #1/#8）。
+ */
+export function truncatePayload(payload: unknown): unknown {
+  if (payload == null) return payload;
+  if (typeof payload === "string") {
+    return payload.length > 8000 ? payload.slice(0, 8000) + "..." : payload;
+  }
+  try {
+    const s = JSON.stringify(payload);
+    if (s.length <= 32_000) return payload;
+    if (
+      typeof payload === "object" &&
+      payload !== null &&
+      Array.isArray((payload as Record<string, unknown>)["results"])
+    ) {
+      const obj = payload as Record<string, unknown>;
+      const results = obj["results"] as unknown[];
+      return {
+        ...obj,
+        results: results.slice(0, 10),
+        _resultsTruncated: results.length > 10,
+        _originalResultsCount: results.length,
+      };
+    }
+    return { _truncated: true, preview: s.slice(0, 32_000) + "..." };
+  } catch {
+    return String(payload);
+  }
+}
+
 export class EventRelayFramework {
   private readonly log = new Logger(EventRelayFramework.name);
   private abortRegistry?: MissionAbortRegistry;
@@ -447,30 +485,6 @@ export class EventRelayFramework {
   }
 
   protected truncatePayload(payload: unknown): unknown {
-    if (payload == null) return payload;
-    if (typeof payload === "string") {
-      return payload.length > 8000 ? payload.slice(0, 8000) + "..." : payload;
-    }
-    try {
-      const s = JSON.stringify(payload);
-      if (s.length <= 32_000) return payload;
-      if (
-        typeof payload === "object" &&
-        payload !== null &&
-        Array.isArray((payload as Record<string, unknown>)["results"])
-      ) {
-        const obj = payload as Record<string, unknown>;
-        const results = obj["results"] as unknown[];
-        return {
-          ...obj,
-          results: results.slice(0, 10),
-          _resultsTruncated: results.length > 10,
-          _originalResultsCount: results.length,
-        };
-      }
-      return { _truncated: true, preview: s.slice(0, 32_000) + "..." };
-    } catch {
-      return String(payload);
-    }
+    return truncatePayload(payload);
   }
 }

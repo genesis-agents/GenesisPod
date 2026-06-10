@@ -645,7 +645,9 @@ export class PlaygroundPipelineDispatcher
     // RunMissionInput → CapabilityRunInput：转发能力消费的语义字段 + 四档位
     //   （style/length/audience/auditLayers——能力核 s7/s9 bindings 已消费，
     //   不转发会让 Dialog 选择器静默失效、zod 默认 executive 被换成能力核 academic）。
-    //   仍不转发：budget/concurrency/viewMode（playground 专属）+ 计费字段（session.billing 体现）。
+    //   concurrency 自 2026-06-10 起转发（S3 维度派遣并发档位，审计 #34/#37——
+    //   之前整类丢弃使用户选择静默失效）。仍不转发：budget/viewMode（playground
+    //   专属）+ 计费字段（session.billing 体现）。
     // 注：RunMissionInput 无 preferredModelId 字段（playground 默认按 TaskProfile +
     //   BYOK 选模），故不转发；能力核走自身默认模型选择，与 OFF 路行为一致。
     // ★ #16a 增量复用："更新"按钮（inheritFromMissionId）已在 runMission 顶部经
@@ -674,7 +676,9 @@ export class PlaygroundPipelineDispatcher
           }
         : undefined;
 
-    const capInput: CapabilityRunInput = {
+    // concurrency 用交集类型宽化转发：CapabilityRunInput 契约字段由能力核 S3 并发
+    //   修复方补 port（可选字段，运行时已可消费）；此处不穿透改 marketplace 契约文件。
+    const capInput: CapabilityRunInput & { concurrency?: number } = {
       topic: input.topic,
       ...(input.description ? { description: input.description } : {}),
       ...(input.depth ? { depth: input.depth } : {}),
@@ -694,6 +698,9 @@ export class PlaygroundPipelineDispatcher
         ? { audienceProfile: input.audienceProfile }
         : {}),
       ...(input.auditLayers ? { auditLayers: [input.auditLayers] } : {}),
+      ...(typeof input.concurrency === "number"
+        ? { concurrency: input.concurrency }
+        : {}),
       ...(inheritedBaseline ? { inheritedBaseline } : {}),
     };
 
@@ -788,12 +795,20 @@ export class PlaygroundPipelineDispatcher
       const p = (event.payload ?? {}) as {
         kind?: string;
         text?: string;
+        tag?: string;
         role?: string;
         dimension?: string;
         toolId?: string;
         input?: unknown;
         output?: unknown;
+        calls?: unknown[];
+        latencyMs?: number;
+        tokensUsed?: number;
+        error?: string;
+        modelId?: string;
         agentId?: string;
+        score?: number;
+        revision?: number;
       };
       const ts = event.timestamp ?? Date.now();
       const stepId = event.stepId;
@@ -808,42 +823,71 @@ export class PlaygroundPipelineDispatcher
       // 前端 dvCollectAgentTraces 消费 payload.items[] 批量格式（能力轨快照）。
       // 单条事件包装成 items:[item] 格式与前端兼容。
       if (consumerId) {
-        // Fix 2：action_planned → thought（归并为思考项，不发 action，避免工具调用双计）。
-        //   action_executed → action + observation（Drawer tool-result 卡与 TOKENS 来源区分）。
-        //   thinking → thought。error → 不发 trace（narrative warning 已暴露）。
+        // 基线分工（2026-06-10 回归审计 #2/#9 复活）：
+        //   action_planned → action 条目（tool-call 卡来源；parallel 用
+        //     toolId='parallel_tool_call' + input=calls[] 触发 Drawer 并发调用卡）；
+        //   action_executed → observation 条目（tool-result 卡 + latency/tokens 来源；
+        //     runner 已对 subResults 逐 sub 扇出，无双计）；
+        //   thinking → thought；reflection → reflection 卡（schema kind 枚举已放开，
+        //     透传 score/revision；前端 dvCollectAgentTraces 渲染「反思」卡）。
+        //   error → 不发 trace（narrative warning 已暴露）。
         const items: Record<string, unknown>[] = [];
         if (p.kind === "thinking") {
           items.push({
             kind: "thought",
             ts,
             ...(p.text !== undefined ? { text: p.text } : {}),
+            ...(p.modelId ? { modelId: p.modelId } : {}),
+          });
+        } else if (p.kind === "reflection") {
+          items.push({
+            kind: "reflection",
+            ts,
+            ...(p.text !== undefined ? { text: p.text } : {}),
+            ...(typeof p.score === "number" ? { score: p.score } : {}),
+            ...(typeof p.revision === "number" ? { revision: p.revision } : {}),
+            ...(p.modelId ? { modelId: p.modelId } : {}),
           });
         } else if (p.kind === "action_planned") {
-          // 工具调用意图归为 thought（避免计数 ×2；action_executed 再发真实 action）
-          items.push({
-            kind: "thought",
-            ts,
-            ...(p.text !== undefined ? { text: p.text } : {}),
-          });
-        } else if (p.kind === "action_executed") {
-          // action 条目（工具调用完成，透传 toolId/input/output）
-          items.push({
-            kind: "action",
-            ts,
-            ...(p.toolId ? { toolId: p.toolId } : {}),
-            ...(p.input !== undefined ? { input: p.input } : {}),
-            ...(p.output !== undefined ? { output: p.output } : {}),
-            ...(p.text !== undefined ? { text: p.text } : {}),
-          });
-          // observation 条目（tool-result 来源；Drawer 的 observation 区分 toolId/output）
-          if (p.toolId || p.output !== undefined) {
+          if (Array.isArray(p.calls) && p.calls.length > 0) {
             items.push({
-              kind: "observation",
+              kind: "action",
               ts,
-              ...(p.toolId ? { toolId: p.toolId } : {}),
-              ...(p.output !== undefined ? { output: p.output } : {}),
+              toolId: "parallel_tool_call",
+              input: p.calls,
+              ...(p.text !== undefined ? { text: p.text } : {}),
+            });
+          } else if (p.toolId) {
+            items.push({
+              kind: "action",
+              ts,
+              toolId: p.toolId,
+              ...(p.input !== undefined ? { input: p.input } : {}),
+              ...(p.text !== undefined ? { text: p.text } : {}),
+            });
+          } else {
+            // 无工具锚点（llm_generate/finalize 意图）→ 当 thought 渲染
+            items.push({
+              kind: "thought",
+              ts,
+              ...(p.text !== undefined ? { text: p.text } : {}),
             });
           }
+        } else if (p.kind === "action_executed") {
+          items.push({
+            kind: "observation",
+            ts,
+            ...(p.toolId ? { toolId: p.toolId } : {}),
+            ...(p.output !== undefined ? { output: p.output } : {}),
+            ...(typeof p.latencyMs === "number"
+              ? { latencyMs: p.latencyMs }
+              : {}),
+            ...(typeof p.tokensUsed === "number"
+              ? { tokensUsed: p.tokensUsed }
+              : {}),
+            ...(typeof p.error === "string" ? { error: p.error } : {}),
+            ...(p.text !== undefined ? { text: p.text } : {}),
+          });
         }
         // error 不发 trace（由 narrative warning 暴露），items 保持空。
         if (items.length > 0) {
@@ -862,9 +906,9 @@ export class PlaygroundPipelineDispatcher
         }
       }
 
-      // (b) agent:narrative — 精简文本，协作动态可读性
-      // Fix 3：透传 toolId 让 MissionFlowView ToolCallChip 显示真实工具名。
-      const narrativeText = this.buildNarrativeText(p.kind, p.text, p.toolId);
+      // (b) agent:narrative — 协作动态只接告警（2026-06-10 回归审计 #5/#10/#15：
+      //   thinking/action 的机械转写淹没 curated 叙事，已收敛删除）。
+      const narrativeText = this.buildNarrativeText(p.kind, p.text);
       if (narrativeText) {
         await this.emitToBus({
           type: "playground.agent:narrative",
@@ -873,7 +917,7 @@ export class PlaygroundPipelineDispatcher
           payload: {
             ...(stepId ? { stage: mapStepIdToFrontendStageId(stepId) } : {}),
             role: p.role ?? "agent",
-            tag: this.narrativeTagFromKind(p.kind),
+            tag: p.tag === "error" ? "error" : "warning",
             text: narrativeText,
             ...(p.dimension ? { dimension: p.dimension } : {}),
             ...(p.toolId ? { toolId: p.toolId } : {}),
@@ -919,18 +963,33 @@ export class PlaygroundPipelineDispatcher
     //                        避免双发；failed 路径也无 stepId）。
     if (!event.stepId && !event.telemetry?.systemStageId) {
       if (event.type === "started") {
+        // runner payload 携带 topic + 档位 → 包成基线 MissionStartedSchema 的
+        //   { input: {...} } 形状（RawEventLog / replay 读 payload.input.topic）。
         await this.emitToBus({
           type: "playground.mission:started",
           missionId,
           userId,
-          payload: { missionId, startedAt: event.timestamp },
+          payload: {
+            missionId,
+            startedAt: event.timestamp,
+            ...(event.payload ? { input: event.payload } : {}),
+          },
         }).catch(() => undefined);
       } else if (event.type === "completed") {
+        // runner payload 已带终态统计（costUsd/tokensUsed/elapsedWallTimeMs/
+        //   reviewScore/leaderSigned/verifierVerdicts/missionTitle）。这里补
+        //   appBasePath/relatedType——MissionCompletionBroadcastAdapter 的硬条件
+        //   （缺失即静默 skip 站内完成通知），业务路由只能由 emit 侧注入。
         await this.emitToBus({
           type: "playground.mission:completed",
           missionId,
           userId,
-          payload: { missionId },
+          payload: {
+            missionId,
+            ...(event.payload ?? {}),
+            appBasePath: "/agent-playground",
+            relatedType: "playground-mission",
+          },
         }).catch(() => undefined);
       }
       return;
@@ -951,8 +1010,23 @@ export class PlaygroundPipelineDispatcher
     }
     // framework 通用桥接：把能力事件（type + stepId）翻成 playground.stage:lifecycle /
     //   stage:degraded / stage:stalled（mapStepId 映射前端 chip id，与 OFF 路同表）。
+    //   stalled/degraded 的 reason/elapsedMs 从 runner payload 还原成 framework 期望的
+    //   顶层字段（不透传则 UI 只有"发生了"没有"为什么"，契约矩阵表 3）。
+    const stagePayload = event.payload as
+      | { reason?: string; elapsedMs?: number }
+      | undefined;
     await this.bridgeOrchestratorStageEvent(
-      { type: event.type, stepId, timestamp: event.timestamp },
+      {
+        type: event.type,
+        stepId,
+        timestamp: event.timestamp,
+        ...(typeof stagePayload?.reason === "string"
+          ? { reason: stagePayload.reason }
+          : {}),
+        ...(typeof stagePayload?.elapsedMs === "number"
+          ? { elapsedMs: stagePayload.elapsedMs }
+          : {}),
+      },
       { missionId, userId },
     );
   }
@@ -979,53 +1053,15 @@ export class PlaygroundPipelineDispatcher
     return role;
   }
 
-  /** 能力 agent-trace 的 kind → playground.agent:narrative 的 NarrativeTag。 */
-  private narrativeTagFromKind(kind?: string): string {
-    switch (kind) {
-      case "thinking":
-        return "thinking";
-      case "action_planned":
-        return "planning";
-      case "action_executed":
-        return "searching";
-      case "error":
-        return "warning";
-      default:
-        return "info";
-    }
-  }
-
   /**
-   * Fix 1：构建 narrative 精简文本。
-   *   thinking            → 前 280 字符（截断 + 省略号）
-   *   action_executed     → 短摘要 "调用 ${toolId}：${query/url}"（不转发 blob）
-   *   action_planned      → 保留原文（一般已较短）
-   *   error               → 保留原文（告警用）
-   *   无文本可用           → undefined（不发 narrative）
+   * 协作动态（narrative）只保留告警类文本（2026-06-10 回归审计 #5/#10/#15 收敛）：
+   *   - thinking / action_planned / action_executed 不再机械转 narrative——过程细节
+   *     由 agent:trace（Drawer 时间线）承载，人话叙事由能力核 bindings 的 curated
+   *     emitDomain('agent:narrative') 承载，每轮原文切片只会淹没两者；
+   *   - error（含 budget/validation 告警）保留：narrative 是其唯一可见面。
    */
-  private buildNarrativeText(
-    kind?: string,
-    text?: string,
-    toolId?: string,
-  ): string | undefined {
-    if (kind === "thinking") {
-      if (!text) return undefined;
-      return text.length > 280 ? `${text.slice(0, 280)}…` : text;
-    }
-    if (kind === "action_executed" && toolId) {
-      // 从 text 中提取 query/url 摘要（text 通常为 "Tool xxx executed" 或工具描述）
-      // 避免把大 blob 直接推 narrative，改用短摘要
-      const summary =
-        text && text.length > 60 ? `${text.slice(0, 60)}…` : (text ?? "");
-      return `调用 ${toolId}${summary ? `：${summary}` : ""}`;
-    }
-    if (kind === "action_planned" && text) {
-      return text.length > 200 ? `${text.slice(0, 200)}…` : text;
-    }
-    if (kind === "error" && text) {
-      return text;
-    }
-    return undefined;
+  private buildNarrativeText(kind?: string, text?: string): string | undefined {
+    return kind === "error" && text ? text : undefined;
   }
 
   /** A-8: 兜底 abort 处理 — emit mission:execution-aborted + markFailed */

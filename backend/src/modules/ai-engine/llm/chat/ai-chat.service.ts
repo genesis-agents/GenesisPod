@@ -183,6 +183,13 @@ export interface ChatOptions {
   processId?: string;
   /** Skip input/output guardrails for internal system calls */
   skipGuardrails?: boolean;
+  /**
+   * 服务端内部管线调用（agent-to-agent，无直接用户输入）的弱化护栏档：
+   * 与 skipGuardrails（整体跳过）不同，regex 护栏照常运行（含 block 短路与
+   * PII 脱敏），但可疑（warning）结果只记日志、不升级 LLM moderation 不 block。
+   * 外部网页/研究语料高误报场景用此档，见 GuardrailInput.trustedInternal。
+   */
+  trustedInternal?: boolean;
   /** Prompt cache policy */
   cachePolicy?: "auto";
   /** Native structured output schema */
@@ -1532,6 +1539,7 @@ export class AiChatService {
       responseFormat,
       processId: explicitProcessId,
       skipGuardrails,
+      trustedInternal,
       cachePolicy,
       outputSchema,
       structuredOutputStrategy,
@@ -1613,6 +1621,7 @@ export class AiChatService {
           modelId: providedModel,
           spanId,
           pathName: "BYOK",
+          trustedInternal,
         });
         if (!inputGuardrailResult.passed) {
           return {
@@ -1945,6 +1954,7 @@ export class AiChatService {
         model,
         spanId,
         pathName: "Standard",
+        trustedInternal,
       });
       if (!inputGuardrailResult.passed) {
         return {
@@ -2750,6 +2760,8 @@ export class AiChatService {
       modelId?: string;
       spanId?: string;
       pathName?: string; // 'BYOK' or 'Standard'
+      /** 见 ChatOptions.trustedInternal —— 透传给 GuardrailInput */
+      trustedInternal?: boolean;
     },
   ): Promise<{
     passed: boolean;
@@ -2775,6 +2787,7 @@ export class AiChatService {
     try {
       const inputResult = await pipeline.processInput({
         content: userContent,
+        trustedInternal: context?.trustedInternal,
         context: {
           modelType: context?.modelType,
           model: context?.model,

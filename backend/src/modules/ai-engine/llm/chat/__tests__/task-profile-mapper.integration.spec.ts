@@ -84,10 +84,11 @@ describe("TaskProfileMapperService (extended coverage)", () => {
       expect(result.maxTokens).toBeLessThanOrEqual(100000);
     });
 
-    it("scaledMin for very large reasoning model is Math.max(baseTokens, scaledMin)", () => {
+    it("scaledMin for very large reasoning model is Math.max(baseTokens, scaledMin) with tiered cap", () => {
       // reasoningMin = Math.min(200000, 25000) = 25000
-      // scaledMin = Math.min(Math.ceil(25000 * 0.5), 16000) = Math.min(12500, 16000) = 12500
-      // effectiveMaxTokens = Math.max(baseMaxTokens(500), 12500) = 12500
+      // 2026-06-10：minimal 分档上限 4000（旧统一 16000 上限把分类任务推到 12500 长推理）
+      // scaledMin = Math.min(Math.ceil(25000 * 0.5), 4000) = 4000
+      // effectiveMaxTokens = Math.max(baseMaxTokens(500), 4000) = 4000
       const modelConfig = createModelConfig({
         isReasoning: true,
         maxTokens: 200000,
@@ -99,7 +100,7 @@ describe("TaskProfileMapperService (extended coverage)", () => {
         modelConfig,
       );
 
-      expect(result.maxTokens).toBe(12500);
+      expect(result.maxTokens).toBe(4000);
     });
   });
 

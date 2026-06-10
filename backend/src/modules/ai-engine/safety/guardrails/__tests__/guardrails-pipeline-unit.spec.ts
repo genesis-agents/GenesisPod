@@ -399,4 +399,81 @@ describe("GuardrailsPipelineService - Unit", () => {
       expect(service.getCount()).toEqual({ input: 0, output: 0 });
     });
   });
+
+  // =========================================================================
+  // trusted-internal: regex 可疑只记日志，不升级 LLM moderation 不 block
+  // =========================================================================
+
+  describe("processInput - trustedInternal escalation opt-out", () => {
+    function setupSuspiciousWithEscalation(escalationResult: GuardrailResult) {
+      service.registerInputGuardrail(
+        createInputGuardrail("regex-injection", {
+          passed: false,
+          guardrailId: "regex-injection",
+          severity: "warning",
+          message: "suspicious pattern",
+        }),
+      );
+      const escalation = createInputGuardrail(
+        "llm-moderation",
+        escalationResult,
+      );
+      service.registerEscalationGuardrail(escalation);
+      return escalation;
+    }
+
+    it("trustedInternal=true → escalation guardrail NOT invoked, input passes", async () => {
+      const escalation = setupSuspiciousWithEscalation({
+        passed: false,
+        guardrailId: "llm-moderation",
+        severity: "block",
+        message: "classified harmful",
+      });
+
+      const result = await service.processInput({
+        content: "scraped web corpus that trips regex",
+        trustedInternal: true,
+      });
+
+      expect(escalation.check).not.toHaveBeenCalled();
+      expect(result.passed).toBe(true);
+      expect(result.blockedBy).toBeUndefined();
+    });
+
+    it("default (no flag) → escalation still runs and can block (unchanged)", async () => {
+      const escalation = setupSuspiciousWithEscalation({
+        passed: false,
+        guardrailId: "llm-moderation",
+        severity: "block",
+        message: "classified harmful",
+      });
+
+      const result = await service.processInput({
+        content: "scraped web corpus that trips regex",
+      });
+
+      expect(escalation.check).toHaveBeenCalledTimes(1);
+      expect(result.passed).toBe(false);
+      expect(result.blockedBy).toBe("llm-moderation");
+    });
+
+    it("trustedInternal does NOT bypass regex hard block", async () => {
+      service.registerInputGuardrail(
+        createInputGuardrail("regex-hard", {
+          passed: false,
+          guardrailId: "regex-hard",
+          severity: "block",
+          message: "confirmed violation",
+        }),
+      );
+
+      const result = await service.processInput({
+        content: "definitely blocked content",
+        trustedInternal: true,
+      });
+
+      expect(result.passed).toBe(false);
+      expect(result.blockedBy).toBe("regex-hard");
+    });
+  });
 });

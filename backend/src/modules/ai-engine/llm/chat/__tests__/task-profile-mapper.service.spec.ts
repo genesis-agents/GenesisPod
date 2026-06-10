@@ -144,6 +144,38 @@ describe("TaskProfileMapperService", () => {
       expect(result.maxTokens).toBe(28000);
     });
 
+    // 2026-06-10 日志实测：minimal 500→12500 让分类任务也长推理。
+    // minimal/short 分档收敛：minimal ≤4000、short ≤8000，medium+ 维持原行为。
+    it("caps minimal boost at 4000 for reasoning models", () => {
+      const modelConfig = createMockModelConfig({
+        isReasoning: true,
+        maxTokens: 25000,
+      });
+
+      const result = service.mapToParameters(
+        { outputLength: "minimal" },
+        modelConfig,
+      );
+
+      expect(result.maxTokens).toBeLessThanOrEqual(4000);
+      expect(result.maxTokens).toBe(4000);
+    });
+
+    it("caps short boost at 8000 for reasoning models", () => {
+      const modelConfig = createMockModelConfig({
+        isReasoning: true,
+        maxTokens: 25000,
+      });
+
+      const result = service.mapToParameters(
+        { outputLength: "short" },
+        modelConfig,
+      );
+
+      expect(result.maxTokens).toBeLessThanOrEqual(8000);
+      expect(result.maxTokens).toBe(8000);
+    });
+
     it("should cap reasoning model tokens to model max to prevent API errors", () => {
       const modelConfig = createMockModelConfig({
         maxTokens: 12000, // Lower than REASONING_MODEL_MIN_TOKENS

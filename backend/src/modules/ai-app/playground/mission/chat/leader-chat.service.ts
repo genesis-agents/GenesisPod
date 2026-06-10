@@ -332,13 +332,19 @@ export class LeaderChatService {
     appendedIds: string[],
     todo: { name: string; rationale: string }[],
   ): Promise<void> {
+    // ★ P0-2: appendDimensions 可能部分失败返回 appendedIds.length < todo.length，
+    //   越界访问会让 id=undefined 触发 DimensionsAppendedSchema（items[].id 必填）
+    //   safeParse 失败整事件被 drop。items 与下方 retrying 循环统一按 safeLen 截断。
+    const safeLen = Math.min(todo.length, appendedIds.length);
     const event: DomainEvent = {
       type: "playground.dimensions:appended",
       scope: { missionId, userId },
       payload: {
         appendedIds,
-        source: "user-chat",
-        items: todo.map((t, i) => ({
+        // DimensionsAppendedSchema.source 枚举词表是 'leader-chat'——
+        // 'user-chat' 不在枚举内，safeParse 失败导致前端收不到追加通知。
+        source: "leader-chat",
+        items: todo.slice(0, safeLen).map((t, i) => ({
           id: appendedIds[i],
           name: t.name,
           rationale: t.rationale,
@@ -356,10 +362,8 @@ export class LeaderChatService {
     //   todo-ledger 已映射为 leader-chat-create origin，会创建任务行可见
     //   实际 Researcher 派遣由 orchestrator 在下一个 S5 boundary 检测 pending
     //   dim 时统一拉起（深度修法见 Task #23 追记）。
-    // ★ P0-2: appendDimensions 可能部分失败返回 appendedIds.length < todo.length，
-    //   越界访问会让 agentId=`researcher#chat-undefined` 污染前端任务列表。
-    //   循环边界统一取 min(todo.length, appendedIds.length)，确保 1:1 对应。
-    const safeLen = Math.min(todo.length, appendedIds.length);
+    // ★ P0-2: 循环边界同 safeLen（见上），避免 agentId=`researcher#chat-undefined`
+    //   污染前端任务列表。
     for (let i = 0; i < safeLen; i++) {
       const t = todo[i];
       await this.eventBus

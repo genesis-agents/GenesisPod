@@ -5,7 +5,8 @@
  *   - 解析 spec（resolveAgentSpec，与 playground / company 同一份 agent-spec-catalog）
  *   - 透传 RunOptions（userId / preferredModelId / signal / billingMeta / onEvent relay）
  *   - 把 tokens / cost 累计进 CrossStageState（deep-insight.tokensUsed / .costCents）
- *   - 每次 agent 调用完成后 emit "domain" agent:lifecycle 事件（tokensUsed/costCents）
+ *   - 每次 agent 调用前后各 emit 一条 "domain" agent:lifecycle（phase=started →
+ *     completed/failed，后者带 tokensUsed/costCents/iterations）
  *   - 不碰 provider/model 硬编码（preferredModelId 缺省即走 TaskProfile + BYOK）
  *
  * Fix 1（agentId 命名空间桥接）：
@@ -109,6 +110,17 @@ export async function invokeAgent(args: {
     );
   }
   const { invocation } = args;
+  // 基线 emitLifecycle 双发语义：invoke 前发 phase=started（前端时间线『启动』行、
+  // agent-view startedAt、roster running 态都依赖此相位），完成后发 completed/failed。
+  const consumerId = mapSpecIdToConsumerId(args.specId, args.dimension);
+  emitDomain(args.onEvent, "agent:lifecycle", {
+    agentId: consumerId,
+    specId: args.specId,
+    role: args.role,
+    ...(args.dimension !== undefined ? { dimension: args.dimension } : {}),
+    stepId: args.stepId,
+    phase: "started",
+  });
   const res = await args.runner.run(Spec, args.input, {
     userId: invocation.userId,
     ...(invocation.preferredModelId
@@ -136,10 +148,20 @@ export async function invokeAgent(args: {
       ? trail[trail.length - 1].modelId
       : undefined;
 
+  // 报告元信息富化：把真实产出模型 id 去重累积进 crossState（assembler metadata.modelTrail 源）。
+  //   不依赖 token 回报、不硬编码模型名——trail 缺省即跳过，绝不造假。
+  const modelIdStr: string | undefined =
+    typeof modelId === "string" ? modelId : undefined;
+  if (modelIdStr) {
+    const seen = args.crossStageState.get<string[]>(CS_KEY.modelTrail) ?? [];
+    if (!seen.includes(modelIdStr)) {
+      args.crossStageState.append<string>(CS_KEY.modelTrail, modelIdStr);
+    }
+  }
+
   // ★ P0 #16b：每次 agent 调用完成后 emit domain agent:lifecycle 事件（best-effort）。
   // costCents → costUsd 换算（前端 useMissionLegacyView 读 costUsd 字段）。
   // Fix 1：agentId 用消费侧格式（researcher#<dim> / leader），保留 specId 向后兼容。
-  const consumerId = mapSpecIdToConsumerId(args.specId, args.dimension);
   emitDomain(args.onEvent, "agent:lifecycle", {
     agentId: consumerId,
     specId: args.specId,
@@ -153,6 +175,10 @@ export async function invokeAgent(args: {
         ? "completed"
         : "failed",
     ...(res.state === "degraded" ? { degraded: true } : {}),
+    // ReAct 轮次数（RunResult 段 3；mock/降级实现可能缺省，缺则不造）。
+    ...(typeof res.iterations === "number"
+      ? { iterations: res.iterations }
+      : {}),
     tokensUsed: tokens,
     costCents: cost,
     costUsd: cost / 100,

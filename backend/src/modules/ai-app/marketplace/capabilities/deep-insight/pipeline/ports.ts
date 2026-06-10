@@ -50,6 +50,12 @@ export interface AgentInvocation {
   /** 报告深度档位。 */
   readonly depth?: "quick" | "standard" | "deep";
   /**
+   * 用户选定的 S3 维度派遣并发档位（1-10）。research.primitive 读
+   * ctx.input.invocation.concurrency 作滑动窗并发度，优先于 recipe params.concurrency
+   * 与 min(维度数, 6) 默认。缺省/非法 → 走默认兜底（用户未配等价行为不变）。
+   */
+  readonly concurrency?: number;
+  /**
    * 报告受众档位（s7/s8/s9 writer/outline agent input；缺省 "domain-expert"）。
    * 来自 CapabilityRunInput.audienceProfile 透传。
    */
@@ -161,6 +167,9 @@ export const CS_KEY = {
   leaderSignOff: "deep-insight.leaderSignOff",
   tokensUsed: "deep-insight.tokensUsed",
   costCents: "deep-insight.costCents",
+  // ★ 报告元信息富化：每次 agent 调用产出的真实模型 id 去重累积桶。
+  //   reportArtifactAssembler hook 读此桶填 AssembleInput.modelTrail，不依赖 token 回报。
+  modelTrail: "deep-insight.modelTrail",
   // ★ W2.5 富增强：s4 patch 失败跟踪（s10 据此强制拒签，对齐 playground s4PatchFailures）。
   s4PatchFailures: "deep-insight.s4PatchFailures",
   // ★ W2.5 富增强：s10 leader finalScore（QualityTrace 客观计算，落 CapabilityRunResult）。

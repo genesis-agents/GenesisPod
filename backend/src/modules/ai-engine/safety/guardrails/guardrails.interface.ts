@@ -108,6 +108,16 @@ export interface GuardrailInput {
   userId?: string;
 
   /**
+   * 服务端内部管线调用（agent-to-agent，无直接用户输入）opt-in 标记。
+   *
+   * 置 true 时：regex 护栏照常运行（含 block 短路与 PII 脱敏），但 'warning'
+   * 级可疑结果只记日志、不升级 LLM moderation、不因升级被 block——外部网页/
+   * 研究语料经常触发误报，且升级本身额外烧一轮 LLM 调用。
+   * 默认 undefined = 现有行为（warning 升级 LLM moderation）。
+   */
+  trustedInternal?: boolean;
+
+  /**
    * Additional context
    */
   context?: Record<string, unknown>;

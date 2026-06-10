@@ -157,7 +157,17 @@ export class GuardrailsPipelineService {
     //   干净输入（全 info/pass）**不**触发 → 不每请求烧 token/延迟。
     if (!blockedBy && this.escalationGuardrail?.enabled) {
       const suspicious = results.some((r) => r.severity === "warning");
-      if (suspicious) {
+      if (suspicious && input.trustedInternal === true) {
+        // trusted-internal（服务端内部管线）opt-in：可疑只记日志，不升级不 block。
+        // regex 直接 block 的硬违规不受影响（上方循环已短路）。
+        const flaggedBy = results
+          .filter((r) => r.severity === "warning")
+          .map((r) => r.guardrailId)
+          .join(", ");
+        this.logger.warn(
+          `Trusted-internal input flagged suspicious by [${flaggedBy}] — LLM moderation escalation skipped (log-only)`,
+        );
+      } else if (suspicious) {
         this.logger.warn(
           `Escalating to LLM moderation (${this.escalationGuardrail.id}): regex guardrail reported suspicious input`,
         );
