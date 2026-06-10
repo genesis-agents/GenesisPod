@@ -709,15 +709,17 @@ export class AgentRunner {
         if (explicitPromptTokens || explicitCompletionTokens) {
           promptTokens += explicitPromptTokens;
           completionTokens += explicitCompletionTokens;
-          if (p.modelId) {
-            modelTrail.push({
-              iter,
-              modelId: p.modelId,
-              promptTokens: explicitPromptTokens,
-              completionTokens: explicitCompletionTokens,
-              latencyMs: 0,
-            });
-          }
+        }
+        // modelTrail 不以 token 数为前提：部分 provider 不回 usage（token 全 0），
+        // 但 modelId 是前端"模型列"的唯一来源——只要 LLM 跑过就记录。
+        if (p?.modelId) {
+          modelTrail.push({
+            iter,
+            modelId: p.modelId,
+            promptTokens: explicitPromptTokens,
+            completionTokens: explicitCompletionTokens,
+            latencyMs: 0,
+          });
         }
       } else if (ev.type === "action_executed") {
         iter += 1;

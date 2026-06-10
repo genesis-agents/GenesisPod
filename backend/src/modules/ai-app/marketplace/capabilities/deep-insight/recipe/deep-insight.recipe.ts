@@ -212,6 +212,9 @@ export const PLAYGROUND_PIPELINE: MissionPipelineConfig = defineMissionPipeline(
         roleId: "researcher",
         mode: "byPlanDimensions",
         timeoutMs: 1_200_000,
+        // ★ 并发派遣（2026-06-10）：research.primitive 默认 concurrency=1——缺此参数时
+        //   deep 档 12 个维度纯串行，S3 耗时数倍于旧 OFF-path（旧版并行 3）。
+        params: { concurrency: 3 },
         dag: {
           ctxReads: ["plan", "input"],
           ctxWrites: ["researcherResults"],
