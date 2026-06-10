@@ -1175,12 +1175,45 @@ export class CompanyMissionService implements OnModuleInit {
           await this.persistLiveProgress(missionId);
         }
       } else {
-        // thinking / action_planned / action_executed / error → company.agent:narrative
-        const text = typeof p.text === "string" ? p.text : undefined;
+        // thinking / action_planned / action_executed / error → 双路发送：
+        //   (a) company.agent:trace  — 结构化过程追踪（timeline 抽屉可见）
+        //   (b) company.agent:narrative — 精简文本（协作动态人读性，截断防膨胀）
+        const rawKind = typeof p.kind === "string" ? p.kind : "";
+        const toolId = typeof p.toolId === "string" ? p.toolId : undefined;
+        const agentId = typeof p.agentId === "string" ? p.agentId : undefined;
+        const stepId = event.stepId;
+        const ts = event.timestamp ?? Date.now();
+
+        // (a) company.agent:trace — 结构化 kind 映射（与 playground AgentTraceSchema 对齐）
+        //   thinking → "thought"；action_planned / action_executed → "action"；其余 skip。
+        const traceKind = this.traceKindFromAgentKind(rawKind);
+        if (traceKind !== null && agentId) {
+          const rawText = typeof p.text === "string" ? p.text : undefined;
+          const traceItem: Record<string, unknown> = {
+            kind: traceKind,
+            ts,
+            ...(toolId ? { toolId } : {}),
+            ...(rawText !== undefined ? { text: rawText } : {}),
+          };
+          await this.emit("company.agent:trace", missionId, userId, {
+            agentId,
+            role: role ?? "agent",
+            ...(dimension !== undefined ? { dimension } : {}),
+            ...(stepId ? { stepId } : {}),
+            items: [traceItem],
+          });
+        }
+
+        // (b) company.agent:narrative — 精简策展文本（截断防止大 blob 灌入协作动态）
+        const narrativeText = this.buildNarrativeText(
+          rawKind,
+          typeof p.text === "string" ? p.text : undefined,
+          toolId,
+        );
         const tag = typeof p.tag === "string" ? p.tag : undefined;
-        if (text !== undefined) {
+        if (narrativeText !== undefined) {
           await this.emit("company.agent:narrative", missionId, userId, {
-            text,
+            text: narrativeText,
             ...(role !== undefined ? { role } : {}),
             ...(tag !== undefined ? { tag } : {}),
             ...(dimension !== undefined ? { dimension } : {}),
@@ -1213,8 +1246,21 @@ export class CompanyMissionService implements OnModuleInit {
             await this.persistLiveProgress(missionId);
           }
         }
-        // 翻译 dimension:research:completed 时同步更新维度状态。
+        // Fix 3：dimension:research:completed → "running"（采集完成，评分仍在途）；
+        //   dimension:graded → "done"（评分落地，维度真正终态）。
+        //   单调性守护由 markDimension 内部保证（done/failed 不被 running 降级）。
+        //   若 dimension:graded 因能力核异常未到达，终态时 runViaCapability 里的
+        //   dimSteps 写入（p?.state === "completed" ? "done" : "failed"）兜底覆盖。
         if (domainEvent === "dimension:research:completed") {
+          const dim =
+            typeof domainData.dimension === "string"
+              ? domainData.dimension
+              : undefined;
+          if (dim && this.markDimension(missionId, dim, "running")) {
+            await this.persistLiveProgress(missionId);
+          }
+        }
+        if (domainEvent === "dimension:graded") {
           const dim =
             typeof domainData.dimension === "string"
               ? domainData.dimension
@@ -1231,6 +1277,57 @@ export class CompanyMissionService implements OnModuleInit {
         );
       }
     }
+  }
+
+  /**
+   * Fix 1：CapabilityRunEvent agent-trace kind → company.agent:trace 的结构化 kind。
+   * 返回 null 表示该 kind 不映射到结构化 trace（不发 agent:trace 事件）。
+   *   thinking             → "thought"
+   *   action_planned       → "action"（工具调用意图）
+   *   action_executed      → "action"（工具调用完成，有 toolId）
+   *   error                → null（错误通过 narrative warning 暴露，不放入 trace timeline）
+   */
+  private traceKindFromAgentKind(kind?: string): "thought" | "action" | null {
+    switch (kind) {
+      case "thinking":
+        return "thought";
+      case "action_planned":
+      case "action_executed":
+        return "action";
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Fix 1：构建 narrative 精简文本（截断防止大 blob 灌入协作动态）。
+   *   thinking            → 前 280 字符 + 省略号
+   *   action_executed     → 短摘要 "调用 ${toolId}：${query/url 摘要}"
+   *   action_planned      → 前 200 字符 + 省略号
+   *   error               → 保留原文（告警用）
+   *   无文本可用           → undefined（不发 narrative）
+   */
+  private buildNarrativeText(
+    kind?: string,
+    text?: string,
+    toolId?: string,
+  ): string | undefined {
+    if (kind === "thinking") {
+      if (!text) return undefined;
+      return text.length > 280 ? `${text.slice(0, 280)}…` : text;
+    }
+    if (kind === "action_executed" && toolId) {
+      const summary =
+        text && text.length > 60 ? `${text.slice(0, 60)}…` : (text ?? "");
+      return `调用 ${toolId}${summary ? `：${summary}` : ""}`;
+    }
+    if (kind === "action_planned" && text) {
+      return text.length > 200 ? `${text.slice(0, 200)}…` : text;
+    }
+    if (kind === "error" && text) {
+      return text;
+    }
+    return undefined;
   }
 
   /**

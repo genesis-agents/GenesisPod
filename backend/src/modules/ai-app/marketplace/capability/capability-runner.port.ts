@@ -65,6 +65,14 @@ export interface CapabilityRunInput {
   readonly inheritedBaseline?: {
     readonly plan?: unknown;
     readonly researcherResults?: readonly unknown[];
+    /**
+     * Fix5：上次 mission 的深度档位（quick/standard/deep）。
+     * 消费方（playground pipeline）在"换档位复跑"时传入。
+     * 若 sourceDepth 存在且与本次 input.depth 不同，runner 将跳过 plan seed
+     * 强制 S2 重规划（维度数量与档位强相关），仍复用 researcherResults（按维度匹配）。
+     * string 宽类型让消费方无需显式 cast（能力核内部做安全比较即可）。
+     */
+    readonly sourceDepth?: string;
   };
 }
 

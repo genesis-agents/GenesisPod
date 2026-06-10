@@ -555,6 +555,10 @@ class PlaygroundTodoBoardProjector extends BusinessTeamTodoBoardProjectorFramewo
         const dim = this.getString(payload, "dimension");
         if (dim) {
           const findingCount = this.getNumber(payload, "findingCount");
+          // ★ Fix 3（采集完成 ≠ 已完成）：dimension:research:completed 表示数据采集阶段
+          //   结束，后续仍有章节撰写阶段（s7 outline / s8 writer）。
+          //   保持 in_progress，不提前标 done；dimension:graded handler 才收 done（带评分）。
+          //   researcher:completed handler 会追加富 narrative + finding artifact。
           this.upsert(
             state,
             `dim:${dim}`,
@@ -568,15 +572,16 @@ class PlaygroundTodoBoardProjector extends BusinessTeamTodoBoardProjectorFramewo
               scope: "dimension",
               title: dim,
               assignee: { role: "researcher", dimensionName: dim },
-              status: "done",
-              endedAt: ts,
+              status: "in_progress",
+              startedAt: ts,
               artifacts: [],
               narrativeLog: [],
               dimensionRef: dim,
             }),
             (t) => {
-              t.status = "done";
-              t.endedAt = ts;
+              // 只在 pending 时前进到 in_progress；已是 done/failed/cancelled 则不回退
+              if (t.status === "pending") t.status = "in_progress";
+              t.startedAt ??= ts;
               if (findingCount != null) {
                 t.artifacts.push({
                   kind: "finding-count",
@@ -591,13 +596,11 @@ class PlaygroundTodoBoardProjector extends BusinessTeamTodoBoardProjectorFramewo
             `dim:${dim}`,
             ts,
             findingCount != null
-              ? `研究完成，产出 ${findingCount} 条 finding`
-              : "研究完成",
+              ? `数据采集完成，产出 ${findingCount} 条 finding，进入写作阶段`
+              : "数据采集完成，进入写作阶段",
             "success",
           );
-          // ★ 2026-05-26 修复：dim 研究完成 → in-progress retry child（leader-assess-*
-          //   / self-heal / leader-chat-create）随之标 done。否则 terminal cleanup 会
-          //   把 retry child 误标为 "cancelled"（见 Screenshot_2 实证）。
+          // retry child 收尾：采集完成视为本轮 retry 目标达成
           resolveInProgressRetryChildren(state, dim, ts, "success");
         }
         continue;
@@ -1149,16 +1152,29 @@ class PlaygroundTodoBoardProjector extends BusinessTeamTodoBoardProjectorFramewo
               dimensionRef: dim,
             }),
             (t) => {
+              // ★ Fix 3 幂等守护：dimension:graded 可能在 dimension:research:completed
+              //   之后较晚到达（或重放事件重复到达）。
+              //   - cancelled/failed：不覆盖终态（维度已判定失败，评分无意义）
+              //   - done：幂等，只追加评分 artifact，不重复标 done / 覆盖 endedAt
+              //   - pending/in_progress：正常推进到 done
               if (t.status !== "cancelled" && t.status !== "failed") {
-                t.status = "done";
-                t.endedAt = ts;
-              }
-              if (grade != null) {
-                t.artifacts.push({
-                  kind: "verdict-score",
-                  label: "维度评分",
-                  value: `${grade}/100`,
-                });
+                if (t.status !== "done") {
+                  t.status = "done";
+                  t.endedAt = ts;
+                }
+                if (grade != null) {
+                  // 避免重放时重复添加 verdict-score artifact
+                  const alreadyHasGrade = t.artifacts.some(
+                    (a) => a.kind === "verdict-score" && a.label === "维度评分",
+                  );
+                  if (!alreadyHasGrade) {
+                    t.artifacts.push({
+                      kind: "verdict-score",
+                      label: "维度评分",
+                      value: `${grade}/100`,
+                    });
+                  }
+                }
               }
             },
           );

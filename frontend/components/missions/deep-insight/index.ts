@@ -9,6 +9,7 @@ export type { DeepInsightMissionDetailProps } from './DeepInsightMissionDetail';
 export {
   fromCompanyMissionResult,
   fromPlaygroundMissionView,
+  normalizeCompanyEvents,
 } from './contract';
 export type {
   DeepInsightMissionView,

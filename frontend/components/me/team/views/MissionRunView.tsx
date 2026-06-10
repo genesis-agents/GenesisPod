@@ -28,6 +28,7 @@ import { useCompanyMissionStream } from '@/hooks/features/useCompanyMissionStrea
 import {
   DeepInsightMissionDetail,
   fromCompanyMissionResult,
+  normalizeCompanyEvents,
   type MissionReportResultLike,
 } from '@/components/missions/deep-insight';
 
@@ -155,6 +156,10 @@ export function MissionRunView({
   // 当前正在监听的 missionId（null = 未下达）
   const [activeMissionId, setActiveMissionId] = useState<string | null>(null);
   const runningRef = useRef(false);
+  // Fix 4: 运行中实时算力累积（company.cost:tick → totalTokens/totalCostCents）
+  const [liveUsageByMission, setLiveUsageByMission] = useState<
+    Record<string, { totalTokens: number; totalCostCents: number }>
+  >({});
   // gallery 重载触发器：store missions 变化时 +1，让卡片随 WS 进度刷新
   const [galleryReload, setGalleryReload] = useState(0);
   // 重命名弹窗（替代 window.prompt）
@@ -272,6 +277,32 @@ export function MissionRunView({
           setRunning(false);
           runningRef.current = false;
         }
+      } else if (e.type === 'company.cost:tick') {
+        // Fix 4: accumulate live cost from delta ticks.
+        const p = e.payload as {
+          deltaTokens?: number;
+          deltaCostUsd?: number;
+        };
+        const dt = typeof p.deltaTokens === 'number' ? p.deltaTokens : 0;
+        const dc =
+          typeof p.deltaCostUsd === 'number'
+            ? Math.round(p.deltaCostUsd * 100)
+            : 0;
+        if (dt > 0 || dc > 0) {
+          setLiveUsageByMission((prev) => {
+            const cur = prev[activeMissionId] ?? {
+              totalTokens: 0,
+              totalCostCents: 0,
+            };
+            return {
+              ...prev,
+              [activeMissionId]: {
+                totalTokens: cur.totalTokens + dt,
+                totalCostCents: cur.totalCostCents + dc,
+              },
+            };
+          });
+        }
       }
     }
   }, [wsEvents, activeMissionId, setMissionProgress]);
@@ -338,6 +369,9 @@ export function MissionRunView({
     // 优先用 mission 自带的 heroId 精确还原原专家；缺失（旧数据 / 团队任务）才
     // 以第一个专家兜底；没有任何专家时优雅地隐藏「重新下发」入口。
     const rerunHeroId = reportMission.heroId ?? heroes[0]?.id ?? null;
+    // Fix 3: normalize events to expand company.agent:trace → tagged narrative entries
+    // so MissionFlowView can render ThinkingCard / ToolCallChip.
+    const normalizedReportEvents = normalizeCompanyEvents(reportMissionEvents);
     const detailView = fromCompanyMissionResult({
       id: reportMission.id,
       title: reportMission.title,
@@ -346,7 +380,9 @@ export function MissionRunView({
       result: reportResult,
       depth: reportResult?.depth,
       language: reportResult?.language,
-      events: reportMissionEvents,
+      events: normalizedReportEvents,
+      // Fix 4: inject live cost while running (terminal uses result.usage from backend).
+      liveUsage: liveUsageByMission[reportMission.id],
       actions: [
         ...(rerunHeroId
           ? [

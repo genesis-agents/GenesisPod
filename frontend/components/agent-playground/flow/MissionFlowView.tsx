@@ -29,6 +29,9 @@ import {
   XCircle,
   Database,
   PiggyBank,
+  Wrench,
+  ChevronDown,
+  ChevronRight as ChevronRightIcon,
   type LucideIcon,
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/states/EmptyState';
@@ -139,6 +142,13 @@ interface FlowEvent {
   text: string;
   /** optional metadata */
   meta?: string;
+  /**
+   * ★ Fix 2: 原始 narrative tag（'thinking' / 'planning' / 'searching' 等）。
+   * 用于区分长思考文本（thinking）和工具调用快照（searching/planning）的渲染策略。
+   */
+  tag?: string;
+  /** Fix 2: 工具 ID（action_planned / action_executed 类 narrative 携带） */
+  toolId?: string;
 }
 
 function buildFlowEvents(events: PlaygroundEvent[]): FlowEvent[] {
@@ -156,6 +166,7 @@ function buildFlowEvents(events: PlaygroundEvent[]): FlowEvent[] {
       const role = p.role as string | undefined;
       const tag = p.tag as string | undefined;
       const dim = p.dimension as string | undefined;
+      const toolId = p.toolId as string | undefined;
       if (!text) continue;
       const tone =
         tag === 'success'
@@ -170,6 +181,9 @@ function buildFlowEvents(events: PlaygroundEvent[]): FlowEvent[] {
         kind: 'narrative',
         role,
         tone,
+        // ★ Fix 2: 透传 tag/toolId 供渲染层区分 thinking / tool-call 卡片格式
+        tag,
+        toolId,
         text,
         meta: dim,
         agentId: ev.agentId,
@@ -374,6 +388,102 @@ function TONE_DOT(tone?: 'info' | 'success' | 'warn' | 'error'): string {
       : tone === 'error'
         ? 'bg-red-500'
         : 'bg-blue-500';
+}
+
+/**
+ * Fix 2: 思考/推理条目的折叠卡片。
+ * 默认折叠（> ~300 字符时）；展开后 whitespace-pre-wrap + 内部滚动。
+ */
+function ThinkingCard({
+  text,
+  preview,
+  defaultExpanded,
+  tone,
+}: {
+  text: string;
+  preview: string;
+  defaultExpanded: boolean;
+  tone: { bg: string; text: string; border: string };
+}) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className={cn(
+          'flex w-full items-start gap-1.5 rounded text-left text-[12px] leading-relaxed',
+          tone.text
+        )}
+        aria-expanded={expanded}
+      >
+        {expanded ? (
+          <ChevronDown className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
+        ) : (
+          <ChevronRightIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
+        )}
+        <span
+          className={cn(!expanded && 'line-clamp-2', 'flex-1 text-gray-800')}
+        >
+          {expanded ? null : preview}
+        </span>
+      </button>
+      {expanded && (
+        <div className="mt-1.5 max-h-64 overflow-y-auto rounded border border-gray-100 bg-white/60 p-2">
+          <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-gray-800">
+            {text}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Fix 2: 工具调用紧凑 chip */
+function ToolCallChip({
+  toolId,
+  summary,
+  tone,
+}: {
+  toolId: string;
+  summary: string;
+  tone: { bg: string; text: string; border: string };
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span
+        className={cn(
+          'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium ring-1',
+          tone.bg,
+          tone.text,
+          tone.border.replace('border-', 'ring-')
+        )}
+      >
+        <Wrench className="h-3 w-3 shrink-0" />
+        {toolId}
+      </span>
+      {summary && (
+        <span className="max-w-xs truncate text-[11px] text-gray-600">
+          {summary}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Fix 2: 判断 tag 是否属于工具调用类别 */
+function isToolCallTag(tag?: string): boolean {
+  return (
+    tag === 'searching' ||
+    tag === 'planning' ||
+    tag === 'action_executed' ||
+    tag === 'action_planned'
+  );
+}
+
+/** Fix 2: 判断 tag 是否属于思考类别（长文本推理） */
+function isThinkingTag(tag?: string): boolean {
+  return tag === 'thinking' || tag === 'thinking-summary';
 }
 
 export function MissionFlowView({
@@ -643,11 +753,34 @@ export function MissionFlowView({
                         </span>
                       </span>
                     </div>
-                    <ExpandableText
-                      text={f.text}
-                      maxChars={240}
-                      className="block text-[12.5px] leading-relaxed text-gray-800"
-                    />
+                    {/* ★ Fix 2: 三路渲染策略
+                        - 思考/推理（thinking tag）且文本 > 300 字：折叠卡片
+                        - 工具调用（searching/planning tag）：紧凑 chip 行
+                        - 其它：原有 ExpandableText 短文本展示 */}
+                    {isThinkingTag(f.tag) && f.text.length > 300 ? (
+                      <ThinkingCard
+                        text={f.text}
+                        preview={f.text.slice(0, 120)}
+                        defaultExpanded={false}
+                        tone={tone}
+                      />
+                    ) : isToolCallTag(f.tag) ? (
+                      <ToolCallChip
+                        toolId={f.toolId ?? f.tag ?? 'tool'}
+                        summary={
+                          f.text.length > 80
+                            ? f.text.slice(0, 80) + '…'
+                            : f.text
+                        }
+                        tone={tone}
+                      />
+                    ) : (
+                      <ExpandableText
+                        text={f.text}
+                        maxChars={240}
+                        className="block text-[12.5px] leading-relaxed text-gray-800"
+                      />
+                    )}
                   </div>
                 </li>
               );

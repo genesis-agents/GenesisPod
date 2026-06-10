@@ -652,9 +652,17 @@ export class PlaygroundPipelineDispatcher
     //   hydrateInheritedPlan / hydrateInheritedResearchResults 把上次 mission 的 plan +
     //   各维 researcher 产物灌进 entry.crossState。这里转成中性 inheritedBaseline 传给能力核，
     //   让 ON 路 S2/S3 命中即跳过重算（等价 OFF 路跳过 S2/S3）。无继承时为 undefined → 全量新跑。
+    // ★ Fix 4（sourceDepth）：把源 mission 的 depth 档位透传进 inheritedBaseline，
+    //   让能力核知道复用产物的分辨率档位（quick/standard/deep），避免深度混淆。
+    //   sourceDepth 来自 entry.crossState 里暂存的源 mission depth（由 hydrateInheritedPlan
+    //   在查 getById 时顺带存入）；无法取到时回退到当前 input.depth（保守策略）。
     const inheritEntry = this.sessions.get(missionId);
     const inheritedPlan = inheritEntry?.crossState.lastPlan;
     const inheritedResearch = inheritEntry?.crossState.inheritedResearchResults;
+    // sourceDepth：优先取来自源 mission 存入 crossState 的真实档位，否则用当前 input.depth
+    const sourceDepth =
+      (inheritEntry?.crossState as { _sourceDepth?: string } | undefined)
+        ?._sourceDepth ?? input.depth;
     const inheritedBaseline =
       inheritedPlan || (inheritedResearch && inheritedResearch.length > 0)
         ? {
@@ -662,6 +670,7 @@ export class PlaygroundPipelineDispatcher
             ...(inheritedResearch?.length
               ? { researcherResults: inheritedResearch }
               : {}),
+            ...(sourceDepth ? { sourceDepth } : {}),
           }
         : undefined;
 
@@ -744,38 +753,76 @@ export class PlaygroundPipelineDispatcher
    *
    *   stage:started/completed/failed 走 stage span + lifecycle 桥；
    *   stage:degraded/stalled 走 framework degraded/stalled 桥；
-   *   agent-trace / agent-lifecycle 暂不桥到 playground（OFF 路也无对应实时 agent
-   *   narrative 出口，避免新增前端未消费的事件流——保持等价、不超范围）。
+   *   agent-trace → playground.agent:trace（结构化，抽屉 timeline）+
+   *                 playground.agent:narrative（协作动态，精简文本）；
+   *   agent-lifecycle → playground.agent:lifecycle；
+   *   domain → playground.<event>（透传，含 dimension/researcher/cost 等）。
    */
   private async bridgeCapabilityEventToPlayground(
     event: CapabilityRunEvent,
     missionId: string,
     userId: string,
   ): Promise<void> {
-    // ★ #16b 回归修复（2026-06-09）：能力核经 ctx.onEvent 抛 agent-trace（researcher
-    //   thinking / 工具调用 / 错误的实时过程）+ agent-lifecycle（完成快照）。此前 bridge
-    //   只桥 stage:* → agent 过程事件全被丢弃，前端"所有过程丢失"（阶段只剩启动/完成空壳、
-    //   无 token、无内部活动）。这里翻成 playground.agent:narrative / agent:lifecycle，
-    //   恢复与 OFF 路等价的实时过程展示。
+    // ★ Fix 1（2026-06-09）：结构化 trace 桥接。
+    //   能力核 relayAgentEvent 发 agent-trace，payload 携带：
+    //     { kind, text?, role, dimension?, toolId?, agentId }
+    //   kind 值：thinking / action_planned / action_executed / error
+    //
+    //   双路发送：
+    //   (a) playground.agent:trace —— 结构化，抽屉 timeline tool-call 可见；
+    //       kind 映射：thinking→thought / action_planned+toolId→action / action_executed+toolId→action / error→thought（已过滤）
+    //   (b) playground.agent:narrative —— 精简文本，协作动态人读性；
+    //       thinking 截断 280 chars，action_executed with toolId 改短摘要，不转发大 blob。
     if (event.type === "agent-trace") {
       const p = (event.payload ?? {}) as {
         kind?: string;
         text?: string;
         role?: string;
         dimension?: string;
+        toolId?: string;
+        agentId?: string;
       };
-      if (p.text) {
+      const ts = event.timestamp ?? Date.now();
+      const stepId = event.stepId;
+      const traceKind = this.traceKindFromAgentKind(p.kind);
+
+      // (a) agent:trace — 仅对能映射到结构化 kind 的事件发送。
+      // 前端 dvCollectAgentTraces 消费 payload.items[] 批量格式（能力轨快照）。
+      // 单条事件包装成 items:[item] 格式与前端兼容。
+      // agentId 用 p.agentId（由能力核 relayAgentEvent 注入）；无 agentId 则无法追踪归属，skip。
+      if (traceKind !== null && p.agentId) {
+        const traceItem: Record<string, unknown> = {
+          kind: traceKind,
+          ts,
+          ...(p.toolId ? { toolId: p.toolId } : {}),
+          ...(p.text !== undefined ? { text: p.text } : {}),
+        };
+        await this.emitToBus({
+          type: "playground.agent:trace",
+          missionId,
+          userId,
+          payload: {
+            agentId: p.agentId,
+            role: p.role ?? "agent",
+            ...(p.dimension ? { dimension: p.dimension } : {}),
+            ...(stepId ? { stepId } : {}),
+            items: [traceItem],
+          },
+        }).catch(() => undefined);
+      }
+
+      // (b) agent:narrative — 精简文本，协作动态可读性
+      const narrativeText = this.buildNarrativeText(p.kind, p.text, p.toolId);
+      if (narrativeText) {
         await this.emitToBus({
           type: "playground.agent:narrative",
           missionId,
           userId,
           payload: {
-            ...(event.stepId
-              ? { stage: mapStepIdToFrontendStageId(event.stepId) }
-              : {}),
+            ...(stepId ? { stage: mapStepIdToFrontendStageId(stepId) } : {}),
             role: p.role ?? "agent",
             tag: this.narrativeTagFromKind(p.kind),
-            text: p.text,
+            text: narrativeText,
             ...(p.dimension ? { dimension: p.dimension } : {}),
           },
         }).catch(() => undefined);
@@ -795,6 +842,7 @@ export class PlaygroundPipelineDispatcher
     // payload 结构：{ event: string; data: Record<string,unknown> }
     // 消费方前端按 "playground.agent:lifecycle" / "playground.agent:narrative" /
     //   "playground.dimension:research:started" 等订阅（与 OFF 路等价）。
+    // Fix 2 (cost:tick)：domain 桥透传 cost:tick，emitToBus 落库持久化，与其他事件一致。
     if (event.type === "domain") {
       const domainPayload = event.payload as
         | { event?: string; data?: Record<string, unknown> }
@@ -847,6 +895,61 @@ export class PlaygroundPipelineDispatcher
       default:
         return "info";
     }
+  }
+
+  /**
+   * Fix 1：CapabilityRunEvent agent-trace kind → playground.agent:trace 的结构化 kind。
+   * 返回 null 表示该 kind 不映射到结构化 trace（不发 agent:trace 事件）。
+   *   thinking             → "thought"
+   *   action_planned       → "action"（工具调用意图）
+   *   action_executed      → "action"（工具调用完成，有 toolId）
+   *   error                → null（错误通过 narrative warning 暴露，不放入 trace timeline）
+   */
+  private traceKindFromAgentKind(
+    kind?: string,
+  ): "thought" | "action" | "observation" | null {
+    switch (kind) {
+      case "thinking":
+        return "thought";
+      case "action_planned":
+      case "action_executed":
+        return "action";
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Fix 1：构建 narrative 精简文本。
+   *   thinking            → 前 280 字符（截断 + 省略号）
+   *   action_executed     → 短摘要 "调用 ${toolId}：${query/url}"（不转发 blob）
+   *   action_planned      → 保留原文（一般已较短）
+   *   error               → 保留原文（告警用）
+   *   无文本可用           → undefined（不发 narrative）
+   */
+  private buildNarrativeText(
+    kind?: string,
+    text?: string,
+    toolId?: string,
+  ): string | undefined {
+    if (kind === "thinking") {
+      if (!text) return undefined;
+      return text.length > 280 ? `${text.slice(0, 280)}…` : text;
+    }
+    if (kind === "action_executed" && toolId) {
+      // 从 text 中提取 query/url 摘要（text 通常为 "Tool xxx executed" 或工具描述）
+      // 避免把大 blob 直接推 narrative，改用短摘要
+      const summary =
+        text && text.length > 60 ? `${text.slice(0, 60)}…` : (text ?? "");
+      return `调用 ${toolId}${summary ? `：${summary}` : ""}`;
+    }
+    if (kind === "action_planned" && text) {
+      return text.length > 200 ? `${text.slice(0, 200)}…` : text;
+    }
+    if (kind === "error" && text) {
+      return text;
+    }
+    return undefined;
   }
 
   /** A-8: 兜底 abort 处理 — emit mission:execution-aborted + markFailed */
@@ -1308,8 +1411,12 @@ export class PlaygroundPipelineDispatcher
           import("../context/mission-context").MissionContext["plan"]
         >["initialRisks"],
       };
+      // ★ Fix 4：把源 mission 的 depth 档位存入 crossState，供 runViaCapabilityRunner
+      //   构造 inheritedBaseline.sourceDepth 透传给能力核（避免依赖 source row 的二次查询）。
+      (entry.crossState as { _sourceDepth?: string })._sourceDepth =
+        (source as { depth?: string }).depth ?? undefined;
       this.log.log(
-        `[hydrateInheritedPlan] mission ${missionId} inherited plan from ${sourceMissionId} (${dimensions.length} dims)`,
+        `[hydrateInheritedPlan] mission ${missionId} inherited plan from ${sourceMissionId} (${dimensions.length} dims, sourceDepth=${(source as { depth?: string }).depth ?? "unknown"})`,
       );
     } catch (err) {
       this.log.warn(

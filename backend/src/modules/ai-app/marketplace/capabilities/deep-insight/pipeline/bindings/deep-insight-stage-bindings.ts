@@ -329,6 +329,13 @@ export class DeepInsightStageBindings implements StageBindings {
             summaryPreview: (reused.summary ?? "").slice(0, 200),
             reused: true,
           });
+          // Fix4：researcher:completed（复用路径同步）。
+          emitDomain(onEvent, "researcher:completed", {
+            dimension: dim.name,
+            state: "completed",
+            findingsCount: reused.findings?.length ?? 0,
+            summary: (reused.summary ?? "").slice(0, 200),
+          });
           return reused;
         }
         const res = await invokeAgent({
@@ -375,6 +382,14 @@ export class DeepInsightStageBindings implements StageBindings {
           dimension: dim.name,
           findingsCount: result.findings?.length ?? 0,
           summaryPreview: (result.summary ?? "").slice(0, 200),
+        });
+        // Fix4：researcher:completed（对齐 projector researcher:completed 分支 handler）。
+        // 形状对标 s3-researcher-collect-findings.stage.ts:780 老 emitter。
+        emitDomain(onEvent, "researcher:completed", {
+          dimension: dim.name,
+          state: "completed",
+          findingsCount: result.findings?.length ?? 0,
+          summary: (result.summary ?? "").slice(0, 200),
         });
         return result;
       },
@@ -499,11 +514,51 @@ export class DeepInsightStageBindings implements StageBindings {
             perDimension:
               (output as { perDimension?: unknown }).perDimension ?? [],
           });
+          // Fix4：dimension:graded — 对每个维度 emit（projector 据此在 ASSESSMENT 阶段完结维度 todo）。
+          // 形状：{ dimension, overall/overallScore, state }（projector ~line 1128 读 dimension/overall/overallScore）。
+          for (const o of researcherOutcomes) {
+            // 按 perDimension verdict 映射维度分（无 LLM 分则用 findingsCount 估算）。
+            const perDim = (
+              (
+                output as {
+                  perDimension?: Array<{
+                    dimensionName?: string;
+                    dimensionId?: string;
+                    action?: string;
+                  }>;
+                }
+              ).perDimension ?? []
+            ).find(
+              (d) =>
+                d.dimensionName === o.dimensionName ||
+                d.dimensionId === o.dimensionId,
+            );
+            const action =
+              perDim?.action ??
+              (o.state === "completed" ? "accept" : "retry-with-critique");
+            // 把 findingsCount 归一化为 0-100 分（accept=≥70, degraded=50, failed=30）。
+            const overall =
+              o.state === "completed" && action === "accept"
+                ? Math.min(100, 60 + Math.min(o.findingsCount * 5, 40))
+                : o.state === "degraded"
+                  ? 50
+                  : 30;
+            emitDomain(onEvent, "dimension:graded", {
+              dimension: o.dimensionName,
+              overall,
+              state: o.state,
+              action,
+            });
+          }
+          // Fix4：S4 substance narrative with per-dimension summary.
+          const acceptedCount = researcherOutcomes.filter(
+            (o) => o.state === "completed",
+          ).length;
           emitDomain(onEvent, "agent:narrative", {
             stage: "s4-leader-assess",
             role: "leader",
             tag: "signing",
-            text: `Leader 评估完成：决定 ${decisionVal}（${researcherOutcomes.filter((o) => o.state === "completed").length}/${researcherOutcomes.length} 维度达标）`,
+            text: `Leader 评估完成：决定 ${decisionVal}（${acceptedCount}/${researcherOutcomes.length} 维度达标）`,
           });
           // ★ #16b P1：stage:metrics
           // C5 修复：dimensions 不传（StageMetricsSchema 不支持 number 类型）；
@@ -616,6 +671,24 @@ export class DeepInsightStageBindings implements StageBindings {
             onEvent,
           });
           full.crossStageState.set(CS_KEY.reconciliationReport, res.output);
+          // Fix4：S5 substance narrative（reconciliation outcome：conflicts/gaps counts）。
+          const rec = res.output as
+            | { conflicts?: unknown[]; gaps?: unknown[]; factTable?: unknown[] }
+            | null
+            | undefined;
+          const conflictCount = Array.isArray(rec?.conflicts)
+            ? rec.conflicts.length
+            : 0;
+          const gapCount = Array.isArray(rec?.gaps) ? rec.gaps.length : 0;
+          const factCount = Array.isArray(rec?.factTable)
+            ? rec.factTable.length
+            : 0;
+          emitDomain(onEvent, "agent:narrative", {
+            stage: "s5-reconciler",
+            role: "reconciler",
+            tag: gapCount > 0 ? "warning" : "success",
+            text: `对账完成：${factCount} 条事实，${conflictCount} 处冲突，${gapCount} 处缺口`,
+          });
           return res.output;
         } catch {
           // reconciler 可降级：失败不阻断，下游 analyst 收空对账报告。
@@ -733,6 +806,18 @@ export class DeepInsightStageBindings implements StageBindings {
             onEvent,
           });
           full.crossStageState.set(CS_KEY.outlinePlan, res.output);
+          // Fix4：dimension:outline:planned（projector ~line 1598 handler）。
+          // 形状：{ chapterCount }（projector 读 chapterCount / count 两个别名）。
+          const outlineOutput = res.output as
+            | { chapterOutlines?: unknown[] }
+            | null
+            | undefined;
+          const chapterCount = Array.isArray(outlineOutput?.chapterOutlines)
+            ? outlineOutput.chapterOutlines.length
+            : 0;
+          emitDomain(onEvent, "dimension:outline:planned", {
+            chapterCount,
+          });
           return res.output ?? null;
         } catch {
           // outline 可降级：缺失则 writer 从零规划（writer schema outlinePlan 可选）。
@@ -796,6 +881,44 @@ export class DeepInsightStageBindings implements StageBindings {
           onEvent,
         });
         full.crossStageState.set(CS_KEY.report, res.output);
+        // Fix4：chapter:writing:started + chapter:writing:completed per section。
+        // projector 据这两个事件驱动 chapter todo（handler ~670/708）。
+        // 形状对标 s8-writer-draft-report.stage.ts: { dimension, heading, index, wordCount }。
+        // deep-insight writer 按 topic 维（无单独维度）→ 用 topic 作 dimension；
+        // 维度信息从 plan.dimensions 逐一映射章节（近似，保持 projector 可处理）。
+        const writerSections =
+          (
+            res.output as {
+              sections?: Array<{ heading?: string; body?: string }>;
+            } | null
+          )?.sections ?? [];
+        const planDims =
+          full.crossStageState.get<{ dimensions?: Array<{ name: string }> }>(
+            CS_KEY.plan,
+          )?.dimensions ?? [];
+        for (let idx = 0; idx < writerSections.length; idx++) {
+          const sec = writerSections[idx];
+          const heading = sec.heading ?? `Section ${idx + 1}`;
+          // 尝试按索引匹配维度名；多出或少时回退 topic。
+          const dimension =
+            idx < planDims.length ? planDims[idx].name : input.topic;
+          const wordCount =
+            typeof sec.body === "string"
+              ? Math.round(sec.body.length / 2)
+              : undefined;
+          // started（立即跟 completed，因 writer 是一次性产出而非流式）。
+          emitDomain(onEvent, "chapter:writing:started", {
+            dimension,
+            heading,
+            index: idx,
+          });
+          emitDomain(onEvent, "chapter:writing:completed", {
+            dimension,
+            heading,
+            index: idx,
+            ...(wordCount !== undefined ? { wordCount } : {}),
+          });
+        }
         return res.output ?? null;
       },
       // 富组装（W2.5，对齐 playground s8 reportArtifact）：writer 原始 report →

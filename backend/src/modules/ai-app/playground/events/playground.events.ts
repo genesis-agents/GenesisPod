@@ -47,6 +47,7 @@ import {
   AgentReflectionSchema,
   AgentErrorSchema,
   AgentNarrativeSchema,
+  AgentTraceSchema,
   AgentValidationRejectedSchema,
   // researcher / verifier / critic
   ResearcherCompletedSchema,
@@ -214,6 +215,9 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   S("leader:signed", LeaderSignedSchema), // M7 Leader 签字（含 score/verdict/signed/refusalReason）
   S("dimension:retrying", DimensionRetryingSchema), // ★ schema 化
   S("dimension:retry-failed", DimensionRetryFailedSchema),
+  // ── 结构化过程追踪（抽屉 timeline tool-call 可见性）──
+  // kind: "thought"|"action"|"observation"；前端 AgentTraceItem 消费
+  S("agent:trace", AgentTraceSchema),
   // ── 人话叙事事件（agent-narrative.md）──
   S("agent:narrative", AgentNarrativeSchema),
   // ── S12 self-evolution（mission 复盘）──

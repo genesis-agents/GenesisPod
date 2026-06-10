@@ -57,6 +57,9 @@ const EVENT_BASELINE: ReadonlyArray<string> = [
   "playground.agent:observation",
   "playground.agent:reflection",
   "playground.agent:thought",
+  // 2026-06-09 #16b 平价修复：能力轨结构化 trace（thought/action 卡片数据源，
+  // 前端 useMissionLegacyView dvCollectAgentTraces 已消费 payload.items[]）。
+  "playground.agent:trace",
   "playground.agent:validation-rejected",
   "playground.budget:exhausted",
   "playground.budget:warning-hard",

@@ -23,6 +23,8 @@ export interface AgentRunProjection {
   readonly state: "completed" | "failed" | "cancelled" | "degraded";
   readonly tokensUsed: { total: number };
   readonly costCents: number;
+  /** Fix1：真实产出模型 id（modelTrail 末项，供 agent:lifecycle 携带）。 */
+  readonly modelId?: string;
 }
 
 /**
@@ -91,6 +93,14 @@ export async function invokeAgent(args: {
   if (tokens) args.crossStageState.incr(CS_KEY.tokensUsed, tokens);
   if (cost) args.crossStageState.incr(CS_KEY.costCents, cost);
 
+  // Fix1：从 modelTrail 末项取真实产出模型 id（trail 为空则省略）。
+  const trail = (res as { modelTrail?: ReadonlyArray<{ modelId: string }> })
+    .modelTrail;
+  const modelId =
+    Array.isArray(trail) && trail.length > 0
+      ? trail[trail.length - 1].modelId
+      : undefined;
+
   // ★ P0 #16b：每次 agent 调用完成后 emit domain agent:lifecycle 事件（best-effort）。
   // costCents → costUsd 换算（前端 useMissionLegacyView 读 costUsd 字段）。
   emitDomain(args.onEvent, "agent:lifecycle", {
@@ -108,12 +118,27 @@ export async function invokeAgent(args: {
     tokensUsed: tokens,
     costCents: cost,
     costUsd: cost / 100,
+    // Fix1：真实产出模型 id（bridge 用于填 model 列；trail 为空时省略）。
+    ...(modelId !== undefined ? { modelId } : {}),
   });
+
+  // Fix2：每次 agent 完成后 emit cost:tick domain 事件（CostTickSchema + dvProjectCost）。
+  // 字段：deltaTokens / deltaCostUsd / stage（前端 dvProjectCost 按 stage 聚合 byStage）。
+  if (tokens > 0 || cost > 0) {
+    emitDomain(args.onEvent, "cost:tick", {
+      stage: args.stepId,
+      deltaTokens: tokens,
+      deltaCostUsd: cost / 100,
+      // costUsd / tokensUsed 是累计值快照（CostTickSchema passthrough 允许额外字段）；
+      // 当前 invokeAgent 不持有全局累计——消费方从 deltaTokens/deltaCostUsd 聚合即可。
+    });
+  }
 
   return {
     output: res.output,
     state: res.state,
     tokensUsed: { total: tokens },
     costCents: cost,
+    ...(modelId !== undefined ? { modelId } : {}),
   };
 }

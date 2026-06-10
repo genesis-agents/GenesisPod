@@ -435,6 +435,36 @@ export const AgentNarrativeSchema = z
   .passthrough();
 export type AgentNarrativePayload = z.infer<typeof AgentNarrativeSchema>;
 
+// ─────────── agent:trace ───────────
+// 结构化过程追踪（工具调用可见于抽屉 timeline）。
+// 前端 dvCollectAgentTraces 消费 payload.agentId + payload.items[] 批量格式。
+// items 每项包含：kind("thought"|"action"|"observation") / toolId / text / ts / input? / output?
+// kind 映射（能力核 relayAgentEvent）：thinking→thought；action_planned/action_executed→action。
+export const AgentTraceItemSchema = z
+  .object({
+    kind: z.enum(["thought", "action", "observation"]),
+    ts: z.number(),
+    text: z.string().optional(),
+    toolId: z.string().optional(),
+    input: z.unknown().optional(),
+    output: z.unknown().optional(),
+    latencyMs: z.number().optional(),
+    tokensUsed: z.number().optional(),
+    error: z.string().optional(),
+  })
+  .passthrough();
+
+export const AgentTraceSchema = z
+  .object({
+    agentId: z.string(),
+    role: z.string().optional(),
+    dimension: z.string().optional(),
+    stepId: z.string().optional(),
+    items: z.array(AgentTraceItemSchema),
+  })
+  .passthrough();
+export type AgentTracePayload = z.infer<typeof AgentTraceSchema>;
+
 // ─────────── agent:validation-rejected ───────────
 // prod: { role, issues, agentId, maxRejects, originalTs, rejectCount }
 export const AgentValidationRejectedSchema = z

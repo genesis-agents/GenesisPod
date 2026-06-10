@@ -79,6 +79,29 @@ export class CompanyMissionGateway implements OnGatewayInit {
           })
           .passthrough(),
       },
+      // Fix 1：company.agent:trace — 结构化过程追踪（与 playground AgentTraceSchema 对齐）
+      // agentId + items[]{kind, ts, text?, toolId?} 批量格式，前端 timeline 抽屉可见。
+      {
+        type: "company.agent:trace",
+        schema: z
+          .object({
+            agentId: z.string(),
+            role: z.string().optional(),
+            dimension: z.string().optional(),
+            stepId: z.string().optional(),
+            items: z.array(
+              z
+                .object({
+                  kind: z.enum(["thought", "action", "observation"]),
+                  ts: z.number(),
+                  text: z.string().optional(),
+                  toolId: z.string().optional(),
+                })
+                .passthrough(),
+            ),
+          })
+          .passthrough(),
+      },
       // 放宽 company.stage:lifecycle schema，允许携带 label 字段（原 schema 仅 stage+status）
       {
         type: "company.stage:lifecycle",
@@ -155,6 +178,44 @@ export class CompanyMissionGateway implements OnGatewayInit {
           .object({
             missionId: z.string().optional(),
             status: z.string().optional(),
+          })
+          .passthrough(),
+      },
+      // ★ Fix 5（2026-06-09）：能力核发的通用 domain 事件 → company bridge 透传。
+      //   无注册则 EventBus drop+warn，每次 mission 跑完都有 warn 噪音。
+      {
+        type: "company.cost:tick",
+        schema: z
+          .object({
+            stage: z.string().optional(),
+            costUsd: z.number().optional(),
+            tokensUsed: z.number().optional(),
+            deltaTokens: z.number().optional(),
+            deltaCostUsd: z.number().optional(),
+          })
+          .passthrough(),
+      },
+      {
+        type: "company.researcher:completed",
+        schema: z
+          .object({
+            dimension: z.string().optional(),
+            findingsCount: z.number().optional(),
+            summary: z.string().optional(),
+            state: z.string().optional(),
+            wallTimeMs: z.number().optional(),
+          })
+          .passthrough(),
+      },
+      {
+        type: "company.dimension:graded",
+        schema: z
+          .object({
+            dimension: z.string().optional(),
+            grade: z.string().optional(),
+            overall: z.number().optional(),
+            summary: z.string().optional(),
+            axes: z.record(z.unknown()).optional(),
           })
           .passthrough(),
       },

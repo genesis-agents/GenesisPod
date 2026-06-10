@@ -173,6 +173,11 @@ export interface MissionStep {
    * 缺省（后端尚未带）→ undefined，走 deriveLiveSteps 的粗粒度 3 段降级。
    */
   systemStageId?: SystemStageId;
+  /**
+   * 运行中阶段内部子状态文案（如「采集完成·评审中」）。
+   * 仅 status=running 时有意义；终态不携带。
+   */
+  statusLabel?: string;
 }
 
 /** 算力消耗汇总归一（company cents / playground USD 在 adapter 内换算成 cents）。 */
@@ -464,6 +469,10 @@ function enrichAgentsFromEvents(
         agent.tokensUsed = Math.max(agent.tokensUsed ?? 0, p.tokensUsed);
       if (typeof p.costCents === 'number')
         agent.costUsd = Math.max(agent.costUsd ?? 0, p.costCents / 100);
+      // Fix 2: prefer direct modelId field; fall back to modelTrail[0].modelId.
+      if (!agent.modelId && typeof p.modelId === 'string' && p.modelId) {
+        agent.modelId = p.modelId;
+      }
       if (
         !agent.modelId &&
         Array.isArray(p.modelTrail) &&
@@ -487,11 +496,40 @@ function enrichAgentsFromEvents(
     } else if (e.type === 'company.agent:narrative') {
       const text = typeof p.text === 'string' ? p.text : undefined;
       if (text) {
+        const tag = typeof p.tag === 'string' ? p.tag : undefined;
+        const toolId = typeof p.toolId === 'string' ? p.toolId : undefined;
         agent.trace.push({
-          kind: p.tag === 'error' ? 'error' : 'thought',
+          kind:
+            tag === 'error'
+              ? 'error'
+              : tag === 'searching' || tag === 'planning'
+                ? 'action'
+                : 'thought',
           ts: typeof e.timestamp === 'number' ? e.timestamp : 0,
           text,
+          toolId,
         });
+      }
+    } else if (e.type === 'company.agent:trace') {
+      // Fix 2: structured trace items → agent.trace entries.
+      const items = Array.isArray(p.items) ? p.items : [];
+      for (const item of items) {
+        if (typeof item !== 'object' || item === null) continue;
+        const it = item as Record<string, unknown>;
+        const kind = it.kind;
+        const traceKind: DIAgentTraceItem['kind'] =
+          kind === 'action' ? 'action' : 'thought';
+        const text = typeof it.text === 'string' ? it.text : undefined;
+        const toolId = typeof it.toolId === 'string' ? it.toolId : undefined;
+        const ts =
+          typeof it.ts === 'number'
+            ? it.ts
+            : typeof e.timestamp === 'number'
+              ? e.timestamp
+              : 0;
+        if (text || toolId) {
+          agent.trace.push({ kind: traceKind, ts, text, toolId });
+        }
       }
     }
   }
@@ -508,6 +546,62 @@ function buildStaticStages(): DIStageState[] {
     'reviewer',
   ];
   return ids.map((id) => ({ id, status: 'done' as const }));
+}
+
+/**
+ * Fix 3: 归一 company.* 原始事件流，让 MissionFlowView.buildFlowEvents 能渲染
+ * ThinkingCard / ToolCallChip。
+ *
+ * 两件事：
+ * 1. 把 company.agent:trace 条目展开为独立的 company.agent:narrative 事件（带 tag/toolId），
+ *    因为 MissionFlowView 只处理 narrative 类事件，不认识 trace。
+ * 2. 原有 company.agent:narrative 事件保留，tag/toolId 由后端写入（契约层透传）。
+ *
+ * 返回的数组可直接作为 events 字段喂给 MissionFlowView（通过 DeepInsightMissionDetail）。
+ */
+export function normalizeCompanyEvents(events: unknown[]): unknown[] {
+  if (!events || events.length === 0) return events;
+  type RawEv = {
+    type?: string;
+    payload?: Record<string, unknown>;
+    timestamp?: number;
+  };
+  const out: unknown[] = [];
+  for (const e of events as RawEv[]) {
+    if (e.type !== 'company.agent:trace') {
+      out.push(e);
+      continue;
+    }
+    // Expand trace items → individual company.agent:narrative events
+    const p = e.payload ?? {};
+    const items = Array.isArray(p.items) ? p.items : [];
+    for (const item of items) {
+      if (typeof item !== 'object' || item === null) continue;
+      const it = item as Record<string, unknown>;
+      const kind = typeof it.kind === 'string' ? it.kind : 'thought';
+      const text = typeof it.text === 'string' ? it.text : undefined;
+      const toolId = typeof it.toolId === 'string' ? it.toolId : undefined;
+      const ts = typeof it.ts === 'number' ? it.ts : (e.timestamp ?? 0);
+      if (!text && !toolId) continue;
+      // Map kind → tag that MissionFlowView's isThinkingTag / isToolCallTag recognises:
+      //   kind='thought' → tag='thinking'
+      //   kind='action'  → tag='action_executed' (carries toolId)
+      const tag = kind === 'action' ? 'action_executed' : 'thinking';
+      out.push({
+        type: 'company.agent:narrative',
+        timestamp: ts,
+        agentId: typeof p.agentId === 'string' ? p.agentId : undefined,
+        payload: {
+          role: typeof p.role === 'string' ? p.role : undefined,
+          dimension: typeof p.dimension === 'string' ? p.dimension : undefined,
+          tag,
+          toolId,
+          text: text ?? (toolId ? `调用 ${toolId}` : ''),
+        },
+      });
+    }
+  }
+  return out;
 }
 
 /** 开放 verdict 字符串 → 归一三态（approve / reject / 其余→revise）。 */
@@ -558,6 +652,12 @@ export interface CompanyMissionInput {
    * 有值时注入 collab tab；无则降级空数组（tab 显示空态，不造假）。
    */
   events?: unknown[];
+  /**
+   * Fix 4: 运行中从 company.cost:tick 实时累积的算力消耗。
+   * 有值时覆盖 result.usage（running 态下 result.usage 尚未落库）。
+   * 终态由后端落入 result.usage，此字段忽略。
+   */
+  liveUsage?: { totalTokens: number; totalCostCents: number };
 }
 
 /** company 原始 status → 归一三态。 */
@@ -716,6 +816,8 @@ function deriveLiveSteps(events: unknown[]): MissionStep[] {
   let review: 'running' | 'done' | undefined;
   const dimOrder: string[] = [];
   const dimStatus = new Map<string, 'running' | 'done' | 'failed'>();
+  // Fix 1: 子状态标签——research:completed → 采集完成·评审中（仍 running）；graded → done。
+  const dimSubLabel = new Map<string, string>();
 
   for (const e of evs) {
     const p = e.payload ?? {};
@@ -730,10 +832,16 @@ function deriveLiveSteps(events: unknown[]): MissionStep[] {
       const phase = typeof p.phase === 'string' ? p.phase : undefined;
       if (dim) {
         if (!dimStatus.has(dim)) dimOrder.push(dim);
-        if (phase === 'completed') dimStatus.set(dim, 'done');
-        else if (phase === 'failed') dimStatus.set(dim, 'failed');
-        else if ((dimStatus.get(dim) ?? 'running') === 'running')
+        // Fix 1: agent lifecycle completed maps to done only if not already
+        // superseded by a graded event.
+        if (phase === 'completed') {
+          if ((dimStatus.get(dim) ?? 'running') !== 'done')
+            dimStatus.set(dim, 'done');
+        } else if (phase === 'failed') {
+          dimStatus.set(dim, 'failed');
+        } else if ((dimStatus.get(dim) ?? 'running') === 'running') {
           dimStatus.set(dim, 'running');
+        }
       }
       // ★ #16b：company bridge 桥出 company.dimension:research:started/completed
       //   让 deriveLiveSteps 能按维度逐个点亮（补 company.agent:lifecycle 的 dimension 缺失场景）。
@@ -745,10 +853,24 @@ function deriveLiveSteps(events: unknown[]): MissionStep[] {
           dimStatus.set(dim, 'running');
       }
     } else if (e.type === 'company.dimension:research:completed') {
+      // Fix 1: research:completed → stay running with sub-label「采集完成·评审中」.
+      // Only dimension:graded (below) promotes to done.
+      // Do NOT demote done (inherited/reuse path may have graded already).
+      const dim = typeof p.dimension === 'string' ? p.dimension : undefined;
+      if (dim) {
+        if (!dimStatus.has(dim)) dimOrder.push(dim);
+        if ((dimStatus.get(dim) ?? 'running') !== 'done') {
+          dimStatus.set(dim, 'running');
+          dimSubLabel.set(dim, '采集完成·评审中');
+        }
+      }
+    } else if (e.type === 'company.dimension:graded') {
+      // Fix 1: graded → done (authoritative terminal for a dimension step).
       const dim = typeof p.dimension === 'string' ? p.dimension : undefined;
       if (dim) {
         if (!dimStatus.has(dim)) dimOrder.push(dim);
         dimStatus.set(dim, 'done');
+        dimSubLabel.delete(dim);
       }
     }
   }
@@ -760,13 +882,17 @@ function deriveLiveSteps(events: unknown[]): MissionStep[] {
       role: 'Leader',
       status: planning === 'done' ? 'done' : 'running',
     });
-  for (const dim of dimOrder)
+  for (const dim of dimOrder) {
+    const st = dimStatus.get(dim) ?? 'running';
+    const sub = dimSubLabel.get(dim);
     steps.push({
       label: dim,
       role: 'Researcher',
       dimension: dim,
-      status: dimStatus.get(dim) ?? 'running',
+      status: st,
+      ...(sub && st === 'running' ? { statusLabel: sub } : {}),
     });
+  }
   if (review)
     steps.push({
       label: '综合评审',
@@ -839,22 +965,28 @@ export function fromCompanyMissionResult(
       : [];
 
   // cost：company usage 只有汇总 → byStage 留空（cost tab 显总条）。
-  const cost: DICostState | undefined = result.usage
+  // Fix 4: running 态优先用 liveUsage（来自 company.cost:tick 实时累积）覆盖 result.usage。
+  const effectiveUsage =
+    !isTerminal && input.liveUsage != null ? input.liveUsage : result.usage;
+  const cost: DICostState | undefined = effectiveUsage
     ? {
-        tokensUsed: result.usage.totalTokens ?? 0,
+        tokensUsed: effectiveUsage.totalTokens ?? 0,
         costUsd:
-          result.usage.totalCostCents != null
-            ? result.usage.totalCostCents / 100
+          effectiveUsage.totalCostCents != null
+            ? effectiveUsage.totalCostCents / 100
             : 0,
         byStage: [],
       }
     : undefined;
 
   // 事件源（终态回放 result.collab / live WS）——同时喂 collab tab + 富化 agent telemetry。
-  const adapterEvents =
+  // Fix 3: 归一化事件（展开 company.agent:trace → company.agent:narrative）让
+  // MissionFlowView 能渲染 ThinkingCard / ToolCallChip。
+  const rawEvents =
     input.events && input.events.length > 0
       ? input.events
       : (result.collab ?? []);
+  const adapterEvents = normalizeCompanyEvents(rawEvents);
 
   return {
     id: input.id,

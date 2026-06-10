@@ -310,8 +310,23 @@ export class DeepInsightDefaultRunner
     //   crossStageState，让 S2/S3 命中即跳过重算。仅在非 crash-resume（无 checkpoint）时生效——
     //   crash-resume 已 hydrate 全量中间态且经 resumeFromStepId 整步跳过，不再需要 inherit。
     if (!resumeFromStepId && input.inheritedBaseline) {
-      const { plan, researcherResults } = input.inheritedBaseline;
-      if (plan && crossStageState.get(CS_KEY.plan) === undefined) {
+      const { plan, researcherResults, sourceDepth } = input.inheritedBaseline;
+      // Fix5：若 sourceDepth 存在且与本次 depth 不同，跳过 plan seed（强制 S2 重规划）。
+      // 原因：维度数量与 depth 档位强相关（quick=2, standard=4, deep=6），跨档复用旧 plan
+      //   会导致维度数量错配（如 quick plan 只有 2 维但 deep run 需要 6 维）。
+      const currentDepth = input.depth ?? "standard";
+      const depthChanged =
+        sourceDepth !== undefined && sourceDepth !== currentDepth;
+      if (depthChanged) {
+        this.log.log(
+          `[deep-insight ${missionId}] Fix5 depth 档位变更 ${sourceDepth} → ${currentDepth}：跳过 plan seed，强制 S2 重规划`,
+        );
+      }
+      if (
+        plan &&
+        !depthChanged &&
+        crossStageState.get(CS_KEY.plan) === undefined
+      ) {
         crossStageState.set(CS_KEY.plan, plan);
       }
       if (Array.isArray(researcherResults) && researcherResults.length > 0) {
@@ -320,7 +335,7 @@ export class DeepInsightDefaultRunner
         crossStageState.set(CS_KEY.inheritedResearch, [...researcherResults]);
       }
       this.log.log(
-        `[deep-insight ${missionId}] 增量复用：inheritedBaseline 已 seed（plan=${plan ? "y" : "n"}, ` +
+        `[deep-insight ${missionId}] 增量复用：inheritedBaseline 已 seed（plan=${plan && !depthChanged ? "y" : "n(skipped)"}, ` +
           `research=${Array.isArray(researcherResults) ? researcherResults.length : 0} dims）`,
       );
     }
@@ -679,7 +694,12 @@ export class DeepInsightDefaultRunner
     }
   }
 
-  /** IAgentEvent → CapabilityRunEvent(agent-trace) relay。 */
+  /** IAgentEvent → CapabilityRunEvent(agent-trace) relay。
+   *
+   * Fix3：payload 携带结构化字段（bridge 用于 tool-call timeline）：
+   *   { kind, text?, toolId?, input?, output?, role, dimension?, stepId }
+   * action_executed 从 IActionResult 透传 toolId + input，output 截断至 500 字。
+   */
   private relayAgentEvent(
     ctx: CapabilityRunContext,
     stepId: string,
@@ -691,6 +711,9 @@ export class DeepInsightDefaultRunner
     let text: string | undefined;
     let tag: string | undefined;
     let toolId: string | undefined;
+    let toolInput: unknown;
+    let toolOutput: unknown;
+
     switch (ev.type) {
       case "thinking": {
         kind = "thinking";
@@ -700,17 +723,38 @@ export class DeepInsightDefaultRunner
       }
       case "action_planned": {
         kind = "action_planned";
+        // IActionPlannedEvent.payload 是 IAction（有 kind / toolId / input 字段）。
         const p = ev.payload as
-          | { action?: { toolId?: string; description?: string } }
+          | {
+              kind?: string;
+              toolId?: string;
+              input?: unknown;
+              description?: string;
+            }
           | undefined;
-        toolId = p?.action?.toolId;
-        text = p?.action?.description ?? toolId;
+        toolId = p?.toolId;
+        text =
+          (p as { description?: string } | undefined)?.description ?? toolId;
         break;
       }
       case "action_executed": {
         kind = "action_executed";
-        const p = ev.payload as { action?: { toolId?: string } } | undefined;
+        // IActionExecutedEvent.payload 是 IActionResult（action.toolId / action.input / output）。
+        const p = ev.payload as
+          | {
+              action?: { kind?: string; toolId?: string; input?: unknown };
+              output?: unknown;
+            }
+          | undefined;
         toolId = p?.action?.toolId;
+        toolInput = p?.action?.input;
+        // output 截断至 500 字（大型 observation 不洪泛 WS 总线）。
+        const rawOut = p?.output;
+        if (rawOut !== undefined) {
+          const s =
+            typeof rawOut === "string" ? rawOut : JSON.stringify(rawOut);
+          toolOutput = s.length > 500 ? s.slice(0, 500) + "…" : s;
+        }
         text = toolId ? `Tool ${toolId} executed` : "Action executed";
         break;
       }
@@ -736,6 +780,9 @@ export class DeepInsightDefaultRunner
         ...(tag !== undefined ? { tag } : {}),
         ...(dimension !== undefined ? { dimension } : {}),
         ...(toolId !== undefined ? { toolId } : {}),
+        ...(toolInput !== undefined ? { input: toolInput } : {}),
+        ...(toolOutput !== undefined ? { output: toolOutput } : {}),
+        stepId,
         agentId: ev.agentId,
       },
       telemetry: { systemStageId: stepId, ...(dimension ? { dimension } : {}) },

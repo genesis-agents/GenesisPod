@@ -765,6 +765,12 @@ function dvCollectAgentTraces(
   //   - agent:observation → { kind: 'observation', toolId, output, latencyMs, tokensUsed, error }
   //   - agent:reflection → { kind: 'reflection', text or verdict }
   //   - agent:error    →  { kind: 'error', error }
+  //
+  // ★ Fix 4: 新增 playground.agent:trace 批量事件解析（能力轨 researcher 完成时
+  //   随 agent:lifecycle 发出的结构化 trace 快照；格式：payload.items[]，每项含
+  //   kind/'thought'|'action'|'observation', toolId, input, output, text, ts）。
+  //   这与 replay 路径兼容——capability mission 既有个别 agent:thought/action/observation
+  //   实时流，也可能有 trace 快照，两路都收；trace 按 ts 去重合并。
   const out = new Map<string, AgentTraceItem[]>();
   for (const ev of events) {
     if (!ev || typeof ev !== 'object') continue;
@@ -775,6 +781,71 @@ function dvCollectAgentTraces(
       timestamp?: number;
     };
     if (!e.type) continue;
+
+    // ★ Fix 4: playground.agent:trace 批量事件（能力轨快照）
+    if (
+      e.type === 'playground.agent:trace' ||
+      e.type === 'agent:trace' ||
+      e.type.endsWith('.agent:trace')
+    ) {
+      const p = e.payload ?? {};
+      const agentId =
+        (typeof p.agentId === 'string' ? p.agentId : undefined) ?? e.agentId;
+      if (!agentId) continue;
+      const items = Array.isArray(p.items) ? p.items : [];
+      if (items.length === 0) continue;
+      const trace = out.get(agentId) ?? [];
+      for (const it of items as unknown[]) {
+        if (!it || typeof it !== 'object') continue;
+        const item = it as Record<string, unknown>;
+        const itemKind = typeof item.kind === 'string' ? item.kind : undefined;
+        const itemTs =
+          typeof item.ts === 'number' ? item.ts : (e.timestamp ?? 0);
+        if (itemKind === 'thought' || itemKind === 'reflection') {
+          trace.push({
+            kind: itemKind as 'thought' | 'reflection',
+            ts: itemTs,
+            text: typeof item.text === 'string' ? item.text : undefined,
+          });
+        } else if (itemKind === 'action') {
+          trace.push({
+            kind: 'action',
+            ts: itemTs,
+            toolId: typeof item.toolId === 'string' ? item.toolId : undefined,
+            input: item.input,
+            text: typeof item.text === 'string' ? item.text : undefined,
+          });
+        } else if (itemKind === 'observation') {
+          trace.push({
+            kind: 'observation',
+            ts: itemTs,
+            toolId: typeof item.toolId === 'string' ? item.toolId : undefined,
+            output: item.output,
+            text: typeof item.text === 'string' ? item.text : undefined,
+            latencyMs:
+              typeof item.latencyMs === 'number' ? item.latencyMs : undefined,
+            tokensUsed:
+              typeof item.tokensUsed === 'number' ? item.tokensUsed : undefined,
+            error: typeof item.error === 'string' ? item.error : undefined,
+          });
+        } else if (itemKind === 'error') {
+          trace.push({
+            kind: 'error',
+            ts: itemTs,
+            error:
+              typeof item.error === 'string'
+                ? item.error
+                : typeof item.text === 'string'
+                  ? item.text
+                  : undefined,
+          });
+        }
+      }
+      trace.sort((a, b) => a.ts - b.ts);
+      out.set(agentId, trace);
+      continue;
+    }
+
     const kind = dvTraceKindFromEventType(e.type);
     if (!kind) continue;
     const p = e.payload ?? {};
