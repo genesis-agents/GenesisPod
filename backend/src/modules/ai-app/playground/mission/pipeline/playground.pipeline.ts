@@ -34,7 +34,11 @@ import {
   EventBus,
   MissionElectionTracker,
   MissionLifecycleManager,
+  MissionPipelineOrchestrator,
+  MissionPipelineRegistry,
   mapAgentFailureCode,
+  type MissionPipelineConfig,
+  type ResolvedStageHooks,
   type StageRunArgs,
 } from "@/modules/ai-harness/facade";
 import type { PlaygroundTerminalExtra } from "../lifecycle/mission-store.service";
@@ -42,27 +46,21 @@ import {
   MissionRuntimeShellService,
   type MissionRuntimeSession,
 } from "./mission-runtime-shell.service";
+import { MissionStageBindingsService } from "./mission-stage-bindings.service";
+import { PLAYGROUND_PIPELINE } from "../../runtime/playground.config";
 import { type RunMissionInput } from "../../api/dto/run-mission.dto";
-// ★ #16b env2（2026-06-09）：S12 postlude 已迁移到能力核（deep-insight.runner.ts
-//   assembleCompleted → fireSelfEvolutionPostlude），dispatcher 不再双写。
-//   runSelfEvolutionStage import 已删除；fireSelfEvolutionPostlude 方法已删除。
+// ★ Stage 1 / S1-1 (2026-05-09): 11 个 stage 函数 + narrate / runWithStageInstrumentation
+//   + MissionInvariants 已随 stage hooks 移到 PlaygroundBusinessOrchestrator;dispatcher
+//   只保留 runtime-glue 必要的 runSelfEvolutionStage (S12 fire-and-forget postlude)。
+import { runSelfEvolutionStage } from "./stages/s12-self-evolution.stage";
 import { MissionCheckpointService } from "@/modules/ai-harness/facade";
 import { MissionFailedPreset } from "@/modules/platform/facade";
-import { MissionSedimentService } from "@/modules/ai-app/library/sediment/mission-sediment.service";
+import { MissionEventBuffer } from "../lifecycle/mission-event-buffer.service";
 import { MissionStore } from "../lifecycle/mission-store.service";
-// ★ #16b 能力轨（唯一执行轨）：playground 消费平台共享能力（deep-insight）执行 14 阶段，
-//   注入自己的持久化端口 + 事件桥。私有 orchestrator 路径已退役。
-import {
-  CapabilityRegistry,
-  type CapabilityRunEvent,
-  type CapabilityRunInput,
-} from "@/modules/ai-app/marketplace/capability";
 import { AgentInvoker, LeaderService, type SupervisedMission } from "../roles";
 import { LeaderInvocationFactory } from "./leader-invocation.factory";
 // ★ Stage 1 / S1-1 (2026-05-09): 业务编排已抽到独立 service —— dispatcher inject + delegate
 import { PlaygroundBusinessOrchestrator } from "./playground-business-orchestrator.service";
-// ★ post-run 副作用：mission 完成后自动构建知识图谱（fire-and-forget，不阻断主流程）
-import { MissionGraphService } from "../graph/mission-graph.service";
 // ★ R2-#38: OTel span emission (mission root + stage child spans via AgentTracer)
 import { PlaygroundMissionSpanService } from "./playground-mission-span.service";
 // ★ Stage 1 / S1-2 (2026-05-09,closes T3): cross-stage cache 改用 Z5 CrossStageState 容器
@@ -117,15 +115,24 @@ export class PlaygroundPipelineDispatcher
   private readonly sessions = new Map<string, SessionEntry>();
 
   constructor(
+    private readonly registry: MissionPipelineRegistry,
+    private readonly orchestrator: MissionPipelineOrchestrator,
     private readonly runtimeShell: MissionRuntimeShellService,
+    private readonly stageBindings: MissionStageBindingsService,
     private readonly leaderService: LeaderService,
     private readonly invoker: AgentInvoker,
     private readonly leaderInvocationFactory: LeaderInvocationFactory,
-    // R2-A.13: s11 hook 需要 missionCheckpoint.clear
+    // R2-A.13: s11/s12 hook 需要 missionCheckpoint.clear + eventBuffer.read
     private readonly missionCheckpoint: MissionCheckpointService,
+    private readonly missionEventBuffer: MissionEventBuffer,
     // R2-A.13.1: 失败兜底需要 store.markFailed
     private readonly store: MissionStore,
     private readonly electionTracker: MissionElectionTracker,
+    // ★ 2026-05-06 真治：dispatcher 之前 7 处直调 missionEventBuffer.broadcast() bypass
+    //   eventBus → SocketBroadcastAdapter 拿不到事件 → 前端 stage:lifecycle / stage:stalled
+    //   / stage:degraded / mission:execution-aborted / mission:postlude:* 全部不实时。
+    //   现在统一走 eventBus.emit() —— buffer 仍作为 adapter 接收（playground.module.ts:165
+    //   注册），同时 socket adapter 也分发 → 前端实时刷新。
     eventBus: EventBus,
     // ★ Stage 1 / S1-1 (2026-05-09): 业务编排(STAGE_NUMBER / CHECKPOINT_AT 字面量 +
     //   11 个 build*Hooks)已抽到独立 service。dispatcher 在 onModuleInit bind sessionLookup
@@ -144,16 +151,6 @@ export class PlaygroundPipelineDispatcher
     @Optional()
     @Inject(forwardRef(() => MissionRerunOrchestratorService))
     private readonly rerunOrchestrator?: MissionRerunOrchestratorService,
-    // ★ W3 能力轨：@Global MarketplaceModule 提供 CapabilityRegistry，DI 全局可见，
-    //   无需 playground.module import。@Optional 让裁剪测试床（直接 new dispatcher、
-    //   不装配 MarketplaceModule）优雅降级——OFF 路（默认）完全不触达本依赖；ON 路缺
-    //   registry 时 warn + 返回 failed（不 throw，符合 DI 反模式守护：@Optional 不配 throw）。
-    @Optional() private readonly capabilityRegistry?: CapabilityRegistry,
-    // ★ post-run 副作用：mission 完成后自动构建知识图谱。@Optional 让裁剪测试床优雅降级。
-    @Optional() private readonly missionGraph?: MissionGraphService,
-    // ★ post-run 副作用：mission 完成后把报告沉淀进应用内库（library notes）。@Optional
-    //   让裁剪测试床优雅降级。
-    @Optional() private readonly sediment?: MissionSedimentService,
   ) {
     // 2026-05-24 P4: framework 提供 emitToBus + bridgeOrchestratorStageEvent
     //   通用 mechanism；本 dispatcher 仅注入 playground 专属事件 type 字符串。
@@ -169,22 +166,99 @@ export class PlaygroundPipelineDispatcher
   // 2026-05-24 P4: emitToBus 已上提到 BusinessTeamMissionDispatcherFramework，
   //   本 dispatcher 通过继承直接复用（this.emitToBus(...)），不再本地定义。
 
-  // ── #16b (2026-06-09): withProgressTracking 已删——OFF 路私有 14 阶段 hooks 退役。
-  //   ON 路（能力轨）的 stage 进度 + checkpoint 经 MissionStorePersistenceAdapter
-  //   （markStageProgress → markStageComplete / saveCheckpoint）由能力核驱动，见
-  //   mission-store.service.ts asPersistencePort + deep-insight.runner bridgeMissionEvent。
-  //   STAGE_NUMBER（crash-resume 排序）/ resolveTriggerType / bindSessionLookup 仍由
-  //   PlaygroundBusinessOrchestrator 提供，故 businessOrch 仍注入。
+  // ── Stage 1 / S1-1 (2026-05-09): STAGE_NUMBER / CHECKPOINT_AT / PRIMARY_HOOK_BY_PRIMITIVE
+  //   已移到 PlaygroundBusinessOrchestrator(business 字面量)。withProgressTracking 通过
+  //   this.businessOrch.STAGE_NUMBER 访问。
+
+  /**
+   * 把"主 hook"包一层进度跟踪：成功后 markStageComplete + 选择性 save
+   * checkpoint。对齐 legacy team.mission.ts 的 markStageComplete 调用点。
+   *
+   * 助手 hook（如 extractPlanFields, parseDecision, scoreScaling）保持原样，
+   * 因为 primitive 把它们当同步 / 类型严格的特定签名消费。
+   */
+  private withProgressTracking(
+    stepId: string,
+    stageHooks: ResolvedStageHooks,
+  ): ResolvedStageHooks {
+    // ★ Stage 1 / S1-1 (2026-05-09): STAGE_NUMBER / CHECKPOINT_AT / PRIMARY_HOOK_BY_PRIMITIVE
+    //   是 business 字面量,在 PlaygroundBusinessOrchestrator 持有;mechanism(包 hook 加
+    //   markStageComplete + checkpoint 保存)留 dispatcher 作 runtime-glue。
+    const stageNumber = this.businessOrch.STAGE_NUMBER[stepId];
+    const checkpointTag = this.businessOrch.CHECKPOINT_AT[stepId];
+
+    // 找该 step 对应的 primitive，取主 hook 名
+    const step = PLAYGROUND_PIPELINE.steps.find((s) => s.id === stepId);
+    if (!step) return stageHooks;
+    const primaryHookName =
+      this.businessOrch.PRIMARY_HOOK_BY_PRIMITIVE[step.primitive];
+    if (!primaryHookName) return stageHooks;
+    const original = (stageHooks as Record<string, unknown>)[primaryHookName];
+    if (typeof original !== "function") return stageHooks;
+
+    const wrappedPrimary = async (args: unknown) => {
+      const result = await (original as (a: unknown) => unknown)(args);
+      // success path: write progress + checkpoint
+      const ctx = (args as { ctx?: { missionId?: string } }).ctx;
+      const missionId = ctx?.missionId;
+      if (missionId && stageNumber != null) {
+        await this.store
+          .markStageComplete(missionId, stageNumber)
+          .catch((err: unknown) => {
+            this.log.warn(
+              `[progress-tracking ${missionId}] markStageComplete(${stageNumber}) failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
+      }
+      if (missionId && checkpointTag) {
+        const entry = this.sessions.get(missionId);
+        if (entry) {
+          const completedKeys = Object.keys(
+            this.businessOrch.STAGE_NUMBER,
+          ).filter(
+            (k) => this.businessOrch.STAGE_NUMBER[k] <= (stageNumber ?? 0),
+          );
+          // ★ R2-#37 (2026-05-23): include crossState snapshot so crash-resume
+          //   can restore inter-stage data without re-running earlier stages.
+          await this.missionCheckpoint
+            .save(
+              missionId,
+              {
+                lastStage: checkpointTag,
+                topic: entry.input.topic,
+                crossState: entry.crossState.toJSON(),
+              },
+              completedKeys,
+              "running",
+            )
+            .catch((err: unknown) => {
+              this.log.warn(
+                `[progress-tracking ${missionId}] checkpoint.save(${checkpointTag}) failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+              );
+            });
+        }
+      }
+      return result;
+    };
+
+    return {
+      ...stageHooks,
+      [primaryHookName]: wrappedPrimary,
+    } as unknown as ResolvedStageHooks;
+  }
 
   onModuleInit(): void {
     // ★ Stage 1 / S1-1 (2026-05-09): bind sessionLookup 让 PlaygroundBusinessOrchestrator
-    //   能通过 missionId 访问 SessionEntry。S12 postlude / crash-resume 续跑仍经
-    //   businessOrch 读 SessionEntry。
-    // ★ #16b (2026-06-09): 不再注册私有 "playground" pipeline 到 MissionPipelineRegistry
-    //   ——OFF 路退役，能力轨经能力核自注册的 "deep-insight" pipeline 执行（见
-    //   DeepInsightDefaultRunner）。dispatcher 不再持有 orchestrator / registry。
+    //   能通过 missionId 访问 SessionEntry。必须在 register pipeline 之前 bind,因为
+    //   buildPipelineWithHooks → buildBaseHooksForStep → businessOrch.buildHooksForStep
+    //   会创建 hook closures,closures 内部调 businessOrch.getEntry(missionId)。
     this.businessOrch.bindSessionLookup((missionId) =>
       this.getEntry(missionId),
+    );
+    if (this.registry.has(PLAYGROUND_PIPELINE.id)) return;
+    this.registry.register(this.buildPipelineWithHooks());
+    this.log.log(
+      `[playground-pipeline] registered "${PLAYGROUND_PIPELINE.id}" (14 step / ALL WIRED ★ 试用就绪)`,
     );
     // ★ 2026-05-06 #88: pod restart 后扫 orphan running missions（hb_age > 5min
     //   = pod 失联标志），立即 mark failed 不让用户等 15min Liveness Guard。
@@ -443,18 +517,54 @@ export class PlaygroundPipelineDispatcher
     let reachedTerminal = false;
     try {
       return await this.runtimeShell.runWithinContext(session, async () => {
-        // ★ #16b 终态硬切（2026-06-09）：playground 单轨消费平台共享能力（deep-insight 14
-        //   阶段内核），注入自己的持久化端口 + 事件桥。旧 OFF 路（私有 orchestrator + 14
-        //   阶段 hooks）已删除——能力轨是唯一实现。增量"更新"复用经 capInput.inheritedBaseline
-        //   下沉（见 runViaCapabilityRunner / #16a）；14-chip / timeline 经事件桥不变。
-        const result = await this.runViaCapabilityRunner(
+        const result = await this.orchestrator.run({
           missionId,
+          pipelineId: PLAYGROUND_PIPELINE.id,
           input,
           userId,
-          session,
+          tenantId: workspaceId,
+          signal: session.missionAbort.signal,
+          // ★ R2-#37 (2026-05-23): crash-resume — pass resume context when
+          //   a prior checkpoint was found and restored above.
           resumeFromStepId,
           initialCrossStageState,
-        );
+          // ★ 2026-05-06 (A 架构优化): orchestrator 已内置 stage:started/completed/failed
+          //   事件机制，但之前 dispatcher 没传 onEvent → 全部丢弃，导致 stage 文件
+          //   被迫各自手写 emit stage:started/completed（5 个文件还漏发）。
+          //   现在桥接：orchestrator 主导 lifecycle 信号 (playground.stage:lifecycle)，
+          //   stage 文件保留的 stage:completed 仅作 metrics 携带 custom payload (artifacts)。
+          //   workflow 控制权回归 harness/orchestrator，漏 emit 物理上不可能。
+          onEvent: async (event) => {
+            if (!event.stepId) return;
+            // ── R2-#38: emit OTel stage spans (playground 业务专属，必须在桥接前) ──
+            // ★ 2026-05-06 单轨化彻底版: orchestrator stage:completed 携带 hook 返回的
+            //   output（业务产物），dispatcher 把 output 拍平到 lifecycle payload；
+            //   stage 文件不再 emit stage:metrics（双轨彻底删除）。前端只看 lifecycle。
+            if (event.type === "stage:started") {
+              this.missionSpan.startStageSpan(
+                missionId,
+                event.stepId,
+                event.primitive ?? "unknown",
+              );
+            } else if (
+              event.type === "stage:completed" ||
+              event.type === "stage:failed"
+            ) {
+              this.missionSpan.endStageSpan(
+                missionId,
+                event.stepId,
+                event.type === "stage:completed" ? "completed" : "failed",
+                event.error instanceof Error ? event.error : undefined,
+              );
+            }
+            // 2026-05-24 P4: stage:lifecycle / stage:stalled / stage:degraded 桥接
+            //   走 framework 通用 mechanism；framework return true 表示已接管。
+            await this.bridgeOrchestratorStageEvent(event, {
+              missionId,
+              userId,
+            });
+          },
+        });
         // ★ R2-A.13.1 失败兜底：orchestrator 返 status=failed/aborted 时，
         //   补齐 legacy team.mission.ts 的 mission:failed event + markFailed 行为
         //   （pipeline-v1 hook 内部抛错经 orchestrator 包成 stage:failed event +
@@ -484,48 +594,10 @@ export class PlaygroundPipelineDispatcher
                 `[dispatcher ${missionId}] checkpoint.clear (success path) failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
               );
             });
-          // ★ post-run 副作用 #1：知识图谱构建（fire-and-forget，不阻断主流程）。
-          //   graphService.build 读 mission.reportFull → LLM 抽取实体/关系 → upsert
-          //   playgroundMissionGraph。失败只 warn，不影响 mission 终态。
-          if (this.missionGraph) {
-            void this.missionGraph
-              .build(userId, missionId)
-              .catch((err: unknown) => {
-                this.log.error(
-                  `[post-run graph ${missionId}] knowledge-graph build failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
-                );
-              });
-          }
-          // ★ post-run 副作用 #2：library 沉淀（fire-and-forget，不阻断主流程）。
-          //   把能力核富报告 markdown 落成一条 library note，与 company 侧对称。
-          if (this.sediment) {
-            const artifact = result.stageOutputs.reportArtifact as {
-              content?: { fullMarkdown?: string };
-            } | null;
-            const plan = result.stageOutputs.plan as {
-              dimensions?: Array<{ name?: string }>;
-            } | null;
-            const dimTags = (plan?.dimensions ?? [])
-              .map((d) => d?.name)
-              .filter((n): n is string => typeof n === "string");
-            void this.sediment
-              .sedimentMission({
-                missionId,
-                userId,
-                title: input.topic,
-                content: artifact?.content?.fullMarkdown ?? "",
-                source: "playground",
-                tags: ["playground", ...dimTags],
-              })
-              .catch((err: unknown) => {
-                this.log.error(
-                  `[post-run sediment ${missionId}] library sediment failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
-                );
-              });
-          }
         }
-        // ★ #16b env2（2026-06-09）：S12 postlude 已由能力核 fireSelfEvolutionPostlude
-        //   在 assembleCompleted 内 fire，不在 dispatcher 层双写。
+        // ★ A-7: S12 self-evolution fire-and-forget（成功 / 失败路径都跑）
+        //   不阻塞 dispatcher 返回；emit mission:postlude:* 让前端单独推 s12 todo 状态
+        this.fireSelfEvolutionPostlude(missionId, userId);
         reachedTerminal = true;
         return {
           missionId: result.missionId,
@@ -583,485 +655,83 @@ export class PlaygroundPipelineDispatcher
   }
 
   /**
-   * ★ W3 能力轨（flag ON 专用）：经 ICapabilityRunner 消费 deep-insight 能力内核跑
-   *   真 14 阶段，注入 playground 自己的：
-   *     - persistence（MissionStore.asPersistencePort）→ checkpoint/resume + 终态仲裁
-   *       仍落 agent_playground_missions、走 lifecycleManager.finalize（WHERE
-   *       status='running' 条件写，与 OFF 路语义一致）。
-   *     - onEvent → 桥到既有 EventBus（playground.stage:lifecycle 等）+ OTel span，
-   *       让前端 14-chip / timeline 照常点亮（事件契约不变）。
-   *     - signal → 透传 mission abort。
-   *   返回 MissionResult（与 orchestrator.run 同形），下游终态收口（handleMissionFailure
-   *   / checkpoint clear / fireSelfEvolutionPostlude）与 OFF 路完全共用。
+   * A-7: S12 self-evolution fire-and-forget。
    *
-   *   checkpoint 兼容（§3 结论）：ON 路 resume 走能力内核 CrossStageState 格式（端口
-   *   loadCheckpoint 仅认带 lastStepId 的 payload）；旧 OFF 路 checkpoint（lastStage
-   *   字段）不被 ON 路 resume，不混用。同一 mission 生命周期内 flag 进程级稳定，不跨轨。
+   * mission terminal（成功/失败）后立即返回 dispatcher，本方法在后台跑 postmortem
+   * + memory 索引。生命周期事件不走 stage:lifecycle（避免与 mission stages 混淆），
+   * 而是 mission:postlude:started / mission:postlude:completed / mission:postlude:failed。
    */
-  private async runViaCapabilityRunner(
-    missionId: string,
-    input: RunMissionInput,
-    userId: string,
-    session: MissionRuntimeSession,
-    resumeFromStepId: string | undefined,
-    initialCrossStageState: Readonly<Record<string, unknown>> | undefined,
-  ): Promise<{
-    readonly missionId: string;
-    readonly status: "completed" | "failed" | "aborted";
-    readonly stageOutputs: Readonly<Record<string, unknown>>;
-    readonly crossStageState: Readonly<Record<string, unknown>>;
-    readonly error?: unknown;
-  }> {
-    // 缺 registry（裁剪测试床未装配 MarketplaceModule）或 runner 未注册：不 throw，
-    //   warn + 返回 failed MissionResult，由下游失败收口处理（避免 @Optional + throw
-    //   反模式，且不让 mission 卡 running）。生产装配齐全，此分支不应触达。
-    const runner = this.capabilityRegistry?.resolve("deep-insight");
-    if (!runner) {
-      const reason = this.capabilityRegistry
-        ? '能力 runner "deep-insight" 未注册（DeepInsightDefaultRunner.onModuleInit 未执行）'
-        : "CapabilityRegistry 未注入（@Global MarketplaceModule 未装配）";
-      this.log.error(
-        `[W3 capability ${missionId}] 无法走能力轨：${reason} —— 标记 mission 失败。`,
+  private fireSelfEvolutionPostlude(missionId: string, userId: string): void {
+    const entry = this.sessions.get(missionId);
+    if (!entry) {
+      this.log.warn(
+        `[A-7] fireSelfEvolutionPostlude: no session for ${missionId}`,
       );
-      return {
-        missionId,
-        status: "failed",
-        stageOutputs: {},
-        crossStageState: {},
-        error: new Error(`capability runner unavailable: ${reason}`),
-      };
+      return;
     }
-    // resume 上下文：OFF 路 checkpoint 已在 runMission 顶部 hydrate 进
-    //   initialCrossStageState（lastStage 格式，ON 路端口 loadCheckpoint 不认它）。
-    //   ON 路 resume 实际由能力 runner 内部经 persistence.loadCheckpoint（lastStepId
-    //   格式）驱动；此处入参仅作日志参考，不强行喂给能力核（避免格式串轨）。
-    if (resumeFromStepId != null || initialCrossStageState != null) {
-      this.log.log(
-        `[W3 capability ${missionId}] OFF-path resume ctx present (stepId=` +
-          `${resumeFromStepId ?? "none"}); ON-path resume 由能力核 checkpoint 端口驱动。`,
-      );
-    }
-
-    // RunMissionInput → CapabilityRunInput：转发能力消费的语义字段 + 四档位
-    //   （style/length/audience/auditLayers——能力核 s7/s9 bindings 已消费，
-    //   不转发会让 Dialog 选择器静默失效、zod 默认 executive 被换成能力核 academic）。
-    //   concurrency 自 2026-06-10 起转发（S3 维度派遣并发档位，审计 #34/#37——
-    //   之前整类丢弃使用户选择静默失效）。仍不转发：budget/viewMode（playground
-    //   专属）+ 计费字段（session.billing 体现）。
-    // 注：RunMissionInput 无 preferredModelId 字段（playground 默认按 TaskProfile +
-    //   BYOK 选模），故不转发；能力核走自身默认模型选择，与 OFF 路行为一致。
-    // ★ #16a 增量复用："更新"按钮（inheritFromMissionId）已在 runMission 顶部经
-    //   hydrateInheritedPlan / hydrateInheritedResearchResults 把上次 mission 的 plan +
-    //   各维 researcher 产物灌进 entry.crossState。这里转成中性 inheritedBaseline 传给能力核，
-    //   让 ON 路 S2/S3 命中即跳过重算（等价 OFF 路跳过 S2/S3）。无继承时为 undefined → 全量新跑。
-    // ★ Fix 4（sourceDepth）：把源 mission 的 depth 档位透传进 inheritedBaseline，
-    //   让能力核知道复用产物的分辨率档位（quick/standard/deep），避免深度混淆。
-    //   sourceDepth 来自 entry.crossState 里暂存的源 mission depth（由 hydrateInheritedPlan
-    //   在查 getById 时顺带存入）；无法取到时回退到当前 input.depth（保守策略）。
-    const inheritEntry = this.sessions.get(missionId);
-    const inheritedPlan = inheritEntry?.crossState.lastPlan;
-    const inheritedResearch = inheritEntry?.crossState.inheritedResearchResults;
-    // sourceDepth：优先取来自源 mission 存入 crossState 的真实档位，否则用当前 input.depth
-    const sourceDepth =
-      (inheritEntry?.crossState as { _sourceDepth?: string } | undefined)
-        ?._sourceDepth ?? input.depth;
-    const inheritedBaseline =
-      inheritedPlan || (inheritedResearch && inheritedResearch.length > 0)
-        ? {
-            ...(inheritedPlan ? { plan: inheritedPlan } : {}),
-            ...(inheritedResearch?.length
-              ? { researcherResults: inheritedResearch }
-              : {}),
-            ...(sourceDepth ? { sourceDepth } : {}),
-          }
-        : undefined;
-
-    // concurrency 用交集类型宽化转发：CapabilityRunInput 契约字段由能力核 S3 并发
-    //   修复方补 port（可选字段，运行时已可消费）；此处不穿透改 marketplace 契约文件。
-    const capInput: CapabilityRunInput & { concurrency?: number } = {
-      topic: input.topic,
-      ...(input.description ? { description: input.description } : {}),
-      ...(input.depth ? { depth: input.depth } : {}),
-      ...(input.language ? { language: input.language } : {}),
-      ...(input.withFigures !== undefined
-        ? { withFigures: input.withFigures }
-        : {}),
-      ...(input.knowledgeBaseIds?.length
-        ? { knowledgeBaseIds: [...input.knowledgeBaseIds] }
-        : {}),
-      ...(input.searchTimeRange
-        ? { searchTimeRange: input.searchTimeRange }
-        : {}),
-      ...(input.styleProfile ? { styleProfile: input.styleProfile } : {}),
-      ...(input.lengthProfile ? { lengthProfile: input.lengthProfile } : {}),
-      ...(input.audienceProfile
-        ? { audienceProfile: input.audienceProfile }
-        : {}),
-      ...(input.auditLayers ? { auditLayers: [input.auditLayers] } : {}),
-      ...(typeof input.concurrency === "number"
-        ? { concurrency: input.concurrency }
-        : {}),
-      ...(inheritedBaseline ? { inheritedBaseline } : {}),
-    };
-
-    const persistence = this.store.asPersistencePort(this.lifecycleManager);
-
-    const capResult = await runner.run(capInput, {
-      userId,
+    const startedAt = Date.now();
+    void this.emitToBus({
+      type: "playground.mission:postlude:started",
       missionId,
-      signal: session.missionAbort.signal,
-      persistence,
-      onEvent: (event) => {
-        void this.bridgeCapabilityEventToPlayground(event, missionId, userId);
-      },
+      userId,
+      payload: { stage: "s12-self-evolution", startedAt },
+      timestamp: startedAt,
     });
 
-    // ★ #16b S12 postlude 等价：能力核的 CrossStageState 是私有的（R1 隔离不外露），
-    //   但终态产物经 collectStageOutputs 投影进 stageOutputs。这里把它们回灌进
-    //   entry.crossState，让 fireSelfEvolutionPostlude（s12 自进化）+ handleMissionFailure
-    //   的 partial 落库拿到真实产物，而非空数据（修复硬切后 entry.crossState 全空的退化）。
-    const so = capResult.stageOutputs as {
-      plan?: unknown;
-      researcherResults?: unknown;
-      report?: unknown;
-      reportArtifact?: unknown;
-      leaderSignOff?: unknown;
-    };
-    const so_entry = this.sessions.get(missionId);
-    if (so_entry) {
-      const cs = so_entry.crossState;
-      if (so.plan) cs.lastPlan = so.plan as typeof cs.lastPlan;
-      if (so.researcherResults)
-        cs.lastResearcherResults =
-          so.researcherResults as typeof cs.lastResearcherResults;
-      if (so.report) cs.lastReport = so.report as typeof cs.lastReport;
-      if (so.reportArtifact)
-        cs.lastReportArtifact =
-          so.reportArtifact as typeof cs.lastReportArtifact;
-      if (so.leaderSignOff)
-        cs.lastLeaderSignOff = so.leaderSignOff as typeof cs.lastLeaderSignOff;
-    }
+    const bufferedEvents = this.missionEventBuffer
+      .read(missionId)
+      .map((e) => ({ type: e.type, ts: e.timestamp, payload: e.payload }));
 
-    // CapabilityRunResult → MissionResult（status: failed/completed；能力核无 aborted，
-    //   abort 经 signal 后 runner 落 failed/cancelled，dispatcher 失败收口统一处理）。
-    return {
-      missionId,
-      status: capResult.status,
-      stageOutputs: capResult.stageOutputs,
-      crossStageState: {},
-      ...(capResult.error ? { error: new Error(capResult.error) } : {}),
-    };
-  }
-
-  /**
-   * ★ W3 能力轨事件桥：CapabilityRunEvent → playground 既有事件出口（EventBus +
-   *   OTel span），复用 OFF 路同一桥接 mechanism（bridgeOrchestratorStageEvent +
-   *   missionSpan），保证前端 14-chip / timeline 无感（事件契约不变）。
-   *
-   *   stage:started/completed/failed 走 stage span + lifecycle 桥；
-   *   stage:degraded/stalled 走 framework degraded/stalled 桥；
-   *   agent-trace → playground.agent:trace（结构化，抽屉 timeline）+
-   *                 playground.agent:narrative（协作动态，精简文本）；
-   *   agent-lifecycle → playground.agent:lifecycle；
-   *   domain → playground.<event>（透传，含 dimension/researcher/cost 等）。
-   */
-  private async bridgeCapabilityEventToPlayground(
-    event: CapabilityRunEvent,
-    missionId: string,
-    userId: string,
-  ): Promise<void> {
-    // ★ Fix 1（2026-06-09）：结构化 trace 桥接。
-    //   能力核 relayAgentEvent 发 agent-trace，payload 携带：
-    //     { kind, text?, role, dimension?, toolId?, input?, output?, agentId }
-    //   kind 值：thinking / action_planned / action_executed / error
-    //
-    //   双路发送：
-    //   (a) playground.agent:trace —— 结构化，抽屉 timeline tool-call 可见；
-    //       kind 映射（Fix 2）：
-    //         thinking → thought（含 text）
-    //         action_planned → thought（工具调用意图归为思考，避免双计）
-    //         action_executed → action（透传 toolId/input/output）+ observation（toolId/output）
-    //         error → 不发 trace（narrative warning 已暴露）
-    //   (b) playground.agent:narrative —— 精简文本，协作动态人读性；
-    //       thinking 截断 280 chars，action_executed with toolId 改短摘要，不转发大 blob。
-    //
-    //   Fix 1（agentId 命名空间映射）：
-    //     p.agentId 是能力核 relayAgentEvent 注入的 specId（playground.researcher）。
-    //     消费侧（dvCollectAgentTraces / TodoDetailDrawer）期望：
-    //       有 dimension → researcher#<dim>（researcher specId + '#' + dimension）
-    //       无 dimension → 剥去 'playground.' 前缀（leader / writer.outline-planner）
-    //     映射通过 this.mapSpecIdToConsumerId(specId, dimension) 完成（一处函数）。
-    if (event.type === "agent-trace") {
-      const p = (event.payload ?? {}) as {
-        kind?: string;
-        text?: string;
-        tag?: string;
-        role?: string;
-        dimension?: string;
-        toolId?: string;
-        input?: unknown;
-        output?: unknown;
-        calls?: unknown[];
-        latencyMs?: number;
-        tokensUsed?: number;
-        error?: string;
-        modelId?: string;
-        agentId?: string;
-        score?: number;
-        revision?: number;
-      };
-      const ts = event.timestamp ?? Date.now();
-      const stepId = event.stepId;
-
-      // Fix 1：agentId 命名空间映射——specId → 消费侧 id（researcher#<dim> / leader / ...）
-      const rawAgentId = p.agentId;
-      const consumerId = rawAgentId
-        ? this.mapSpecIdToConsumerId(rawAgentId, p.dimension)
-        : undefined;
-
-      // (a) agent:trace — 仅对能映射到结构化 kind 的事件发送。
-      // 前端 dvCollectAgentTraces 消费 payload.items[] 批量格式（能力轨快照）。
-      // 单条事件包装成 items:[item] 格式与前端兼容。
-      if (consumerId) {
-        // 基线分工（2026-06-10 回归审计 #2/#9 复活）：
-        //   action_planned → action 条目（tool-call 卡来源；parallel 用
-        //     toolId='parallel_tool_call' + input=calls[] 触发 Drawer 并发调用卡）；
-        //   action_executed → observation 条目（tool-result 卡 + latency/tokens 来源；
-        //     runner 已对 subResults 逐 sub 扇出，无双计）；
-        //   thinking → thought；reflection → reflection 卡（schema kind 枚举已放开，
-        //     透传 score/revision；前端 dvCollectAgentTraces 渲染「反思」卡）。
-        //   error → 不发 trace（narrative warning 已暴露）。
-        const items: Record<string, unknown>[] = [];
-        if (p.kind === "thinking") {
-          items.push({
-            kind: "thought",
-            ts,
-            ...(p.text !== undefined ? { text: p.text } : {}),
-            ...(p.modelId ? { modelId: p.modelId } : {}),
-          });
-        } else if (p.kind === "reflection") {
-          items.push({
-            kind: "reflection",
-            ts,
-            ...(p.text !== undefined ? { text: p.text } : {}),
-            ...(typeof p.score === "number" ? { score: p.score } : {}),
-            ...(typeof p.revision === "number" ? { revision: p.revision } : {}),
-            ...(p.modelId ? { modelId: p.modelId } : {}),
-          });
-        } else if (p.kind === "action_planned") {
-          if (Array.isArray(p.calls) && p.calls.length > 0) {
-            items.push({
-              kind: "action",
-              ts,
-              toolId: "parallel_tool_call",
-              input: p.calls,
-              ...(p.text !== undefined ? { text: p.text } : {}),
-            });
-          } else if (p.toolId) {
-            items.push({
-              kind: "action",
-              ts,
-              toolId: p.toolId,
-              ...(p.input !== undefined ? { input: p.input } : {}),
-              ...(p.text !== undefined ? { text: p.text } : {}),
-            });
-          } else {
-            // 无工具锚点（llm_generate/finalize 意图）→ 当 thought 渲染
-            items.push({
-              kind: "thought",
-              ts,
-              ...(p.text !== undefined ? { text: p.text } : {}),
-            });
-          }
-        } else if (p.kind === "action_executed") {
-          items.push({
-            kind: "observation",
-            ts,
-            ...(p.toolId ? { toolId: p.toolId } : {}),
-            ...(p.output !== undefined ? { output: p.output } : {}),
-            ...(typeof p.latencyMs === "number"
-              ? { latencyMs: p.latencyMs }
-              : {}),
-            ...(typeof p.tokensUsed === "number"
-              ? { tokensUsed: p.tokensUsed }
-              : {}),
-            ...(typeof p.error === "string" ? { error: p.error } : {}),
-            ...(p.text !== undefined ? { text: p.text } : {}),
-          });
-        }
-        // error 不发 trace（由 narrative warning 暴露），items 保持空。
-        if (items.length > 0) {
-          await this.emitToBus({
-            type: "playground.agent:trace",
-            missionId,
-            userId,
-            payload: {
-              agentId: consumerId,
-              role: p.role ?? "agent",
-              ...(p.dimension ? { dimension: p.dimension } : {}),
-              ...(stepId ? { stepId } : {}),
-              items,
-            },
-          }).catch(() => undefined);
-        }
-      }
-
-      // (b) agent:narrative — 协作动态只接告警（2026-06-10 回归审计 #5/#10/#15：
-      //   thinking/action 的机械转写淹没 curated 叙事，已收敛删除）。
-      const narrativeText = this.buildNarrativeText(p.kind, p.text);
-      if (narrativeText) {
-        await this.emitToBus({
-          type: "playground.agent:narrative",
-          missionId,
-          userId,
-          payload: {
-            ...(stepId ? { stage: mapStepIdToFrontendStageId(stepId) } : {}),
-            role: p.role ?? "agent",
-            tag: p.tag === "error" ? "error" : "warning",
-            text: narrativeText,
-            ...(p.dimension ? { dimension: p.dimension } : {}),
-            ...(p.toolId ? { toolId: p.toolId } : {}),
-          },
-        }).catch(() => undefined);
-      }
-      return;
-    }
-    if (event.type === "agent-lifecycle") {
-      await this.emitToBus({
-        type: "playground.agent:lifecycle",
+    void runSelfEvolutionStage(
+      {
         missionId,
         userId,
-        payload: event.payload ?? {},
-      }).catch(() => undefined);
-      return;
-    }
-    // ★ #16b domain 事件桥接：能力核发 domain 中性事件 → playground.<event> namespace。
-    // payload 结构：{ event: string; data: Record<string,unknown> }
-    // 消费方前端按 "playground.agent:lifecycle" / "playground.agent:narrative" /
-    //   "playground.dimension:research:started" 等订阅（与 OFF 路等价）。
-    // Fix 2 (cost:tick)：domain 桥透传 cost:tick，emitToBus 落库持久化，与其他事件一致。
-    if (event.type === "domain") {
-      const domainPayload = event.payload as
-        | { event?: string; data?: Record<string, unknown> }
-        | undefined;
-      const domainEvent = domainPayload?.event;
-      const domainData = domainPayload?.data ?? {};
-      if (domainEvent) {
-        await this.emitToBus({
-          type: `playground.${domainEvent}`,
-          missionId,
-          userId,
-          payload: domainData,
-        }).catch(() => undefined);
-      }
-      return;
-    }
-    // ★ P2-d (2026-06-09)：能力轨纯生命周期事件（无 stepId）需单独处理。
-    //   type==="started"  → playground.mission:started（前端把它当 mission 进入信号）
-    //   type==="completed"→ playground.mission:completed（前端把它当终态信号之一）
-    //   type==="failed"   → 不在此发（handleMissionFailure 已发富分类 mission:failed，
-    //                        避免双发；failed 路径也无 stepId）。
-    if (!event.stepId && !event.telemetry?.systemStageId) {
-      if (event.type === "started") {
-        // runner payload 携带 topic + 档位 → 包成基线 MissionStartedSchema 的
-        //   { input: {...} } 形状（RawEventLog / replay 读 payload.input.topic）。
-        await this.emitToBus({
-          type: "playground.mission:started",
-          missionId,
-          userId,
-          payload: {
-            missionId,
-            startedAt: event.timestamp,
-            ...(event.payload ? { input: event.payload } : {}),
-          },
-        }).catch(() => undefined);
-      } else if (event.type === "completed") {
-        // runner payload 已带终态统计（costUsd/tokensUsed/elapsedWallTimeMs/
-        //   reviewScore/leaderSigned/verifierVerdicts/missionTitle）。这里补
-        //   appBasePath/relatedType——MissionCompletionBroadcastAdapter 的硬条件
-        //   （缺失即静默 skip 站内完成通知），业务路由只能由 emit 侧注入。
-        await this.emitToBus({
-          type: "playground.mission:completed",
-          missionId,
-          userId,
-          payload: {
-            missionId,
-            ...(event.payload ?? {}),
-            appBasePath: "/agent-playground",
-            relatedType: "playground-mission",
-          },
-        }).catch(() => undefined);
-      }
-      return;
-    }
-    const stepId = event.telemetry?.systemStageId ?? event.stepId;
-    if (!stepId) return; // 无 stage 锚点（理论不可达，上方已处理无 stepId 路径）
-    if (event.type === "stage:started") {
-      this.missionSpan.startStageSpan(missionId, stepId, "capability");
-    } else if (
-      event.type === "stage:completed" ||
-      event.type === "stage:failed"
-    ) {
-      this.missionSpan.endStageSpan(
-        missionId,
-        stepId,
-        event.type === "stage:completed" ? "completed" : "failed",
-      );
-    }
-    // framework 通用桥接：把能力事件（type + stepId）翻成 playground.stage:lifecycle /
-    //   stage:degraded / stage:stalled（mapStepId 映射前端 chip id，与 OFF 路同表）。
-    //   stalled/degraded 的 reason/elapsedMs 从 runner payload 还原成 framework 期望的
-    //   顶层字段（不透传则 UI 只有"发生了"没有"为什么"，契约矩阵表 3）。
-    const stagePayload = event.payload as
-      | { reason?: string; elapsedMs?: number }
-      | undefined;
-    await this.bridgeOrchestratorStageEvent(
-      {
-        type: event.type,
-        stepId,
-        timestamp: event.timestamp,
-        ...(typeof stagePayload?.reason === "string"
-          ? { reason: stagePayload.reason }
-          : {}),
-        ...(typeof stagePayload?.elapsedMs === "number"
-          ? { elapsedMs: stagePayload.elapsedMs }
-          : {}),
+        t0: entry.t0,
+        pool: entry.session.pool,
+        topic: entry.input.topic,
+        plan: entry.crossState.lastPlan
+          ? {
+              dimensions: (entry.crossState.lastPlan.dimensions ??
+                []) as unknown[],
+              goals: entry.crossState.lastPlan.goals,
+            }
+          : undefined,
+        researcherResults: entry.crossState.lastResearcherResults as
+          | unknown[]
+          | undefined,
+        reportArtifact: entry.crossState.lastReportArtifact as
+          | { quality?: { overall?: number }; sections?: unknown[] }
+          | undefined,
+        leaderSignOff: entry.crossState.lastLeaderSignOff,
+        abortSignal: entry.session.missionAbort.signal,
+        bufferedEvents,
       },
-      { missionId, userId },
-    );
-  }
-
-  /**
-   * Fix 1（agentId 命名空间映射）：能力核 specId → 消费侧 agentId。
-   *
-   * 消费侧（dvCollectAgentTraces / TodoDetailDrawer linkedAgent 选取）期望格式：
-   *   - 有 dimension → `${baseRole}#${dimension}`（如 researcher#市场规模）
-   *   - 无 dimension → 剥去 'playground.' 前缀（playground.leader → leader；
-   *       playground.writer.outline-planner → writer.outline-planner）
-   *
-   * 此映射与 agent-invoke.helper.ts mapSpecIdToConsumerId 语义一致（两处同步，
-   * 一处覆盖 agent:lifecycle domain 事件，本处覆盖 agent:trace CapabilityRunEvent 桥）。
-   */
-  private mapSpecIdToConsumerId(specId: string, dimension?: string): string {
-    const role = specId.startsWith("playground.")
-      ? specId.slice("playground.".length)
-      : specId;
-    if (dimension) {
-      const baseRole = role.split(".")[0] ?? role;
-      return `${baseRole}#${dimension}`;
-    }
-    return role;
-  }
-
-  /**
-   * 协作动态（narrative）只保留告警类文本（2026-06-10 回归审计 #5/#10/#15 收敛）：
-   *   - thinking / action_planned / action_executed 不再机械转 narrative——过程细节
-   *     由 agent:trace（Drawer 时间线）承载，人话叙事由能力核 bindings 的 curated
-   *     emitDomain('agent:narrative') 承载，每轮原文切片只会淹没两者；
-   *   - error（含 budget/validation 告警）保留：narrative 是其唯一可见面。
-   */
-  private buildNarrativeText(kind?: string, text?: string): string | undefined {
-    return kind === "error" && text ? text : undefined;
+      this.stageBindings.buildDeps(),
+    )
+      .then(() =>
+        this.emitToBus({
+          type: "playground.mission:postlude:completed",
+          missionId,
+          userId,
+          payload: {
+            stage: "s12-self-evolution",
+            wallTimeMs: Date.now() - startedAt,
+          },
+        }),
+      )
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err);
+        return this.emitToBus({
+          type: "playground.mission:postlude:failed",
+          missionId,
+          userId,
+          payload: {
+            stage: "s12-self-evolution",
+            error: message.slice(0, 500),
+            wallTimeMs: Date.now() - startedAt,
+          },
+        });
+      });
   }
 
   /** A-8: 兜底 abort 处理 — emit mission:execution-aborted + markFailed */
@@ -1258,107 +928,51 @@ export class PlaygroundPipelineDispatcher
     const entry = this.sessions.get(missionId);
     const reportPayload =
       entry?.crossState.lastReportArtifact ?? entry?.crossState.lastReport;
-    // ★ P1-2 (2026-06-09)：捕获 finalize 仲裁结果，lost 时也能触发失败通知。
-    //   能力轨场景下 runner 已通过 persistence.applyTerminalIfRunning("failed") 先写终态，
-    //   dispatcher 的 finalize(failed) 条件写（WHERE status='running'）必输 → onWon 永不执行
-    //   → 通知静默丢失。修法：finalize 输掉后读真实行终态，若属失败类终态则补发通知。
-    //   MissionFailedPreset.notify 自身无 idempotencyKey，双 pod 竞态有残余双发风险，
-    //   但 notify 幂等化属后续优化（NotificationDispatcher 级别），当前无去重机制，
-    //   dispatcher 内单次 handleMissionFailure 调用中只发一次（无重试循环），风险可接受。
-    let finalizeWon = false;
-    try {
-      const finalizeResult =
-        await this.lifecycleManager.finalize<PlaygroundTerminalExtra>({
-          missionId,
-          intent: {
-            status: "failed",
-            failureCode: mapAgentFailureCode(missionFailureCode),
-            errorMessage: displayMessage,
-            extra: {
-              kind: "failed",
-              detail: {
-                errorMessage: displayMessage,
-                // ★ C2/MAJOR-6:把 inline 大写 code 映射成 canonical MissionFailureCode 落 DB
-                failureCode: mapAgentFailureCode(missionFailureCode),
-                tokensUsed: snap.poolTokensUsed,
-                costUsd: snap.poolCostUsd,
-                elapsedWallTimeMs: Date.now() - t0,
-                themeSummary: entry?.crossState.lastPlan?.themeSummary,
-                dimensions: entry?.crossState.lastPlan?.dimensions as
-                  | unknown[]
-                  | undefined,
-                report: reportPayload as
-                  | { title?: string; summary?: string }
-                  | undefined,
-                reportArtifactVersion: entry?.crossState.lastReportArtifact
-                  ? 2
-                  : entry?.crossState.lastReport
-                    ? 1
-                    : undefined,
-                // ★ S4b/B-部分：userProfile 停写，不再传 entry.input
-                reconciliationReport:
-                  entry?.crossState.lastReconciliationReport,
-                verdicts: entry?.crossState.lastVerifierVerdicts,
-                leaderOverallScore:
-                  entry?.crossState.lastLeaderSignOff?.leaderOverallScore,
-                leaderSigned: entry?.crossState.lastLeaderSignOff?.signed,
-                leaderVerdict:
-                  entry?.crossState.lastLeaderSignOff?.leaderVerdict,
-              },
+    await this.lifecycleManager
+      .finalize<PlaygroundTerminalExtra>({
+        missionId,
+        intent: {
+          status: "failed",
+          failureCode: mapAgentFailureCode(missionFailureCode),
+          errorMessage: displayMessage,
+          extra: {
+            kind: "failed",
+            detail: {
+              errorMessage: displayMessage,
+              // ★ C2/MAJOR-6:把 inline 大写 code 映射成 canonical MissionFailureCode 落 DB
+              failureCode: mapAgentFailureCode(missionFailureCode),
+              tokensUsed: snap.poolTokensUsed,
+              costUsd: snap.poolCostUsd,
+              elapsedWallTimeMs: Date.now() - t0,
+              themeSummary: entry?.crossState.lastPlan?.themeSummary,
+              dimensions: entry?.crossState.lastPlan?.dimensions as
+                | unknown[]
+                | undefined,
+              report: reportPayload as
+                | { title?: string; summary?: string }
+                | undefined,
+              reportArtifactVersion: entry?.crossState.lastReportArtifact
+                ? 2
+                : entry?.crossState.lastReport
+                  ? 1
+                  : undefined,
+              // ★ S4b/B-部分：userProfile 停写，不再传 entry.input
+              reconciliationReport: entry?.crossState.lastReconciliationReport,
+              verdicts: entry?.crossState.lastVerifierVerdicts,
+              leaderOverallScore:
+                entry?.crossState.lastLeaderSignOff?.leaderOverallScore,
+              leaderSigned: entry?.crossState.lastLeaderSignOff?.signed,
+              leaderVerdict: entry?.crossState.lastLeaderSignOff?.leaderVerdict,
             },
           },
-          arbiter: this.store,
-          // ★ e2e P0-#5 onWon：仅在本次 finalize 赢得仲裁（running→failed）时发通知。
-          //   能力轨下此路径发生在 runner 未提前写终态的情况（纯 dispatcher 路径）。
-          onWon: async () => {
-            finalizeWon = true;
-            await this.missionFailedPreset
-              ?.notify({
-                userId,
-                missionId,
-                missionTitle: entry?.input.topic ?? "Mission",
-                missionUrl: `/agent-playground/team/${missionId}`,
-                reason: displayMessage,
-                failureCode: missionFailureCode,
-              })
-              .catch((notifyErr: unknown) => {
-                this.log.warn(
-                  `[handleMissionFailure ${missionId}] mission-failed notify (onWon) failed (non-fatal): ${notifyErr instanceof Error ? notifyErr.message : String(notifyErr)}`,
-                );
-              });
-          },
-        });
-      finalizeWon = finalizeResult.won;
-    } catch (dbErr) {
-      this.log.error(
-        `[pipeline-v1] finalize(failed) for mission ${missionId} failed: ${
-          dbErr instanceof Error ? dbErr.message : String(dbErr)
-        }`,
-      );
-    }
-
-    // ★ P1-2 通知兜底：finalize 输掉（runner 已抢先写终态）时，读真实行终态。
-    //   若行为失败类终态（failed / quality-failed）或非用户取消的 cancelled（P2-e 场景：
-    //   runner abort 写成 cancelled 但事件语义是系统失败）→ 补发失败通知。
-    //   wasUserCancelled=true 在上方已 early return，此处不会触达用户主动取消路径。
-    //   MissionFailedPreset 无 idempotencyKey，残余双发风险：onWon 和此处只会其中一路
-    //   触达（onWon 仅在 finalize won 时调；此处仅在 won===false 时调），单次调用链唯一。
-    if (!finalizeWon && this.missionFailedPreset) {
-      try {
-        const row = await this.store.getById(missionId, userId);
-        const rowStatus = row?.status;
-        const isFailureTerminal =
-          rowStatus === "failed" ||
-          rowStatus === "quality-failed" ||
-          // P2-e：runner abort 把行写成 cancelled（非用户主动取消），需补通知
-          (rowStatus === "cancelled" && abortReason !== "user_cancelled");
-        if (isFailureTerminal) {
-          this.log.warn(
-            `[P1-2 notify-fallback ${missionId}] finalize lost (row.status=${rowStatus}), ` +
-              `firing failure notification via fallback path`,
-          );
+        },
+        arbiter: this.store,
+        // ★ e2e P0-#5: 仅在本 finalize 真正赢得终态写(running→failed)时发失败通知,
+        //   保证恰好一次(已被 liveness/cancel 抢先终态则不重发)。user_cancelled 在
+        //   上方 wasUserCancelled 已 return,不会走到这里。fire-and-forget。
+        onWon: async () => {
           await this.missionFailedPreset
-            .notify({
+            ?.notify({
               userId,
               missionId,
               missionTitle: entry?.input.topic ?? "Mission",
@@ -1368,16 +982,18 @@ export class PlaygroundPipelineDispatcher
             })
             .catch((notifyErr: unknown) => {
               this.log.warn(
-                `[handleMissionFailure ${missionId}] mission-failed notify (fallback) failed (non-fatal): ${notifyErr instanceof Error ? notifyErr.message : String(notifyErr)}`,
+                `[handleMissionFailure ${missionId}] mission-failed notify failed (non-fatal): ${notifyErr instanceof Error ? notifyErr.message : String(notifyErr)}`,
               );
             });
-        }
-      } catch (readErr) {
-        this.log.warn(
-          `[P1-2 notify-fallback ${missionId}] getById failed, skipping fallback notify: ${readErr instanceof Error ? readErr.message : String(readErr)}`,
+        },
+      })
+      .catch((dbErr) => {
+        this.log.error(
+          `[pipeline-v1] finalize(failed) for mission ${missionId} failed: ${
+            dbErr instanceof Error ? dbErr.message : String(dbErr)
+          }`,
         );
-      }
-    }
+      });
     // ★ 报告版本化 (2026-05-06): 失败路径有 partial report 时也写版本，
     //   让用户能查看失败前生成的报告内容
     if (reportPayload && entry) {
@@ -1397,11 +1013,47 @@ export class PlaygroundPipelineDispatcher
     }
   }
 
-  // ── #16b (2026-06-09): buildPipelineWithHooks / buildHooksForStep /
-  //   buildBaseHooksForStep 已删——OFF 路私有 pipeline 注册退役。能力轨经
-  //   DeepInsightDefaultRunner 自注册 "deep-insight" pipeline + DeepInsightStageBindings
-  //   执行 14 阶段。PlaygroundBusinessOrchestrator 的 build*Hooks 随之成为不可达死代码
-  //   （留待后续清理，不构成第二执行轨）。
+  // ── pipeline 构造 ──────────────────────────────────────────────────────
+
+  private buildPipelineWithHooks(): MissionPipelineConfig {
+    const stepHooks: Record<string, ResolvedStageHooks> = {};
+    for (const step of PLAYGROUND_PIPELINE.steps) {
+      stepHooks[step.id] = this.buildHooksForStep(step.id, step.primitive);
+    }
+    return {
+      ...PLAYGROUND_PIPELINE,
+      steps: PLAYGROUND_PIPELINE.steps.map((s) => ({
+        ...s,
+        hooks: stepHooks[s.id] ?? {},
+      })),
+    };
+  }
+
+  /**
+   * 为每个 step 构造 hook 闭包。所有 13 个 step 都已实装；s12-self-evolution
+   * 不在 PLAYGROUND_PIPELINE.steps，由 fireSelfEvolutionPostlude fire-and-forget
+   * 直接调用 runSelfEvolutionStage（见 dispatcher.runMission 末尾 + line 597+）。
+   */
+  private buildHooksForStep(
+    stepId: string,
+    primitive: string,
+  ): ResolvedStageHooks {
+    const baseHooks = this.buildBaseHooksForStep(stepId, primitive);
+    // 包一层 progress tracking（markStageComplete + 选择性 checkpoint.save）
+    return this.withProgressTracking(stepId, baseHooks);
+  }
+
+  private buildBaseHooksForStep(
+    stepId: string,
+    primitive: string,
+  ): ResolvedStageHooks {
+    // ★ Stage 1 / S1-1 (2026-05-09): 业务编排已抽到 PlaygroundBusinessOrchestrator
+    //   delegate 到 businessOrch.buildHooksForStep,内部调对应 build*Hooks 并通过
+    //   注入的 sessionLookup 访问 SessionEntry(在 onModuleInit 阶段已 bind)。
+    //   stage degraded narrative contract still lives there: hooks must keep
+    //   calling markStageDegraded instead of swallowing S3/S4/S9 failures.
+    return this.businessOrch.buildHooksForStep(stepId, primitive);
+  }
 
   /**
    * 公共 helper：从 sessions Map 取 entry，缺失抛错 + 类型收窄
@@ -1577,12 +1229,8 @@ export class PlaygroundPipelineDispatcher
           import("../context/mission-context").MissionContext["plan"]
         >["initialRisks"],
       };
-      // ★ Fix 4：把源 mission 的 depth 档位存入 crossState，供 runViaCapabilityRunner
-      //   构造 inheritedBaseline.sourceDepth 透传给能力核（避免依赖 source row 的二次查询）。
-      (entry.crossState as { _sourceDepth?: string })._sourceDepth =
-        (source as { depth?: string }).depth ?? undefined;
       this.log.log(
-        `[hydrateInheritedPlan] mission ${missionId} inherited plan from ${sourceMissionId} (${dimensions.length} dims, sourceDepth=${(source as { depth?: string }).depth ?? "unknown"})`,
+        `[hydrateInheritedPlan] mission ${missionId} inherited plan from ${sourceMissionId} (${dimensions.length} dims)`,
       );
     } catch (err) {
       this.log.warn(

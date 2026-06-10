@@ -161,23 +161,6 @@ const DIMENSION_RETRY_ORIGINS: ReadonlySet<string> = new Set([
   "leader-chat-create",
 ]);
 
-// lastCompletedStage（数字水位，mission-store STEP_ID_TO_STAGE_NUMBER 写入）→
-// SYSTEM_STAGE_PRESETS id。s8b/s9b 与 s8/s9 同号，保守映射到同号中靠前的
-// preset（不越权点亮 s8b/s9b——它们由 idx<=HW 包含规则在水位更高时覆盖）。
-const STAGE_NUMBER_TO_PRESET_ID: Readonly<Record<number, string>> = {
-  1: "s1-budget",
-  2: "s2-leader-plan",
-  3: "s3-researchers",
-  4: "s4-leader-assess",
-  5: "s5-reconciler",
-  6: "s6-analyst",
-  7: "s7-writer-outline",
-  8: "s8-writer-draft",
-  9: "s9-critic-l4",
-  10: "s10-leader-signoff",
-  11: "s11-persist",
-};
-
 // step-id → frontend stage-id（与 step-id-mapping.contract.ts 一致）
 function mapStepToFrontendStage(stepId: string): string {
   const map: Record<string, string> = {
@@ -571,14 +554,7 @@ class PlaygroundTodoBoardProjector extends BusinessTeamTodoBoardProjectorFramewo
       if (suffix === "dimension:research:completed") {
         const dim = this.getString(payload, "dimension");
         if (dim) {
-          // ★ Fix 1 (2026-06-09)：bindings 发 findingsCount（复数），兜底读 findingCount（单数）旧事件。
-          const findingCount =
-            this.getNumber(payload, "findingsCount") ??
-            this.getNumber(payload, "findingCount");
-          // ★ Fix 3（采集完成 ≠ 已完成）：dimension:research:completed 表示数据采集阶段
-          //   结束，后续仍有章节撰写阶段（s7 outline / s8 writer）。
-          //   保持 in_progress，不提前标 done；dimension:graded handler 才收 done（带评分）。
-          //   researcher:completed handler 会追加富 narrative + finding artifact。
+          const findingCount = this.getNumber(payload, "findingCount");
           this.upsert(
             state,
             `dim:${dim}`,
@@ -592,16 +568,15 @@ class PlaygroundTodoBoardProjector extends BusinessTeamTodoBoardProjectorFramewo
               scope: "dimension",
               title: dim,
               assignee: { role: "researcher", dimensionName: dim },
-              status: "in_progress",
-              startedAt: ts,
+              status: "done",
+              endedAt: ts,
               artifacts: [],
               narrativeLog: [],
               dimensionRef: dim,
             }),
             (t) => {
-              // 只在 pending 时前进到 in_progress；已是 done/failed/cancelled 则不回退
-              if (t.status === "pending") t.status = "in_progress";
-              t.startedAt ??= ts;
+              t.status = "done";
+              t.endedAt = ts;
               if (findingCount != null) {
                 t.artifacts.push({
                   kind: "finding-count",
@@ -616,11 +591,13 @@ class PlaygroundTodoBoardProjector extends BusinessTeamTodoBoardProjectorFramewo
             `dim:${dim}`,
             ts,
             findingCount != null
-              ? `数据采集完成，产出 ${findingCount} 条 finding，进入写作阶段`
-              : "数据采集完成，进入写作阶段",
+              ? `研究完成，产出 ${findingCount} 条 finding`
+              : "研究完成",
             "success",
           );
-          // retry child 收尾：采集完成视为本轮 retry 目标达成
+          // ★ 2026-05-26 修复：dim 研究完成 → in-progress retry child（leader-assess-*
+          //   / self-heal / leader-chat-create）随之标 done。否则 terminal cleanup 会
+          //   把 retry child 误标为 "cancelled"（见 Screenshot_2 实证）。
           resolveInProgressRetryChildren(state, dim, ts, "success");
         }
         continue;
@@ -866,10 +843,6 @@ class PlaygroundTodoBoardProjector extends BusinessTeamTodoBoardProjectorFramewo
         const text = this.getString(payload, "text");
         const dim = this.getString(payload, "dimension");
         const tag = this.getString(payload, "tag");
-        // ★ Fix 2 (2026-06-09)：stage 级叙事路由——payload.stage 存在时映射到对应
-        //   system todo（leader/analyst/writer/reconciler/critic 的 stage 叙事复活）。
-        //   使用既有 mapStepToFrontendStage 翻译 step-id → stage-id，再加 system: 前缀。
-        const stageName = this.getString(payload, "stage");
         if (text) {
           const tone: TodoNarrativeItem["tone"] =
             tag === "success"
@@ -883,26 +856,11 @@ class PlaygroundTodoBoardProjector extends BusinessTeamTodoBoardProjectorFramewo
             addNarrative(state, `dim:${dim}`, ts, text, tone);
           } else if (ev.agentId) {
             // 挂到最近相关 todo（简化：找 agentRefId 匹配的）
-            let matched = false;
             for (const t of state.todos.values()) {
               if (t.agentRefId === ev.agentId) {
                 addNarrative(state, t.id, ts, text, tone);
-                matched = true;
                 break;
               }
-            }
-            // agentId 无命中时降级到 stage 路由
-            if (!matched && stageName) {
-              const systemId = `system:${mapStepToFrontendStage(stageName)}`;
-              if (state.todos.has(systemId)) {
-                addNarrative(state, systemId, ts, text, tone);
-              }
-            }
-          } else if (stageName) {
-            // 无 dimension、无 agentId：按 stage 挂到对应 system todo
-            const systemId = `system:${mapStepToFrontendStage(stageName)}`;
-            if (state.todos.has(systemId)) {
-              addNarrative(state, systemId, ts, text, tone);
             }
           }
         }
@@ -1191,29 +1149,16 @@ class PlaygroundTodoBoardProjector extends BusinessTeamTodoBoardProjectorFramewo
               dimensionRef: dim,
             }),
             (t) => {
-              // ★ Fix 3 幂等守护：dimension:graded 可能在 dimension:research:completed
-              //   之后较晚到达（或重放事件重复到达）。
-              //   - cancelled/failed：不覆盖终态（维度已判定失败，评分无意义）
-              //   - done：幂等，只追加评分 artifact，不重复标 done / 覆盖 endedAt
-              //   - pending/in_progress：正常推进到 done
               if (t.status !== "cancelled" && t.status !== "failed") {
-                if (t.status !== "done") {
-                  t.status = "done";
-                  t.endedAt = ts;
-                }
-                if (grade != null) {
-                  // 避免重放时重复添加 verdict-score artifact
-                  const alreadyHasGrade = t.artifacts.some(
-                    (a) => a.kind === "verdict-score" && a.label === "维度评分",
-                  );
-                  if (!alreadyHasGrade) {
-                    t.artifacts.push({
-                      kind: "verdict-score",
-                      label: "维度评分",
-                      value: `${grade}/100`,
-                    });
-                  }
-                }
+                t.status = "done";
+                t.endedAt = ts;
+              }
+              if (grade != null) {
+                t.artifacts.push({
+                  kind: "verdict-score",
+                  label: "维度评分",
+                  value: `${grade}/100`,
+                });
               }
             },
           );
@@ -1733,15 +1678,6 @@ class PlaygroundTodoBoardProjector extends BusinessTeamTodoBoardProjectorFramewo
       Array.isArray(row.verdicts) && (row.verdicts as unknown[]).length > 0,
     );
     bump("s10-leader-signoff", row.leaderSigned === true);
-    // ★ 审计 #26 (2026-06-10)：stage 进度水位补偿。能力轨 mid-run 不写 s3+ 的产物列
-    //   （产物在终态才落库），事件被 FIFO(5000) 挤出窗口后，上面的产物 high-water 补
-    //   不到运行中阶段——已推进的 system stage 被重放算回 pending（"列表待启动、抽屉
-    //   在滚"）。lastCompletedStage 由 markStageProgress 在每个 stage:completed 后条件
-    //   写 DB 列，永不被事件窗口挤掉，是 mid-run 唯一可靠的进度真相。
-    if (typeof row.lastCompletedStage === "number") {
-      const presetId = STAGE_NUMBER_TO_PRESET_ID[row.lastCompletedStage];
-      if (presetId) bump(presetId, true);
-    }
 
     const isSuccess = row.status === "completed" || row.status === "rejected";
     const isTerminalFailure =

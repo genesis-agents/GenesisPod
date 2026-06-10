@@ -22,7 +22,6 @@ import type { PlaygroundEvent } from '@/hooks/features/useAgentPlaygroundStream'
 import {
   STAGE_STEPS,
   aggregateStageStatus,
-  mapStepIdToStageId,
   type AgentLiveState,
   type AgentPhase,
   type AgentRole,
@@ -67,7 +66,7 @@ export function useMissionLegacyView(
   );
 }
 
-export function buildLegacyDerivedView(
+function buildLegacyDerivedView(
   view: MissionDetailView | null | undefined,
   events: PlaygroundEvent[]
 ): DerivedView {
@@ -112,10 +111,6 @@ function dvProjectMission(view: MissionDetailView): MissionState {
     out.failedMessage = m.failureMessage;
   } else if (m.status === 'cancelled') {
     out.cancelledAt = finishedAt;
-    // 取消原因写入专用字段（backend canonical view 把取消原因落在 failureMessage）。
-    //   不写 failedMessage，避免主页误触发红色「Mission 失败」横幅
-    //   （2026-05-30「取消不满屏红」决策）；Settings 弹窗专读 cancelledMessage。
-    out.cancelledMessage = m.failureMessage;
   } else if (m.status === 'quality-failed') {
     out.rejectedAt = finishedAt;
     out.rejectedReason = m.failureCode ?? undefined;
@@ -140,19 +135,13 @@ function dvProjectStages(view: MissionDetailView): StageState[] {
   const hasCompletedAt = !!(m as { completedAt?: string }).completedAt;
   const hasFailedAt = !!(m as { failedAt?: string }).failedAt;
   const hasCancelledAt = !!(m as { cancelledAt?: string }).cancelledAt;
-  // 后端 resolvePublicStatus 暴露 6 值: starting/running/completed/quality-failed
-  //   /failed/cancelled (mission-view.projector resolvePublicStatus)。
-  //   failedAt/cancelledAt 时间戳是补充信号（status 落库 race window 兜底），
-  //   status 与时间戳任一命中都按终态处理。
+  // canonical status 字段只暴露 starting/running/completed/quality-failed 四值;
+  //   failure/cancel 通过 failedAt/cancelledAt 时间戳表达 (类型设计).
   const isTerminalSuccess =
     missionStatus === 'completed' ||
     missionStatus === 'quality-failed' ||
     hasCompletedAt;
-  const isTerminalFailure =
-    missionStatus === 'failed' ||
-    missionStatus === 'cancelled' ||
-    hasFailedAt ||
-    hasCancelledAt;
+  const isTerminalFailure = hasFailedAt || hasCancelledAt;
   for (const s of view.stages) {
     let effectiveStatus = s.status;
     if (effectiveStatus === 'running') {
@@ -256,12 +245,7 @@ function dvProjectAgents(
     ?.cancelledAt;
   const isTerminalSuccess =
     status === 'completed' || status === 'quality-failed' || hasCompletedAt;
-  // 同 dvProjectStages：status 6 值里的 failed/cancelled 也是终态信号。
-  const isTerminalFailure =
-    status === 'failed' ||
-    status === 'cancelled' ||
-    hasFailedAt ||
-    hasCancelledAt;
+  const isTerminalFailure = hasFailedAt || hasCancelledAt;
   const isTerminal = isTerminalSuccess || isTerminalFailure;
   if (isTerminal) {
     for (const a of out) {
@@ -318,12 +302,8 @@ function dvProjectCost(
       summedTokens += Math.max(0, dTok);
       summedCost += Math.max(0, dCost);
       if (stage && (dTok > 0 || dCost > 0)) {
-        // 能力轨 cost:tick.stage 发 recipe stepId（如 s3-researcher-collect），
-        //   基线/旧轨发业务 stage 词（researchers 等）。先归一到 5 阶段词表再聚合，
-        //   未知值原样保留（CostBreakdownPanel / StageBars 按业务词 find）。
-        const bucket = mapStepIdToStageId(stage) ?? stage;
-        const prev = byStageMap.get(bucket) ?? { tokensUsed: 0, costUsd: 0 };
-        byStageMap.set(bucket, {
+        const prev = byStageMap.get(stage) ?? { tokensUsed: 0, costUsd: 0 };
+        byStageMap.set(stage, {
           tokensUsed: prev.tokensUsed + dTok,
           costUsd: prev.costUsd + dCost,
         });
@@ -785,12 +765,6 @@ function dvCollectAgentTraces(
   //   - agent:observation → { kind: 'observation', toolId, output, latencyMs, tokensUsed, error }
   //   - agent:reflection → { kind: 'reflection', text or verdict }
   //   - agent:error    →  { kind: 'error', error }
-  //
-  // ★ Fix 4: 新增 playground.agent:trace 批量事件解析（能力轨 researcher 完成时
-  //   随 agent:lifecycle 发出的结构化 trace 快照；格式：payload.items[]，每项含
-  //   kind/'thought'|'action'|'observation', toolId, input, output, text, ts）。
-  //   这与 replay 路径兼容——capability mission 既有个别 agent:thought/action/observation
-  //   实时流，也可能有 trace 快照，两路都收；trace 按 ts 去重合并。
   const out = new Map<string, AgentTraceItem[]>();
   for (const ev of events) {
     if (!ev || typeof ev !== 'object') continue;
@@ -801,71 +775,6 @@ function dvCollectAgentTraces(
       timestamp?: number;
     };
     if (!e.type) continue;
-
-    // ★ Fix 4: playground.agent:trace 批量事件（能力轨快照）
-    if (
-      e.type === 'playground.agent:trace' ||
-      e.type === 'agent:trace' ||
-      e.type.endsWith('.agent:trace')
-    ) {
-      const p = e.payload ?? {};
-      const agentId =
-        (typeof p.agentId === 'string' ? p.agentId : undefined) ?? e.agentId;
-      if (!agentId) continue;
-      const items = Array.isArray(p.items) ? p.items : [];
-      if (items.length === 0) continue;
-      const trace = out.get(agentId) ?? [];
-      for (const it of items as unknown[]) {
-        if (!it || typeof it !== 'object') continue;
-        const item = it as Record<string, unknown>;
-        const itemKind = typeof item.kind === 'string' ? item.kind : undefined;
-        const itemTs =
-          typeof item.ts === 'number' ? item.ts : (e.timestamp ?? 0);
-        if (itemKind === 'thought' || itemKind === 'reflection') {
-          trace.push({
-            kind: itemKind as 'thought' | 'reflection',
-            ts: itemTs,
-            text: typeof item.text === 'string' ? item.text : undefined,
-          });
-        } else if (itemKind === 'action') {
-          trace.push({
-            kind: 'action',
-            ts: itemTs,
-            toolId: typeof item.toolId === 'string' ? item.toolId : undefined,
-            input: item.input,
-            text: typeof item.text === 'string' ? item.text : undefined,
-          });
-        } else if (itemKind === 'observation') {
-          trace.push({
-            kind: 'observation',
-            ts: itemTs,
-            toolId: typeof item.toolId === 'string' ? item.toolId : undefined,
-            output: item.output,
-            text: typeof item.text === 'string' ? item.text : undefined,
-            latencyMs:
-              typeof item.latencyMs === 'number' ? item.latencyMs : undefined,
-            tokensUsed:
-              typeof item.tokensUsed === 'number' ? item.tokensUsed : undefined,
-            error: typeof item.error === 'string' ? item.error : undefined,
-          });
-        } else if (itemKind === 'error') {
-          trace.push({
-            kind: 'error',
-            ts: itemTs,
-            error:
-              typeof item.error === 'string'
-                ? item.error
-                : typeof item.text === 'string'
-                  ? item.text
-                  : undefined,
-          });
-        }
-      }
-      trace.sort((a, b) => a.ts - b.ts);
-      out.set(agentId, trace);
-      continue;
-    }
-
     const kind = dvTraceKindFromEventType(e.type);
     if (!kind) continue;
     const p = e.payload ?? {};
@@ -964,57 +873,12 @@ function dvCollectAgentSummary(
       timestamp?: number;
     };
     if (!e.type) continue;
-
-    // ★ #16b：dimension:research:started / dimension:research:completed 事件
-    //   只携带 payload.dimension（无 agentId）。用 dimension 伪造 agentId =
-    //   "researcher#<dim>"，让 dvCollectAgentSummary 能追踪 researcher 生命周期。
-    //   事件来自 capability path domain bridge，与 agent:lifecycle 等价（role=researcher）。
-    if (
-      e.type.endsWith('.dimension:research:started') ||
-      e.type === 'dimension:research:started' ||
-      e.type.endsWith('.dimension:research:completed') ||
-      e.type === 'dimension:research:completed'
-    ) {
-      const dim =
-        typeof e.payload?.dimension === 'string'
-          ? e.payload.dimension
-          : undefined;
-      if (dim) {
-        const syntheticId = `researcher#${dim}`;
-        const a =
-          out.get(syntheticId) ??
-          ({
-            agentId: syntheticId,
-            role: 'researcher' as AgentRole,
-            dimension: dim,
-            phase: 'pending' as AgentPhase,
-            trace: traceByAgent.get(syntheticId) ?? [],
-          } as AgentLiveState);
-        const isCompleted = e.type.includes(':completed');
-        if (isCompleted) {
-          a.phase = 'completed';
-          a.endedAt = e.timestamp;
-        } else {
-          if (a.phase === 'pending') a.phase = 'running';
-          a.startedAt ??= e.timestamp;
-        }
-        out.set(syntheticId, a);
-      }
-      continue;
-    }
-
     const agentId =
       (typeof e.payload?.agentId === 'string'
         ? e.payload.agentId
         : undefined) ?? e.agentId;
     if (!agentId) continue;
-    const rawRole = dvExtractRole(e) ?? dvDeriveRoleFromAgentId(agentId);
-    // ★ Fix 2 (2026-06-09): backend event payload 可能直接携带 role='reconciler'/
-    //   'critic'（todo-board.projector 原值），不经过 deriveRoleFromAgentId 归一。
-    //   对齐 agent-view.projector.ts 的别名策略（reconciler→analyst / critic→reviewer）
-    //   再走 DV_KNOWN_AGENT_ROLES 过滤，否则这两类 agent 被静默丢弃，lifecycle/trace
-    //   数据全部丢失（model 列恒 "-"，token/trace 统计空白）。
-    const role = dvNormalizeRole(rawRole);
+    const role = dvExtractRole(e) ?? dvDeriveRoleFromAgentId(agentId);
     if (!role || !DV_KNOWN_AGENT_ROLES.has(role)) continue;
     const a =
       out.get(agentId) ??
@@ -1035,33 +899,11 @@ function dvCollectAgentSummary(
     ) {
       const p = e.payload ?? {};
       const phase = p.phase;
-
-      // ★ C14 修复：后端对每个并行 researcher 维度发出的 agent:lifecycle 都使用同一
-      //   specId（'playground.researcher'）作为 agentId，导致所有维度折叠成一行。
-      //   当 payload.dimension 存在時、该事件路由到与 dimension:research:* 事件
-      //   共享的 per-dimension key（`researcher#${dim}`），两个 key space 统一。
-      //   不含 dimension 的事件（leader / analyst / writer 等）保持原有 agentId 路由。
-      const lifecycleDim =
-        typeof p.dimension === 'string' ? p.dimension : undefined;
-      // dimension:research:* 路径用 `researcher#${dim}`，此处对齐同一 key。
-      const lifecycleKey =
-        lifecycleDim != null ? `researcher#${lifecycleDim}` : agentId;
-
-      const a =
-        out.get(lifecycleKey) ??
-        ({
-          agentId: lifecycleKey,
-          role,
-          phase: 'pending' as AgentPhase,
-          trace: traceByAgent.get(lifecycleKey) ?? [],
-          ...(lifecycleDim != null ? { dimension: lifecycleDim } : {}),
-        } as AgentLiveState);
-
       if (phase === 'started') {
         if (a.phase === 'pending') a.phase = 'running';
         a.startedAt ??= e.timestamp;
         if (typeof p.attempt === 'number') a.attempt = p.attempt;
-        // dimension 已通过 lifecycleDim 写入 entry，无需再次赋值。
+        if (typeof p.dimension === 'string') a.dimension = p.dimension;
       } else if (phase === 'completed') {
         a.phase = 'completed';
         a.endedAt = e.timestamp;
@@ -1085,22 +927,7 @@ function dvCollectAgentSummary(
         if (typeof p.iterations === 'number') a.iterations = p.iterations;
       }
       if (typeof p.modelId === 'string') a.modelId = p.modelId;
-      // ★ #16b：domain bridge 发的 agent:lifecycle 携带 tokensUsed / costUsd / costCents。
-      //   fallback 路径（view.agents 空时纯靠事件推 agent 状态）需从此处提取，
-      //   与 dvProjectAgents canonical 路径（读 ca.tokensUsed / ca.costUsd）等价。
-      //   costUsd 优先（backend helper 已换算），次选 costCents/100（旧快照兼容）。
-      if (phase === 'completed' || phase === 'failed') {
-        if (typeof p.tokensUsed === 'number')
-          a.tokensUsed = (a.tokensUsed ?? 0) + p.tokensUsed;
-        const costUsd =
-          typeof p.costUsd === 'number'
-            ? p.costUsd
-            : typeof p.costCents === 'number'
-              ? p.costCents / 100
-              : undefined;
-        if (costUsd !== undefined) a.costUsd = (a.costUsd ?? 0) + costUsd;
-      }
-      out.set(lifecycleKey, a);
+      out.set(agentId, a);
       continue;
     }
     // dimension:retrying → 把 agent.retryCount + lastRetryReason 落上
@@ -1149,23 +976,6 @@ function dvCollectAgentSummary(
     out.set(agentId, a);
   }
   return [...out.values()];
-}
-
-/**
- * 别名归一：把 backend 直接写入事件 payload 的扩展 role 值映射到 5 个
- * canonical AgentRole（对齐 agent-view.projector.ts deriveRoleFromAgentId）。
- *   reconciler → analyst（聚合/对账类）
- *   critic     → reviewer（质量审查类）
- * 其它合法值原样透传；null 原样透传。
- *
- * 入参用 string | null 宽类型：dvExtractRole 通过 `as AgentRole` 强转 payload.role，
- * 实际可能携带 'reconciler'/'critic' 等不在 AgentRole 联合类型里的值。
- */
-function dvNormalizeRole(role: string | null): AgentRole | null {
-  if (role === null) return null;
-  if (role === 'reconciler') return 'analyst';
-  if (role === 'critic') return 'reviewer';
-  return role as AgentRole;
 }
 
 function dvDeriveRoleFromAgentId(agentId: string): AgentRole | null {
@@ -1229,9 +1039,7 @@ function dvDeriveAgentVerbFromEventType(
 function dvMapBackendStageStatusToStep(
   status: 'pending' | 'running' | 'done' | 'failed' | 'skipped'
 ): StepStatus {
-  // 'skipped' 保形透传（不再降格成 'done'）——让 aggregateStageStatus 能区分
-  //   「全跳过」的 stage，TeamRosterPanel 据此渲染灰色「跳过」节点；
-  //   含 done 的混合 stage 仍聚合为 done。
+  if (status === 'skipped') return 'done';
   return status;
 }
 

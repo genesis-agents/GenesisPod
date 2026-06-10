@@ -202,23 +202,14 @@ function extractVerdicts(
   row: MissionDetail,
   events: ReadonlyArray<{ type: string; payload: unknown; timestamp: number }>,
 ): VerifierVerdictView[] {
-  // 优先用 mission row 上持久化的 verdicts（最终态）。
-  // 能力轨 S10 写入的 verifierVerdicts 形状是 [{dimension,score}]（10 维客观评估
-  // 逐维分，无 verifierId 字段）——verifierId 缺失时回退 dimension 作行标识；
-  // 全部过滤掉时不 return []，继续走 events 派生兜底。
+  // 优先用 mission row 上持久化的 verdicts（最终态）
   if (Array.isArray(row.verdicts) && row.verdicts.length > 0) {
-    const fromRow = (row.verdicts as Array<Record<string, unknown>>)
+    return (row.verdicts as Array<Record<string, unknown>>)
       .filter(
-        (v) =>
-          (typeof v.verifierId === "string" ||
-            typeof v.dimension === "string") &&
-          typeof v.score === "number",
+        (v) => typeof v.verifierId === "string" && typeof v.score === "number",
       )
       .map((v) => ({
-        verifierId:
-          typeof v.verifierId === "string"
-            ? v.verifierId
-            : (v.dimension as string),
+        verifierId: v.verifierId as string,
         score: v.score as number,
         critique: typeof v.critique === "string" ? v.critique : undefined,
         criteria:
@@ -228,7 +219,6 @@ function extractVerdicts(
         modelId: typeof v.modelId === "string" ? v.modelId : undefined,
         attempt: typeof v.attempt === "number" ? v.attempt : undefined,
       }));
-    if (fromRow.length > 0) return fromRow;
   }
   // 否则从 events 派生（mission 进行中或老数据无 row verdicts）
   const out: VerifierVerdictView[] = [];
@@ -259,19 +249,13 @@ function extractVerdicts(
 function extractMemoryIndex(
   events: ReadonlyArray<{ type: string; payload: unknown }>,
 ): MemoryIndexView | null {
-  // 取最近一条 memory 索引事件。注册名是 "memory:indexed"（playground.events.ts），
-  // 旧两个后缀仅为历史持久化事件兼容保留。
+  // 取最近一条 memory.index 事件
   for (let i = events.length - 1; i >= 0; i--) {
     const ev = events[i];
     const suffix = ev.type.includes(".")
       ? ev.type.slice(ev.type.indexOf(".") + 1)
       : ev.type;
-    if (
-      suffix !== "memory:indexed" &&
-      suffix !== "memory.index" &&
-      suffix !== "memory:index"
-    )
-      continue;
+    if (suffix !== "memory.index" && suffix !== "memory:index") continue;
     const p = ev.payload as Record<string, unknown> | null;
     if (p && typeof p.chunks === "number") {
       return {

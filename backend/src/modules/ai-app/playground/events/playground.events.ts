@@ -47,7 +47,6 @@ import {
   AgentReflectionSchema,
   AgentErrorSchema,
   AgentNarrativeSchema,
-  AgentTraceSchema,
   AgentValidationRejectedSchema,
   // researcher / verifier / critic
   ResearcherCompletedSchema,
@@ -174,8 +173,6 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   S("report:draft", ReportDraftSchema),
   S("draft:completed", DraftCompletedSchema), // S8 写作环节完成
   S("report:assembled", ReportAssembledSchema), // S8 reportArtifact v2 装配完成
-  // 发射点：deep-insight S12 postlude（postmortem 写入 harness_vector_memory 后）
-  // + 旧 s8 stage（仅局部重跑路径仍可达）。
   S("memory:indexed", MemoryIndexedSchema),
   // ── per-dim research lifecycle ──
   S("dimension:research:started", DimensionResearchStartedSchema),
@@ -217,9 +214,6 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   S("leader:signed", LeaderSignedSchema), // M7 Leader 签字（含 score/verdict/signed/refusalReason）
   S("dimension:retrying", DimensionRetryingSchema), // ★ schema 化
   S("dimension:retry-failed", DimensionRetryFailedSchema),
-  // ── 结构化过程追踪（抽屉 timeline tool-call 可见性）──
-  // kind: "thought"|"action"|"observation"；前端 AgentTraceItem 消费
-  S("agent:trace", AgentTraceSchema),
   // ── 人话叙事事件（agent-narrative.md）──
   S("agent:narrative", AgentNarrativeSchema),
   // ── S12 self-evolution（mission 复盘）──

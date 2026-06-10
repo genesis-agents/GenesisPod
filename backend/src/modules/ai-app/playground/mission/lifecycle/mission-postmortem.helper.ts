@@ -11,7 +11,6 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { EmbeddingService } from "@/modules/ai-engine/facade";
 import {
   BusinessTeamPostmortemHelperFramework,
-  PrismaVectorStore,
   type PostmortemHelperHooks,
   type PostmortemListBase,
   type PostmortemRecordBase,
@@ -38,11 +37,7 @@ export class MissionPostmortemHelper extends BusinessTeamPostmortemHelperFramewo
   PlaygroundPostmortemRecord,
   PlaygroundPostmortemListItem
 > {
-  constructor(
-    prisma: PrismaService,
-    embeddingService?: EmbeddingService,
-    vectorStore?: PrismaVectorStore,
-  ) {
+  constructor(prisma: PrismaService, embeddingService?: EmbeddingService) {
     const hooks: PostmortemHelperHooks<
       PlaygroundPostmortemRecord,
       PlaygroundPostmortemListItem
@@ -100,37 +95,7 @@ export class MissionPostmortemHelper extends BusinessTeamPostmortemHelperFramewo
         });
         return row?.id ?? null;
       },
-      listVectorMemories: async (userId, limit, queryEmbedding) => {
-        // 语义路径：有 queryEmbedding + vectorStore → cosine 召回（PrismaVectorStore.recall）
-        if (queryEmbedding && queryEmbedding.length > 0 && vectorStore) {
-          const hits = await vectorStore.recall(queryEmbedding, {
-            namespace: userId,
-            k: limit,
-            tags: ["mission-postmortem", "playground"],
-          });
-          return hits.map(({ entry: r }) => {
-            const meta = r.metadata ?? {};
-            return {
-              missionId: String(meta.missionId ?? ""),
-              topic: String(meta.topic ?? ""),
-              summary: r.content,
-              recommendations: Array.isArray(meta.recommendations)
-                ? (meta.recommendations as string[])
-                : [],
-              leaderSigned: r.tags.includes("signed")
-                ? true
-                : r.tags.includes("unsigned")
-                  ? false
-                  : null,
-              qualityScore:
-                typeof meta.qualityScore === "number"
-                  ? meta.qualityScore
-                  : null,
-              createdAt: r.createdAt,
-            };
-          });
-        }
-        // 回退路径：recency 倒序（无 queryEmbedding / 无 vectorStore）
+      listVectorMemories: async (userId, limit) => {
         const rows = await prisma.harnessVectorMemory.findMany({
           where: {
             namespace: userId,

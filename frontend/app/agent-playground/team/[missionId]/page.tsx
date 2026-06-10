@@ -289,9 +289,6 @@ export default function MissionDetailPage() {
         'playground.mission:completed',
         'playground.mission:failed',
         'playground.mission:cancelled',
-        // abort（wall-time 超限 / budget 闸）只发 execution-aborted，
-        // 后续 mission:failed 可能晚到或丢失——abort 即触发 refetch。
-        'playground.mission:execution-aborted',
         'playground.mission:rerun-completed',
         'playground.mission:rerun-failed',
         'playground.rerun:cascade-aborted',
@@ -652,7 +649,6 @@ export default function MissionDetailPage() {
             dimensionRef?: string;
             systemStageId?: string;
             retryPipelineKey?: string;
-            failedStage?: string;
           }>;
         }
       | undefined;
@@ -703,9 +699,6 @@ export default function MissionDetailPage() {
         dimensionRef: entry.dimensionRef,
         systemStageId: entry.systemStageId as MissionTodo['systemStageId'],
         pipelineKey: entry.retryPipelineKey,
-        // backend projector 补发后即可区分「撰写失败」vs「采集失败」；缺失时
-        // MissionTodoBoard 退化为现状（一律采集失败）。
-        failedStage: entry.failedStage,
       })
     );
   }, [missionView]);
@@ -877,11 +870,7 @@ export default function MissionDetailPage() {
     const wsDismissed = !!dismissedWsBanner[missionId];
     const showWsError = !!(error && connState !== 'live') && !wsDismissed;
     const failedDismissed = !!dismissedFailedBanner[missionId];
-    // quality-failed 终态写 rejectedMessage（非 failedMessage），原门控只看
-    //   failedMessage → 「Leader 拒签」amber 横幅永不显示。两者取其一即放行。
-    const failureBannerText =
-      view.mission.failedMessage ?? view.mission.rejectedMessage;
-    const showFailedBanner = !!failureBannerText && !failedDismissed;
+    const showFailedBanner = !!view.mission.failedMessage && !failedDismissed;
     if (!showWsError && !showFailedBanner) return null;
     return (
       <div className="space-y-2 border-b border-gray-200 bg-white px-4 py-2">
@@ -913,7 +902,7 @@ export default function MissionDetailPage() {
                   Leader 拒签 · 质量未达标但报告可阅读
                 </p>
                 <p className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap break-words leading-relaxed text-amber-900/90">
-                  {failureBannerText}
+                  {view.mission.failedMessage}
                 </p>
                 <button
                   type="button"
@@ -943,7 +932,7 @@ export default function MissionDetailPage() {
               <div className="min-w-0 flex-1">
                 <p className="font-semibold">Mission 失败</p>
                 <p className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap break-words leading-relaxed text-red-900/90">
-                  {failureBannerText}
+                  {view.mission.failedMessage}
                 </p>
               </div>
               <button
@@ -1817,32 +1806,20 @@ function MissionSettingsModal({
         {(() => {
           const m = mission as {
             status?: string;
-            failedMessage?: string;
-            cancelledMessage?: string;
-            rejectedMessage?: string;
             errorMessage?: string | null;
           };
           // ★ 2026-05-30：失败原因横幅此前只在 status==='failed' 渲染，导致 cancelled /
           //   quality-failed 终态（含"额度耗尽被判 cancelled"）完全不显示原因。改为所有
           //   非成功终态都展示，让用户看得到"为什么停了"。
-          // ★ 2026-06-10：DerivedView mission 暴露的是 failedMessage（failed）/
-          //   cancelledMessage（cancelled，专用字段不污染主页失败横幅）/
-          //   rejectedMessage（quality-failed），errorMessage 在该形状上从不存在
-          //   （死路径），保留为最后兜底。
           const isFailish =
             m.status === 'failed' ||
             m.status === 'cancelled' ||
             m.status === 'quality-failed';
-          const failureText =
-            m.failedMessage ??
-            m.cancelledMessage ??
-            m.rejectedMessage ??
-            m.errorMessage;
-          if (!isFailish || !failureText) return null;
+          if (!isFailish || !m.errorMessage) return null;
           return (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[11px] leading-relaxed text-amber-900">
               <p className="font-semibold">上次未成功原因</p>
-              <p className="mt-0.5">{failureText}</p>
+              <p className="mt-0.5">{m.errorMessage}</p>
               <p className="mt-1 text-amber-700">
                 如为预算 / 密钥额度耗尽，请充值对应
                 Provider，或提高下方「调研规模」档位 / 自定义 Credits

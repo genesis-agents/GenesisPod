@@ -84,14 +84,7 @@ function stageStatusToNodeStatus(s: StageState['status']): TeamNodeStatus {
   if (s === 'running') return 'working';
   if (s === 'done') return 'completed';
   if (s === 'failed') return 'failed';
-  // 'skipped'：拓扑无独立 skipped 节点态（TeamNodeStatus 跨模块 canonical），
-  //   归到中性灰 'idle'，由调用方的 statusLabel 标注「跳过」区分于「待启动」。
   return 'idle';
-}
-
-/** stage 状态是否为「跳过」——决定节点 statusLabel 显示「跳过」而非「待启动」。 */
-function isSkippedStage(s: StageState['status'] | undefined): boolean {
-  return s === 'skipped';
 }
 
 const CollapseIcon = ({ className }: { className?: string }) => (
@@ -355,9 +348,6 @@ export function TeamRosterPanel({
         const completed = roleAgents.filter(
           (a) => a.phase === 'completed'
         ).length;
-        // skipped stage 在终态 sweep 后仍可能为 idle —— 优先标「跳过」（中性灰），
-        //   不与「待启动」（同样 idle）混淆。
-        const skipped = !isMissionTerminal && isSkippedStage(stage?.status);
         nodes.push({
           id: r.role,
           name: r.label,
@@ -369,9 +359,7 @@ export function TeamRosterPanel({
               ? '运行中'
               : status === 'completed'
                 ? '完成'
-                : skipped
-                  ? '跳过'
-                  : undefined,
+                : undefined,
           colorKey: ROLE_COLOR_KEY[r.role],
           isLeader: r.role === 'leader',
           avatarRole: ROLE_AVATAR[r.role],

@@ -224,9 +224,19 @@ export function resolveMissionWallTimeMs(input: RunMissionInput): number {
   return DEPTH_BUDGET_TIERS[input.depth].wallTimeCapMs;
 }
 
-// ★ 2026-06-08 上架沉淀：ResearchReport 契约挪到 deep-insight 能力共享层。此处留 re-export
-//   桩，存量 18 处 import（research/social/harness/company/export/playground）一字不改。
-export {
-  ResearchReportSchema,
-  type ResearchReport,
-} from "../../../marketplace/capabilities/deep-insight/contract/research-report.schema";
+export const ResearchReportSchema = z.object({
+  title: z.string().min(2),
+  summary: z.string().min(20),
+  sections: z
+    .array(
+      z.object({
+        heading: z.string(),
+        body: z.string(),
+        sources: z.array(z.string().url()).optional(),
+      }),
+    )
+    .min(1),
+  conclusion: z.string().min(20),
+  citations: z.array(z.string().url()).optional(),
+});
+export type ResearchReport = z.infer<typeof ResearchReportSchema>;

@@ -29,9 +29,6 @@ import {
   XCircle,
   Database,
   PiggyBank,
-  Wrench,
-  ChevronDown,
-  ChevronRight as ChevronRightIcon,
   type LucideIcon,
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/states/EmptyState';
@@ -142,21 +139,9 @@ interface FlowEvent {
   text: string;
   /** optional metadata */
   meta?: string;
-  /**
-   * ★ Fix 2: 原始 narrative tag（'thinking' / 'planning' / 'searching' 等）。
-   * 用于区分长思考文本（thinking）和工具调用快照（searching/planning）的渲染策略。
-   */
-  tag?: string;
-  /** Fix 2: 工具 ID（action_planned / action_executed 类 narrative 携带） */
-  toolId?: string;
-  /** agent:lifecycle 降级完成（degraded:true）——黄色「降级」badge，不再一律全绿 */
-  degraded?: boolean;
-  /** dimension:research:completed 复用缓存结果——「复用缓存」chip */
-  reused?: boolean;
 }
 
-// 导出供单测断言（verifier 守卫 / degraded / reused 等纯函数行为）。
-export function buildFlowEvents(events: PlaygroundEvent[]): FlowEvent[] {
+function buildFlowEvents(events: PlaygroundEvent[]): FlowEvent[] {
   const out: FlowEvent[] = [];
   for (const ev of events) {
     // 2026-05-20: 规范化 namespace（同 derive.ts）—— social.* / playground.*
@@ -171,7 +156,6 @@ export function buildFlowEvents(events: PlaygroundEvent[]): FlowEvent[] {
       const role = p.role as string | undefined;
       const tag = p.tag as string | undefined;
       const dim = p.dimension as string | undefined;
-      const toolId = p.toolId as string | undefined;
       if (!text) continue;
       const tone =
         tag === 'success'
@@ -186,9 +170,6 @@ export function buildFlowEvents(events: PlaygroundEvent[]): FlowEvent[] {
         kind: 'narrative',
         role,
         tone,
-        // ★ Fix 2: 透传 tag/toolId 供渲染层区分 thinking / tool-call 卡片格式
-        tag,
-        toolId,
         text,
         meta: dim,
         agentId: ev.agentId,
@@ -206,47 +187,29 @@ export function buildFlowEvents(events: PlaygroundEvent[]): FlowEvent[] {
             : phase === 'failed'
               ? '失败'
               : phase;
-      // 后端把降级产出折叠进 phase='completed' + degraded:true 旁标——
-      // 不消费该旁标会把次优结果渲染成完全成功（全绿）。
-      const degraded = p.degraded === true;
       out.push({
         ts: ev.timestamp,
         kind: 'lifecycle',
         role,
         tone:
           phase === 'completed'
-            ? degraded
-              ? 'warn'
-              : 'success'
+            ? 'success'
             : phase === 'failed'
               ? 'error'
               : 'info',
         text: `${role}${dim ? `（${dim}）` : ''} ${verb}`,
-        degraded: degraded || undefined,
         agentId: ev.agentId,
       });
     } else if (t === 'verifier:verdict') {
-      // 守卫：能力轨 payload 可能缺 verifierId/score —— 无 score 的评分卡没有
-      // 信息量，跳过；缺 verifierId 时用中性文案，避免 'Judge "undefined"'。
-      const id =
-        typeof p.verifierId === 'string' && p.verifierId
-          ? p.verifierId
-          : undefined;
-      const score =
-        typeof p.score === 'number' && Number.isFinite(p.score)
-          ? p.score
-          : undefined;
-      if (score != null) {
-        out.push({
-          ts: ev.timestamp,
-          kind: 'verdict',
-          role: 'reviewer',
-          tone: score >= 80 ? 'success' : score >= 60 ? 'warn' : 'error',
-          text: id
-            ? `Judge "${id}" 评分 ${score}/100`
-            : `评审评分 ${score}/100`,
-        });
-      }
+      const id = p.verifierId as string;
+      const score = p.score as number;
+      out.push({
+        ts: ev.timestamp,
+        kind: 'verdict',
+        role: 'reviewer',
+        tone: score >= 80 ? 'success' : score >= 60 ? 'warn' : 'error',
+        text: `Judge "${id}" 评分 ${score}/100`,
+      });
     } else if (t === 'reconciliation:completed') {
       const fact = (p.factCount as number) ?? 0;
       const conflict = (p.conflictCount as number) ?? 0;
@@ -274,52 +237,6 @@ export function buildFlowEvents(events: PlaygroundEvent[]): FlowEvent[] {
               ? 'error'
               : 'warn',
         text: `Critic L4 · ${verdict ?? '?'}（盲点 ${blindspots} / 偏见 ${biases} / 建议 ${suggestions}）`,
-      });
-      // ★ #16b：capability bridge 新增事件——dimension 研究 + leader 决策
-    } else if (t === 'dimension:research:started') {
-      const dim = p.dimension as string | undefined;
-      if (dim) {
-        out.push({
-          ts: ev.timestamp,
-          kind: 'narrative',
-          role: 'researcher',
-          tone: 'info',
-          text: `开始采集「${dim}」`,
-          meta: dim,
-        });
-      }
-    } else if (t === 'dimension:research:completed') {
-      const dim = p.dimension as string | undefined;
-      const findings = (p.findingsCount as number | undefined) ?? 0;
-      if (dim) {
-        out.push({
-          ts: ev.timestamp,
-          kind: 'narrative',
-          role: 'researcher',
-          tone: 'success',
-          text: `「${dim}」采集完成（${findings} 条发现）`,
-          meta: dim,
-          // 后端复用缓存结果时旁标 reused:true ——「复用缓存」chip
-          reused: p.reused === true || undefined,
-        });
-      }
-    } else if (t === 'leader:goals-set') {
-      const dims = Array.isArray(p.dimensions) ? p.dimensions : [];
-      out.push({
-        ts: ev.timestamp,
-        kind: 'narrative',
-        role: 'leader',
-        tone: 'info',
-        text: `Leader 拆出 ${dims.length} 个研究维度`,
-      });
-    } else if (t === 'leader:decision') {
-      const decision = p.decision as string | undefined;
-      out.push({
-        ts: ev.timestamp,
-        kind: 'narrative',
-        role: 'leader',
-        tone: decision === 'accept-all' ? 'success' : 'warn',
-        text: `Leader 评估决定：${decision ?? '?'}`,
       });
     }
   }
@@ -413,102 +330,6 @@ function TONE_DOT(tone?: 'info' | 'success' | 'warn' | 'error'): string {
       : tone === 'error'
         ? 'bg-red-500'
         : 'bg-blue-500';
-}
-
-/**
- * Fix 2: 思考/推理条目的折叠卡片。
- * 默认折叠（> ~300 字符时）；展开后 whitespace-pre-wrap + 内部滚动。
- */
-function ThinkingCard({
-  text,
-  preview,
-  defaultExpanded,
-  tone,
-}: {
-  text: string;
-  preview: string;
-  defaultExpanded: boolean;
-  tone: { bg: string; text: string; border: string };
-}) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
-  return (
-    <div>
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className={cn(
-          'flex w-full items-start gap-1.5 rounded text-left text-[12px] leading-relaxed',
-          tone.text
-        )}
-        aria-expanded={expanded}
-      >
-        {expanded ? (
-          <ChevronDown className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
-        ) : (
-          <ChevronRightIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
-        )}
-        <span
-          className={cn(!expanded && 'line-clamp-2', 'flex-1 text-gray-800')}
-        >
-          {expanded ? null : preview}
-        </span>
-      </button>
-      {expanded && (
-        <div className="mt-1.5 max-h-64 overflow-y-auto rounded border border-gray-100 bg-white/60 p-2">
-          <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-gray-800">
-            {text}
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** Fix 2: 工具调用紧凑 chip */
-function ToolCallChip({
-  toolId,
-  summary,
-  tone,
-}: {
-  toolId: string;
-  summary: string;
-  tone: { bg: string; text: string; border: string };
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <span
-        className={cn(
-          'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium ring-1',
-          tone.bg,
-          tone.text,
-          tone.border.replace('border-', 'ring-')
-        )}
-      >
-        <Wrench className="h-3 w-3 shrink-0" />
-        {toolId}
-      </span>
-      {summary && (
-        <span className="max-w-xs truncate text-[11px] text-gray-600">
-          {summary}
-        </span>
-      )}
-    </div>
-  );
-}
-
-/** Fix 2: 判断 tag 是否属于工具调用类别 */
-function isToolCallTag(tag?: string): boolean {
-  return (
-    tag === 'searching' ||
-    tag === 'planning' ||
-    tag === 'action_executed' ||
-    tag === 'action_planned'
-  );
-}
-
-/** Fix 2: 判断 tag 是否属于思考类别（长文本推理） */
-function isThinkingTag(tag?: string): boolean {
-  return tag === 'thinking' || tag === 'thinking-summary';
 }
 
 export function MissionFlowView({
@@ -769,16 +590,6 @@ export function MissionFlowView({
                           {f.meta}
                         </span>
                       )}
-                      {f.degraded && (
-                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">
-                          降级
-                        </span>
-                      )}
-                      {f.reused && (
-                        <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 ring-1 ring-sky-200">
-                          复用缓存
-                        </span>
-                      )}
                       <span className="ml-auto flex items-center gap-1.5">
                         <span className="font-mono text-[10px] font-semibold text-gray-600">
                           {fmtRelative(f.ts, anchor)}
@@ -788,38 +599,11 @@ export function MissionFlowView({
                         </span>
                       </span>
                     </div>
-                    {/* ★ Fix 2: 三路渲染策略
-                        - 思考/推理：tag='thinking'（ReAct 原始独白）一律默认折叠；
-                          其余 thinking 类 tag 超过 240 字才折叠。阈值必须 < 后端
-                          narrative 桥的 280 字截断（playground.pipeline
-                          buildNarrativeText），否则折叠卡永不触发（2026-06-10）。
-                        - 工具调用（searching/planning tag）：紧凑 chip 行
-                        - 其它：原有 ExpandableText 短文本展示 */}
-                    {isThinkingTag(f.tag) &&
-                    (f.tag === 'thinking' || f.text.length > 240) ? (
-                      <ThinkingCard
-                        text={f.text}
-                        preview={f.text.slice(0, 120)}
-                        defaultExpanded={false}
-                        tone={tone}
-                      />
-                    ) : isToolCallTag(f.tag) ? (
-                      <ToolCallChip
-                        toolId={f.toolId ?? f.tag ?? 'tool'}
-                        summary={
-                          f.text.length > 80
-                            ? f.text.slice(0, 80) + '…'
-                            : f.text
-                        }
-                        tone={tone}
-                      />
-                    ) : (
-                      <ExpandableText
-                        text={f.text}
-                        maxChars={240}
-                        className="block text-[12.5px] leading-relaxed text-gray-800"
-                      />
-                    )}
+                    <ExpandableText
+                      text={f.text}
+                      maxChars={240}
+                      className="block text-[12.5px] leading-relaxed text-gray-800"
+                    />
                   </div>
                 </li>
               );

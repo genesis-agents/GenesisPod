@@ -72,14 +72,8 @@ interface Props {
   dimensionPipelines?: Map<string, DimensionPipelineState>;
   /** 全量 todos 列表 — 用于 dim 父级 drawer 展示「本维度被 Leader 要求修改了什么」 */
   allTodos?: MissionTodo[];
-  /** T75: canonical view.stages[] —— system-stage drawer 直接读 processTrace +
-   *  status/detail 渲染（失败原因 / 跳过标记）。 */
-  stages?: ReadonlyArray<{
-    id: string;
-    status?: string;
-    detail?: string;
-    processTrace?: StageProcessTrace;
-  }>;
+  /** T75: canonical view.stages[] —— system-stage drawer 直接读 processTrace 渲染 */
+  stages?: ReadonlyArray<{ id: string; processTrace?: StageProcessTrace }>;
   /** T75 streaming: live event stream，叠加到 stage.processTrace 实时刷新 Drawer */
   events?: ReadonlyArray<{
     type: string;
@@ -833,11 +827,10 @@ export function TodoDetailDrawer({
   //   叠加本地实时 reactTrace（在 backend view refetch 250ms+ 窗口内也能看到新事件）。
   const targetStageId =
     todo && todo.scope === 'system' ? todo.systemStageId : undefined;
-  const canonicalStage = useMemo(() => {
+  const canonicalProcessTrace = useMemo(() => {
     if (!targetStageId || !stages) return undefined;
-    return stages.find((s) => s.id === targetStageId);
+    return stages.find((s) => s.id === targetStageId)?.processTrace;
   }, [targetStageId, stages]);
-  const canonicalProcessTrace = canonicalStage?.processTrace;
   const liveProcessTrace = useStageProcessTrace(
     targetStageId,
     events ?? [],
@@ -967,13 +960,6 @@ export function TodoDetailDrawer({
               agentId={todo.assignee.agentId}
               size="xs"
             />
-            {/* canonical stage status='skipped'（条件不满足未执行）——todo 终态
-                sweep 会把它扫成绿色 done，这里用灰色「跳过」纠正语义。 */}
-            {canonicalStage?.status === 'skipped' && (
-              <span className="inline-flex items-center whitespace-nowrap rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500 ring-1 ring-gray-200">
-                跳过
-              </span>
-            )}
           </div>
           <h2 className="mt-1 truncate text-base font-semibold text-gray-900">
             {todo.title}
@@ -1028,17 +1014,13 @@ export function TodoDetailDrawer({
           />
           <MetricStat
             label="Tokens"
-            value={(() => {
-              // ★ Fix 1 (2026-06-09): capability-track observations 不携带 tokensUsed
-              //   → sections.totalTokens 恒 0。用 linkedAgent.tokensUsed 兜底（由
-              //   agent:lifecycle 终态事件填充，不依赖 trace observation 求和）。
-              const t =
-                sections.totalTokens > 0
-                  ? sections.totalTokens
-                  : (linkedAgent?.tokensUsed ?? 0);
-              if (t <= 0) return null;
-              return t >= 1000 ? `${(t / 1000).toFixed(1)}k` : t;
-            })()}
+            value={
+              sections.totalTokens > 0
+                ? sections.totalTokens >= 1000
+                  ? `${(sections.totalTokens / 1000).toFixed(1)}k`
+                  : sections.totalTokens
+                : null
+            }
           />
           <MetricStat
             label="工具调用"
@@ -1189,34 +1171,6 @@ export function TodoDetailDrawer({
               className="text-[13px] leading-relaxed text-red-800"
             />
           </ToneCard>
-        )}
-
-        {/* system-stage 失败原因：canonical view.stages[].detail（stage-view
-            projector 写入）。无 linkedAgent.failureMessage 时这是唯一原因来源——
-            否则失败 stage 只有红点没有"为什么"。 */}
-        {(todo.status === 'failed' || canonicalStage?.status === 'failed') &&
-          !linkedAgent?.failureMessage &&
-          canonicalStage?.detail && (
-            <ToneCard tone="error" label="阶段失败原因">
-              <ExpandableText
-                text={friendlyError(canonicalStage.detail)}
-                maxChars={400}
-                className="text-[13px] leading-relaxed text-red-800"
-              />
-            </ToneCard>
-          )}
-
-        {/* skipped stage：灰色说明卡（条件不满足未执行，非"已完成"） */}
-        {canonicalStage?.status === 'skipped' && (
-          <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
-              阶段被跳过
-            </p>
-            <p className="mt-1 text-[13px] leading-relaxed text-gray-600">
-              {canonicalStage.detail ??
-                '本阶段执行条件不满足，已被跳过（未实际运行）。'}
-            </p>
-          </div>
         )}
 
         {/* T75 streaming: system-stage Drawer 渲染 liveProcessTrace —— canonical

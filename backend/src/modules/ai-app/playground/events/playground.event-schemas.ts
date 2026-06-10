@@ -82,10 +82,7 @@ export const MissionRejectedSchema = z.object({}).passthrough();
 export type MissionRejectedPayload = z.infer<typeof MissionRejectedSchema>;
 
 // ─────────── mission:warning ───────────
-// 两类生产者：
-//   liveness guard: { ageMs, source, message, eventAgeMs, heartbeatAgeMs }
-//   runtime shell (mission-runtime-shell.framework.ts SINGLE_MODEL_NO_FALLBACK):
-//     { code, modelId, userMessage } —— 无 message 字段，消费方需兼容 userMessage
+// prod: { ageMs, source, message, eventAgeMs, heartbeatAgeMs }
 export const MissionWarningSchema = z
   .object({
     source: z.string().optional(),
@@ -93,9 +90,6 @@ export const MissionWarningSchema = z
     ageMs: z.number().optional(),
     eventAgeMs: z.number().optional(),
     heartbeatAgeMs: z.number().optional(),
-    code: z.string().optional(),
-    modelId: z.string().optional(),
-    userMessage: z.string().optional(),
   })
   .passthrough();
 export type MissionWarningPayload = z.infer<typeof MissionWarningSchema>;
@@ -428,8 +422,7 @@ export const AgentErrorSchema = z
 export type AgentErrorPayload = z.infer<typeof AgentErrorSchema>;
 
 // ─────────── agent:narrative ───────────
-// prod: { tag, role, text, stage, agentId, dimension?, toolId? }
-// Fix 3（2026-06-09）：新增 toolId 可选字段，让 MissionFlowView ToolCallChip 显示真实工具名。
+// prod: { tag, role, text, stage, agentId, dimension? }
 export const AgentNarrativeSchema = z
   .object({
     tag: z.string().optional(),
@@ -438,45 +431,9 @@ export const AgentNarrativeSchema = z
     stage: z.string().optional(),
     agentId: z.string().optional(),
     dimension: z.string().optional(),
-    toolId: z.string().optional(),
   })
   .passthrough();
 export type AgentNarrativePayload = z.infer<typeof AgentNarrativeSchema>;
-
-// ─────────── agent:trace ───────────
-// 结构化过程追踪（工具调用可见于抽屉 timeline）。
-// 前端 dvCollectAgentTraces 消费 payload.agentId + payload.items[] 批量格式。
-// items 每项包含：kind("thought"|"action"|"observation") / toolId / text / ts / input? / output?
-// kind 映射（Fix 2，2026-06-09）：
-//   thinking → thought；action_planned → thought（归并，避免工具调用双计）；
-//   action_executed → action（透传 input/output）+ observation（toolId/output）。
-// 2026-06-10：放开 'reflection' / 'error'——第一波因 schema 限制把 relay 的
-//   reflection 降格为 thought；前端 dvCollectAgentTraces 已支持这两 kind，
-//   schema 放开后 relay reflection case 即可直接产 reflection 卡（Drawer「反思」卡）。
-export const AgentTraceItemSchema = z
-  .object({
-    kind: z.enum(["thought", "action", "observation", "reflection", "error"]),
-    ts: z.number(),
-    text: z.string().optional(),
-    toolId: z.string().optional(),
-    input: z.unknown().optional(),
-    output: z.unknown().optional(),
-    latencyMs: z.number().optional(),
-    tokensUsed: z.number().optional(),
-    error: z.string().optional(),
-  })
-  .passthrough();
-
-export const AgentTraceSchema = z
-  .object({
-    agentId: z.string(),
-    role: z.string().optional(),
-    dimension: z.string().optional(),
-    stepId: z.string().optional(),
-    items: z.array(AgentTraceItemSchema),
-  })
-  .passthrough();
-export type AgentTracePayload = z.infer<typeof AgentTraceSchema>;
 
 // ─────────── agent:validation-rejected ───────────
 // prod: { role, issues, agentId, maxRejects, originalTs, rejectCount }
@@ -524,12 +481,12 @@ export const VerifierVerdictSchema = z
 export type VerifierVerdictPayload = z.infer<typeof VerifierVerdictSchema>;
 
 // ─────────── cost:tick ───────────
-// 实发（agent-invoke.helper.ts / event-relay.framework.ts）：仅增量字段
-// { stage, deltaTokens, deltaCostUsd }——累计值由消费方自行聚合；
-// 历史曾文档化累计 costUsd/tokensUsed，但无任何发送方，已删除声明（passthrough 兜底旧数据）。
+// prod: { stage, costUsd, tokensUsed, deltaTokens, deltaCostUsd }
 export const CostTickSchema = z
   .object({
     stage: z.string().optional(),
+    costUsd: z.number().optional(),
+    tokensUsed: z.number().optional(),
     deltaTokens: z.number().optional(),
     deltaCostUsd: z.number().optional(),
   })
@@ -989,20 +946,14 @@ export const ToolsRecalledSchema = z
 export type ToolsRecalledPayload = z.infer<typeof ToolsRecalledSchema>;
 
 // ─────────── reconciliation:completed (existing) ───────────
-// 实发（deep-insight-stage-bindings.ts s5 hooks 与旧 s5 stage 文件同形状）：
-// { factCount, conflictCount, overlapCount, gapCount,
-//   figureCandidateCount, alternativeHypothesisCount }
-// 旧声明 figureCount/warnings 无任何发送方，已对齐实发删除。
-export const ReconciliationCompletedSchema = z
-  .object({
-    factCount: z.number().optional(),
-    conflictCount: z.number().optional(),
-    overlapCount: z.number().optional(),
-    gapCount: z.number().optional(),
-    figureCandidateCount: z.number().optional(),
-    alternativeHypothesisCount: z.number().optional(),
-  })
-  .passthrough();
+export const ReconciliationCompletedSchema = z.object({
+  factCount: z.number().optional(),
+  conflictCount: z.number().optional(),
+  overlapCount: z.number().optional(),
+  gapCount: z.number().optional(),
+  figureCount: z.number().optional(),
+  warnings: z.array(z.string()).optional(),
+});
 export type ReconciliationCompletedPayload = z.infer<
   typeof ReconciliationCompletedSchema
 >;
@@ -1079,55 +1030,33 @@ export type FailurePatternPreAppliedPayload = z.infer<
 >;
 
 // ─────────── leader:goals-set (existing) ───────────
-// dimensions 由 deep-insight bindings S2 实发（含 toolHint/facet 等扩展键），
-// 用宽松对象而非 DimensionSpecSchema：声明的目的是防 EventBus 改广播 parsed.data
-// 时字段被剥离，不是收紧校验（id 缺失不应 drop 整个事件）。
-export const LeaderGoalsSetSchema = z
-  .object({
-    goals: z.object({
-      successCriteria: z.array(z.string()).optional(),
-      deliverables: z.array(z.string()).optional(),
-      qualityBar: z
-        .object({
-          minSources: z.number().optional(),
-          minCoverage: z.number().optional(),
-          hardConstraints: z.array(z.string()).optional(),
-        })
-        .partial()
-        .optional(),
-    }),
-    initialRisks: z.array(RiskItemSchema).optional(),
-    dimensions: z
-      .array(
-        z
-          .object({
-            id: z.string().optional(),
-            name: z.string().optional(),
-            rationale: z.string().optional(),
-          })
-          .passthrough(),
-      )
+export const LeaderGoalsSetSchema = z.object({
+  goals: z.object({
+    successCriteria: z.array(z.string()).optional(),
+    deliverables: z.array(z.string()).optional(),
+    qualityBar: z
+      .object({
+        minSources: z.number().optional(),
+        minCoverage: z.number().optional(),
+        hardConstraints: z.array(z.string()).optional(),
+      })
+      .partial()
       .optional(),
-  })
-  .passthrough();
+  }),
+  initialRisks: z.array(RiskItemSchema).optional(),
+});
 export type LeaderGoalsSetPayload = z.infer<typeof LeaderGoalsSetSchema>;
 
 // ─────────── leader:decision (existing) ───────────
-// decision/perDimension 由 deep-insight bindings S4 实发（MissionFlowView 读
-// decision，perDimension 为逐维评估理由）——声明防 EventBus 广播 parsed.data 时剥离。
-export const LeaderDecisionSchema = z
-  .object({
-    phase: z.string(),
-    stats: z.record(z.number()).optional(),
-    rationale: z.string().optional(),
-    retried: z.array(z.string()).optional(),
-    aborted: z.array(z.string()).optional(),
-    appended: z.array(DimensionSpecSchema).optional(),
-    skipped: z.array(z.string()).optional(),
-    decision: z.string().optional(),
-    perDimension: z.array(z.unknown()).optional(),
-  })
-  .passthrough();
+export const LeaderDecisionSchema = z.object({
+  phase: z.string(),
+  stats: z.record(z.number()).optional(),
+  rationale: z.string().optional(),
+  retried: z.array(z.string()).optional(),
+  aborted: z.array(z.string()).optional(),
+  appended: z.array(DimensionSpecSchema).optional(),
+  skipped: z.array(z.string()).optional(),
+});
 export type LeaderDecisionPayload = z.infer<typeof LeaderDecisionSchema>;
 
 // ─────────── leader:foreword ───────────
@@ -1181,15 +1110,10 @@ export const DimensionRetryingSchema = z.object({
 export type DimensionRetryingPayload = z.infer<typeof DimensionRetryingSchema>;
 
 // ─────────── dimensions:appended (existing) ───────────
-// 实发（leader-chat.service.broadcastAppendedDimensions）：
-// { appendedIds, source: 'leader-chat', items }
-export const DimensionsAppendedSchema = z
-  .object({
-    items: z.array(DimensionSpecSchema),
-    source: z.enum(["leader-chat", "leader-decision", "auto"]).optional(),
-    appendedIds: z.array(z.string()).optional(),
-  })
-  .passthrough();
+export const DimensionsAppendedSchema = z.object({
+  items: z.array(DimensionSpecSchema),
+  source: z.enum(["leader-chat", "leader-decision", "auto"]).optional(),
+});
 export type DimensionsAppendedPayload = z.infer<
   typeof DimensionsAppendedSchema
 >;
@@ -1210,40 +1134,14 @@ export const IterationProgressSchema = z
 export type IterationProgressPayload = z.infer<typeof IterationProgressSchema>;
 
 // ─────────── critic:verdict (existing) ───────────
-// 实发（deep-insight-stage-bindings.ts buildCriticHooks，沿袭旧 s9 stage 形状）：
-// { verdict, overall, blindspotCount, biasCount, suggestionCount, rationale,
-//   warnings: [{kind,message,severity}] }
-// warnings 历史声明过 string[]，union 兼容两代；todo-board critic-blindspot handler
-// 与 MissionFlowView 均按对象数组消费——string[] 收紧曾导致整事件被 safeParse drop。
-export const CriticVerdictSchema = z
-  .object({
-    agentId: z.string().optional(),
-    layer: z.string().optional(),
-    score: z.number().optional(),
-    pass: z.boolean().optional(),
-    verdict: z.string().optional(),
-    overall: z.string().optional(),
-    blindspotCount: z.number().optional(),
-    biasCount: z.number().optional(),
-    suggestionCount: z.number().optional(),
-    rationale: z.string().optional(),
-    warnings: z
-      .array(
-        z.union([
-          z.string(),
-          z
-            .object({
-              kind: z.string().optional(),
-              message: z.string().optional(),
-              severity: z.string().optional(),
-            })
-            .passthrough(),
-        ]),
-      )
-      .optional(),
-    notes: z.string().optional(),
-  })
-  .passthrough();
+export const CriticVerdictSchema = z.object({
+  agentId: z.string().optional(),
+  layer: z.string().optional(),
+  score: z.number().optional(),
+  pass: z.boolean().optional(),
+  warnings: z.array(z.string()).optional(),
+  notes: z.string().optional(),
+});
 export type CriticVerdictPayload = z.infer<typeof CriticVerdictSchema>;
 
 // ─────────── red-team:verdict (Foresight L2 forecast 红队) ───────────

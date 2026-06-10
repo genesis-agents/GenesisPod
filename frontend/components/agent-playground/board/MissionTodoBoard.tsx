@@ -131,17 +131,12 @@ function deriveDimSubStatus(
     //   `phase === 'completed'`。研究阶段确实完了、但写作阶段没起来时（mission 终态
     //   + 整合阶段被跳过 / pipeline 残缺），标"采集完成 · 待大纲"更准确。
     const dimName = td.assignee?.dimensionName;
-    // ★ Fix 1: 能力轨合成 key "researcher#<dim>" 优先；canonical 路径回退 .dimension 匹配
     const researcher = dimName
-      ? (agents?.find((a) => a.agentId === `researcher#${dimName}`) ??
-        agents?.find((a) => a.role === 'researcher' && a.dimension === dimName))
+      ? agents?.find((a) => a.role === 'researcher' && a.dimension === dimName)
       : undefined;
     if (researcher?.phase === 'completed') {
-      // ★ Fix 3: backend 现在在 dimension:graded 才把 dim todo 设为 done（采集完成≠整体完成），
-      //   todo 仍 in_progress 表示正在评审/写作阶段；用"采集完成·待评审"替代旧的"待大纲"，
-      //   让用户能区分"数据采集中" → "采集完成·待评审" → "已完成"三个阶段。
       return {
-        label: '采集完成·待评审',
+        label: '采集完成 · 待大纲',
         tone: 'bg-teal-100 text-teal-700 ring-teal-200',
       };
     }
@@ -276,24 +271,13 @@ function resolveModel(
     if (a?.modelId) return a.modelId;
   }
   if (todo.assignee.dimensionName) {
-    const dim = todo.assignee.dimensionName;
-    // ★ Fix 1: 能力轨 researcher 用 "researcher#<dim>" 作为 agentId key（dvCollectAgentSummary
-    //   dimension:research:* 事件路径）。canonical view.agents 路径则通过 .dimension 字段匹配。
-    //   两条路径都试，优先 exact key 命中（通常携带 modelId 更准确），再 fallback .dimension 匹配。
-    const a =
-      agents.find((x) => x.agentId === `researcher#${dim}`) ??
-      agents.find((x) => x.role === 'researcher' && x.dimension === dim);
+    const a = agents.find(
+      (x) =>
+        x.role === 'researcher' && x.dimension === todo.assignee.dimensionName
+    );
     if (a?.modelId) return a.modelId;
   }
-  // assignee.role 别名归一：todo 板的 s5/s9 行用 'reconciler'/'critic'，而 AgentLiveState
-  // 只存 5 个 canonical role（projector 已做 reconciler→analyst / critic→reviewer 归一），
-  // 不归一则这两行模型列永远查不到。
-  const roleAlias: Record<string, string> = {
-    reconciler: 'analyst',
-    critic: 'reviewer',
-  };
-  const wantRole = roleAlias[todo.assignee.role] ?? todo.assignee.role;
-  const byRole = agents.find((x) => x.role === wantRole);
+  const byRole = agents.find((x) => x.role === todo.assignee.role);
   return byRole?.modelId;
 }
 
@@ -625,11 +609,10 @@ function resolveAssigneeAgents(
     if (exact.length > 0) return exact;
   }
   if (todo.assignee.dimensionName) {
-    const dim = todo.assignee.dimensionName;
-    // ★ Fix 1 (consistent with resolveModel): also match capability-track synthetic key
-    const byKey = agents.filter((a) => a.agentId === `researcher#${dim}`);
-    if (byKey.length > 0) return byKey;
-    return agents.filter((a) => a.role === 'researcher' && a.dimension === dim);
+    return agents.filter(
+      (a) =>
+        a.role === 'researcher' && a.dimension === todo.assignee.dimensionName
+    );
   }
   if (
     todo.assignee.role === 'leader' ||
@@ -873,7 +856,7 @@ export function MissionTodoBoard({
                 Mission 失败 · 任务列表为空
               </p>
               <p className="mt-1 text-[12px] leading-relaxed text-red-800">
-                本次执行未产生任何子任务清单，具体失败原因见下方。
+                Leader 在维度规划阶段就挂了，没有产生任何子任务。
               </p>
               {missionFailedMessage && (
                 <pre className="font-mono mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-white/70 p-2 text-[11px] leading-relaxed text-red-900 ring-1 ring-red-200">

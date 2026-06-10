@@ -32,7 +32,6 @@ import { MissionDagService } from "../mission/dag-view/mission-dag.service";
 // ★ 2026-06-07: Mission knowledge-graph artifact
 import { MissionGraphController } from "../api/controller/mission-graph.controller";
 import { MissionGraphService } from "../mission/graph/mission-graph.service";
-import { SedimentModule } from "../../library/sediment/sediment.module";
 import { AgentPlaygroundGateway } from "../api/controller/playground.gateway";
 import { MissionRuntimeShellService } from "../mission/pipeline/mission-runtime-shell.service";
 import { MissionStageBindingsService } from "../mission/pipeline/mission-stage-bindings.service";
@@ -128,8 +127,6 @@ import {
   imports: [
     CreditsModule,
     NotificationDispatcherModule,
-    // ★ post-run 沉淀：mission 完成把报告落 library notes（MissionSedimentService）。
-    SedimentModule,
     ConfigModule.forFeature(playgroundRuntimeConfig),
     JwtModule.registerAsync({
       imports: [ConfigModule],

@@ -92,9 +92,6 @@ const DEFAULTS = {
 
   // ★ 2026-05-22 follow-up：原 disableBudgetAbort 已删除——同样 config 定义但零消费
   //   (生产代码从不读),profile 设 true 也无效,"防级联 abort"保护实际不存在。删除止误导。
-
-  // ★ #16b (2026-06-09)：原 viaCapability flag 已删除——playground 已硬切到能力轨
-  //   （唯一执行轨），不再有 OFF/ON 双轨。env PLAYGROUND_VIA_CAPABILITY 不再被读取。
 } as const;
 
 /**

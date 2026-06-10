@@ -37,8 +37,8 @@ export type StageId =
   | 'writer'
   | 'reviewer';
 
-export type StepStatus = 'pending' | 'running' | 'done' | 'failed' | 'skipped';
-export type StageStatus = 'pending' | 'running' | 'done' | 'failed' | 'skipped';
+export type StepStatus = 'pending' | 'running' | 'done' | 'failed';
+export type StageStatus = 'pending' | 'running' | 'done' | 'failed';
 
 /**
  * 把 backend pipeline 内部 stepId 映射到 5 个高层 StageId。
@@ -115,11 +115,7 @@ export const STAGE_STEPS: Record<StageId, readonly string[]> = {
   reviewer: ['s9-critic', 's9b-objective-eval'],
 };
 
-/**
- * 由 step 状态聚合 stage 状态：failed > running > skipped(全跳过) > done > pending。
- *   skipped step 计入「完成度」（与 done 等价用于判定 stage 是否结束），
- *   但若 stage 全部已知 step 都是 skipped → stage 状态为 'skipped'（灰色「跳过」）。
- */
+/** 由 step 状态聚合 stage 状态：failed > running > pending > done */
 export function aggregateStageStatus(
   stageId: StageId,
   stepStates: Map<string, StepStatus>
@@ -128,7 +124,6 @@ export function aggregateStageStatus(
   let hasFailed = false;
   let hasRunning = false;
   let doneCount = 0;
-  let skippedCount = 0;
   let knownCount = 0;
   for (const step of steps) {
     const s = stepStates.get(step);
@@ -137,15 +132,11 @@ export function aggregateStageStatus(
     if (s === 'failed') hasFailed = true;
     else if (s === 'running') hasRunning = true;
     else if (s === 'done') doneCount++;
-    else if (s === 'skipped') skippedCount++;
   }
   if (hasFailed) return 'failed';
   if (knownCount === 0) return 'pending';
-  // 全部已知 step 都跳过 → stage「跳过」
-  if (skippedCount > 0 && skippedCount === knownCount) return 'skipped';
-  // done + skipped 覆盖所有 step → stage 完成
-  if (doneCount + skippedCount === steps.length) return 'done';
-  if (hasRunning || doneCount > 0 || skippedCount > 0) return 'running';
+  if (doneCount === steps.length) return 'done';
+  if (hasRunning || doneCount > 0) return 'running';
   return 'pending';
 }
 
@@ -291,9 +282,6 @@ export interface MissionState {
   failedAt?: number;
   failedMessage?: string;
   cancelledAt?: number;
-  // 取消原因专用字段：不写 failedMessage，避免误触发主页红色「Mission 失败」横幅
-  //   （遵守 2026-05-30「取消不满屏红」决策）；Settings 弹窗专门读此字段显示取消原因。
-  cancelledMessage?: string;
   rejectedAt?: number;
   rejectedReason?: string;
   rejectedMessage?: string;
