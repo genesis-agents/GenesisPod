@@ -296,9 +296,12 @@ describe("Branch: stage-degraded — markStageDegraded emits narrative", () => {
     expect(src).toContain("markStageDegraded");
   });
 
-  it("S3 calls markStageDegraded when all dims fail (P1-fix1)", () => {
+  it("S3 stage-degraded 机制存活于 stage bindings（#16b 后 OFF 路/rerun 归属）", () => {
+    // #16b（2026-06-09）硬切后 playground.pipeline.ts 的私有 pipeline（buildBaseHooksForStep
+    // 等）退役，stage degraded 契约随 stage hooks 落在 mission-stage-bindings.service.ts
+    // （仍被 stage-rerun 复用）。markStageDegraded dep 在此定义并喂给 S3/S4/S9 hooks。
     const src = readSrc(
-      "ai-app/playground/mission/pipeline/playground.pipeline.ts",
+      "ai-app/playground/mission/pipeline/mission-stage-bindings.service.ts",
     );
     expect(src).toContain("markStageDegraded");
   });
