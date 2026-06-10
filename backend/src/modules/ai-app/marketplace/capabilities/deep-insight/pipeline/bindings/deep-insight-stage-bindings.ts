@@ -221,7 +221,11 @@ export class DeepInsightStageBindings implements StageBindings {
           operationType: "plan",
           onEvent,
         });
-        const plan = this.normalizePlan(res.output, input.topic);
+        const plan = this.normalizePlan(
+          res.output,
+          input.topic,
+          input.invocation.depth ?? "standard",
+        );
         full.crossStageState.set<PlanResult>(CS_KEY.plan, plan);
         // ★ goals 单独存一份方便 s4/s10 快速取（plan 整体也有，两份同步无冗余风险）。
         if (plan.goals) {
@@ -1742,7 +1746,11 @@ export class DeepInsightStageBindings implements StageBindings {
     return { ctx, crossStageState: cs };
   }
 
-  private normalizePlan(raw: unknown, topic: string): PlanResult {
+  private normalizePlan(
+    raw: unknown,
+    topic: string,
+    depth: "quick" | "standard" | "deep" = "standard",
+  ): PlanResult {
     const p = raw as
       | {
           themeSummary?: unknown;
@@ -1757,6 +1765,10 @@ export class DeepInsightStageBindings implements StageBindings {
         }
       | undefined;
     const rawDims = Array.isArray(p?.dimensions) ? p.dimensions : [];
+    // ★ 维度上限按 depth 档位（与 leader.agent.ts 校验区间上限一致：quick 3-5 /
+    //   standard 5-8 / deep 8-12）。此前硬编码 slice(0,6) 把 deep 档位 leader 产出的
+    //   10-12 个维度一律砍到 6，深度模式名存实亡（2026-06-10 用户实测报告修复）。
+    const dimCap = depth === "quick" ? 5 : depth === "deep" ? 12 : 8;
     const dimensions = rawDims
       .filter(
         (
@@ -1769,7 +1781,7 @@ export class DeepInsightStageBindings implements StageBindings {
           toolHint?: { categories?: string[]; preferIds?: string[] };
         } => !!d && typeof (d as { name?: unknown }).name === "string",
       )
-      .slice(0, 6)
+      .slice(0, dimCap)
       .map((d, i) => ({
         id: typeof d.id === "string" ? d.id : `dim-${i + 1}`,
         name: String(d.name),
