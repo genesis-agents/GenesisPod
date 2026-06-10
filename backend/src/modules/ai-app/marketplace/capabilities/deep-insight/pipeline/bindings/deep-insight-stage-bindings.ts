@@ -45,6 +45,10 @@ import {
   type RemediableSection,
 } from "./chapter-stream.helper";
 import {
+  computeDimensionGrades,
+  type DimensionOutcomeLite,
+} from "./dimension-grade.helper";
+import {
   buildAssembleInput,
   buildChapterInputs,
   buildCriticArtifactSummary,
@@ -2176,80 +2180,14 @@ export class DeepInsightStageBindings implements StageBindings {
    */
   private emitAssessGraded(
     onEvent: AgentInvocation["onEvent"],
-    researcherOutcomes: Array<{
-      dimensionName: string;
-      dimensionId: string;
-      state: "completed" | "degraded" | "failed";
-      findingsCount: number;
-    }>,
+    researcherOutcomes: ReadonlyArray<DimensionOutcomeLite>,
     output: unknown,
   ): void {
-    const perDimensionArr: Array<{
-      dimensionName?: string;
-      dimensionId?: string;
-      action?: string;
-      critique?: string;
-    }> =
-      output != null && typeof output === "object"
-        ? (((output as { perDimension?: unknown }).perDimension as
-            | Array<{
-                dimensionName?: string;
-                dimensionId?: string;
-                action?: string;
-                critique?: string;
-              }>
-            | undefined) ?? [])
-        : [];
-    for (const o of researcherOutcomes) {
-      const perDim = perDimensionArr.find(
-        (d) =>
-          d.dimensionName === o.dimensionName ||
-          d.dimensionId === o.dimensionId,
-      );
-      const action =
-        perDim?.action ??
-        (o.state === "completed" ? "accept" : "retry-with-critique");
-      // 把 findingsCount 归一化为 0-100 分（accept=≥70, degraded=50, failed=30）。
-      const overall =
-        o.state === "completed" && action === "accept"
-          ? Math.min(100, 60 + Math.min(o.findingsCount * 5, 40))
-          : o.state === "degraded"
-            ? 50
-            : 30;
-      // grade：overall → 等级字符串（mission-view.projector:455 读 p.grade，缺则显示 "—"）。
-      const grade = this.scoreToGrade(overall);
-      // summary：一句话总评（projector:456 读 p.summary，缺则空）。优先 leader 逐维 critique，
-      //   缺则用状态 + finding 数合成。
-      const summary =
-        typeof perDim?.critique === "string" && perDim.critique.trim()
-          ? perDim.critique.slice(0, 200)
-          : o.state === "completed"
-            ? `采集完成，共 ${o.findingsCount} 条 findings，决策 ${action}`
-            : o.state === "degraded"
-              ? `产出退化（${o.findingsCount} 条 findings），需关注`
-              : "采集失败，无有效 findings";
-      // ★ axes（5 轴评分对象）：deep-insight 是启发式打分，无 grader 产出 5 轴分数
-      //   （leader assess perDimension 仅 action/critique，见 leader.agent.ts:225-247；
-      //   ReportEvaluation 10 维评估在 s9b 报告级、非维度级）。按任务约束不造假 axes，
-      //   故此处不发 axes 字段（DimensionGradedSchema.axes 为 optional，缺省合法）。
-      emitDomain(onEvent, "dimension:graded", {
-        dimension: o.dimensionName,
-        overall,
-        grade,
-        summary,
-        state: o.state,
-        action,
-      });
+    // grade/summary/overall 纯计算下沉 dimension-grade.helper（god-class size guard）；
+    // axes 不发（deep-insight 启发式打分无 5 轴 grader，schema axes optional 缺省合法）。
+    for (const g of computeDimensionGrades(researcherOutcomes, output)) {
+      emitDomain(onEvent, "dimension:graded", g);
     }
-  }
-
-  /** overall(0-100) → 等级字符串（A/B/C/D/F），供 dimension:graded.grade。 */
-  private scoreToGrade(score: number): string {
-    if (score >= 90) return "A";
-    if (score >= 75) return "B";
-    if (score >= 60) return "C";
-    if (score >= 40) return "D";
-    return "F";
   }
 
   /**
