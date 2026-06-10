@@ -475,7 +475,10 @@ function enrichAgentsFromEvents(
           if (typeof mid === 'string') agent.modelId = mid;
         }
       }
-      if (
+      // ★ #16b：company bridge 发 phase: 'started' (lifecycle-started) / 'completed' / 'failed' / 'running'。
+      //   'started' → 映射到 DIAgentPhase 'running'（DIAgentPhase 无 'started' 值）。
+      if (p.phase === 'started') agent.phase = 'running';
+      else if (
         p.phase === 'completed' ||
         p.phase === 'failed' ||
         p.phase === 'running'
@@ -731,6 +734,21 @@ function deriveLiveSteps(events: unknown[]): MissionStep[] {
         else if (phase === 'failed') dimStatus.set(dim, 'failed');
         else if ((dimStatus.get(dim) ?? 'running') === 'running')
           dimStatus.set(dim, 'running');
+      }
+      // ★ #16b：company bridge 桥出 company.dimension:research:started/completed
+      //   让 deriveLiveSteps 能按维度逐个点亮（补 company.agent:lifecycle 的 dimension 缺失场景）。
+    } else if (e.type === 'company.dimension:research:started') {
+      const dim = typeof p.dimension === 'string' ? p.dimension : undefined;
+      if (dim) {
+        if (!dimStatus.has(dim)) dimOrder.push(dim);
+        if ((dimStatus.get(dim) ?? 'running') === 'running')
+          dimStatus.set(dim, 'running');
+      }
+    } else if (e.type === 'company.dimension:research:completed') {
+      const dim = typeof p.dimension === 'string' ? p.dimension : undefined;
+      if (dim) {
+        if (!dimStatus.has(dim)) dimOrder.push(dim);
+        dimStatus.set(dim, 'done');
       }
     }
   }

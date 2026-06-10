@@ -8,8 +8,20 @@ import { Button } from '@/components/ui/primitives/button';
 import { Input } from '@/components/ui/form/Input';
 import { MissionGalleryView } from '@/components/common/missions/MissionGalleryView';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
-import type { MissionListItem } from '@/services/agent-playground/api';
+import type {
+  MissionListItem,
+  StyleProfile,
+  LengthProfile,
+  AudienceProfile,
+  AuditLayers,
+} from '@/services/agent-playground/api';
 import { MODULE_THEMES } from '@/lib/design/module-themes';
+import {
+  STYLE_PROFILE_OPTIONS,
+  LENGTH_PROFILE_OPTIONS,
+  AUDIENCE_PROFILE_OPTIONS,
+  AUDIT_LAYERS_OPTIONS,
+} from '@/lib/constants/mission-profile-options';
 import { useCompanyStore } from '@/stores/company/companyStore';
 import type { CompanyMission } from '@/stores/company/companyStore';
 import { useCompanyMissionStream } from '@/hooks/features/useCompanyMissionStream';
@@ -159,6 +171,11 @@ export function MissionRunView({
     '30d' | '90d' | '180d' | '365d' | '730d' | 'all'
   >('all');
   const [knowledgeBaseIds, setKnowledgeBaseIds] = useState<string[]>([]);
+  const [styleProfile, setStyleProfile] = useState<StyleProfile>('executive');
+  const [lengthProfile, setLengthProfile] = useState<LengthProfile>('standard');
+  const [audienceProfile, setAudienceProfile] =
+    useState<AudienceProfile>('domain-expert');
+  const [auditLayers, setAuditLayers] = useState<AuditLayers>('default');
 
   const { events: wsEvents } = useCompanyMissionStream(activeMissionId);
   // 详情态第二路订阅：为当前打开的报告 mission 订阅实时事件（注入 collab tab）
@@ -283,6 +300,10 @@ export function MissionRunView({
       searchTimeRange,
       knowledgeBaseIds:
         knowledgeBaseIds.length > 0 ? knowledgeBaseIds : undefined,
+      styleProfile,
+      lengthProfile,
+      audienceProfile,
+      auditLayers,
     });
     if (!missionId) {
       setRunning(false);
@@ -314,9 +335,9 @@ export function MissionRunView({
     const reportResult = reportMission.result as
       | (MissionReportResultLike & { depth?: string; language?: string })
       | undefined;
-    // mission 不携带 heroId，无法精确还原原专家；以第一个专家作为重发兜底，
-    // 没有任何专家时优雅地隐藏「重新下发」入口。
-    const rerunHeroId = heroes[0]?.id ?? null;
+    // 优先用 mission 自带的 heroId 精确还原原专家；缺失（旧数据 / 团队任务）才
+    // 以第一个专家兜底；没有任何专家时优雅地隐藏「重新下发」入口。
+    const rerunHeroId = reportMission.heroId ?? heroes[0]?.id ?? null;
     const detailView = fromCompanyMissionResult({
       id: reportMission.id,
       title: reportMission.title,
@@ -532,6 +553,73 @@ export function MissionRunView({
                   />
                   开启图文抓取
                 </label>
+              </Field>
+
+              <div className="grid grid-cols-3 gap-3">
+                <Field label="文风">
+                  <select
+                    value={styleProfile}
+                    onChange={(e) =>
+                      setStyleProfile(e.target.value as StyleProfile)
+                    }
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    {STYLE_PROFILE_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="长度档位">
+                  <select
+                    value={lengthProfile}
+                    onChange={(e) =>
+                      setLengthProfile(e.target.value as LengthProfile)
+                    }
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    {LENGTH_PROFILE_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="主要受众">
+                  <select
+                    value={audienceProfile}
+                    onChange={(e) =>
+                      setAudienceProfile(e.target.value as AudienceProfile)
+                    }
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    {AUDIENCE_PROFILE_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+
+              <Field label="审核层级">
+                <div className="grid grid-cols-4 gap-1.5">
+                  {AUDIT_LAYERS_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setAuditLayers(opt.value)}
+                      className={`rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors ${
+                        auditLayers === opt.value
+                          ? 'border-primary bg-primary/5 text-primary'
+                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </Field>
 
               <Field

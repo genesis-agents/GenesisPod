@@ -238,6 +238,50 @@ function buildFlowEvents(events: PlaygroundEvent[]): FlowEvent[] {
               : 'warn',
         text: `Critic L4 · ${verdict ?? '?'}（盲点 ${blindspots} / 偏见 ${biases} / 建议 ${suggestions}）`,
       });
+      // ★ #16b：capability bridge 新增事件——dimension 研究 + leader 决策
+    } else if (t === 'dimension:research:started') {
+      const dim = p.dimension as string | undefined;
+      if (dim) {
+        out.push({
+          ts: ev.timestamp,
+          kind: 'narrative',
+          role: 'researcher',
+          tone: 'info',
+          text: `开始采集「${dim}」`,
+          meta: dim,
+        });
+      }
+    } else if (t === 'dimension:research:completed') {
+      const dim = p.dimension as string | undefined;
+      const findings = (p.findingsCount as number | undefined) ?? 0;
+      if (dim) {
+        out.push({
+          ts: ev.timestamp,
+          kind: 'narrative',
+          role: 'researcher',
+          tone: 'success',
+          text: `「${dim}」采集完成（${findings} 条发现）`,
+          meta: dim,
+        });
+      }
+    } else if (t === 'leader:goals-set') {
+      const dims = Array.isArray(p.dimensions) ? p.dimensions : [];
+      out.push({
+        ts: ev.timestamp,
+        kind: 'narrative',
+        role: 'leader',
+        tone: 'info',
+        text: `Leader 拆出 ${dims.length} 个研究维度`,
+      });
+    } else if (t === 'leader:decision') {
+      const decision = p.decision as string | undefined;
+      out.push({
+        ts: ev.timestamp,
+        kind: 'narrative',
+        role: 'leader',
+        tone: decision === 'accept-all' ? 'success' : 'warn',
+        text: `Leader 评估决定：${decision ?? '?'}`,
+      });
     }
   }
   return out.sort((a, b) => a.ts - b.ts);

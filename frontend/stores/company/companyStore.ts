@@ -102,7 +102,10 @@ export type MissionStatus =
 
 export interface CompanyMission {
   id: string;
-  teamId: string;
+  /** 团队任务为团队 ID；Hero 任务为 null（改走 heroId 派发）。 */
+  teamId: string | null;
+  /** Hero 任务的派发 hero；团队任务为 null。复跑兜底据此精确还原，避免降级到首个 hero。 */
+  heroId: string | null;
   title: string;
   status: MissionStatus;
   /** 0–100 */
@@ -116,7 +119,8 @@ export interface CompanyMission {
 interface BackendMission {
   id: string;
   userId: string;
-  teamId: string;
+  teamId: string | null;
+  heroId?: string | null;
   title: string;
   status: string;
   progress: number;
@@ -241,7 +245,8 @@ function adaptMission(m: BackendMission): CompanyMission {
     : 'queued';
   return {
     id: m.id,
-    teamId: m.teamId,
+    teamId: m.teamId ?? null,
+    heroId: m.heroId ?? null,
     title: m.title,
     status,
     progress: m.progress,
@@ -331,6 +336,16 @@ interface CompanyState {
       withFigures?: boolean;
       knowledgeBaseIds?: string[];
       searchTimeRange?: '30d' | '90d' | '180d' | '365d' | '730d' | 'all';
+      styleProfile?: 'executive' | 'academic' | 'journalistic' | 'technical';
+      lengthProfile?:
+        | 'brief'
+        | 'standard'
+        | 'deep'
+        | 'extended'
+        | 'epic'
+        | 'mega';
+      audienceProfile?: 'executive' | 'domain-expert' | 'general-public';
+      auditLayers?: 'minimal' | 'default' | 'thorough' | 'thorough+';
     }
   ) => Promise<string | null>;
 }
@@ -917,6 +932,10 @@ export const useCompanyStore = create<CompanyState>((set, get) => ({
           withFigures: opts?.withFigures,
           knowledgeBaseIds: opts?.knowledgeBaseIds,
           searchTimeRange: opts?.searchTimeRange,
+          styleProfile: opts?.styleProfile,
+          lengthProfile: opts?.lengthProfile,
+          audienceProfile: opts?.audienceProfile,
+          auditLayers: opts?.auditLayers,
         }
       );
       const mission = adaptMission(raw);

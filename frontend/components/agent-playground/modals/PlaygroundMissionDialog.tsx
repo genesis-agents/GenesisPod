@@ -29,6 +29,12 @@ import {
   WALL_TIME_LIMIT_MINUTES,
 } from '@/components/agent-playground/panels/BudgetAndTimeLimitPanel';
 import { useBudgetTiers, pickTier } from '@/hooks/features/useBudgetTiers';
+import {
+  STYLE_PROFILE_OPTIONS,
+  LENGTH_PROFILE_OPTIONS,
+  AUDIENCE_PROFILE_OPTIONS,
+  AUDIT_LAYERS_OPTIONS,
+} from '@/lib/constants/mission-profile-options';
 
 interface PlaygroundMissionDialogProps {
   isOpen: boolean;
@@ -54,16 +60,6 @@ const TIME_RANGE_OPTIONS: Array<{
   { value: '365d', label: '12 月' },
   { value: '730d', label: '24 月' },
   { value: 'all', label: '不限' },
-];
-
-const AUDIT_OPTIONS: Array<{
-  value: AuditLayers;
-  label: string;
-}> = [
-  { value: 'minimal', label: '最简' },
-  { value: 'default', label: '标准' },
-  { value: 'thorough', label: '完整' },
-  { value: 'thorough+', label: '全审' },
 ];
 
 const SAMPLE_TOPICS = [
@@ -469,7 +465,7 @@ export function PlaygroundMissionDialog({
 
           <Field label="审核层级">
             <div className="grid grid-cols-4 gap-1.5">
-              {AUDIT_OPTIONS.map((opt) => (
+              {AUDIT_LAYERS_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
                   type="button"
@@ -500,10 +496,11 @@ export function PlaygroundMissionDialog({
                 }}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               >
-                <option value="executive">管理层简报</option>
-                <option value="academic">学术论证</option>
-                <option value="journalistic">新闻型</option>
-                <option value="technical">技术型</option>
+                {STYLE_PROFILE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
               </select>
             </Field>
             <Field label="长度档位">
@@ -518,12 +515,11 @@ export function PlaygroundMissionDialog({
               >
                 {/* ★ 2026-05-22 ③L/M：不再写死字数(总字数=depthBase×密度,随 depth 变);
                     只表"密度档"。实际总字数后端单一源 resolveMissionTotalWords。 */}
-                <option value="brief">简洁</option>
-                <option value="standard">标准（推荐）</option>
-                <option value="deep">详细</option>
-                <option value="extended">详尽</option>
-                <option value="epic">超长</option>
-                <option value="mega">极长</option>
+                {LENGTH_PROFILE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
               </select>
             </Field>
             <Field label="主要受众">
@@ -536,9 +532,11 @@ export function PlaygroundMissionDialog({
                 }}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               >
-                <option value="domain-expert">领域专家</option>
-                <option value="executive">管理层</option>
-                <option value="general-public">大众</option>
+                {AUDIENCE_PROFILE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
               </select>
             </Field>
           </div>

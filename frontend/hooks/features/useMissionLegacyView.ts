@@ -873,6 +873,45 @@ function dvCollectAgentSummary(
       timestamp?: number;
     };
     if (!e.type) continue;
+
+    // ★ #16b：dimension:research:started / dimension:research:completed 事件
+    //   只携带 payload.dimension（无 agentId）。用 dimension 伪造 agentId =
+    //   "researcher#<dim>"，让 dvCollectAgentSummary 能追踪 researcher 生命周期。
+    //   事件来自 capability path domain bridge，与 agent:lifecycle 等价（role=researcher）。
+    if (
+      e.type.endsWith('.dimension:research:started') ||
+      e.type === 'dimension:research:started' ||
+      e.type.endsWith('.dimension:research:completed') ||
+      e.type === 'dimension:research:completed'
+    ) {
+      const dim =
+        typeof e.payload?.dimension === 'string'
+          ? e.payload.dimension
+          : undefined;
+      if (dim) {
+        const syntheticId = `researcher#${dim}`;
+        const a =
+          out.get(syntheticId) ??
+          ({
+            agentId: syntheticId,
+            role: 'researcher' as AgentRole,
+            dimension: dim,
+            phase: 'pending' as AgentPhase,
+            trace: traceByAgent.get(syntheticId) ?? [],
+          } as AgentLiveState);
+        const isCompleted = e.type.includes(':completed');
+        if (isCompleted) {
+          a.phase = 'completed';
+          a.endedAt = e.timestamp;
+        } else {
+          if (a.phase === 'pending') a.phase = 'running';
+          a.startedAt ??= e.timestamp;
+        }
+        out.set(syntheticId, a);
+      }
+      continue;
+    }
+
     const agentId =
       (typeof e.payload?.agentId === 'string'
         ? e.payload.agentId
@@ -927,6 +966,21 @@ function dvCollectAgentSummary(
         if (typeof p.iterations === 'number') a.iterations = p.iterations;
       }
       if (typeof p.modelId === 'string') a.modelId = p.modelId;
+      // ★ #16b：domain bridge 发的 agent:lifecycle 携带 tokensUsed / costUsd / costCents。
+      //   fallback 路径（view.agents 空时纯靠事件推 agent 状态）需从此处提取，
+      //   与 dvProjectAgents canonical 路径（读 ca.tokensUsed / ca.costUsd）等价。
+      //   costUsd 优先（backend helper 已换算），次选 costCents/100（旧快照兼容）。
+      if (phase === 'completed' || phase === 'failed') {
+        if (typeof p.tokensUsed === 'number')
+          a.tokensUsed = (a.tokensUsed ?? 0) + p.tokensUsed;
+        const costUsd =
+          typeof p.costUsd === 'number'
+            ? p.costUsd
+            : typeof p.costCents === 'number'
+              ? p.costCents / 100
+              : undefined;
+        if (costUsd !== undefined) a.costUsd = (a.costUsd ?? 0) + costUsd;
+      }
       out.set(agentId, a);
       continue;
     }
@@ -950,8 +1004,7 @@ function dvCollectAgentSummary(
         : e.type === 'playground.agent.completed' ||
             e.type === 'agent.completed'
           ? 'completed'
-          : e.type === 'playground.agent.failed' ||
-              e.type === 'agent.failed'
+          : e.type === 'playground.agent.failed' || e.type === 'agent.failed'
             ? 'failed'
             : dvDeriveAgentVerbFromEventType(e.type);
     if (verb === 'started') {
