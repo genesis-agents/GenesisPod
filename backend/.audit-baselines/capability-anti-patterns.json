@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-06-10T12:09:31.866Z",
+  "generatedAt": "2026-06-10T15:17:23.771Z",
   "count": 184,
   "note": "v3.1 F baseline (TYPE B routing + TYPE C decoration). C/D 已清的真 P0 决策文件由 capability-provider-string-match.contract.spec.ts 锁零；本基线许可的是 §0 D5 路由 / 装饰类既有命中，新代码不得让总数上涨。",
   "hits": [
@@ -426,28 +426,28 @@
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-direct-key.service.ts",
-      "line": 774,
+      "line": 782,
       "column": 27,
       "kind": "method-call",
       "snippet": "modelIdLower.startsWith(\"imagen\")"
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-direct-key.service.ts",
-      "line": 777,
+      "line": 785,
       "column": 7,
       "kind": "method-call",
       "snippet": "modelIdLower.includes(\"gemini\")"
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-direct-key.service.ts",
-      "line": 843,
+      "line": 851,
       "column": 41,
       "kind": "method-call",
       "snippet": "modelIdLower.startsWith(\"imagen\")"
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-direct-key.service.ts",
-      "line": 878,
+      "line": 886,
       "column": 7,
       "kind": "method-call",
       "snippet": "effectiveModelId.includes(\"gemini-3\")"
