@@ -10,11 +10,11 @@
     "frontend/lib/design/tokens.ts"
   ],
   "totals": {
-    "all": 1905,
+    "all": 1908,
     "byLayer": {
       "engine": 523,
       "frontend": 244,
-      "harness": 1088,
+      "harness": 1091,
       "platform": 50
     },
     "byDomain": {
@@ -61,7 +61,7 @@
       "harness/knowledge": 4,
       "harness/lifecycle": 96,
       "harness/llm": 34,
-      "harness/memory": 28,
+      "harness/memory": 31,
       "harness/planning": 5,
       "harness/protocols": 46,
       "harness/rag": 1,
@@ -11035,6 +11035,30 @@
       "domain": "memory",
       "source": "backend/src/modules/ai-harness/memory/mission-checkpoint/index.ts",
       "import": "import { MissionResumeDecision } from \"@/modules/ai-harness/facade\";"
+    },
+    {
+      "name": "PrismaRecallHit",
+      "kind": "type",
+      "layer": "harness",
+      "domain": "memory",
+      "source": "backend/src/modules/ai-harness/memory/vector/prisma-vector-store.ts",
+      "import": "import { PrismaRecallHit } from \"@/modules/ai-harness/facade\";"
+    },
+    {
+      "name": "PrismaVectorEntry",
+      "kind": "type",
+      "layer": "harness",
+      "domain": "memory",
+      "source": "backend/src/modules/ai-harness/memory/vector/prisma-vector-store.ts",
+      "import": "import { PrismaVectorEntry } from \"@/modules/ai-harness/facade\";"
+    },
+    {
+      "name": "PrismaVectorStore",
+      "kind": "value",
+      "layer": "harness",
+      "domain": "memory",
+      "source": "backend/src/modules/ai-harness/memory/vector/prisma-vector-store.ts",
+      "import": "import { PrismaVectorStore } from \"@/modules/ai-harness/facade\";"
     },
     {
       "name": "ProcessJournalQueryService",
