@@ -26,7 +26,11 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { MissionFailedPreset } from "@/modules/platform/facade";
-import { CompanyMissionPersistenceAdapter } from "./company-mission-persistence.adapter";
+import { MissionSedimentService } from "@/modules/ai-app/library/sediment/mission-sediment.service";
+import {
+  CompanyMissionPersistenceAdapter,
+  RUNNING_STATUSES,
+} from "./company-mission-persistence.adapter";
 import { EventBus, ChatFacade, AgentRunner } from "@/modules/ai-harness/facade";
 import { SkillRegistry } from "@/modules/ai-engine/facade";
 import type { CompanyMission, Prisma } from "@prisma/client";
@@ -44,6 +48,7 @@ import {
 // ★ 能力化执行：团队套用的 workflow → 市场 SKU → CapabilityRegistry 解析到平台共享能力
 //   runner，在 harness 上真跑（零 playground 依赖）。design.md §4.3 + 能力 manifest/port。
 import { MarketplaceCatalogService } from "@/modules/ai-app/marketplace/catalog/marketplace-catalog.service";
+import { CompanyMissionGraphService } from "./company-mission-graph.service";
 import {
   CapabilityRegistry,
   type ICapabilityRunner,
@@ -71,6 +76,14 @@ type HeroMissionExtra = {
   withFigures?: boolean;
   knowledgeBaseIds?: string[];
   searchTimeRange?: "30d" | "90d" | "180d" | "365d" | "730d" | "all";
+  /** 报告文风档位（透传 capInput，缺省由能力 runner 默认值兜底）。 */
+  styleProfile?: "executive" | "academic" | "journalistic" | "technical";
+  /** 报告长度档位（透传 capInput，缺省由能力 runner 默认值兜底）。 */
+  lengthProfile?: "brief" | "standard" | "deep" | "extended" | "epic" | "mega";
+  /** 报告受众档位（透传 capInput，缺省由能力 runner 默认值兜底）。 */
+  audienceProfile?: "executive" | "domain-expert" | "general-public";
+  /** 审核层级（透传 capInput，缺省由能力 runner 默认值兜底）。 */
+  auditLayers?: "minimal" | "default" | "thorough" | "thorough+";
 };
 
 /**
@@ -175,6 +188,11 @@ export class CompanyMissionService implements OnModuleInit {
     // ★ 失败通知（email/站内）：company mission 失败/僵尸清理时通知用户，别让用户
     //   无声等待。@Optional —— NotificationDispatcherModule 未装配时优雅缺省。
     @Optional() private readonly missionFailedPreset?: MissionFailedPreset,
+    // ★ post-run 副作用：mission 完成后自动构建知识图谱。@Optional 让裁剪测试床优雅降级。
+    @Optional() private readonly missionGraph?: CompanyMissionGraphService,
+    // ★ post-run 副作用：mission 完成后把报告沉淀进应用内库（library notes）。@Optional
+    //   让裁剪测试床优雅降级（不沉淀、不影响 mission）。
+    @Optional() private readonly sediment?: MissionSedimentService,
   ) {}
 
   /** 发 mission 失败通知（fire-and-forget，best-effort，不阻断主流程）。 */
@@ -311,7 +329,9 @@ export class CompanyMissionService implements OnModuleInit {
           const message =
             "Mission 在执行中遇到后端重启（进程内存丢失且无可恢复 checkpoint）。" +
             "已自动标记为失败，请重新下发任务。";
-          await this.finalizeIfNotCancelled(o.id, {
+          // 终态走仲裁：若 orphan 在扫描与认领间隙被用户取消，won=false，
+          // 不得再 emit failed / 发失败通知盖掉 cancelled 语义。
+          const won = await this.finalizeIfNotCancelled(o.id, {
             status: "failed",
             result: {
               ...result,
@@ -320,17 +340,19 @@ export class CompanyMissionService implements OnModuleInit {
               failedAt: new Date().toISOString(),
             } as Prisma.InputJsonValue,
           });
-          await this.emit("company.mission:failed", o.id, o.userId, {
-            missionId: o.id,
-            message,
-          });
-          await this.notifyMissionFailed({
-            missionId: o.id,
-            userId: o.userId,
-            title: o.title,
-            reason: message,
-            failureCode: "DISPATCHER_BOOT_ORPHAN_CLEANUP",
-          });
+          if (won) {
+            await this.emit("company.mission:failed", o.id, o.userId, {
+              missionId: o.id,
+              message,
+            });
+            await this.notifyMissionFailed({
+              missionId: o.id,
+              userId: o.userId,
+              title: o.title,
+              reason: message,
+              failureCode: "DISPATCHER_BOOT_ORPHAN_CLEANUP",
+            });
+          }
         }
       }
     } catch (err: unknown) {
@@ -709,8 +731,10 @@ export class CompanyMissionService implements OnModuleInit {
         userId,
       );
 
-      // 4. 完成
-      await this.updateMission(missionId, {
+      // 4. 完成 —— 终态走仲裁（取消首写赢）：用户中途取消已置 cancelled，此处条件写
+      //    避免把 cancelled 盖回 done（与能力路径 finalizeIfNotCancelled 一致，普通团队
+      //    任务此前裸写会盖掉取消）。
+      const won = await this.finalizeIfNotCancelled(missionId, {
         status: "done",
         progress: 100,
         result: {
@@ -720,33 +744,39 @@ export class CompanyMissionService implements OnModuleInit {
           completedAt: new Date().toISOString(),
         },
       });
-
-      await this.emit("company.stage:lifecycle", missionId, userId, {
-        stage: "review",
-        status: "completed",
-      });
-      await this.emit("company.mission:completed", missionId, userId, {
-        missionId,
-      });
-
-      this.log.log(`CompanyMission ${missionId} completed`);
+      if (won) {
+        await this.emit("company.stage:lifecycle", missionId, userId, {
+          stage: "review",
+          status: "completed",
+        });
+        await this.emit("company.mission:completed", missionId, userId, {
+          missionId,
+        });
+        this.log.log(`CompanyMission ${missionId} completed`);
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "unknown error";
       this.log.error(`CompanyMission ${missionId} failed: ${message}`);
 
-      await this.updateMission(missionId, {
+      // 终态走仲裁：未被取消才写 failed（避免盖掉用户取消）。与能力路径一致。
+      const won = await this.finalizeIfNotCancelled(missionId, {
         status: "failed",
         result: { error: message, failedAt: new Date().toISOString() },
-      }).catch((dbErr: unknown) => {
-        this.log.error(
-          `Failed to persist failed status for ${missionId}: ${dbErr instanceof Error ? dbErr.message : String(dbErr)}`,
-        );
       });
-
-      await this.emit("company.mission:failed", missionId, userId, {
-        missionId,
-        message,
-      });
+      if (won) {
+        await this.emit("company.mission:failed", missionId, userId, {
+          missionId,
+          message,
+        });
+        // ★ 别让用户无声等待：普通团队任务失败也发通知（此前仅能力路径有，
+        //   纯 chat 团队失败用户会无声等待——补齐）。
+        await this.notifyMissionFailed({
+          missionId,
+          userId,
+          title: mission.title,
+          reason: message,
+        });
+      }
     }
   }
 
@@ -834,6 +864,12 @@ export class CompanyMissionService implements OnModuleInit {
         ...(extra?.searchTimeRange
           ? { searchTimeRange: extra.searchTimeRange }
           : {}),
+        ...(extra?.styleProfile ? { styleProfile: extra.styleProfile } : {}),
+        ...(extra?.lengthProfile ? { lengthProfile: extra.lengthProfile } : {}),
+        ...(extra?.audienceProfile
+          ? { audienceProfile: extra.audienceProfile }
+          : {}),
+        ...(extra?.auditLayers ? { auditLayers: [extra.auditLayers] } : {}),
       },
       {
         userId,
@@ -956,6 +992,36 @@ export class CompanyMissionService implements OnModuleInit {
         await this.emit("company.mission:completed", missionId, userId, {
           missionId,
         });
+        // ★ post-run 副作用 #1：知识图谱构建（fire-and-forget，不阻断主流程）。
+        //   graphService.build 读 CompanyMission.result.summary → LLM 抽取实体/关系
+        //   → upsert company_mission_graphs。失败只 error log，不影响 mission 终态。
+        if (this.missionGraph) {
+          void this.missionGraph
+            .build(userId, missionId)
+            .catch((err: unknown) => {
+              this.log.error(
+                `[post-run graph ${missionId}] knowledge-graph build failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+              );
+            });
+        }
+        // ★ post-run 副作用 #2：library 沉淀（fire-and-forget，不阻断主流程）。
+        //   把能力核报告 markdown 落成一条 library note，与 playground 侧对称。
+        if (this.sediment) {
+          void this.sediment
+            .sedimentMission({
+              missionId,
+              userId,
+              title: topic,
+              content: result.report ?? "",
+              source: "company",
+              tags: ["company", ...dimNames],
+            })
+            .catch((err: unknown) => {
+              this.log.error(
+                `[post-run sediment ${missionId}] library sediment failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+              );
+            });
+        }
       }
       this.log.log(
         `CompanyMission ${missionId} completed via capability "${runner.manifest.id}" ` +
@@ -1131,6 +1197,59 @@ export class CompanyMissionService implements OnModuleInit {
             ...(dimension !== undefined ? { dimension } : {}),
           });
         }
+      }
+    } else if (event.type === "domain") {
+      // ★ #16b domain 事件桥接：能力核发 domain 中性事件 → company.<event> namespace。
+      // payload 结构：{ event: string; data: Record<string,unknown> }
+      const domainPayload = event.payload as
+        | { event?: string; data?: Record<string, unknown> }
+        | undefined;
+      const domainEvent = domainPayload?.event;
+      const domainData = domainPayload?.data ?? {};
+      if (domainEvent) {
+        // 翻译 agent:lifecycle domain 事件时同步更新渐进维度状态。
+        if (domainEvent === "agent:lifecycle") {
+          const dim =
+            typeof domainData.dimension === "string"
+              ? domainData.dimension
+              : undefined;
+          const phase =
+            typeof domainData.phase === "string"
+              ? domainData.phase
+              : "completed";
+          if (dim) {
+            const st = this.liveState(missionId);
+            if (!st.dimStatus.has(dim)) st.dimOrder.push(dim);
+            st.dimStatus.set(
+              dim,
+              phase === "completed"
+                ? "done"
+                : phase === "failed"
+                  ? "failed"
+                  : "running",
+            );
+            await this.persistLiveProgress(missionId);
+          }
+        }
+        // 翻译 dimension:research:completed 时同步更新维度状态。
+        if (domainEvent === "dimension:research:completed") {
+          const dim =
+            typeof domainData.dimension === "string"
+              ? domainData.dimension
+              : undefined;
+          if (dim) {
+            const st = this.liveState(missionId);
+            if (!st.dimStatus.has(dim)) st.dimOrder.push(dim);
+            st.dimStatus.set(dim, "done");
+            await this.persistLiveProgress(missionId);
+          }
+        }
+        await this.emit(
+          `company.${domainEvent}`,
+          missionId,
+          userId,
+          domainData,
+        );
       }
     }
   }
@@ -1541,7 +1660,9 @@ export class CompanyMissionService implements OnModuleInit {
   ): Promise<boolean> {
     try {
       const res = await this.prisma.companyMission.updateMany({
-        where: { id, status: { not: "cancelled" } },
+        // 与 adapter.applyTerminalIfRunning 同口径：仅运行中状态可被终态写覆盖
+        // （不只是 != cancelled，亦避免覆盖已 done/failed 的行——首写真正赢）。
+        where: { id, status: { in: [...RUNNING_STATUSES] } },
         data,
       });
       return res.count > 0;

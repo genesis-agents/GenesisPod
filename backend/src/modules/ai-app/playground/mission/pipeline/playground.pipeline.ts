@@ -42,15 +42,13 @@ import {
   MissionRuntimeShellService,
   type MissionRuntimeSession,
 } from "./mission-runtime-shell.service";
-import { MissionStageBindingsService } from "./mission-stage-bindings.service";
 import { type RunMissionInput } from "../../api/dto/run-mission.dto";
-// ★ Stage 1 / S1-1 (2026-05-09): 11 个 stage 函数 + narrate / runWithStageInstrumentation
-//   + MissionInvariants 已随 stage hooks 移到 PlaygroundBusinessOrchestrator;dispatcher
-//   只保留 runtime-glue 必要的 runSelfEvolutionStage (S12 fire-and-forget postlude)。
-import { runSelfEvolutionStage } from "./stages/s12-self-evolution.stage";
+// ★ #16b env2（2026-06-09）：S12 postlude 已迁移到能力核（deep-insight.runner.ts
+//   assembleCompleted → fireSelfEvolutionPostlude），dispatcher 不再双写。
+//   runSelfEvolutionStage import 已删除；fireSelfEvolutionPostlude 方法已删除。
 import { MissionCheckpointService } from "@/modules/ai-harness/facade";
 import { MissionFailedPreset } from "@/modules/platform/facade";
-import { MissionEventBuffer } from "../lifecycle/mission-event-buffer.service";
+import { MissionSedimentService } from "@/modules/ai-app/library/sediment/mission-sediment.service";
 import { MissionStore } from "../lifecycle/mission-store.service";
 // ★ #16b 能力轨（唯一执行轨）：playground 消费平台共享能力（deep-insight）执行 14 阶段，
 //   注入自己的持久化端口 + 事件桥。私有 orchestrator 路径已退役。
@@ -63,6 +61,8 @@ import { AgentInvoker, LeaderService, type SupervisedMission } from "../roles";
 import { LeaderInvocationFactory } from "./leader-invocation.factory";
 // ★ Stage 1 / S1-1 (2026-05-09): 业务编排已抽到独立 service —— dispatcher inject + delegate
 import { PlaygroundBusinessOrchestrator } from "./playground-business-orchestrator.service";
+// ★ post-run 副作用：mission 完成后自动构建知识图谱（fire-and-forget，不阻断主流程）
+import { MissionGraphService } from "../graph/mission-graph.service";
 // ★ R2-#38: OTel span emission (mission root + stage child spans via AgentTracer)
 import { PlaygroundMissionSpanService } from "./playground-mission-span.service";
 // ★ Stage 1 / S1-2 (2026-05-09,closes T3): cross-stage cache 改用 Z5 CrossStageState 容器
@@ -118,21 +118,14 @@ export class PlaygroundPipelineDispatcher
 
   constructor(
     private readonly runtimeShell: MissionRuntimeShellService,
-    private readonly stageBindings: MissionStageBindingsService,
     private readonly leaderService: LeaderService,
     private readonly invoker: AgentInvoker,
     private readonly leaderInvocationFactory: LeaderInvocationFactory,
-    // R2-A.13: s11/s12 hook 需要 missionCheckpoint.clear + eventBuffer.read
+    // R2-A.13: s11 hook 需要 missionCheckpoint.clear
     private readonly missionCheckpoint: MissionCheckpointService,
-    private readonly missionEventBuffer: MissionEventBuffer,
     // R2-A.13.1: 失败兜底需要 store.markFailed
     private readonly store: MissionStore,
     private readonly electionTracker: MissionElectionTracker,
-    // ★ 2026-05-06 真治：dispatcher 之前 7 处直调 missionEventBuffer.broadcast() bypass
-    //   eventBus → SocketBroadcastAdapter 拿不到事件 → 前端 stage:lifecycle / stage:stalled
-    //   / stage:degraded / mission:execution-aborted / mission:postlude:* 全部不实时。
-    //   现在统一走 eventBus.emit() —— buffer 仍作为 adapter 接收（playground.module.ts:165
-    //   注册），同时 socket adapter 也分发 → 前端实时刷新。
     eventBus: EventBus,
     // ★ Stage 1 / S1-1 (2026-05-09): 业务编排(STAGE_NUMBER / CHECKPOINT_AT 字面量 +
     //   11 个 build*Hooks)已抽到独立 service。dispatcher 在 onModuleInit bind sessionLookup
@@ -156,6 +149,11 @@ export class PlaygroundPipelineDispatcher
     //   不装配 MarketplaceModule）优雅降级——OFF 路（默认）完全不触达本依赖；ON 路缺
     //   registry 时 warn + 返回 failed（不 throw，符合 DI 反模式守护：@Optional 不配 throw）。
     @Optional() private readonly capabilityRegistry?: CapabilityRegistry,
+    // ★ post-run 副作用：mission 完成后自动构建知识图谱。@Optional 让裁剪测试床优雅降级。
+    @Optional() private readonly missionGraph?: MissionGraphService,
+    // ★ post-run 副作用：mission 完成后把报告沉淀进应用内库（library notes）。@Optional
+    //   让裁剪测试床优雅降级。
+    @Optional() private readonly sediment?: MissionSedimentService,
   ) {
     // 2026-05-24 P4: framework 提供 emitToBus + bridgeOrchestratorStageEvent
     //   通用 mechanism；本 dispatcher 仅注入 playground 专属事件 type 字符串。
@@ -486,10 +484,48 @@ export class PlaygroundPipelineDispatcher
                 `[dispatcher ${missionId}] checkpoint.clear (success path) failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
               );
             });
+          // ★ post-run 副作用 #1：知识图谱构建（fire-and-forget，不阻断主流程）。
+          //   graphService.build 读 mission.reportFull → LLM 抽取实体/关系 → upsert
+          //   playgroundMissionGraph。失败只 warn，不影响 mission 终态。
+          if (this.missionGraph) {
+            void this.missionGraph
+              .build(userId, missionId)
+              .catch((err: unknown) => {
+                this.log.error(
+                  `[post-run graph ${missionId}] knowledge-graph build failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+                );
+              });
+          }
+          // ★ post-run 副作用 #2：library 沉淀（fire-and-forget，不阻断主流程）。
+          //   把能力核富报告 markdown 落成一条 library note，与 company 侧对称。
+          if (this.sediment) {
+            const artifact = result.stageOutputs.reportArtifact as {
+              content?: { fullMarkdown?: string };
+            } | null;
+            const plan = result.stageOutputs.plan as {
+              dimensions?: Array<{ name?: string }>;
+            } | null;
+            const dimTags = (plan?.dimensions ?? [])
+              .map((d) => d?.name)
+              .filter((n): n is string => typeof n === "string");
+            void this.sediment
+              .sedimentMission({
+                missionId,
+                userId,
+                title: input.topic,
+                content: artifact?.content?.fullMarkdown ?? "",
+                source: "playground",
+                tags: ["playground", ...dimTags],
+              })
+              .catch((err: unknown) => {
+                this.log.error(
+                  `[post-run sediment ${missionId}] library sediment failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+                );
+              });
+          }
         }
-        // ★ A-7: S12 self-evolution fire-and-forget（成功 / 失败路径都跑）
-        //   不阻塞 dispatcher 返回；emit mission:postlude:* 让前端单独推 s12 todo 状态
-        this.fireSelfEvolutionPostlude(missionId, userId);
+        // ★ #16b env2（2026-06-09）：S12 postlude 已由能力核 fireSelfEvolutionPostlude
+        //   在 assembleCompleted 内 fire，不在 dispatcher 层双写。
         reachedTerminal = true;
         return {
           missionId: result.missionId,
@@ -748,6 +784,26 @@ export class PlaygroundPipelineDispatcher
       }).catch(() => undefined);
       return;
     }
+    // ★ #16b domain 事件桥接：能力核发 domain 中性事件 → playground.<event> namespace。
+    // payload 结构：{ event: string; data: Record<string,unknown> }
+    // 消费方前端按 "playground.agent:lifecycle" / "playground.agent:narrative" /
+    //   "playground.dimension:research:started" 等订阅（与 OFF 路等价）。
+    if (event.type === "domain") {
+      const domainPayload = event.payload as
+        | { event?: string; data?: Record<string, unknown> }
+        | undefined;
+      const domainEvent = domainPayload?.event;
+      const domainData = domainPayload?.data ?? {};
+      if (domainEvent) {
+        await this.emitToBus({
+          type: `playground.${domainEvent}`,
+          missionId,
+          userId,
+          payload: domainData,
+        }).catch(() => undefined);
+      }
+      return;
+    }
     const stepId = event.telemetry?.systemStageId ?? event.stepId;
     if (!stepId) return; // 无 stage 锚点的纯生命周期事件（started/completed）不桥 stage。
     if (event.type === "stage:started") {
@@ -784,86 +840,6 @@ export class PlaygroundPipelineDispatcher
       default:
         return "info";
     }
-  }
-
-  /**
-   * A-7: S12 self-evolution fire-and-forget。
-   *
-   * mission terminal（成功/失败）后立即返回 dispatcher，本方法在后台跑 postmortem
-   * + memory 索引。生命周期事件不走 stage:lifecycle（避免与 mission stages 混淆），
-   * 而是 mission:postlude:started / mission:postlude:completed / mission:postlude:failed。
-   */
-  private fireSelfEvolutionPostlude(missionId: string, userId: string): void {
-    const entry = this.sessions.get(missionId);
-    if (!entry) {
-      this.log.warn(
-        `[A-7] fireSelfEvolutionPostlude: no session for ${missionId}`,
-      );
-      return;
-    }
-    const startedAt = Date.now();
-    void this.emitToBus({
-      type: "playground.mission:postlude:started",
-      missionId,
-      userId,
-      payload: { stage: "s12-self-evolution", startedAt },
-      timestamp: startedAt,
-    });
-
-    const bufferedEvents = this.missionEventBuffer
-      .read(missionId)
-      .map((e) => ({ type: e.type, ts: e.timestamp, payload: e.payload }));
-
-    void runSelfEvolutionStage(
-      {
-        missionId,
-        userId,
-        t0: entry.t0,
-        pool: entry.session.pool,
-        topic: entry.input.topic,
-        plan: entry.crossState.lastPlan
-          ? {
-              dimensions: (entry.crossState.lastPlan.dimensions ??
-                []) as unknown[],
-              goals: entry.crossState.lastPlan.goals,
-            }
-          : undefined,
-        researcherResults: entry.crossState.lastResearcherResults as
-          | unknown[]
-          | undefined,
-        reportArtifact: entry.crossState.lastReportArtifact as
-          | { quality?: { overall?: number }; sections?: unknown[] }
-          | undefined,
-        leaderSignOff: entry.crossState.lastLeaderSignOff,
-        abortSignal: entry.session.missionAbort.signal,
-        bufferedEvents,
-      },
-      this.stageBindings.buildDeps(),
-    )
-      .then(() =>
-        this.emitToBus({
-          type: "playground.mission:postlude:completed",
-          missionId,
-          userId,
-          payload: {
-            stage: "s12-self-evolution",
-            wallTimeMs: Date.now() - startedAt,
-          },
-        }),
-      )
-      .catch((err: unknown) => {
-        const message = err instanceof Error ? err.message : String(err);
-        return this.emitToBus({
-          type: "playground.mission:postlude:failed",
-          missionId,
-          userId,
-          payload: {
-            stage: "s12-self-evolution",
-            error: message.slice(0, 500),
-            wallTimeMs: Date.now() - startedAt,
-          },
-        });
-      });
   }
 
   /** A-8: 兜底 abort 处理 — emit mission:execution-aborted + markFailed */

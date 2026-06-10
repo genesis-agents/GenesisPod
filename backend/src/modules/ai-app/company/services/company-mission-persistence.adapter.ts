@@ -27,9 +27,12 @@ import type {
   MissionPersistencePort,
   MissionTerminalDetails,
 } from "@/modules/ai-app/marketplace/capability";
+import { CompanyMissionPostmortemHelper } from "./company-mission-postmortem.helper";
 
-/** company_missions.status 的"运行中"集合（仅这些状态允许被终态写覆盖）。 */
-const RUNNING_STATUSES = ["queued", "running", "review"] as const;
+/** company_missions.status 的"运行中"集合（仅这些状态允许被终态写覆盖）。
+ *  导出为单一源：service 的 finalizeIfNotCancelled 与本 adapter 的 applyTerminalIfRunning
+ *  共用同一口径，避免两处仲裁条件漂移（不再用宽松的 != cancelled）。 */
+export const RUNNING_STATUSES = ["queued", "running", "review"] as const;
 
 /** outcome → company_missions.status 终态映射（company 用 "done" 表示完成）。 */
 const OUTCOME_TO_STATUS: Record<
@@ -45,7 +48,10 @@ const OUTCOME_TO_STATUS: Record<
 export class CompanyMissionPersistenceAdapter implements MissionPersistencePort {
   private readonly log = new Logger(CompanyMissionPersistenceAdapter.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly postmortemHelper: CompanyMissionPostmortemHelper,
+  ) {}
 
   // ── 内部工具：result JSON 合并落库（保留既有键，仅并入 __checkpoint 轨迹）──
 
@@ -93,6 +99,55 @@ export class CompanyMissionPersistenceAdapter implements MissionPersistencePort 
     } catch (err: unknown) {
       this.log.warn(
         `patchCheckpoint ${missionId} failed (best-effort): ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  /**
+   * ★ 任务分解可见（2026-06-09）：能力轨 s2 plan 后把规划维度落 result.steps/dimensions，
+   *   让"任务列表"运行中即显拆解（前端读 result.steps）。仅当 steps 尚空时写（首写赢，
+   *   不 clobber 终态 runViaCapability 写的富 steps）。与 playground savePlanDimensions 对称。
+   *   由能力核经 recordPlanDimensions 端口触发（不再由 saveCheckpoint 嗅探）。
+   */
+  private async persistPlanDimensions(
+    missionId: string,
+    dims: ReadonlyArray<{ id?: string; name: string; rationale?: string }>,
+  ): Promise<void> {
+    try {
+      const row = await this.prisma.companyMission.findUnique({
+        where: { id: missionId },
+        select: { status: true, result: true },
+      });
+      if (!row || !this.isRunning(row.status)) return;
+      const result =
+        row.result &&
+        typeof row.result === "object" &&
+        !Array.isArray(row.result)
+          ? { ...(row.result as Record<string, unknown>) }
+          : {};
+      if (Array.isArray(result.steps) && result.steps.length > 0) return; // 已有 → 不覆盖
+      const names = dims
+        .filter((d) => typeof d?.name === "string" && d.name.length > 0)
+        .map((d) =>
+          String(d.name)
+            .replace(/[\r\n]/g, " ")
+            .trim(),
+        );
+      if (names.length === 0) return;
+      result.dimensions = names;
+      result.steps = names.map((n) => ({
+        label: n,
+        role: "Researcher",
+        dimension: n,
+        status: "pending",
+      }));
+      await this.prisma.companyMission.update({
+        where: { id: missionId },
+        data: { result: this.toJson(result) },
+      });
+    } catch (err: unknown) {
+      this.log.warn(
+        `persistPlanDimensions ${missionId} failed (best-effort): ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }
@@ -318,6 +373,108 @@ export class CompanyMissionPersistenceAdapter implements MissionPersistencePort 
       },
     });
     return 1;
+  }
+
+  // ── 可选：S12 自进化——recordPlanDimensions / recordPostmortem / recallPostmortems ──
+
+  /**
+   * 把 s2 leader plan 产出的维度列表落 result.steps/dimensions（仅空时写，首写赢）。
+   * 由能力核 s2 plan 完成后经端口触发，让"任务分解"运行中即可显示。
+   */
+  async recordPlanDimensions(
+    missionId: string,
+    dims: ReadonlyArray<{ id?: string; name: string; rationale?: string }>,
+  ): Promise<void> {
+    await this.persistPlanDimensions(missionId, dims);
+  }
+
+  /**
+   * 把 mission postmortem 写入 harness_vector_memory（经 CompanyMissionPostmortemHelper）。
+   * best-effort：失败 warn 不抛，不破坏终态。
+   */
+  async recordPostmortem(args: {
+    readonly missionId: string;
+    readonly userId: string;
+    readonly topic: string;
+    readonly summary: string;
+    readonly recommendations: readonly string[];
+    readonly leaderSigned: boolean | null;
+    readonly qualityScore: number | null;
+    readonly tokensUsed: number;
+    readonly costUsd: number;
+    readonly source: string;
+    readonly tags: readonly string[];
+    readonly failureClassification?: {
+      readonly mode: string;
+      readonly signals: readonly string[];
+      readonly confidence: number;
+    };
+  }): Promise<void> {
+    try {
+      await this.postmortemHelper.recordMissionPostmortem({
+        missionId: args.missionId,
+        userId: args.userId,
+        topic: args.topic,
+        summary: args.summary,
+        recommendations: [...args.recommendations],
+        leaderSigned: args.leaderSigned,
+        qualityScore: args.qualityScore,
+        tokensUsed: args.tokensUsed,
+        costUsd: args.costUsd,
+        source: args.source,
+        tags: args.tags,
+        failureClassification: args.failureClassification,
+      });
+    } catch (err: unknown) {
+      this.log.warn(
+        `recordPostmortem ${args.missionId} failed (best-effort): ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  /**
+   * 召回同用户同主题的历史 postmortem（经 CompanyMissionPostmortemHelper.listRecentPostmortems）。
+   * best-effort：失败 warn，回退到空数组。
+   */
+  async recallPostmortems(args: {
+    userId: string;
+    topic: string;
+    limit?: number;
+  }): Promise<
+    ReadonlyArray<{
+      missionId: string;
+      topic: string;
+      summary: string;
+      recommendations: string[];
+      leaderSigned: boolean | null;
+      qualityScore: number | null;
+      createdAt: string;
+    }>
+  > {
+    try {
+      const rows = await this.postmortemHelper.listRecentPostmortems(
+        args.userId,
+        args.limit ?? 3,
+        args.topic,
+      );
+      return rows.map((r) => ({
+        missionId: r.missionId,
+        topic: r.topic,
+        summary: r.summary,
+        recommendations: r.recommendations,
+        leaderSigned: r.leaderSigned,
+        qualityScore: r.qualityScore,
+        createdAt:
+          r.createdAt instanceof Date
+            ? r.createdAt.toISOString()
+            : String(r.createdAt),
+      }));
+    } catch (err: unknown) {
+      this.log.warn(
+        `recallPostmortems userId=${args.userId} failed (best-effort): ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return [];
+    }
   }
 
   // ── 内部 ──

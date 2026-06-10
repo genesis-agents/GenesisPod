@@ -1,42 +1,48 @@
 /**
- * MissionPostmortemHelper — mission 复盘记录
+ * CompanyMissionPostmortemHelper — company 侧 mission 复盘记录。
  *
- * ★ 2026-05-24 P6 Wave 1：framework 化下沉到
- *   `ai-harness/teams/business-team/lifecycle/business-team-postmortem-helper.framework.ts`。
- *   本文件仅注入 playground 专属：embedding 服务 / vector memory schema /
- *   recent mission 查询（agent_playground_missions 表）。
+ * 薄 helper：照 playground/mission/lifecycle/mission-postmortem.helper.ts 结构，
+ * extends BusinessTeamPostmortemHelperFramework（复用框架的 recordMissionPostmortem /
+ * listRecentPostmortems），只配置 company 专属的 namespace / source / tags / table 查询。
+ *
+ * 差异（vs playground）：
+ *   - source: 'deep-insight:mission'（能力核标识）
+ *   - tags: ['company', 'mission-postmortem', signed|unsigned]
+ *   - findRecentMissionId: 查 company_missions 表（NOT agent_playground_missions）
  */
 
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { EmbeddingService } from "@/modules/ai-engine/facade";
 import {
   BusinessTeamPostmortemHelperFramework,
-  PrismaVectorStore,
   type PostmortemHelperHooks,
   type PostmortemListBase,
   type PostmortemRecordBase,
 } from "@/modules/ai-harness/facade";
+import { PrismaVectorStore } from "@/modules/ai-harness/facade";
 
-export interface PlaygroundPostmortemRecord extends PostmortemRecordBase {
+export interface CompanyPostmortemRecord extends PostmortemRecordBase {
   readonly recommendations: string[];
   readonly qualityScore: number | null;
   readonly tokensUsed: number;
   readonly costUsd: number;
+  readonly source: string;
+  readonly tags: readonly string[];
   readonly failureClassification?: {
     readonly mode: string;
-    readonly signals: string[];
+    readonly signals: readonly string[];
     readonly confidence: number;
   };
 }
 
-export interface PlaygroundPostmortemListItem extends PostmortemListBase {
+export interface CompanyPostmortemListItem extends PostmortemListBase {
   readonly recommendations: string[];
   readonly qualityScore: number | null;
 }
 
-export class MissionPostmortemHelper extends BusinessTeamPostmortemHelperFramework<
-  PlaygroundPostmortemRecord,
-  PlaygroundPostmortemListItem
+export class CompanyMissionPostmortemHelper extends BusinessTeamPostmortemHelperFramework<
+  CompanyPostmortemRecord,
+  CompanyPostmortemListItem
 > {
   constructor(
     prisma: PrismaService,
@@ -44,10 +50,10 @@ export class MissionPostmortemHelper extends BusinessTeamPostmortemHelperFramewo
     vectorStore?: PrismaVectorStore,
   ) {
     const hooks: PostmortemHelperHooks<
-      PlaygroundPostmortemRecord,
-      PlaygroundPostmortemListItem
+      CompanyPostmortemRecord,
+      CompanyPostmortemListItem
     > = {
-      loggerNamespace: "MissionPostmortemHelper",
+      loggerNamespace: "CompanyMissionPostmortemHelper",
       embeddingPort: embeddingService
         ? {
             generateEmbedding: (text) =>
@@ -64,15 +70,22 @@ export class MissionPostmortemHelper extends BusinessTeamPostmortemHelperFramewo
         await prisma.harnessVectorMemory.create({
           data: {
             namespace: input.userId,
-            source: "playground:mission",
+            source: input.source ?? "deep-insight:mission",
             entryKey: `mission-postmortem:${input.missionId}`,
             content: input.summary.slice(0, 2000),
             embedding,
             confidence: 1.0,
             tags: [
-              "playground",
+              "company",
               "mission-postmortem",
               input.leaderSigned === true ? "signed" : "unsigned",
+              ...(input.tags ?? []).filter(
+                (t) =>
+                  t !== "company" &&
+                  t !== "mission-postmortem" &&
+                  t !== "signed" &&
+                  t !== "unsigned",
+              ),
             ],
             metadata: {
               missionId: input.missionId,
@@ -89,57 +102,25 @@ export class MissionPostmortemHelper extends BusinessTeamPostmortemHelperFramewo
         });
       },
       findRecentMissionId: async (userId) => {
-        const row = await prisma.agentPlaygroundMission.findFirst({
+        // company_missions 无 completedAt；用 updatedAt 近似（done 后 updatedAt 即终态写入时刻）。
+        const row = await prisma.companyMission.findFirst({
           where: {
             userId,
-            status: { in: ["completed", "quality-failed"] },
-            completedAt: { gte: new Date(Date.now() - 5 * 60_000) },
+            status: "done",
+            updatedAt: { gte: new Date(Date.now() - 5 * 60_000) },
           },
-          select: { id: true, completedAt: true },
-          orderBy: { completedAt: "desc" },
+          select: { id: true },
+          orderBy: { updatedAt: "desc" },
         });
         return row?.id ?? null;
       },
       listVectorMemories: async (userId, limit, queryEmbedding) => {
-        // 语义路径：有 queryEmbedding + vectorStore → cosine 召回（PrismaVectorStore.recall）
-        if (queryEmbedding && queryEmbedding.length > 0 && vectorStore) {
-          const hits = await vectorStore.recall(queryEmbedding, {
-            namespace: userId,
-            k: limit,
-            tags: ["mission-postmortem", "playground"],
-          });
-          return hits.map(({ entry: r }) => {
-            const meta = r.metadata ?? {};
-            return {
-              missionId: String(meta.missionId ?? ""),
-              topic: String(meta.topic ?? ""),
-              summary: r.content,
-              recommendations: Array.isArray(meta.recommendations)
-                ? (meta.recommendations as string[])
-                : [],
-              leaderSigned: r.tags.includes("signed")
-                ? true
-                : r.tags.includes("unsigned")
-                  ? false
-                  : null,
-              qualityScore:
-                typeof meta.qualityScore === "number"
-                  ? meta.qualityScore
-                  : null,
-              createdAt: r.createdAt,
-            };
-          });
-        }
-        // 回退路径：recency 倒序（无 queryEmbedding / 无 vectorStore）
-        const rows = await prisma.harnessVectorMemory.findMany({
-          where: {
-            namespace: userId,
-            tags: { has: "mission-postmortem" },
-          },
-          orderBy: { createdAt: "desc" },
-          take: limit,
-        });
-        return rows.map((r) => {
+        const mapRow = (r: {
+          tags: readonly string[];
+          metadata?: unknown;
+          content: string;
+          createdAt: Date;
+        }): CompanyPostmortemListItem => {
           const meta = (r.metadata ?? {}) as Record<string, unknown>;
           return {
             missionId: String(meta.missionId ?? ""),
@@ -157,14 +138,38 @@ export class MissionPostmortemHelper extends BusinessTeamPostmortemHelperFramewo
               typeof meta.qualityScore === "number" ? meta.qualityScore : null,
             createdAt: r.createdAt,
           };
+        };
+
+        // 语义路径：有 queryEmbedding + vectorStore → cosine 召回（PrismaVectorStore.recall）
+        if (queryEmbedding && queryEmbedding.length > 0 && vectorStore) {
+          const hits = await vectorStore.recall(queryEmbedding, {
+            namespace: userId,
+            k: limit,
+            tags: ["mission-postmortem", "company"],
+          });
+          return hits.map(({ entry: r }) => mapRow(r));
+        }
+
+        // 回退路径：recency 倒序（无 queryEmbedding / 无 vectorStore）
+        const rows = await prisma.harnessVectorMemory.findMany({
+          where: {
+            namespace: userId,
+            tags: { has: "mission-postmortem" },
+            AND: [{ tags: { has: "company" } }],
+          },
+          orderBy: { createdAt: "desc" },
+          take: limit,
         });
+        return rows.map(mapRow);
       },
     };
     super(hooks);
   }
 
   /**
-   * Back-compat shim — caller 传 plain object，转 framework input shape。
+   * Back-compat shim — 端口 args → framework input shape。
+   * 框架 recordMissionPostmortem 的 input 是 TRecordInput（CompanyPostmortemRecord），
+   * 本方法把端口的 plain object 映射进去，调用框架方法写 harness_vector_memory。
    */
   async recordMissionPostmortem(input: {
     missionId: string;
@@ -176,9 +181,11 @@ export class MissionPostmortemHelper extends BusinessTeamPostmortemHelperFramewo
     qualityScore: number | null;
     tokensUsed: number;
     costUsd: number;
+    source: string;
+    tags: readonly string[];
     failureClassification?: {
       mode: string;
-      signals: string[];
+      signals: readonly string[];
       confidence: number;
     };
   }): Promise<void> {

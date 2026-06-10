@@ -1,7 +1,10 @@
 import {
   MissionStore,
   MissionConcurrencyLimitError,
+  MissionStorePersistenceAdapter,
 } from "../mission-store.service";
+import { MissionPostmortemHelper } from "../mission-postmortem.helper";
+import { PrismaMissionCheckpointStore } from "../prisma-mission-checkpoint.store";
 
 function makePrisma() {
   const agentPlaygroundMission = {
@@ -709,6 +712,203 @@ describe("MissionStore", () => {
       await expect(
         store.refreshHeartbeat("ghost", "pod-1"),
       ).resolves.toBeUndefined();
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MissionStorePersistenceAdapter — 3 optional port methods
+// ─────────────────────────────────────────────────────────────────────────────
+
+function makeAdapter() {
+  const prisma = makePrisma();
+  const store = new MissionStore(prisma as never);
+
+  // stub store.savePlanDimensions
+  const savePlanDimensions = jest.spyOn(store, "savePlanDimensions");
+
+  // stub checkpointStore
+  const checkpointStore = {
+    save: jest.fn().mockResolvedValue(undefined),
+    load: jest.fn().mockResolvedValue(null),
+    clear: jest.fn().mockResolvedValue(undefined),
+  } as unknown as PrismaMissionCheckpointStore;
+
+  // stub postmortem helper
+  const postmortemHelper = {
+    recordMissionPostmortem: jest.fn().mockResolvedValue(undefined),
+    listRecentPostmortems: jest.fn().mockResolvedValue([]),
+  } as unknown as MissionPostmortemHelper;
+
+  // stub lifecycleManager
+  const lifecycleManager = {
+    finalize: jest.fn().mockResolvedValue({ won: true }),
+  };
+
+  const adapter = new MissionStorePersistenceAdapter(
+    store,
+    checkpointStore,
+    lifecycleManager as never,
+    postmortemHelper,
+  );
+
+  return { adapter, store, prisma, postmortemHelper, savePlanDimensions };
+}
+
+describe("MissionStorePersistenceAdapter", () => {
+  describe("recordPlanDimensions", () => {
+    it("delegates to store.savePlanDimensions when dims non-empty", async () => {
+      const { adapter, savePlanDimensions } = makeAdapter();
+      savePlanDimensions.mockResolvedValue(undefined);
+
+      await adapter.recordPlanDimensions("m1", [
+        { id: "d1", name: "Market", rationale: "r" },
+      ]);
+
+      expect(savePlanDimensions).toHaveBeenCalledWith("m1", [
+        { id: "d1", name: "Market", rationale: "r" },
+      ]);
+    });
+
+    it("swallows savePlanDimensions errors (best-effort)", async () => {
+      const { adapter, savePlanDimensions } = makeAdapter();
+      savePlanDimensions.mockRejectedValue(new Error("DB error"));
+
+      await expect(
+        adapter.recordPlanDimensions("m1", [{ name: "X" }]),
+      ).resolves.toBeUndefined();
+    });
+
+    it("writes to dimensions column only when column is empty (via savePlanDimensions guard)", async () => {
+      const { adapter, prisma, savePlanDimensions } = makeAdapter();
+      // mission row exists with empty dimensions
+      prisma.agentPlaygroundMission.findUnique.mockResolvedValue({
+        status: "running",
+        dimensions: [],
+      });
+      prisma.agentPlaygroundMission.update.mockResolvedValue({});
+      savePlanDimensions.mockRestore(); // use real implementation
+
+      await adapter.recordPlanDimensions("m1", [
+        { id: "d1", name: "Market", rationale: "r" },
+      ]);
+
+      expect(prisma.agentPlaygroundMission.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "m1" } }),
+      );
+    });
+  });
+
+  describe("recordPostmortem", () => {
+    it("delegates to postmortemHelper.recordMissionPostmortem", async () => {
+      const { adapter, postmortemHelper } = makeAdapter();
+
+      await adapter.recordPostmortem({
+        missionId: "m1",
+        userId: "u1",
+        topic: "AI",
+        summary: "Summary",
+        recommendations: ["rec1"],
+        leaderSigned: true,
+        qualityScore: 85,
+        tokensUsed: 5000,
+        costUsd: 0.5,
+        source: "deep-insight:mission",
+        tags: ["playground", "mission-postmortem"],
+      });
+
+      expect(postmortemHelper.recordMissionPostmortem).toHaveBeenCalledWith(
+        expect.objectContaining({
+          missionId: "m1",
+          userId: "u1",
+          topic: "AI",
+          summary: "Summary",
+          recommendations: ["rec1"],
+          leaderSigned: true,
+          qualityScore: 85,
+          tokensUsed: 5000,
+          costUsd: 0.5,
+        }),
+      );
+    });
+
+    it("swallows recordMissionPostmortem errors (best-effort)", async () => {
+      const { adapter, postmortemHelper } = makeAdapter();
+      (postmortemHelper.recordMissionPostmortem as jest.Mock).mockRejectedValue(
+        new Error("vector DB error"),
+      );
+
+      await expect(
+        adapter.recordPostmortem({
+          missionId: "m1",
+          userId: "u1",
+          topic: "AI",
+          summary: "s",
+          recommendations: [],
+          leaderSigned: null,
+          qualityScore: null,
+          tokensUsed: 0,
+          costUsd: 0,
+          source: "deep-insight:mission",
+          tags: [],
+        }),
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  describe("recallPostmortems", () => {
+    it("returns mapped rows from postmortemHelper.listRecentPostmortems", async () => {
+      const { adapter, postmortemHelper } = makeAdapter();
+      const createdAt = new Date("2026-06-09T10:00:00.000Z");
+      (postmortemHelper.listRecentPostmortems as jest.Mock).mockResolvedValue([
+        {
+          missionId: "m1",
+          topic: "AI",
+          summary: "Postmortem summary",
+          recommendations: ["rec1"],
+          leaderSigned: true,
+          qualityScore: 85,
+          createdAt,
+        },
+      ]);
+
+      const result = await adapter.recallPostmortems({
+        userId: "u1",
+        topic: "AI",
+        limit: 3,
+      });
+
+      expect(result).toHaveLength(1);
+      expect(result[0].missionId).toBe("m1");
+      expect(result[0].recommendations).toEqual(["rec1"]);
+      expect(result[0].leaderSigned).toBe(true);
+      expect(result[0].qualityScore).toBe(85);
+      expect(result[0].createdAt).toBe(createdAt.toISOString());
+    });
+
+    it("returns empty array on listRecentPostmortems error (best-effort)", async () => {
+      const { adapter, postmortemHelper } = makeAdapter();
+      (postmortemHelper.listRecentPostmortems as jest.Mock).mockRejectedValue(
+        new Error("DB down"),
+      );
+
+      const result = await adapter.recallPostmortems({
+        userId: "u1",
+        topic: "AI",
+      });
+      expect(result).toEqual([]);
+    });
+
+    it("passes limit and topic (queryText) to listRecentPostmortems (default limit 3)", async () => {
+      const { adapter, postmortemHelper } = makeAdapter();
+
+      await adapter.recallPostmortems({ userId: "u1", topic: "AI" });
+
+      expect(postmortemHelper.listRecentPostmortems).toHaveBeenCalledWith(
+        "u1",
+        3,
+        "AI",
+      );
     });
   });
 });

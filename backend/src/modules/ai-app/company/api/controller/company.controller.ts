@@ -341,6 +341,10 @@ export class CompanyController {
         withFigures: dto.withFigures,
         knowledgeBaseIds: dto.knowledgeBaseIds,
         searchTimeRange: dto.searchTimeRange,
+        styleProfile: dto.styleProfile,
+        lengthProfile: dto.lengthProfile,
+        audienceProfile: dto.audienceProfile,
+        auditLayers: dto.auditLayers,
       },
     );
   }

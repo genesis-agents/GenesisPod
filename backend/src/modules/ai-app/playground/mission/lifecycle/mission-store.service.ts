@@ -39,7 +39,10 @@ import type {
   MissionPersistencePort,
   MissionTerminalDetails,
 } from "../../../marketplace/capability";
-import { MissionFailureCode } from "@/modules/ai-harness/facade";
+import {
+  MissionFailureCode,
+  PrismaVectorStore,
+} from "@/modules/ai-harness/facade";
 
 /**
  * 每用户最多并发 running mission 数。
@@ -204,6 +207,7 @@ export class MissionStore
     private readonly prisma: PrismaService,
     @Optional() embeddingService?: EmbeddingService,
     @Optional() abortRegistry?: MissionAbortRegistry,
+    @Optional() vectorStore?: PrismaVectorStore,
   ) {
     // Forward references — defined methods on class instance; safe at hook-call time.
     const isMissionRowMissing = (err: unknown): boolean => {
@@ -307,7 +311,11 @@ export class MissionStore
       this.clearCheckpointJsonbKey.bind(this),
     );
     this.update = new MissionUpdateHelper(prisma);
-    this.postmortem = new MissionPostmortemHelper(prisma, embeddingService);
+    this.postmortem = new MissionPostmortemHelper(
+      prisma,
+      embeddingService,
+      vectorStore,
+    );
     this.report = new MissionReportHelper(
       prisma,
       isMissionRowMissing,
@@ -337,6 +345,7 @@ export class MissionStore
       this,
       this.checkpointStore,
       lifecycleManager,
+      this.postmortem,
     );
   }
 
@@ -590,6 +599,54 @@ export class MissionStore
     );
   }
 
+  /**
+   * ★ 任务分解可见（2026-06-09）：能力轨 s2 plan 产出维度后，把规划维度落到 dimensions 列，
+   *   让前端"任务分解"面板**运行中即可见**（前端读 row.dimensions）。OFF 路是 s2 stage 直接
+   *   写；能力轨经 MissionStorePersistenceAdapter.saveCheckpoint（s2 完成后）调本方法。
+   *   仅当列尚空时写（首写赢，不 clobber 用户后续 appendDimensions 的维度）。
+   */
+  async savePlanDimensions(
+    missionId: string,
+    dims: ReadonlyArray<{ id?: string; name: string; rationale?: string }>,
+  ): Promise<void> {
+    if (dims.length === 0) return;
+    try {
+      const row = await this.prisma.agentPlaygroundMission.findUnique({
+        where: { id: missionId },
+        select: { status: true, dimensions: true },
+      });
+      if (!row || row.status !== "running") return;
+      const existing = (row.dimensions ?? []) as unknown[];
+      if (existing.length > 0) return; // 已有（plan 已写 / user 已加）→ 不覆盖
+      const normalized = dims
+        .filter((d) => typeof d?.name === "string" && d.name.length > 0)
+        .map((d, i) => ({
+          id: typeof d.id === "string" ? d.id : `dim-${i + 1}`,
+          name: String(d.name)
+            .replace(/[\r\n]/g, " ")
+            .trim()
+            .slice(0, 200),
+          rationale:
+            typeof d.rationale === "string"
+              ? d.rationale
+                  .replace(/[\r\n]/g, " ")
+                  .trim()
+                  .slice(0, 500)
+              : "",
+          source: "plan" as const,
+        }));
+      if (normalized.length === 0) return;
+      await this.prisma.agentPlaygroundMission.update({
+        where: { id: missionId },
+        data: { dimensions: normalized as never },
+      });
+    } catch (err: unknown) {
+      this.storeLog.warn(
+        `[savePlanDimensions ${missionId}] failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
   /** 多租户可见性切换（仅所有者）。 */
   async updateVisibility(
     userId: string,
@@ -800,6 +857,7 @@ export class MissionStorePersistenceAdapter implements MissionPersistencePort {
     private readonly store: MissionStore,
     private readonly checkpointStore: PrismaMissionCheckpointStore,
     private readonly lifecycleManager: MissionLifecycleManager,
+    private readonly postmortem: MissionPostmortemHelper,
   ) {}
 
   // ── 核心：crash-resume ──
@@ -864,6 +922,112 @@ export class MissionStorePersistenceAdapter implements MissionPersistencePort {
 
   async clearCheckpoint(missionId: string): Promise<void> {
     await this.checkpointStore.clear(missionId);
+  }
+
+  // ── 可选端口：维度持久化（能力核 s2 plan 完成后 fire-and-forget 调）──
+
+  async recordPlanDimensions(
+    missionId: string,
+    dims: ReadonlyArray<{ id?: string; name: string; rationale?: string }>,
+  ): Promise<void> {
+    await this.store
+      .savePlanDimensions(missionId, dims)
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[recordPlanDimensions ${missionId}] non-fatal: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+  }
+
+  // ── 可选端口：S12 postmortem 写（能力核 fire-and-forget 调）──
+
+  async recordPostmortem(args: {
+    readonly missionId: string;
+    readonly userId: string;
+    readonly topic: string;
+    readonly summary: string;
+    readonly recommendations: readonly string[];
+    readonly leaderSigned: boolean | null;
+    readonly qualityScore: number | null;
+    readonly tokensUsed: number;
+    readonly costUsd: number;
+    readonly source: string;
+    readonly tags: readonly string[];
+    readonly failureClassification?: {
+      readonly mode: string;
+      readonly signals: readonly string[];
+      readonly confidence: number;
+    };
+  }): Promise<void> {
+    await this.postmortem
+      .recordMissionPostmortem({
+        missionId: args.missionId,
+        userId: args.userId,
+        topic: args.topic,
+        summary: args.summary,
+        recommendations: args.recommendations as string[],
+        leaderSigned: args.leaderSigned,
+        qualityScore: args.qualityScore,
+        tokensUsed: args.tokensUsed,
+        costUsd: args.costUsd,
+        ...(args.failureClassification
+          ? {
+              failureClassification: {
+                mode: args.failureClassification.mode,
+                signals: args.failureClassification.signals as string[],
+                confidence: args.failureClassification.confidence,
+              },
+            }
+          : {}),
+      })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[recordPostmortem ${args.missionId}] non-fatal: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+  }
+
+  // ── 可选端口：S12 postmortem recall（能力核 run() 开始前调）──
+
+  async recallPostmortems(args: {
+    userId: string;
+    topic: string;
+    limit?: number;
+  }): Promise<
+    ReadonlyArray<{
+      missionId: string;
+      topic: string;
+      summary: string;
+      recommendations: string[];
+      leaderSigned: boolean | null;
+      qualityScore: number | null;
+      createdAt: string;
+    }>
+  > {
+    try {
+      const rows = await this.postmortem.listRecentPostmortems(
+        args.userId,
+        args.limit ?? 3,
+        args.topic,
+      );
+      return rows.map((r) => ({
+        missionId: r.missionId,
+        topic: r.topic,
+        summary: r.summary,
+        recommendations: r.recommendations,
+        leaderSigned: r.leaderSigned,
+        qualityScore: r.qualityScore,
+        createdAt:
+          r.createdAt instanceof Date
+            ? r.createdAt.toISOString()
+            : String(r.createdAt),
+      }));
+    } catch (err: unknown) {
+      this.log.warn(
+        `[recallPostmortems userId=${args.userId}] non-fatal: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return [];
+    }
   }
 
   // ── 终态：条件写仲裁（经 lifecycleManager.finalize → store arbiter）──

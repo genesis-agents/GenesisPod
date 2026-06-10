@@ -119,6 +119,16 @@ export class CompanyHeroService {
       withFigures?: boolean;
       knowledgeBaseIds?: string[];
       searchTimeRange?: "30d" | "90d" | "180d" | "365d" | "730d" | "all";
+      styleProfile?: "executive" | "academic" | "journalistic" | "technical";
+      lengthProfile?:
+        | "brief"
+        | "standard"
+        | "deep"
+        | "extended"
+        | "epic"
+        | "mega";
+      audienceProfile?: "executive" | "domain-expert" | "general-public";
+      auditLayers?: "minimal" | "default" | "thorough" | "thorough+";
     },
   ): Promise<CompanyMission> {
     const hero = await this.prisma.companyHero.findFirst({

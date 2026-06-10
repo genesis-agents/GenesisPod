@@ -136,6 +136,38 @@ export class CreateMissionDto {
   @IsOptional()
   @IsIn(["30d", "90d", "180d", "365d", "730d", "all"])
   searchTimeRange?: "30d" | "90d" | "180d" | "365d" | "730d" | "all";
+
+  @ApiPropertyOptional({
+    enum: ["executive", "academic", "journalistic", "technical"],
+    description: "报告文风档位（透传到能力 runner writer/outline）",
+  })
+  @IsOptional()
+  @IsIn(["executive", "academic", "journalistic", "technical"])
+  styleProfile?: "executive" | "academic" | "journalistic" | "technical";
+
+  @ApiPropertyOptional({
+    enum: ["brief", "standard", "deep", "extended", "epic", "mega"],
+    description: "报告长度档位（透传到能力 runner）",
+  })
+  @IsOptional()
+  @IsIn(["brief", "standard", "deep", "extended", "epic", "mega"])
+  lengthProfile?: "brief" | "standard" | "deep" | "extended" | "epic" | "mega";
+
+  @ApiPropertyOptional({
+    enum: ["executive", "domain-expert", "general-public"],
+    description: "报告受众档位（透传到能力 runner）",
+  })
+  @IsOptional()
+  @IsIn(["executive", "domain-expert", "general-public"])
+  audienceProfile?: "executive" | "domain-expert" | "general-public";
+
+  @ApiPropertyOptional({
+    enum: ["minimal", "default", "thorough", "thorough+"],
+    description: "审核层级（透传到能力 runner）",
+  })
+  @IsOptional()
+  @IsIn(["minimal", "default", "thorough", "thorough+"])
+  auditLayers?: "minimal" | "default" | "thorough" | "thorough+";
 }
 
 export class RenameMissionDto {
