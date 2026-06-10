@@ -223,6 +223,9 @@ async function bootstrap() {
       timestamp: new Date().toISOString(),
       service: `${APP_CONFIG.brand.fullName} Backend`,
       version: "1.0.0",
+      // 部署指纹：确认线上跑的是哪个 commit（Railway 注入；本地/CI 无此变量则 unknown）。
+      // 没有它，"改了没生效"永远分不清是代码问题还是部署时序问题。
+      commit: process.env.RAILWAY_GIT_COMMIT_SHA ?? "unknown",
     });
   });
 
