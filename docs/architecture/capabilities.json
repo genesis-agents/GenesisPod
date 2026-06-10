@@ -10,11 +10,11 @@
     "frontend/lib/design/tokens.ts"
   ],
   "totals": {
-    "all": 1908,
+    "all": 1909,
     "byLayer": {
       "engine": 523,
       "frontend": 244,
-      "harness": 1091,
+      "harness": 1092,
       "platform": 50
     },
     "byDomain": {
@@ -67,7 +67,7 @@
       "harness/rag": 1,
       "harness/runner": 62,
       "harness/skills": 10,
-      "harness/teams": 279,
+      "harness/teams": 280,
       "harness/tools": 16,
       "harness/tracing": 64,
       "platform/abstractions": 4,
@@ -14291,6 +14291,14 @@
       "domain": "teams",
       "source": "backend/src/modules/ai-harness/teams/orchestrator/self-driven/self-driven-hitl-gate.ts",
       "import": "import { selfDrivenMissionGateKey } from \"@/modules/ai-harness/facade\";"
+    },
+    {
+      "name": "truncatePayload",
+      "kind": "value",
+      "layer": "harness",
+      "domain": "teams",
+      "source": "backend/src/modules/ai-harness/teams/business-team/events/event-relay.framework.ts",
+      "import": "import { truncatePayload } from \"@/modules/ai-harness/facade\";"
     },
     {
       "name": "validateContextPackage",
