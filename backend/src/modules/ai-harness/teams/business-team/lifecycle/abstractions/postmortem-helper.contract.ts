@@ -51,10 +51,16 @@ export interface PostmortemHelperHooks<
   }) => Promise<void>;
   /** 查询最近 (<5min) mission 是否存在 + 拿 missionId（S12 race check）。 */
   readonly findRecentMissionId: (userId: string) => Promise<string | null>;
-  /** List recent N 条 postmortem 行。 */
+  /**
+   * List recent N 条 postmortem 行。
+   *
+   * @param queryEmbedding 可选。若提供则按 cosine 相似度召回（语义 recall）；
+   *                        缺省则按 createdAt 倒序（recency 召回）。
+   */
   readonly listVectorMemories: (
     userId: string,
     limit: number,
+    queryEmbedding?: readonly number[],
   ) => Promise<readonly TListItem[]>;
   /** Logger namespace。 */
   readonly loggerNamespace: string;

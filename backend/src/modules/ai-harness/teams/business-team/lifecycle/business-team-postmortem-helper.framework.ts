@@ -74,12 +74,38 @@ export abstract class BusinessTeamPostmortemHelperFramework<
   /**
    * List 最近 N 条 postmortem，带 S12 race catch-up：
    *   若最近 <5min mission 的 postmortem 还没落库 → 等 3s 轮询。
+   *
+   * @param queryText 可选。提供时尝试生成 embedding → 语义相似度召回（cosine）；
+   *                  缺省或 embedder 不可用或 embedding 失败 → 回退 recency 倒序。
+   *                  既有消费方不传 queryText 则行为不变（向后兼容）。
    */
   async listRecentPostmortems(
     userId: string,
     limit = 3,
+    queryText?: string,
   ): Promise<readonly TListItem[]> {
     const safeLimit = Math.min(Math.max(limit, 1), 10);
+
+    // ── 语义 embedding（可选，fail-soft 降级 recency）────────────────────────
+    let queryEmbedding: readonly number[] | undefined;
+    if (queryText && this.postmortemHooks.embeddingPort) {
+      try {
+        const result =
+          await this.postmortemHooks.embeddingPort.generateEmbedding(
+            queryText.slice(0, 2000),
+          );
+        if (Array.isArray(result?.embedding) && result.embedding.length > 0) {
+          queryEmbedding = result.embedding;
+        }
+      } catch (err: unknown) {
+        this.log.warn(
+          `[listRecentPostmortems userId=${userId}] embedding failed (degrade to recency): ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
+
     const recentMissionId = await this.postmortemHooks
       .findRecentMissionId(userId)
       .catch((err: unknown) => {
@@ -91,7 +117,7 @@ export abstract class BusinessTeamPostmortemHelperFramework<
         return null;
       });
 
-    let rows = await this.fetchPostmortems(userId, safeLimit);
+    let rows = await this.fetchPostmortems(userId, safeLimit, queryEmbedding);
 
     if (recentMissionId) {
       const containsRecent = (list: readonly TListItem[]): boolean =>
@@ -102,7 +128,7 @@ export abstract class BusinessTeamPostmortemHelperFramework<
           await new Promise<void>((r) =>
             setTimeout(r, S12_RACE_POLL_INTERVAL_MS),
           );
-          rows = await this.fetchPostmortems(userId, safeLimit);
+          rows = await this.fetchPostmortems(userId, safeLimit, queryEmbedding);
           if (containsRecent(rows)) {
             this.log.debug(
               `[listRecentPostmortems ${userId}] S12 caught up for mission ${recentMissionId}`,
@@ -118,9 +144,10 @@ export abstract class BusinessTeamPostmortemHelperFramework<
   private async fetchPostmortems(
     userId: string,
     limit: number,
+    queryEmbedding?: readonly number[],
   ): Promise<readonly TListItem[]> {
     return this.postmortemHooks
-      .listVectorMemories(userId, limit)
+      .listVectorMemories(userId, limit, queryEmbedding)
       .catch((err: unknown) => {
         this.log.warn(
           `[listRecentPostmortems userId=${userId}] listVectorMemories failed: ${

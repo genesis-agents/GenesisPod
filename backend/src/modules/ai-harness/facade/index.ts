@@ -675,6 +675,12 @@ export type {
   PostmortemRecordBase,
   PostmortemEmbeddingPort,
 } from "../teams/business-team/lifecycle/abstractions/postmortem-helper.contract";
+// Vector store（postmortem 语义召回路径复用，ai-app 层经此 facade 访问，不穿透内部路径）。
+export {
+  PrismaVectorStore,
+  type PrismaVectorEntry,
+  type PrismaRecallHit,
+} from "../memory/vector/prisma-vector-store";
 export { BusinessTeamReportHelperFramework } from "../teams/business-team/lifecycle/business-team-report-helper.framework";
 export type {
   ReportHelperHooks,

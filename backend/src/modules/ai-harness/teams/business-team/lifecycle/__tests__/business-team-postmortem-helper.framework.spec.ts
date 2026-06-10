@@ -112,9 +112,13 @@ describe("BusinessTeamPostmortemHelperFramework (FakeMars)", () => {
     const hooks = makeFakeMarsPostmortemHooks({ recentMissionId: null });
     const p = new FakeMarsPostmortemHelper(hooks);
     await p.listRecentPostmortems("u1", 0);
-    expect(hooks.listVectorMemories).toHaveBeenCalledWith("u1", 1);
+    expect(hooks.listVectorMemories).toHaveBeenCalledWith("u1", 1, undefined);
     await p.listRecentPostmortems("u1", 99);
-    expect(hooks.listVectorMemories).toHaveBeenLastCalledWith("u1", 10);
+    expect(hooks.listVectorMemories).toHaveBeenLastCalledWith(
+      "u1",
+      10,
+      undefined,
+    );
   });
 
   it("listRecentPostmortems: findRecentMissionId throws → degrade to plain fetch", async () => {
@@ -125,5 +129,53 @@ describe("BusinessTeamPostmortemHelperFramework (FakeMars)", () => {
     const p = new FakeMarsPostmortemHelper(hooks);
     const r = await p.listRecentPostmortems("u1", 3);
     expect(r).toEqual([]);
+  });
+
+  // ── semantic recall (queryText) ──────────────────────────────────────────
+
+  it("listRecentPostmortems: queryText + embeddingPort → listVectorMemories called with embedding", async () => {
+    const embedding = [0.1, 0.2, 0.3];
+    const hooks = makeFakeMarsPostmortemHooks({
+      recentMissionId: null,
+      embedding,
+    });
+    const p = new FakeMarsPostmortemHelper(hooks);
+    await p.listRecentPostmortems("u1", 3, "AI trends");
+    expect(hooks.embeddingPort!.generateEmbedding).toHaveBeenCalledWith(
+      "AI trends",
+    );
+    expect(hooks.listVectorMemories).toHaveBeenCalledWith("u1", 3, embedding);
+  });
+
+  it("listRecentPostmortems: queryText but no embeddingPort → listVectorMemories called with undefined (recency)", async () => {
+    const hooks = makeFakeMarsPostmortemHooks({
+      recentMissionId: null,
+      // no embedding → embeddingPort is undefined
+    });
+    const p = new FakeMarsPostmortemHelper(hooks);
+    await p.listRecentPostmortems("u1", 3, "some topic");
+    expect(hooks.listVectorMemories).toHaveBeenCalledWith("u1", 3, undefined);
+  });
+
+  it("listRecentPostmortems: queryText + embeddingPort throws → degrade to recency (listVectorMemories with undefined)", async () => {
+    const hooks = makeFakeMarsPostmortemHooks({
+      recentMissionId: null,
+      embedding: "throw",
+    });
+    const p = new FakeMarsPostmortemHelper(hooks);
+    await p.listRecentPostmortems("u1", 3, "AI topic");
+    // embedding failed → queryEmbedding is undefined → recency path
+    expect(hooks.listVectorMemories).toHaveBeenCalledWith("u1", 3, undefined);
+  });
+
+  it("listRecentPostmortems: no queryText → listVectorMemories called with undefined regardless of embeddingPort", async () => {
+    const hooks = makeFakeMarsPostmortemHooks({
+      recentMissionId: null,
+      embedding: [0.5, 0.6],
+    });
+    const p = new FakeMarsPostmortemHelper(hooks);
+    await p.listRecentPostmortems("u1", 3); // no queryText
+    expect(hooks.embeddingPort!.generateEmbedding).not.toHaveBeenCalled();
+    expect(hooks.listVectorMemories).toHaveBeenCalledWith("u1", 3, undefined);
   });
 });
