@@ -240,11 +240,19 @@ export class AiDirectKeyService {
           }
 
           const effectiveModelId = modelId || "";
-          // ★ DB 驱动（isReasoningModel 优先读 AIModelConfig.isReasoning，缓存未命中再启发式）
-          const isReasoning = this.inferIsReasoning(effectiveModelId);
-          const tokenParamName = isReasoning
-            ? "max_completion_tokens"
-            : "max_tokens";
+          // ★ 2026-06-10 P0 修复（gpt-5.4 BYOK 全失败）：isReasoning / tokenParamName 改用
+          //   上方已 await 的 modelConfigForMapping 权威值——与 maxTokens boost 同源
+          //   （task-profile-mapper.service:80 同样读 modelConfig.isReasoning）。
+          //   原先走 sync inferIsReasoning → isReasoningModel 的同步缓存/启发式，对 gpt-5.4 等
+          //   新 reasoning 模型缓存未命中即判 false → 发 max_tokens → OpenAI INVALID_REQUEST
+          //   "Unsupported parameter: max_tokens" 全部失败 + circuit breaker 打开。
+          //   DB 显式配了 tokenParamName 时优先直用（最权威）；两者皆缺才回退启发式。
+          const isReasoning =
+            modelConfigForMapping?.isReasoning ??
+            this.inferIsReasoning(effectiveModelId);
+          const tokenParamName =
+            modelConfigForMapping?.tokenParamName ??
+            (isReasoning ? "max_completion_tokens" : "max_tokens");
           const tokenParam = { [tokenParamName]: maxTokens };
 
           // ★ reasoning_effort 由 task profile reasoningDepth 决定（共享映射），

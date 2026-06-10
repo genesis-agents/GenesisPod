@@ -155,6 +155,39 @@ describe("AiDirectKeyService", () => {
       expect(result.content).toBe("GPT response");
     });
 
+    it("reasoning 模型（DB isReasoning=true，sync isReasoningModel=false）发 max_completion_tokens 不发 max_tokens（gpt-5.4 P0 回归守护）", async () => {
+      // 复现 gpt-5.4：getModelConfig(async DB) 认 reasoning，但 isReasoningModel(sync
+      // 缓存/启发式) 未命中→false。修复前 tokenParamName 走 sync 判断 → max_tokens →
+      // OpenAI "Unsupported parameter: max_tokens" INVALID_REQUEST 全失败 + 熔断。
+      mockModelConfigService.getModelConfig.mockResolvedValueOnce({
+        isReasoning: true,
+        maxTokens: 16000,
+        temperature: 1,
+        isEnabled: true,
+        isDefault: true,
+      } as any);
+      // isReasoningModel 保持 beforeEach 的 false —— 模拟 sync 缓存未命中
+      const apiResponse = {
+        choices: [{ message: { content: "ok" }, finish_reason: "stop" }],
+        usage: { total_tokens: 10 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+
+      await service.generateChatCompletionWithKey({
+        ...baseOptions,
+        modelId: "gpt-5.4",
+      });
+
+      const body = mockHttpService.post.mock.calls[0][1] as Record<
+        string,
+        unknown
+      >;
+      expect(body).toHaveProperty("max_completion_tokens");
+      expect(body).not.toHaveProperty("max_tokens");
+    });
+
     it("should call xAI API successfully", async () => {
       const apiResponse = {
         choices: [
