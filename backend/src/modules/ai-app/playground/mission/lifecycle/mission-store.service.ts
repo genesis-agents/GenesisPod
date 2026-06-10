@@ -42,6 +42,7 @@ import type {
 import {
   MissionFailureCode,
   PrismaVectorStore,
+  FailureLearnerService,
 } from "@/modules/ai-harness/facade";
 
 /**
@@ -208,6 +209,8 @@ export class MissionStore
     @Optional() embeddingService?: EmbeddingService,
     @Optional() abortRegistry?: MissionAbortRegistry,
     @Optional() vectorStore?: PrismaVectorStore,
+    // S12 失败学习（leader 拒签等 mission 级失败模式）；缺省时端口降级为 no-op。
+    @Optional() private readonly failureLearner?: FailureLearnerService,
   ) {
     // Forward references — defined methods on class instance; safe at hook-call time.
     const isMissionRowMissing = (err: unknown): boolean => {
@@ -346,7 +349,17 @@ export class MissionStore
       this.checkpointStore,
       lifecycleManager,
       this.postmortem,
+      this.failureLearner,
     );
+  }
+
+  /** mission → userId（FailureLearner 记录归属用），无行返回 null。 */
+  async findMissionUserId(missionId: string): Promise<string | null> {
+    const row = await this.prisma.agentPlaygroundMission.findUnique({
+      where: { id: missionId },
+      select: { userId: true },
+    });
+    return row?.userId ?? null;
   }
 
   /**
@@ -858,6 +871,7 @@ export class MissionStorePersistenceAdapter implements MissionPersistencePort {
     private readonly checkpointStore: PrismaMissionCheckpointStore,
     private readonly lifecycleManager: MissionLifecycleManager,
     private readonly postmortem: MissionPostmortemHelper,
+    private readonly failureLearner?: FailureLearnerService,
   ) {}
 
   // ── 核心：crash-resume ──
@@ -1028,6 +1042,36 @@ export class MissionStorePersistenceAdapter implements MissionPersistencePort {
       );
       return [];
     }
+  }
+
+  // ── 可选端口：S12 失败模式记录（能力核 fire-and-forget 调）──
+  // 委托 FailureLearnerService（MissionStore 注入后经构造参数透传）；key 形状与
+  // 旧 s12-self-evolution.stage.ts:194-201 完全一致，保证历史 pattern 行继续累加。
+  async recordFailurePattern(input: {
+    missionId: string;
+    topic: string;
+    failureCode: string;
+    model?: string;
+  }): Promise<void> {
+    if (!this.failureLearner) return;
+    const userId = await this.store.findMissionUserId(input.missionId);
+    if (!userId) {
+      this.log.warn(
+        `[recordFailurePattern ${input.missionId}] mission row missing, skip`,
+      );
+      return;
+    }
+    await this.failureLearner.recordFailure({
+      key: {
+        agentSpecId: "playground.mission",
+        modelId: input.model ?? "(mission-level)",
+        systemPrompt: input.topic || input.missionId,
+        failureCode: input.failureCode,
+      },
+      missionId: input.missionId,
+      userId,
+      diagnostic: { topic: input.topic },
+    });
   }
 
   // ── 终态：条件写仲裁（经 lifecycleManager.finalize → store arbiter）──

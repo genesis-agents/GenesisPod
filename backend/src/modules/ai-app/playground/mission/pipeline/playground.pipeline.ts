@@ -642,9 +642,10 @@ export class PlaygroundPipelineDispatcher
       );
     }
 
-    // RunMissionInput → CapabilityRunInput：仅转发能力消费的语义字段；playground 专属
-    //   档位（budget/style/length/audience/auditLayers/concurrency/viewMode）+ 计费字段
-    //   （已由 session.billing 体现）不转发（能力核有自己的参数化）。
+    // RunMissionInput → CapabilityRunInput：转发能力消费的语义字段 + 四档位
+    //   （style/length/audience/auditLayers——能力核 s7/s9 bindings 已消费，
+    //   不转发会让 Dialog 选择器静默失效、zod 默认 executive 被换成能力核 academic）。
+    //   仍不转发：budget/concurrency/viewMode（playground 专属）+ 计费字段（session.billing 体现）。
     // 注：RunMissionInput 无 preferredModelId 字段（playground 默认按 TaskProfile +
     //   BYOK 选模），故不转发；能力核走自身默认模型选择，与 OFF 路行为一致。
     // ★ #16a 增量复用："更新"按钮（inheritFromMissionId）已在 runMission 顶部经
@@ -678,6 +679,12 @@ export class PlaygroundPipelineDispatcher
       ...(input.searchTimeRange
         ? { searchTimeRange: input.searchTimeRange }
         : {}),
+      ...(input.styleProfile ? { styleProfile: input.styleProfile } : {}),
+      ...(input.lengthProfile ? { lengthProfile: input.lengthProfile } : {}),
+      ...(input.audienceProfile
+        ? { audienceProfile: input.audienceProfile }
+        : {}),
+      ...(input.auditLayers ? { auditLayers: [input.auditLayers] } : {}),
       ...(inheritedBaseline ? { inheritedBaseline } : {}),
     };
 

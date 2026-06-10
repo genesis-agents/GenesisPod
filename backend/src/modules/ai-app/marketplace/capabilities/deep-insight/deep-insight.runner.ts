@@ -198,8 +198,8 @@ export class DeepInsightDefaultRunner
     // S12 postlude 需要 run 起始时间（用于 wallTimeMs 计算）。
     const runStartedAt = Date.now();
 
-    // ★ env5 recall：run() 开始前召回同用户同主题历史 postmortem（best-effort，失败回退空数组）。
-    // leader plan 阶段前拿到历史经验教训，透传进 leader plan priorPostmortems。
+    // ★ env5 recall + checkpoint：两个独立 IO 可并行，节省 run() 启动延迟。
+    // ★ Fix C5/5c（2026-06-09）：Promise.all 并行跑，仅在两者都完成后再继续。
     let priorPostmortems: ReadonlyArray<{
       missionId: string;
       topic: string;
@@ -209,25 +209,44 @@ export class DeepInsightDefaultRunner
       qualityScore: number | null;
       createdAt: string;
     }> = [];
-    try {
-      priorPostmortems =
-        (await persistence.recallPostmortems?.({ userId, topic, limit: 3 })) ??
-        [];
-    } catch (err) {
+    let checkpointResult: {
+      lastStepId: string;
+      topic: string;
+      crossState: Readonly<Record<string, unknown>>;
+    } | null = null;
+
+    const [recallOutcome, checkpointOutcome] = await Promise.allSettled([
+      persistence.recallPostmortems?.({ userId, topic, limit: 3 }),
+      persistence.loadCheckpoint(missionId),
+    ]);
+
+    if (recallOutcome.status === "fulfilled") {
+      priorPostmortems = recallOutcome.value ?? [];
+    } else {
       this.log.warn(
-        `[deep-insight ${missionId}] recallPostmortems failed (best-effort, ignore): ${this.errMsg(err)}`,
+        `[deep-insight ${missionId}] recallPostmortems failed (best-effort, ignore): ${this.errMsg(recallOutcome.reason)}`,
+      );
+    }
+    if (checkpointOutcome.status === "fulfilled") {
+      checkpointResult = checkpointOutcome.value ?? null;
+    } else {
+      this.log.warn(
+        `[deep-insight ${missionId}] loadCheckpoint failed (ignore, run fresh): ${this.errMsg(checkpointOutcome.reason)}`,
       );
     }
 
     // ★ env3 事件缓冲：runner 在 run() 期间缓冲 mission/agent 事件（轻量 ring buffer），
     // postlude 时把缓冲的事件流传给 postmortemClassifier，让 DEEP_INSIGHT_POSTMORTEM_PATTERNS
     // 的 substring patterns 真正生效。
-    const bufferedEvents: Array<{
-      type: string;
-      payload?: unknown;
-      ts: number;
-    }> = [];
-    const MAX_BUFFER = EVENT_BUFFER_MAX;
+    // ★ Fix C5/5a（2026-06-09）：classifier 只读 e.type，故只存 { type, ts }；
+    // 消除冗余 payload 存储（大型 agent 输出不再占 ring buffer 内存）。
+    const bufferedEvents: Array<{ type: string; ts: number }> = [];
+
+    /** ring buffer push helper（满了丢最旧的一条）。 */
+    const pushBuffered = (type: string): void => {
+      if (bufferedEvents.length >= EVENT_BUFFER_MAX) bufferedEvents.shift();
+      bufferedEvents.push({ type, ts: Date.now() });
+    };
 
     // per-run agent 调用上下文（透传 RunOptions + 实时 agent 事件 relay）。
     const invocation: AgentInvocation = {
@@ -259,15 +278,8 @@ export class DeepInsightDefaultRunner
       ...(priorPostmortems.length > 0 ? { priorPostmortems } : {}),
       onAgentEvent: (stepId, role, dimension, ev) => {
         try {
-          // ★ env3 缓冲 agent 事件（ring buffer，满了丢头）
-          if (bufferedEvents.length >= MAX_BUFFER) {
-            bufferedEvents.shift();
-          }
-          bufferedEvents.push({
-            type: ev.type,
-            payload: ev.payload,
-            ts: ev.timestamp ?? Date.now(),
-          });
+          // ★ env3 缓冲 agent 事件（ring buffer，满了丢头；只存 type+ts）
+          pushBuffered(ev.type);
           this.relayAgentEvent(ctx, stepId, role, dimension, ev);
         } catch {
           // relay 失败不拖死 run。
@@ -284,18 +296,14 @@ export class DeepInsightDefaultRunner
     };
 
     // 中间态 crossStageState：缺省新建；有 checkpoint 则 hydrate（crash-resume）。
+    // ★ Fix C5/5c：checkpoint 已在上方与 recallPostmortems 并行取回，直接用 checkpointResult。
     let crossStageState = new CrossStageState();
     let resumeFromStepId: string | undefined;
-    try {
-      const cp = await persistence.loadCheckpoint(missionId);
-      if (cp) {
-        crossStageState = CrossStageState.fromJSON({ ...cp.crossState });
-        resumeFromStepId = cp.lastStepId;
-      }
-    } catch (err) {
-      this.log.warn(
-        `[deep-insight ${missionId}] loadCheckpoint failed (ignore, run fresh): ${this.errMsg(err)}`,
-      );
+    if (checkpointResult) {
+      crossStageState = CrossStageState.fromJSON({
+        ...checkpointResult.crossState,
+      });
+      resumeFromStepId = checkpointResult.lastStepId;
     }
 
     // ★ #16a 增量复用：消费方注入 inheritedBaseline 时，把上次 mission 可复用产物 seed 进
@@ -341,7 +349,7 @@ export class DeepInsightDefaultRunner
             crossStageState,
             ev,
             topic,
-            bufferedEvents,
+            pushBuffered,
           ),
       });
 
@@ -349,6 +357,11 @@ export class DeepInsightDefaultRunner
       // 据 missionId 取回同一引用）；orchestrator 内部那份只承载 primitive 自身的
       // decision 记账，不含业务产物，故直接用 runner 这份。
       const finalState = crossStageState;
+
+      const postludeDeps: SelfEvolutionPostludeDeps = {
+        postmortemClassifier: this.postmortemClassifier,
+        log: this.log,
+      };
 
       if (result.status === "completed") {
         // 调研全失败兜底：research primitive 用 allSettled 吞单维失败，整 stage 仍
@@ -364,6 +377,24 @@ export class DeepInsightDefaultRunner
             tokensUsed: this.usage(finalState).totalTokens,
             costCents: this.usage(finalState).totalCostCents,
           });
+          // ★ Fix C1：零 researcher 也跑 postlude（失败路径；leaderSignOff=null → mode=failed）。
+          fireSelfEvolutionPostlude(
+            {
+              missionId,
+              userId,
+              topic,
+              leaderSignOff: null,
+              reportArtifact: null,
+              plan: null,
+              tokensUsed: this.usage(finalState).totalTokens,
+              costCents: this.usage(finalState).totalCostCents,
+              startedAt: runStartedAt,
+              persistence,
+              bufferedEvents,
+              onEvent: ctx.onEvent,
+            },
+            postludeDeps,
+          );
           return {
             status: "failed",
             stageOutputs: this.collectStageOutputs(finalState),
@@ -379,6 +410,7 @@ export class DeepInsightDefaultRunner
           persistence,
           runStartedAt,
           bufferedEvents,
+          ctx.onEvent,
         );
       }
       // failed / aborted
@@ -389,6 +421,25 @@ export class DeepInsightDefaultRunner
         tokensUsed: finalState.get<number>(CS_KEY.tokensUsed) ?? 0,
         costCents: finalState.get<number>(CS_KEY.costCents) ?? 0,
       });
+      // ★ Fix C1：failed / aborted 路径也跑 postlude（与旧 dispatcher 语义一致）。
+      fireSelfEvolutionPostlude(
+        {
+          missionId,
+          userId,
+          topic,
+          leaderSignOff:
+            finalState.get<{ signed?: boolean }>(CS_KEY.leaderSignOff) ?? null,
+          reportArtifact: null,
+          plan: finalState.get(CS_KEY.plan) ?? null,
+          tokensUsed: finalState.get<number>(CS_KEY.tokensUsed) ?? 0,
+          costCents: finalState.get<number>(CS_KEY.costCents) ?? 0,
+          startedAt: runStartedAt,
+          persistence,
+          bufferedEvents,
+          onEvent: ctx.onEvent,
+        },
+        postludeDeps,
+      );
       return {
         status: "failed",
         stageOutputs: this.collectStageOutputs(finalState),
@@ -401,6 +452,24 @@ export class DeepInsightDefaultRunner
       await this.applyTerminal(persistence, missionId, "failed", {
         errorMessage,
       });
+      // ★ Fix C1：catch 路径也跑 postlude（best-effort，postlude 本身不会再抛）。
+      fireSelfEvolutionPostlude(
+        {
+          missionId,
+          userId,
+          topic,
+          leaderSignOff: null,
+          reportArtifact: null,
+          plan: null,
+          tokensUsed: 0,
+          costCents: 0,
+          startedAt: runStartedAt,
+          persistence,
+          bufferedEvents,
+          onEvent: ctx.onEvent,
+        },
+        { postmortemClassifier: this.postmortemClassifier, log: this.log },
+      );
       return {
         status: "failed",
         stageOutputs: {},
@@ -422,7 +491,8 @@ export class DeepInsightDefaultRunner
     state: CrossStageState,
     persistence: MissionPersistencePort,
     runStartedAt: number,
-    bufferedEvents?: Array<{ type: string; payload?: unknown; ts: number }>,
+    bufferedEvents?: ReadonlyArray<{ type: string; ts: number }>,
+    onEvent?: CapabilityRunContext["onEvent"],
   ): Promise<CapabilityRunResult> {
     const report = state.get(CS_KEY.report);
     const reportArtifact = state.get(CS_KEY.reportArtifact);
@@ -464,10 +534,6 @@ export class DeepInsightDefaultRunner
 
     // ★ S12 自进化 postlude（fire-and-forget，不阻塞终态返回）。
     // 沉淀到 harness_vector_memory（经 persistence.recordPostmortem? 端口由消费方实现）。
-    const postludeDeps: SelfEvolutionPostludeDeps = {
-      postmortemClassifier: this.postmortemClassifier,
-      log: this.log,
-    };
     fireSelfEvolutionPostlude(
       {
         missionId,
@@ -485,8 +551,10 @@ export class DeepInsightDefaultRunner
         persistence,
         // ★ env3 事件流传给 postlude（让 DEEP_INSIGHT_POSTMORTEM_PATTERNS 真生效）。
         bufferedEvents,
+        // ★ Fix C10：透传 onEvent，postlude 经 domain 桥发 mission:postlude:* 生命周期事件。
+        onEvent,
       },
-      postludeDeps,
+      { postmortemClassifier: this.postmortemClassifier, log: this.log },
     );
 
     return {
@@ -509,13 +577,10 @@ export class DeepInsightDefaultRunner
     crossStageState: CrossStageState,
     ev: PipelineMissionEvent,
     topic: string,
-    bufferedEvents?: Array<{ type: string; payload?: unknown; ts: number }>,
+    pushBuffered?: (type: string) => void,
   ): void {
-    // ★ env3 缓冲 mission/stage 事件（ring buffer，满了丢头；与 agent 共享 EVENT_BUFFER_MAX）
-    if (bufferedEvents) {
-      if (bufferedEvents.length >= EVENT_BUFFER_MAX) bufferedEvents.shift();
-      bufferedEvents.push({ type: ev.type, ts: ev.timestamp ?? Date.now() });
-    }
+    // ★ env3 缓冲 mission/stage 事件（ring buffer，通过外部 pushBuffered helper 写）
+    pushBuffered?.(ev.type);
     const stepId = ev.stepId;
     const label = stepId ? STEP_LABEL[stepId] : undefined;
     const baseTelemetry = stepId ? { systemStageId: stepId } : undefined;

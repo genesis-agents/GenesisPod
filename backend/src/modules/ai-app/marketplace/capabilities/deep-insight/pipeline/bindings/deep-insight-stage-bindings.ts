@@ -253,10 +253,17 @@ export class DeepInsightStageBindings implements StageBindings {
             .map((d) => d.name)
             .join(" / ")}${plan.dimensions.length > 3 ? " 等" : ""}`,
         });
-        // ★ #16b P1：stage:metrics（S2 完成，dimensions 数）
+        // ★ #16b P1：stage:metrics（S2 完成）
+        // C5 修复：dimensions 必须是 array of records（与 StageMetricsSchema 对齐），
+        //   不能是 number；只投影 id/name/toolHint/rationale 四个文档化字段。
         emitDomain(onEvent, "stage:metrics", {
           stepId: "s2-leader-plan",
-          dimensions: plan.dimensions.length,
+          dimensions: plan.dimensions.map((d) => ({
+            id: d.id,
+            name: d.name,
+            toolHint: d.toolHint,
+            rationale: d.rationale,
+          })),
           themeSummary: plan.themeSummary,
         });
         return plan;
@@ -315,10 +322,11 @@ export class DeepInsightStageBindings implements StageBindings {
             CS_KEY.researcherResults,
             reused,
           );
+          // Fix4：summary 截为 200 字预览，避免 multi-KB payload 洪泛 WS 总线。
           emitDomain(onEvent, "dimension:research:completed", {
             dimension: dim.name,
             findingsCount: reused.findings?.length ?? 0,
-            summary: reused.summary ?? "",
+            summaryPreview: (reused.summary ?? "").slice(0, 200),
             reused: true,
           });
           return reused;
@@ -362,10 +370,11 @@ export class DeepInsightStageBindings implements StageBindings {
           result,
         );
         // ★ #16b P0：dimension:research:completed
+        // Fix4：summary 截为 200 字预览，避免 multi-KB payload 洪泛 WS 总线。
         emitDomain(onEvent, "dimension:research:completed", {
           dimension: dim.name,
           findingsCount: result.findings?.length ?? 0,
-          summary: result.summary ?? "",
+          summaryPreview: (result.summary ?? "").slice(0, 200),
         });
         return result;
       },
@@ -497,9 +506,10 @@ export class DeepInsightStageBindings implements StageBindings {
             text: `Leader 评估完成：决定 ${decisionVal}（${researcherOutcomes.filter((o) => o.state === "completed").length}/${researcherOutcomes.length} 维度达标）`,
           });
           // ★ #16b P1：stage:metrics
+          // C5 修复：dimensions 不传（StageMetricsSchema 不支持 number 类型）；
+          //   维度数量由 accepted/degraded/failed 三字段隐含（passthrough 允许额外字段）。
           emitDomain(onEvent, "stage:metrics", {
             stepId: "s4-leader-assess",
-            dimensions: researcherOutcomes.length,
             accepted: researcherOutcomes.filter((o) => o.state === "completed")
               .length,
             degraded: researcherOutcomes.filter((o) => o.state === "degraded")
@@ -680,6 +690,15 @@ export class DeepInsightStageBindings implements StageBindings {
         const onEvent = input.invocation.onEvent;
         const plan = full.crossStageState.get<PlanResult>(CS_KEY.plan);
         const depth = input.invocation.depth ?? "standard";
+        // C8 auditLayers 门控：等价 s7-writer-plan-outline.stage.ts:48 的旧 stage 语义。
+        //   auditLayers 为 string[]（消费方包装）；只在 thorough/thorough+ 时跑 outline LLM。
+        const layers = input.invocation.auditLayers ?? [];
+        const hasDeepAudit =
+          layers.includes("thorough") || layers.includes("thorough+");
+        if (!hasDeepAudit) {
+          full.crossStageState.set(CS_KEY.outlinePlan, null);
+          return null;
+        }
         emitDomain(onEvent, "agent:narrative", {
           stage: "s7-writer-outline",
           role: "writer",
@@ -874,6 +893,15 @@ export class DeepInsightStageBindings implements StageBindings {
       }): Promise<{ verdict: unknown }> => {
         const full = this.fullArgs(args.ctx);
         const input = readPipelineInput(full.ctx);
+        // C8 auditLayers 门控：等价 s9-reviewer-critic-l4.stage.ts:55-58 的旧 stage 语义。
+        //   minimal 直接跳过；executive 受众在非 minimal 时启用；thorough/thorough+ 必开。
+        const layers = input.invocation.auditLayers ?? [];
+        const isMinimal = layers.includes("minimal");
+        const hasDeepAudit =
+          layers.includes("thorough") || layers.includes("thorough+");
+        const isExecutive = input.invocation.audienceProfile === "executive";
+        const enableCritic = hasDeepAudit || (isExecutive && !isMinimal);
+        if (!enableCritic) return { verdict: null };
         const onEvent = input.invocation.onEvent;
         const artifact = full.crossStageState.get(CS_KEY.reportArtifact);
         emitDomain(onEvent, "agent:narrative", {

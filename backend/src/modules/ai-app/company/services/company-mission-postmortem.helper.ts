@@ -12,6 +12,7 @@
  */
 
 import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { Prisma } from "@prisma/client";
 import { EmbeddingService } from "@/modules/ai-engine/facade";
 import {
   BusinessTeamPostmortemHelperFramework,
@@ -103,11 +104,18 @@ export class CompanyMissionPostmortemHelper extends BusinessTeamPostmortemHelper
       },
       findRecentMissionId: async (userId) => {
         // company_missions 无 completedAt；用 updatedAt 近似（done 后 updatedAt 即终态写入时刻）。
+        // 注意：仅匹配 capability（deep-insight）mission——chat mission 从不写 postmortem，
+        // 若匹配到 chat mission（result 无 capabilityId），框架 catch-up 轮询必然 3s 超时空转。
+        // 判别方式：result->>'capabilityId' 非 NULL（Prisma JSONB path filter）。
         const row = await prisma.companyMission.findFirst({
           where: {
             userId,
             status: "done",
             updatedAt: { gte: new Date(Date.now() - 5 * 60_000) },
+            result: {
+              path: ["capabilityId"],
+              not: Prisma.JsonNull,
+            },
           },
           select: { id: true },
           orderBy: { updatedAt: "desc" },
@@ -164,31 +172,5 @@ export class CompanyMissionPostmortemHelper extends BusinessTeamPostmortemHelper
       },
     };
     super(hooks);
-  }
-
-  /**
-   * Back-compat shim — 端口 args → framework input shape。
-   * 框架 recordMissionPostmortem 的 input 是 TRecordInput（CompanyPostmortemRecord），
-   * 本方法把端口的 plain object 映射进去，调用框架方法写 harness_vector_memory。
-   */
-  async recordMissionPostmortem(input: {
-    missionId: string;
-    userId: string;
-    topic: string;
-    summary: string;
-    recommendations: string[];
-    leaderSigned: boolean | null;
-    qualityScore: number | null;
-    tokensUsed: number;
-    costUsd: number;
-    source: string;
-    tags: readonly string[];
-    failureClassification?: {
-      mode: string;
-      signals: readonly string[];
-      confidence: number;
-    };
-  }): Promise<void> {
-    await super.recordMissionPostmortem(input);
   }
 }

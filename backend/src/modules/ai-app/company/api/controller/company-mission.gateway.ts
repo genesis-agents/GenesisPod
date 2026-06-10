@@ -89,6 +89,75 @@ export class CompanyMissionGateway implements OnGatewayInit {
           })
           .passthrough(),
       },
+      // 能力桥接事件：dimension 研究进度（前端每维度实时任务列表）
+      {
+        type: "company.dimension:research:started",
+        schema: z
+          .object({
+            dimension: z.string().optional(),
+            index: z.number().optional(),
+            total: z.number().optional(),
+          })
+          .passthrough(),
+      },
+      {
+        type: "company.dimension:research:completed",
+        schema: z
+          .object({
+            dimension: z.string().optional(),
+            findingsCount: z.number().optional(),
+            // bindings 只发 200 字符 summaryPreview（全文 summary 不上 WS，防事件流胀爆）
+            summaryPreview: z.string().optional(),
+          })
+          .passthrough(),
+      },
+      // leader 决策事件
+      {
+        type: "company.leader:goals-set",
+        schema: z.record(z.unknown()),
+      },
+      {
+        type: "company.leader:decision",
+        schema: z.record(z.unknown()),
+      },
+      // 阶段指标事件
+      {
+        type: "company.stage:metrics",
+        schema: z
+          .object({
+            stepId: z.string().optional(),
+            dimensions: z.array(z.unknown()).optional(),
+          })
+          .passthrough(),
+      },
+      // mission postlude 事件（S12 自进化，company 侧桥接；无注册则每次 mission 结束 drop-warn）
+      {
+        type: "company.mission:postlude:started",
+        schema: z
+          .object({
+            missionId: z.string().optional(),
+            status: z.string().optional(),
+          })
+          .passthrough(),
+      },
+      {
+        type: "company.mission:postlude:completed",
+        schema: z
+          .object({
+            missionId: z.string().optional(),
+            status: z.string().optional(),
+          })
+          .passthrough(),
+      },
+      {
+        type: "company.mission:postlude:failed",
+        schema: z
+          .object({
+            missionId: z.string().optional(),
+            status: z.string().optional(),
+          })
+          .passthrough(),
+      },
     ]);
 
     this.log.log("CompanyMissionGateway initialized (namespace=company)");

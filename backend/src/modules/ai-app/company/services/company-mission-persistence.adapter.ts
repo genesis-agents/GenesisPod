@@ -29,9 +29,10 @@ import type {
 } from "@/modules/ai-app/marketplace/capability";
 import { CompanyMissionPostmortemHelper } from "./company-mission-postmortem.helper";
 
-/** company_missions.status 的"运行中"集合（仅这些状态允许被终态写覆盖）。
- *  导出为单一源：service 的 finalizeIfNotCancelled 与本 adapter 的 applyTerminalIfRunning
- *  共用同一口径，避免两处仲裁条件漂移（不再用宽松的 != cancelled）。 */
+/** company_missions.status 的"运行中"集合（仅这些状态允许被本 adapter 的裸终态写覆盖）。
+ *  注意分工：adapter.applyTerminalIfRunning 用本集合（首个终态写赢，含与取消的竞态）；
+ *  service.finalizeIfNotCancelled 故意更宽（!= cancelled）——它带业务富结果，必须能
+ *  覆盖 adapter 先落的裸 done/failed，否则终态事件/通知/复跑参数全部丢失。 */
 export const RUNNING_STATUSES = ["queued", "running", "review"] as const;
 
 /** outcome → company_missions.status 终态映射（company 用 "done" 表示完成）。 */

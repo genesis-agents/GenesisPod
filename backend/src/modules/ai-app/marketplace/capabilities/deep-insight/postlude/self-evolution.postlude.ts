@@ -1,25 +1,56 @@
 /**
  * deep-insight 能力 S12 自进化 postlude（fire-and-forget）
  *
- * mission completed 后异步跑，不阻塞 run() 返回。
+ * mission completed / failed / aborted 后异步跑，不阻塞 run() 返回。
  * 行为：
- *   1. PostmortemClassifierService 扫描事件流 → FailureMode 分类
- *   2. 拼 postmortem summary（含 quality / cost / 经验建议）
- *   3. 经 MissionPersistencePort.recordPostmortem?（optional hook）写
+ *   1. 经 onEvent（domain 事件桥）发 mission:postlude:started
+ *   2. PostmortemClassifierService 扫描事件流 → FailureMode 分类
+ *   3. 拼 postmortem summary（含 quality / cost / 经验建议）
+ *   4. 经 MissionPersistencePort.recordPostmortem?（optional hook）写
  *      harness_vector_memory（消费方实现，能力层零直连 app DB）
+ *   5. leader 拒签时经 MissionPersistencePort.recordFailurePattern? 记失败模式
+ *   6. 经 onEvent 发 mission:postlude:completed / mission:postlude:failed
  *
  * 铁律（R1）：本文件零 app import，只依赖 harness facade + capability 端口。
  * 异常只 log warn，沉淀失败不破坏 mission 终态。
  */
 import type { Logger } from "@nestjs/common";
 import type { PostmortemClassifierService } from "@/modules/ai-harness/facade";
-import type { MissionPersistencePort } from "../../../capability/capability-runner.port";
+import type {
+  CapabilityRunEvent,
+  MissionPersistencePort,
+} from "../../../capability/capability-runner.port";
 import { DEEP_INSIGHT_POSTMORTEM_PATTERNS } from "./deep-insight-postmortem-patterns";
 
 /** postlude 所需的 harness 服务依赖（runner 构造器注入后透传）。 */
 export interface SelfEvolutionPostludeDeps {
   readonly postmortemClassifier: PostmortemClassifierService;
   readonly log: Logger;
+}
+
+/**
+ * 经 onEvent domain 桥发 postlude 生命周期事件（best-effort）。
+ * playground dispatcher 的 domain 事件桥把 "mission:postlude:started" 等翻译成
+ * "playground.mission:postlude:started"，对应 playground.events.ts 注册的 S() 事件。
+ */
+function emitPostludeEvent(
+  onEvent: ((e: CapabilityRunEvent) => void | Promise<void>) | undefined,
+  event:
+    | "mission:postlude:started"
+    | "mission:postlude:completed"
+    | "mission:postlude:failed",
+  data: Record<string, unknown>,
+): void {
+  if (!onEvent) return;
+  try {
+    void onEvent({
+      type: "domain",
+      timestamp: Date.now(),
+      payload: { event, data },
+    });
+  } catch {
+    // best-effort：emit 失败不影响 postlude 主逻辑
+  }
 }
 
 /** postlude 输入（runner assembleCompleted 完成后传入）。 */
@@ -51,9 +82,14 @@ export interface SelfEvolutionPostludeInput {
    */
   readonly bufferedEvents?: ReadonlyArray<{
     type: string;
-    payload?: unknown;
     ts: number;
   }>;
+  /**
+   * ★ Fix C10（2026-06-09）：ctx.onEvent 引用，用于 emit postlude 生命周期 domain 事件。
+   * playground dispatcher 的 domain 桥把 mission:postlude:{started/completed/failed}
+   * 翻译成 playground.mission:postlude:* 上抛前端。
+   */
+  readonly onEvent?: (e: CapabilityRunEvent) => void | Promise<void>;
 }
 
 /**
@@ -73,7 +109,15 @@ async function runPostlude(
   input: SelfEvolutionPostludeInput,
   deps: SelfEvolutionPostludeDeps,
 ): Promise<void> {
-  const { missionId, userId, topic, persistence } = input;
+  const { missionId, userId, topic, persistence, onEvent } = input;
+  const postludeStartedAt = Date.now();
+
+  // ★ Fix C10：发 postlude:started 生命周期事件（frontend todo-board.projector.ts 消费）。
+  emitPostludeEvent(onEvent, "mission:postlude:started", {
+    stage: "s12-self-evolution",
+    startedAt: postludeStartedAt,
+  });
+
   try {
     const wallTimeMs = Date.now() - input.startedAt;
     const totalTokens = input.tokensUsed;
@@ -118,16 +162,10 @@ async function runPostlude(
 
     // ── PostmortemClassifier 分类 ─────────────────────────────────────────
     // ★ env3 修复：使用 runner 缓冲的真实事件流（非空时 pattern 才能命中）。
-    // 把内部事件形状适配成 classifier 期望的 { type: string } 形状。
-    const classifyEvents: Array<{
-      type: string;
-      ts: number;
-      payload?: unknown;
-    }> = (input.bufferedEvents ?? []).map((e) => ({
-      type: e.type,
-      ts: e.ts,
-      payload: e.payload,
-    }));
+    // ★ Fix C6（2026-06-09）：bufferedEvents 已是 { type, ts } 形状（agent 事件存储已精简，
+    //   mission 事件本来就只存 type+ts）。ClassifyInput.events 期望 mutable array，
+    //   用 Array.from 转换（O(n) 浅拷贝，比 .map 无意义重组 payload 字段更清晰）。
+    const classifyEvents = Array.from(input.bufferedEvents ?? []);
     const missionStatus = leaderSigned === true ? "completed" : "failed";
     const classification = deps.postmortemClassifier.classify(
       {
@@ -190,10 +228,38 @@ async function runPostlude(
         `[deep-insight ${missionId}] S12-postlude: recordPostmortem not provided by consumer, skip write`,
       );
     }
+
+    // ★ Fix C4（2026-06-09）：leader 拒签时记失败模式，供 FailureLearnerService
+    //   在下次同 topic 启动时给 leader plan 提供 prior knowledge。
+    if (leaderSigned === false && persistence.recordFailurePattern) {
+      await persistence
+        .recordFailurePattern({
+          missionId,
+          topic,
+          failureCode: "LEADER_REFUSED_SIGN",
+        })
+        .catch((err: unknown) => {
+          deps.log.warn(
+            `[deep-insight ${missionId}] S12-postlude recordFailurePattern (LEADER_REFUSED_SIGN) failed (non-fatal): ` +
+              `${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+    }
+
+    // ★ Fix C10：发 postlude:completed 生命周期事件。
+    emitPostludeEvent(onEvent, "mission:postlude:completed", {
+      stage: "s12-self-evolution",
+      wallTimeMs: Date.now() - postludeStartedAt,
+    });
   } catch (err) {
     deps.log.warn(
       `[deep-insight ${missionId}] S12-postlude failed (best-effort, ignored): ` +
         `${err instanceof Error ? err.message : String(err)}`,
     );
+    // ★ Fix C10：发 postlude:failed 生命周期事件（catch 路径）。
+    emitPostludeEvent(onEvent, "mission:postlude:failed", {
+      stage: "s12-self-evolution",
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 }

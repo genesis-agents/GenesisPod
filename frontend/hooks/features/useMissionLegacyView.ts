@@ -938,11 +938,33 @@ function dvCollectAgentSummary(
     ) {
       const p = e.payload ?? {};
       const phase = p.phase;
+
+      // ★ C14 修复：后端对每个并行 researcher 维度发出的 agent:lifecycle 都使用同一
+      //   specId（'playground.researcher'）作为 agentId，导致所有维度折叠成一行。
+      //   当 payload.dimension 存在時、该事件路由到与 dimension:research:* 事件
+      //   共享的 per-dimension key（`researcher#${dim}`），两个 key space 统一。
+      //   不含 dimension 的事件（leader / analyst / writer 等）保持原有 agentId 路由。
+      const lifecycleDim =
+        typeof p.dimension === 'string' ? p.dimension : undefined;
+      // dimension:research:* 路径用 `researcher#${dim}`，此处对齐同一 key。
+      const lifecycleKey =
+        lifecycleDim != null ? `researcher#${lifecycleDim}` : agentId;
+
+      const a =
+        out.get(lifecycleKey) ??
+        ({
+          agentId: lifecycleKey,
+          role,
+          phase: 'pending' as AgentPhase,
+          trace: traceByAgent.get(lifecycleKey) ?? [],
+          ...(lifecycleDim != null ? { dimension: lifecycleDim } : {}),
+        } as AgentLiveState);
+
       if (phase === 'started') {
         if (a.phase === 'pending') a.phase = 'running';
         a.startedAt ??= e.timestamp;
         if (typeof p.attempt === 'number') a.attempt = p.attempt;
-        if (typeof p.dimension === 'string') a.dimension = p.dimension;
+        // dimension 已通过 lifecycleDim 写入 entry，无需再次赋值。
       } else if (phase === 'completed') {
         a.phase = 'completed';
         a.endedAt = e.timestamp;
@@ -981,7 +1003,7 @@ function dvCollectAgentSummary(
               : undefined;
         if (costUsd !== undefined) a.costUsd = (a.costUsd ?? 0) + costUsd;
       }
-      out.set(agentId, a);
+      out.set(lifecycleKey, a);
       continue;
     }
     // dimension:retrying → 把 agent.retryCount + lastRetryReason 落上

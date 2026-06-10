@@ -899,6 +899,48 @@ describe("deep-insight 14 阶段执行内核（W2）", () => {
     expect(res.status).toBe("completed");
   });
 
+  // ── C8 auditLayers 门控断言（minimal 跳过 critic；thorough 保持当前行为）────────────
+
+  it("C8 auditLayers=minimal：s9 critic 跳过（不调 playground.critic agent）", async () => {
+    const agentRunner = makeAgentRunner();
+    const { runner } = makeRunnerWith(agentRunner, makeRichStubs());
+    const res = await runner.run(
+      {
+        topic: "AI",
+        language: "zh-CN",
+        // auditLayers 以 string[] 形式传入（消费方包装语义）
+        invocation: { auditLayers: ["minimal"] },
+      } as never,
+      { userId: "u", missionId: "m-audit-minimal" },
+    );
+    expect(res.status).toBe("completed");
+    // minimal 时 critic agent 不应被调用。
+    const criticCalls = agentRunner.calls.filter((c) =>
+      c.agentId.includes("critic"),
+    );
+    expect(criticCalls).toHaveLength(0);
+  });
+
+  it("C8 auditLayers=default（空数组）：critic 跳过，outline 跳过（未配置深度 audit）", async () => {
+    const agentRunner = makeAgentRunner();
+    const { runner } = makeRunnerWith(agentRunner, makeRichStubs());
+    const res = await runner.run(
+      { topic: "AI", language: "zh-CN" },
+      { userId: "u", missionId: "m-audit-default" },
+    );
+    expect(res.status).toBe("completed");
+    // 无 auditLayers → s9 critic 跳过（等价 minimal 路径）。
+    const criticCalls = agentRunner.calls.filter((c) =>
+      c.agentId.includes("critic"),
+    );
+    expect(criticCalls).toHaveLength(0);
+    // 无 auditLayers → s7 outline 跳过。
+    const outlineCalls = agentRunner.calls.filter((c) =>
+      c.agentId.includes("outline"),
+    );
+    expect(outlineCalls).toHaveLength(0);
+  });
+
   it("s8 figure 精排 fail-open：精排抛错不阻断报告（仍 completed，保留原候选）", async () => {
     const agentRunner = makeAgentRunner();
     agentRunner.run.mockImplementation(

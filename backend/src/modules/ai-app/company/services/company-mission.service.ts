@@ -27,10 +27,7 @@ import {
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { MissionFailedPreset } from "@/modules/platform/facade";
 import { MissionSedimentService } from "@/modules/ai-app/library/sediment/mission-sediment.service";
-import {
-  CompanyMissionPersistenceAdapter,
-  RUNNING_STATUSES,
-} from "./company-mission-persistence.adapter";
+import { CompanyMissionPersistenceAdapter } from "./company-mission-persistence.adapter";
 import { EventBus, ChatFacade, AgentRunner } from "@/modules/ai-harness/facade";
 import { SkillRegistry } from "@/modules/ai-engine/facade";
 import type { CompanyMission, Prisma } from "@prisma/client";
@@ -139,6 +136,15 @@ const STEP_ID_TO_COMPANY_BUCKET: Record<
   write: "execution",
   review: "review",
 };
+
+/** agent 生命周期 phase → 渐进维度状态（started/其余 → running）。 */
+function phaseToDimStatus(phase: string): "running" | "done" | "failed" {
+  return phase === "completed"
+    ? "done"
+    : phase === "failed"
+      ? "failed"
+      : "running";
+}
 
 // ── service ───────────────────────────────────────────────────────────────────
 
@@ -1128,17 +1134,7 @@ export class CompanyMissionService implements OnModuleInit {
       });
       // 渐进任务：若该生命周期快照带 dimension，同样纳入逐维度推进
       const dim = typeof p.dimension === "string" ? p.dimension : undefined;
-      if (dim) {
-        const st = this.liveState(missionId);
-        if (!st.dimStatus.has(dim)) st.dimOrder.push(dim);
-        st.dimStatus.set(
-          dim,
-          phase === "completed"
-            ? "done"
-            : phase === "failed"
-              ? "failed"
-              : "running",
-        );
+      if (dim && this.markDimension(missionId, dim, phaseToDimStatus(phase))) {
         await this.persistLiveProgress(missionId);
       }
     } else if (event.type === "agent-trace") {
@@ -1172,17 +1168,10 @@ export class CompanyMissionService implements OnModuleInit {
           ...(p.modelTrail !== undefined ? { modelTrail: p.modelTrail } : {}),
         });
         // 渐进任务：每个维度的 researcher 随生命周期逐个出现并推进
-        if (dimension) {
-          const st = this.liveState(missionId);
-          if (!st.dimStatus.has(dimension)) st.dimOrder.push(dimension);
-          st.dimStatus.set(
-            dimension,
-            phase === "completed"
-              ? "done"
-              : phase === "failed"
-                ? "failed"
-                : "running",
-          );
+        if (
+          dimension &&
+          this.markDimension(missionId, dimension, phaseToDimStatus(phase))
+        ) {
           await this.persistLiveProgress(missionId);
         }
       } else {
@@ -1217,17 +1206,10 @@ export class CompanyMissionService implements OnModuleInit {
             typeof domainData.phase === "string"
               ? domainData.phase
               : "completed";
-          if (dim) {
-            const st = this.liveState(missionId);
-            if (!st.dimStatus.has(dim)) st.dimOrder.push(dim);
-            st.dimStatus.set(
-              dim,
-              phase === "completed"
-                ? "done"
-                : phase === "failed"
-                  ? "failed"
-                  : "running",
-            );
+          if (
+            dim &&
+            this.markDimension(missionId, dim, phaseToDimStatus(phase))
+          ) {
             await this.persistLiveProgress(missionId);
           }
         }
@@ -1237,10 +1219,7 @@ export class CompanyMissionService implements OnModuleInit {
             typeof domainData.dimension === "string"
               ? domainData.dimension
               : undefined;
-          if (dim) {
-            const st = this.liveState(missionId);
-            if (!st.dimStatus.has(dim)) st.dimOrder.push(dim);
-            st.dimStatus.set(dim, "done");
+          if (dim && this.markDimension(missionId, dim, "done")) {
             await this.persistLiveProgress(missionId);
           }
         }
@@ -1285,6 +1264,34 @@ export class CompanyMissionService implements OnModuleInit {
   }
 
   /**
+   * 渐进维度状态机的唯一写入口。返回状态是否真的变化——
+   * agent:lifecycle 与 dimension:research:completed 对同一维度会背靠背到达，
+   * 只有变化才值得触发 persistLiveProgress 的全量 result 写。
+   */
+  private markDimension(
+    missionId: string,
+    dim: string,
+    status: "running" | "done" | "failed",
+  ): boolean {
+    const st = this.liveState(missionId);
+    if (!st.dimStatus.has(dim)) {
+      st.dimOrder.push(dim);
+    } else {
+      const current = st.dimStatus.get(dim);
+      if (current === status) return false;
+      // 单调性：终态（done/failed）不被迟到的 running 事件降级回运行中。
+      if (
+        status === "running" &&
+        (current === "done" || current === "failed")
+      ) {
+        return false;
+      }
+    }
+    st.dimStatus.set(dim, status);
+    return true;
+  }
+
+  /**
    * 把当前渐进任务状态 + 协作动态落库到 result（运行中实时持久化）。
    * status/progress 不变（保持 running）；终态时 runViaCapability 用最终结果覆盖。
    */
@@ -1312,10 +1319,37 @@ export class CompanyMissionService implements OnModuleInit {
         status: s.review === "done" ? "done" : "running",
       });
 
+    // 整列替换前读回 __ 前缀的运行期元数据（__checkpoint / __dispatch / __terminal）原样保留：
+    // s3 期间 adapter 已写 checkpoint，实时进度写若整体覆盖会让崩溃续跑/复跑依据全部丢失。
+    // （与 patchCheckpoint 的 read-modify-write 并发仍有窄竞态窗口，best-effort 一致。）
+    const preserved: Record<string, unknown> = {};
+    try {
+      const row = await this.prisma.companyMission.findUnique({
+        where: { id: missionId },
+        select: { result: true },
+      });
+      if (
+        row?.result &&
+        typeof row.result === "object" &&
+        !Array.isArray(row.result)
+      ) {
+        for (const [k, v] of Object.entries(
+          row.result as Record<string, unknown>,
+        )) {
+          if (k.startsWith("__")) preserved[k] = v;
+        }
+      }
+    } catch (err: unknown) {
+      this.log.warn(
+        `persistLiveProgress ${missionId} read-back failed (metadata may be lost): ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
     const toJson = (v: unknown): Prisma.InputJsonValue =>
       JSON.parse(JSON.stringify(v ?? null)) as Prisma.InputJsonValue;
     await this.updateMission(missionId, {
       result: toJson({
+        ...preserved,
         steps,
         dimensions: s.dimOrder,
         collab: this.collabBuffers.get(missionId) ?? [],
@@ -1660,9 +1694,11 @@ export class CompanyMissionService implements OnModuleInit {
   ): Promise<boolean> {
     try {
       const res = await this.prisma.companyMission.updateMany({
-        // 与 adapter.applyTerminalIfRunning 同口径：仅运行中状态可被终态写覆盖
-        // （不只是 != cancelled，亦避免覆盖已 done/failed 的行——首写真正赢）。
-        where: { id, status: { in: [...RUNNING_STATUSES] } },
+        // 仅守护 cancelled，不能收窄成 RUNNING_STATUSES：能力轨上 adapter.applyTerminalIfRunning
+        // 在 runner 返回前已把行写成 done/failed（崩溃耐久的裸终态），service 的富结果终写
+        // （steps/review/__dispatch/事件门）必须能覆盖它——收窄会让 won 恒为 false，
+        // completed/failed 事件与 post-run 副作用全部静默丢失。
+        where: { id, status: { not: "cancelled" } },
         data,
       });
       return res.count > 0;

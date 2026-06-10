@@ -190,10 +190,12 @@ const BACKEND_DEAD_REGISTRATION_OK = new Set<string>([
   "playground.stage:completed",
   "playground.stage:failed",
   "playground.stage:metrics",
-  // ★ #16b env2（2026-06-09）：S12 postlude 已迁移到能力核（deep-insight.runner.ts）。
-  // playground.pipeline.ts 的 fireSelfEvolutionPostlude 已删除，这 3 个 emit 随之消失。
-  // frontend todo-board.projector.ts 保留对这些事件的 handler（历史 mission replay 兼容）。
-  // 若未来能力核需要向 playground 层通报 postlude 进展，可在 CapabilityRunEvent 扩展后重 emit。
+  // ★ #16b Fix C10（2026-06-09）：S12 postlude 现在经 domain 事件桥
+  // （self-evolution.postlude.ts emitPostludeEvent → CapabilityRunEvent "domain" →
+  // playground.pipeline.ts bridgeCapabilityEvent → playground.mission:postlude:*）
+  // 发出这 3 个事件。静态扫描无法跟踪 domain 桥的模板拼接，故留在豁免名单。
+  // 实际 emit 路径：emitPostludeEvent 发 domain payload.event="mission:postlude:{...}"
+  // → dispatcher 拼为 "playground.mission:postlude:{...}"。
   "playground.mission:postlude:started",
   "playground.mission:postlude:completed",
   "playground.mission:postlude:failed",

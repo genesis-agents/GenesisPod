@@ -240,6 +240,28 @@ export interface MissionPersistencePort {
     };
   }): Promise<void>;
 
+  // ── 可选：S12 失败模式记录（能力核 fire-and-forget 调；消费方实现转写 FailureLearnerService）──
+  /**
+   * 记录粗粒度失败模式，供 FailureLearnerService 在下次同用户同 topic 启动时
+   * 给 leader plan 提供 prior knowledge（"上次同主题没过线"）。
+   *
+   * 典型调用场景（与旧 s12-self-evolution.stage.ts 语义一致）：
+   *   - leaderSigned===false → failureCode="LEADER_REFUSED_SIGN"
+   *   - missionStatus="failed" 时可选附分类的 failureCode
+   *
+   * 沉淀承诺：失败只 log warn，不破坏 mission 终态。
+   *
+   * 接线现状（2026-06-09）：playground 侧 MissionStore 注入 @Optional FailureLearnerService
+   * 后经构造参数透传给 MissionStorePersistenceAdapter（key 形状与旧 s12 stage 一致，
+   * 历史 pattern 行继续累加）；company 侧暂未实现（可选方法，缺省即跳过）。
+   */
+  recordFailurePattern?(input: {
+    missionId: string;
+    topic: string;
+    failureCode: string;
+    model?: string;
+  }): Promise<void>;
+
   // ── 可选：trajectory（UI 展示 / 重跑复用，能力内核不依赖）──
   saveResearchResult?(args: {
     missionId: string;

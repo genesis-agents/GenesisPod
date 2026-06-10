@@ -98,7 +98,13 @@ export async function invokeAgent(args: {
     role: args.role,
     ...(args.dimension !== undefined ? { dimension: args.dimension } : {}),
     stepId: args.stepId,
-    phase: res.state === "completed" ? "completed" : "failed",
+    // C12：degraded 表示次优但可用产出（与 completed 同路径走下游），映射为 "completed"；
+    //   cancelled/failed 才是真失败。degraded: true 供消费方区分。
+    phase:
+      res.state === "completed" || res.state === "degraded"
+        ? "completed"
+        : "failed",
+    ...(res.state === "degraded" ? { degraded: true } : {}),
     tokensUsed: tokens,
     costCents: cost,
     costUsd: cost / 100,

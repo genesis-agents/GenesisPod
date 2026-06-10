@@ -5,8 +5,12 @@
  *   - recordPlanDimensions: 落 result.steps（仅空时写，已有不覆盖）
  *   - recordPostmortem:     调 CompanyMissionPostmortemHelper.recordMissionPostmortem（写 harness_vector_memory）
  *   - recallPostmortems:    调 helper.listRecentPostmortems，映射返回形状
+ *
+ * Fix C13: findRecentMissionId 仅匹配 capability mission（result.capabilityId 非 NULL），
+ *   chat mission（无 capabilityId）不触发 S12 catch-up 轮询。
  */
 
+import { Prisma } from "@prisma/client";
 import { CompanyMissionPersistenceAdapter } from "../company-mission-persistence.adapter";
 import { CompanyMissionPostmortemHelper } from "../company-mission-postmortem.helper";
 
@@ -245,5 +249,78 @@ describe("CompanyMissionPersistenceAdapter.recallPostmortems", () => {
       topic: "x",
     });
     expect(result).toEqual([]);
+  });
+});
+
+// ── Fix C13: findRecentMissionId 仅匹配 capability mission ───────────────────────
+
+describe("CompanyMissionPostmortemHelper.findRecentMissionId — 仅匹配 capability mission", () => {
+  it("查询包含 capabilityId JSONB path filter（不匹配 chat mission）", async () => {
+    // 验证：helper 的 findFirst where 子句包含 result path filter，
+    // 确保 chat mission（result 无 capabilityId）不会被选中触发 S12 catch-up 轮询。
+    const prisma = makePrisma();
+    prisma.companyMission.findFirst = jest.fn().mockResolvedValue(null);
+    // 添加 findMany mock（listVectorMemories 回退路径）
+    prisma.harnessVectorMemory.findMany = jest.fn().mockResolvedValue([]);
+
+    const helper = makeHelper(prisma);
+    await helper.listRecentPostmortems("u1", 3);
+
+    // findFirst 被调用，且 where 包含 result path filter
+    expect(prisma.companyMission.findFirst).toHaveBeenCalledTimes(1);
+    const whereArg = (prisma.companyMission.findFirst as jest.Mock).mock
+      .calls[0][0].where;
+    expect(whereArg.result).toEqual({
+      path: ["capabilityId"],
+      not: Prisma.JsonNull,
+    });
+  });
+
+  it("chat mission（findFirst 返回 null）→ 不触发 S12 catch-up（listVectorMemories 只调一次）", async () => {
+    // 模拟：findFirst 返回 null（chat mission 被过滤掉，近期无 capability mission）
+    const prisma = makePrisma();
+    prisma.companyMission.findFirst = jest.fn().mockResolvedValue(null);
+    prisma.harnessVectorMemory.findMany = jest.fn().mockResolvedValue([]);
+
+    const helper = makeHelper(prisma);
+    const listSpy = jest.spyOn(
+      helper as unknown as { fetchPostmortems: () => Promise<[]> },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      "fetchPostmortems" as any,
+    );
+
+    await helper.listRecentPostmortems("u1", 3);
+
+    // recentMissionId === null → 直接返回，不进轮询循环 → fetchPostmortems 只调 1 次
+    expect(listSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("capability mission（findFirst 返回 id）且 postmortem 已落库 → 一次取到，不轮询", async () => {
+    const prisma = makePrisma();
+    prisma.companyMission.findFirst = jest
+      .fn()
+      .mockResolvedValue({ id: "m-cap-1" });
+    // postmortem 已在 findMany 第一次返回中存在 → 无需轮询
+    prisma.harnessVectorMemory.findMany = jest.fn().mockResolvedValue([
+      {
+        tags: ["company", "mission-postmortem", "signed"],
+        metadata: {
+          missionId: "m-cap-1",
+          topic: "AI trends",
+          recommendations: [],
+          qualityScore: 90,
+        },
+        content: "summary",
+        createdAt: new Date(),
+      },
+    ]);
+
+    const helper = makeHelper(prisma);
+    const result = await helper.listRecentPostmortems("u1", 3);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].missionId).toBe("m-cap-1");
+    // harnessVectorMemory.findMany 只调一次（无轮询）
+    expect(prisma.harnessVectorMemory.findMany).toHaveBeenCalledTimes(1);
   });
 });
