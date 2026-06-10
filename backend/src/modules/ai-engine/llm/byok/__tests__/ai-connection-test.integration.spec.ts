@@ -121,9 +121,10 @@ describe("AiConnectionTestService (extended coverage)", () => {
       );
 
       expect(mockModelConfig!.isReasoningModel).toHaveBeenCalledWith("o1-mini");
+      // reasoning 模型给 512 预算（避免隐藏 CoT 吃光小预算导致空响应假阳性）
       expect(mockHttp.post).toHaveBeenCalledWith(
         expect.any(String),
-        expect.objectContaining({ max_completion_tokens: 50 }),
+        expect.objectContaining({ max_completion_tokens: 512 }),
         expect.any(Object),
       );
     });

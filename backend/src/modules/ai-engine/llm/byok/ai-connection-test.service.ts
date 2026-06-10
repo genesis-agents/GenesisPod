@@ -202,15 +202,26 @@ export class AiConnectionTestService {
         case "openai":
         case "gpt": {
           const effectiveOpenAIModel = modelId || "";
-          // ★ Read tokenParamName from DB config first, fallback to reasoning inference
+          // ★ Read tokenParamName from DB config first, fallback to reasoning inference.
+          //   isReasoning 同时决定三件事，与真实直调路径（ai-direct-key.service:250-296）对齐：
+          //   1. token 参数名：reasoning 用 max_completion_tokens，否则 max_tokens
+          //   2. token 预算：reasoning 模型隐藏 CoT 会吃光小预算 → finish_reason=length
+          //      且 visible content 为空，测试会假阳性"成功但空响应"。给 reasoning 留足
+          //      预算（512）让可见 token 真正返回；非 reasoning 50 足够探活。
+          //   3. temperature：reasoning 模型只接受默认值，显式传 0 触发
+          //      400 "Unsupported value: 'temperature' does not support 0" 假阴性 →
+          //      reasoning 时完全不带 temperature。
           const dbConfig =
             await this.modelConfigService?.getModelConfig(effectiveOpenAIModel);
+          const openAIIsReasoning = dbConfig?.tokenParamName
+            ? dbConfig.tokenParamName === "max_completion_tokens"
+            : this.inferIsReasoning(effectiveOpenAIModel);
           const openAITokenParamName =
             dbConfig?.tokenParamName ||
-            (this.inferIsReasoning(effectiveOpenAIModel)
-              ? "max_completion_tokens"
-              : "max_tokens");
-          const openAITokenParam = { [openAITokenParamName]: 50 };
+            (openAIIsReasoning ? "max_completion_tokens" : "max_tokens");
+          const openAITokenParam = {
+            [openAITokenParamName]: openAIIsReasoning ? 512 : 50,
+          };
 
           response = await firstValueFrom(
             this.httpService.post(
@@ -220,7 +231,8 @@ export class AiConnectionTestService {
                 model: effectiveOpenAIModel,
                 messages: testMessages,
                 ...openAITokenParam,
-                temperature: 0,
+                // reasoning 模型不接受 temperature 自定义值（含 0），省略走默认。
+                ...(openAIIsReasoning ? {} : { temperature: 0 }),
               },
               {
                 headers: {
@@ -348,10 +360,15 @@ export class AiConnectionTestService {
               ? "Hello"
               : testMessages[0].content;
 
+            // gemini-2.5 / gemini-3 是 thinking 模型，隐藏 thinking token 会吃光
+            // 小预算 → finishReason=MAX_TOKENS 且 parts 为空 → 测试假阳性"成功但空响应"。
+            // 给 thinking 模型留足预算（512）让可见 token 真正返回；普通模型 50 足够探活。
+            const geminiIsThinking = inferIsReasoning(modelId || "");
+
             const geminiConfig: Record<string, unknown> = isImageCapableModel
               ? {}
               : {
-                  maxOutputTokens: 50,
+                  maxOutputTokens: geminiIsThinking ? 512 : 50,
                   temperature: 0,
                 };
 
@@ -545,19 +562,41 @@ export class AiConnectionTestService {
         };
       }
 
+      const providerLower = provider.toLowerCase();
       let content = "";
-      if (
-        provider.toLowerCase() === "anthropic" ||
-        provider.toLowerCase() === "claude"
-      ) {
-        content = response.data?.content?.[0]?.text || "";
-      } else if (
-        provider.toLowerCase() === "google" ||
-        provider.toLowerCase() === "gemini"
-      ) {
+      // finishReason 用于区分"真空响应"与"被截断的空响应"——后者不是连接失败，
+      // 而是 token 预算耗尽（多见于 reasoning/thinking 模型），需给可诊断提示而非假阳性。
+      let truncated = false;
+      if (providerLower === "anthropic" || providerLower === "claude") {
+        // Anthropic content[] 可能含多个 block，拼接所有 text block 更稳健。
+        const blocks = response.data?.content as
+          | Array<{ type?: string; text?: string }>
+          | undefined;
+        // 真实 Anthropic text block 必带 type:"text"，但放宽到"有 string text 即取"
+        // 以容忍 thinking block（type:"thinking" 无 text，自动跳过）与缺 type 的变体。
         content =
-          response.data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      } else if (provider.toLowerCase() === "cohere") {
+          blocks
+            ?.filter(
+              (b) =>
+                typeof b.text === "string" &&
+                (b.type === undefined || b.type === "text"),
+            )
+            .map((b) => b.text)
+            .join("") || "";
+        truncated = response.data?.stop_reason === "max_tokens";
+      } else if (providerLower === "google" || providerLower === "gemini") {
+        // Gemini parts[] 可能含多个 part，拼接所有 text part。
+        const parts = response.data?.candidates?.[0]?.content?.parts as
+          | Array<{ text?: string }>
+          | undefined;
+        content =
+          parts
+            ?.map((p) => p.text)
+            .filter((t): t is string => typeof t === "string")
+            .join("") || "";
+        truncated =
+          response.data?.candidates?.[0]?.finishReason === "MAX_TOKENS";
+      } else if (providerLower === "cohere") {
         // Cohere v2：message.content 是 block 数组
         content =
           (
@@ -567,6 +606,21 @@ export class AiConnectionTestService {
           )?.find((b) => b.type === "text")?.text || "";
       } else {
         content = response.data?.choices?.[0]?.message?.content || "";
+        truncated = response.data?.choices?.[0]?.finish_reason === "length";
+      }
+
+      // 截断且无可见内容 → token 预算被（多为 reasoning/thinking 的隐藏 CoT）耗尽。
+      // 连接其实是通的，但报"成功"会误导 admin（实际拿不到任何输出）。给明确诊断。
+      if (!content && truncated) {
+        return {
+          success: false,
+          message:
+            `Connection reached the model but the response was truncated before any ` +
+            `visible output (token budget exhausted — common for reasoning/thinking models ` +
+            `that spend the budget on hidden reasoning). The API key and endpoint look valid; ` +
+            `increase max output tokens for this model.`,
+          latency,
+        };
       }
 
       return {

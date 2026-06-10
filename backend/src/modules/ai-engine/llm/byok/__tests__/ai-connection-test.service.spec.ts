@@ -127,42 +127,6 @@ describe("AiConnectionTestService", () => {
         expect(calledUrl).not.toContain("/chat/rerank");
       });
 
-      it("should use max_completion_tokens for reasoning models (o1)", async () => {
-        const mockResponse: AxiosResponse = {
-          data: {
-            choices: [
-              {
-                message: {
-                  content: "OK",
-                },
-              },
-            ],
-          },
-          status: 200,
-          statusText: "OK",
-          headers: {},
-          config: {} as any,
-        };
-
-        mockHttpService.post.mockReturnValue(of(mockResponse));
-
-        await service.testModelConnectionWithKey(
-          "openai",
-          "o1-preview",
-          "test-api-key",
-          "https://api.openai.com/v1/chat/completions",
-        );
-
-        expect(mockHttpService.post).toHaveBeenCalledWith(
-          expect.any(String),
-          expect.objectContaining({
-            max_completion_tokens: 50,
-            temperature: 0,
-          }),
-          expect.any(Object),
-        );
-      });
-
       // ★ 根因回归：连接测试发生在「模型配置保存前」，此时 DB 还没有这条 config，
       //   modelConfigService.isReasoningModel 走缓存 + DB 兜底均 miss 返 false。
       //   修复前 inferIsReasoning 仅信 isReasoningModel → tokenParamName 走 max_tokens
@@ -212,8 +176,89 @@ describe("AiConnectionTestService", () => {
           "gpt-5.4",
         );
         const body = mockHttpService.post.mock.calls[0][1];
-        expect(body).toHaveProperty("max_completion_tokens", 50);
+        // reasoning 模型给 512 预算（避免隐藏 CoT 吃光）+ 省略 temperature
+        expect(body).toHaveProperty("max_completion_tokens", 512);
         expect(body).not.toHaveProperty("max_tokens");
+        expect(body).not.toHaveProperty("temperature");
+      });
+
+      // ★ reasoning 模型只接受默认 temperature——显式传 0 触发 OpenAI
+      //   400 "Unsupported value: 'temperature' does not support 0" 假阴性。
+      //   修复：reasoning 分支完全省略 temperature，并给 512 预算（避免隐藏 CoT
+      //   吃光小预算导致 finish_reason=length 空响应假阳性）。
+      it("omits temperature and uses larger budget for reasoning models (o1)", async () => {
+        mockHttpService.post.mockReturnValue(
+          of({
+            data: { choices: [{ message: { content: "OK" } }] },
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            config: {} as any,
+          } as AxiosResponse),
+        );
+
+        await service.testModelConnectionWithKey(
+          "openai",
+          "o1-preview",
+          "test-api-key",
+          "https://api.openai.com/v1/chat/completions",
+        );
+
+        const body = mockHttpService.post.mock.calls[0][1];
+        expect(body).toHaveProperty("max_completion_tokens", 512);
+        expect(body).not.toHaveProperty("temperature");
+        expect(body).not.toHaveProperty("max_tokens");
+      });
+
+      it("keeps temperature:0 and 50-token budget for non-reasoning models (gpt-4)", async () => {
+        mockHttpService.post.mockReturnValue(
+          of({
+            data: { choices: [{ message: { content: "OK" } }] },
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            config: {} as any,
+          } as AxiosResponse),
+        );
+
+        await service.testModelConnectionWithKey(
+          "openai",
+          "gpt-4",
+          "test-api-key",
+          "https://api.openai.com/v1/chat/completions",
+        );
+
+        const body = mockHttpService.post.mock.calls[0][1];
+        expect(body).toHaveProperty("max_tokens", 50);
+        expect(body).toHaveProperty("temperature", 0);
+        expect(body).not.toHaveProperty("max_completion_tokens");
+      });
+
+      // ★ reasoning 模型隐藏 CoT 吃光 token → finish_reason=length 且 content 空。
+      //   修复前会假阳性报 "Connection successful! Response: """；现报可诊断失败。
+      it("reports failure (not fake success) when reasoning model truncates with empty content", async () => {
+        mockHttpService.post.mockReturnValue(
+          of({
+            data: {
+              choices: [{ message: { content: "" }, finish_reason: "length" }],
+            },
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            config: {} as any,
+          } as AxiosResponse),
+        );
+
+        const result = await service.testModelConnectionWithKey(
+          "openai",
+          "o1-preview",
+          "test-api-key",
+          "https://api.openai.com/v1/chat/completions",
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.message).toContain("truncated");
+        expect(result.message).toContain("token budget");
       });
 
       it("should use max_completion_tokens for deepseek-r1 reasoning model", async () => {
@@ -245,7 +290,7 @@ describe("AiConnectionTestService", () => {
         expect(mockHttpService.post).toHaveBeenCalledWith(
           expect.any(String),
           expect.objectContaining({
-            max_completion_tokens: 50,
+            max_completion_tokens: 512,
           }),
           expect.any(Object),
         );
@@ -303,6 +348,58 @@ describe("AiConnectionTestService", () => {
             timeout: 30000,
           }),
         );
+      });
+
+      // Anthropic content[] 可能含多个 block；应拼接所有 text block。
+      it("concatenates multiple Anthropic text blocks", async () => {
+        mockHttpService.post.mockReturnValue(
+          of({
+            data: {
+              content: [
+                { type: "text", text: "Hello " },
+                { type: "text", text: "world" },
+              ],
+              stop_reason: "end_turn",
+            },
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            config: {} as any,
+          } as AxiosResponse),
+        );
+
+        const result = await service.testModelConnectionWithKey(
+          "anthropic",
+          "claude-3-5-sonnet-20241022",
+          "test-api-key",
+          "https://api.anthropic.com/v1/messages",
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.message).toContain("Hello world");
+      });
+
+      // Claude 截断（max_tokens）且无可见内容 → 报可诊断失败而非假阳性成功。
+      it("reports failure when Claude truncates with empty content", async () => {
+        mockHttpService.post.mockReturnValue(
+          of({
+            data: { content: [], stop_reason: "max_tokens" },
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            config: {} as any,
+          } as AxiosResponse),
+        );
+
+        const result = await service.testModelConnectionWithKey(
+          "claude",
+          "claude-3-opus-20240229",
+          "test-api-key",
+          "https://api.anthropic.com/v1/messages",
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.message).toContain("truncated");
       });
 
       it("should use claude alias for anthropic provider", async () => {
@@ -390,6 +487,62 @@ describe("AiConnectionTestService", () => {
             timeout: 30000,
           }),
         );
+      });
+
+      // gemini-2.5 / gemini-3 是 thinking 模型，小预算会被隐藏 thinking token 吃光。
+      // 修复：thinking 模型 maxOutputTokens 用 512，普通模型保持 50。
+      it("uses larger maxOutputTokens for thinking models (gemini-2.5)", async () => {
+        mockHttpService.post.mockReturnValue(
+          of({
+            data: {
+              candidates: [{ content: { parts: [{ text: "OK" }] } }],
+            },
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            config: {} as any,
+          } as AxiosResponse),
+        );
+
+        await service.testModelConnectionWithKey(
+          "google",
+          "gemini-2.5-pro",
+          "test-api-key",
+          "https://generativelanguage.googleapis.com/v1beta/models",
+        );
+
+        const body = mockHttpService.post.mock.calls[0][1];
+        expect(body.generationConfig).toMatchObject({
+          maxOutputTokens: 512,
+          temperature: 0,
+        });
+      });
+
+      // Gemini 截断（MAX_TOKENS）且 parts 为空 → 报可诊断失败而非假阳性成功。
+      it("reports failure when Gemini truncates with empty parts", async () => {
+        mockHttpService.post.mockReturnValue(
+          of({
+            data: {
+              candidates: [
+                { content: { parts: [] }, finishReason: "MAX_TOKENS" },
+              ],
+            },
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            config: {} as any,
+          } as AxiosResponse),
+        );
+
+        const result = await service.testModelConnectionWithKey(
+          "google",
+          "gemini-2.5-pro",
+          "test-api-key",
+          "https://generativelanguage.googleapis.com/v1beta/models",
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.message).toContain("truncated");
       });
 
       it("should test Imagen model with different endpoint", async () => {

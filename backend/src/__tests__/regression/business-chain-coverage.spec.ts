@@ -99,19 +99,20 @@ describe("Branch: happy-path — RunMissionInputSchema full parse", () => {
     }
   });
 
-  it("maxCredits boundary: 10 is min, 100000 is max", () => {
+  it("maxCredits boundary: 10 is min, 500000 is max", () => {
+    // 2026-06-10：上限 100k→500k（BYOK 用户花自己 key、cost cap $1000，保留失控保护）。
     expect(
       RunMissionInputSchema.safeParse(validInput({ maxCredits: 10 })).success,
     ).toBe(true);
     expect(
-      RunMissionInputSchema.safeParse(validInput({ maxCredits: 100_000 }))
+      RunMissionInputSchema.safeParse(validInput({ maxCredits: 500_000 }))
         .success,
     ).toBe(true);
     expect(
       RunMissionInputSchema.safeParse(validInput({ maxCredits: 9 })).success,
     ).toBe(false);
     expect(
-      RunMissionInputSchema.safeParse(validInput({ maxCredits: 100_001 }))
+      RunMissionInputSchema.safeParse(validInput({ maxCredits: 500_001 }))
         .success,
     ).toBe(false);
   });
