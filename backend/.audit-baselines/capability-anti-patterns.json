@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-06-10T16:08:53.114Z",
+  "generatedAt": "2026-06-10T16:45:48.167Z",
   "count": 184,
   "note": "v3.1 F baseline (TYPE B routing + TYPE C decoration). C/D 已清的真 P0 决策文件由 capability-provider-string-match.contract.spec.ts 锁零；本基线许可的是 §0 D5 路由 / 装饰类既有命中，新代码不得让总数上涨。",
   "hits": [
@@ -377,49 +377,49 @@
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 1150,
+      "line": 1157,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "providerLower === \"openai\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 1204,
+      "line": 1211,
       "column": 11,
       "kind": "binary-eq",
       "snippet": "providerLower === \"google\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 1204,
+      "line": 1211,
       "column": 41,
       "kind": "binary-eq",
       "snippet": "providerLower === \"gemini\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 1267,
+      "line": 1274,
       "column": 11,
       "kind": "binary-eq",
       "snippet": "p === \"openai\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 1267,
+      "line": 1274,
       "column": 29,
       "kind": "binary-eq",
       "snippet": "p === \"gpt\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 1310,
+      "line": 1317,
       "column": 11,
       "kind": "binary-eq",
       "snippet": "p === \"google\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 1310,
+      "line": 1317,
       "column": 29,
       "kind": "binary-eq",
       "snippet": "p === \"gemini\""
