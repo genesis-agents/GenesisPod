@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-06-10T16:52:04.091Z",
+  "generatedAt": "2026-06-10T17:09:49.100Z",
   "count": 184,
   "note": "v3.1 F baseline (TYPE B routing + TYPE C decoration). C/D 已清的真 P0 决策文件由 capability-provider-string-match.contract.spec.ts 锁零；本基线许可的是 §0 D5 路由 / 装饰类既有命中，新代码不得让总数上涨。",
   "hits": [
@@ -335,91 +335,91 @@
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 262,
+      "line": 274,
       "column": 33,
       "kind": "method-call",
       "snippet": "modelId?.toLowerCase().includes(\"imagen\")"
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 344,
+      "line": 356,
       "column": 15,
       "kind": "method-call",
       "snippet": "modelId?.includes(\"gemini-2.0-flash-exp\")"
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 550,
-      "column": 9,
+      "line": 570,
+      "column": 11,
       "kind": "binary-eq",
-      "snippet": "provider.toLowerCase() === \"anthropic\""
+      "snippet": "providerLower === \"anthropic\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 551,
-      "column": 9,
+      "line": 570,
+      "column": 44,
       "kind": "binary-eq",
-      "snippet": "provider.toLowerCase() === \"claude\""
+      "snippet": "providerLower === \"claude\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 555,
-      "column": 9,
+      "line": 587,
+      "column": 18,
       "kind": "binary-eq",
-      "snippet": "provider.toLowerCase() === \"google\""
+      "snippet": "providerLower === \"google\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 556,
-      "column": 9,
+      "line": 587,
+      "column": 48,
       "kind": "binary-eq",
-      "snippet": "provider.toLowerCase() === \"gemini\""
+      "snippet": "providerLower === \"gemini\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 1157,
+      "line": 1211,
       "column": 9,
       "kind": "binary-eq",
       "snippet": "providerLower === \"openai\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 1211,
+      "line": 1265,
       "column": 11,
       "kind": "binary-eq",
       "snippet": "providerLower === \"google\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 1211,
+      "line": 1265,
       "column": 41,
       "kind": "binary-eq",
       "snippet": "providerLower === \"gemini\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 1274,
+      "line": 1328,
       "column": 11,
       "kind": "binary-eq",
       "snippet": "p === \"openai\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 1274,
+      "line": 1328,
       "column": 29,
       "kind": "binary-eq",
       "snippet": "p === \"gpt\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 1317,
+      "line": 1371,
       "column": 11,
       "kind": "binary-eq",
       "snippet": "p === \"google\""
     },
     {
       "file": "modules/ai-engine/llm/byok/ai-connection-test.service.ts",
-      "line": 1317,
+      "line": 1371,
       "column": 29,
       "kind": "binary-eq",
       "snippet": "p === \"gemini\""

@@ -47,7 +47,10 @@ const EXPECTED_CALLERS: ReadonlyArray<readonly [string, number]> = [
   // v3.1 A0：ai-chat-model-config.service.ts 已 thin-wrapper 化，
   // 原 2 处 `inferIsReasoning(...)` 调用随 buildModelConfig / isReasoningModel
   // 委托给 canonical AiModelConfigService 而被消除。
-  ["modules/ai-engine/llm/byok/ai-connection-test.service.ts", 1],
+  // 1（#4 reasoning tokenParam helper）+ 1（2026-06-10 Gemini thinking 预算判断：
+  //   隐藏 CoT 吃光小预算 → 按 thinking 给更大 maxOutputTokens）= 2。
+  //   OpenAI 走 this.inferIsReasoning（method，不计直接调用）。
+  ["modules/ai-engine/llm/byok/ai-connection-test.service.ts", 2],
   // 2026-06-10 reasoning tokenParam 全仓兜底（gpt-5.4 P0）：以下 token 决策点 /
   // 数据层保存点新增直接 inferIsReasoning 兜底——DB isReasoning 列是
   // Boolean @default(false) NOT NULL，漏标的 reasoning 模型会被发 max_tokens
