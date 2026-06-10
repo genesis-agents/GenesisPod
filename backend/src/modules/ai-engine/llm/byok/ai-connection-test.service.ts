@@ -897,7 +897,14 @@ export class AiConnectionTestService {
         const trimmed = url.trim().replace(/\/+$/, "");
         if (!trimmed) return defaultUrl;
         if (trimmed.endsWith("/rerank")) return trimmed;
-        return `${trimmed}/rerank`;
+        // ★ 2026-06-10：rerank 与 chat 共用 provider endpoint 字段，admin/一键配置
+        //   常存的是 chat endpoint（如 https://api.cohere.com/v1/chat）。rerank 不能
+        //   复用 chat 路径——直接拼会得到 /chat/rerank → provider 405（empty body）。
+        //   先剥掉 chat 专用后缀回到 base（/v1），再拼 /rerank。
+        const base = trimmed
+          .replace(/\/chat\/completions$/, "")
+          .replace(/\/chat$/, "");
+        return `${base}/rerank`;
       };
 
       switch (provider.toLowerCase()) {

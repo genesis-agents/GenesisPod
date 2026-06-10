@@ -101,6 +101,32 @@ describe("AiConnectionTestService", () => {
         );
       });
 
+      it("cohere rerank: chat endpoint 剥到 base 再拼 /rerank（不发 /chat/rerank → 405）", async () => {
+        // 一键配置/provider 常给 rerank 模型存 chat endpoint（rerank 与 chat 共用字段）。
+        // 修复前直接拼成 https://api.cohere.com/v1/chat/rerank → provider 405 empty body。
+        mockHttpService.post.mockReturnValue(
+          of({
+            data: { results: [{ index: 0, relevance_score: 0.99 }] },
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            config: {} as any,
+          } as AxiosResponse),
+        );
+
+        await service.testModelConnectionWithKey(
+          "cohere",
+          "rerank-v3.5",
+          "test-api-key",
+          "https://api.cohere.com/v1/chat",
+          "RERANK",
+        );
+
+        const calledUrl = mockHttpService.post.mock.calls[0][0] as string;
+        expect(calledUrl).toBe("https://api.cohere.com/v1/rerank");
+        expect(calledUrl).not.toContain("/chat/rerank");
+      });
+
       it("should use max_completion_tokens for reasoning models (o1)", async () => {
         const mockResponse: AxiosResponse = {
           data: {
