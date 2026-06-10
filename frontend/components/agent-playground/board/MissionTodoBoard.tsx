@@ -285,7 +285,15 @@ function resolveModel(
       agents.find((x) => x.role === 'researcher' && x.dimension === dim);
     if (a?.modelId) return a.modelId;
   }
-  const byRole = agents.find((x) => x.role === todo.assignee.role);
+  // assignee.role 别名归一：todo 板的 s5/s9 行用 'reconciler'/'critic'，而 AgentLiveState
+  // 只存 5 个 canonical role（projector 已做 reconciler→analyst / critic→reviewer 归一），
+  // 不归一则这两行模型列永远查不到。
+  const roleAlias: Record<string, string> = {
+    reconciler: 'analyst',
+    critic: 'reviewer',
+  };
+  const wantRole = roleAlias[todo.assignee.role] ?? todo.assignee.role;
+  const byRole = agents.find((x) => x.role === wantRole);
   return byRole?.modelId;
 }
 

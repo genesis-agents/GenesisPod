@@ -50,8 +50,20 @@ export function projectAgents(
   const byAgent = new Map<string, AgentDigest>();
 
   for (const ev of events) {
-    const id = extractAgentId(ev);
-    if (!id) continue;
+    const rawId = extractAgentId(ev);
+    if (!rawId) continue;
+
+    // ★ Fix 3(b) (2026-06-09)：dimension 分桶——当 payload.dimension 存在且 agentId 不含 '#' 时，
+    //   按 `${agentId}#${dimension}` 建行（兜底 researcher#<dim> 前端对齐）。
+    //   发射端已改为直接发 researcher#<dim> 时 rawId 本身含 '#'，直接用，不二次拼接。
+    const payloadForBucket = ev.payload as Record<string, unknown> | null;
+    const dimForBucket =
+      typeof payloadForBucket?.dimension === "string"
+        ? payloadForBucket.dimension
+        : undefined;
+    const id =
+      !rawId.includes("#") && dimForBucket ? `${rawId}#${dimForBucket}` : rawId;
+
     const role = extractRole(ev) ?? deriveRoleFromAgentId(id) ?? "unknown";
     const modelId = extractModelId(ev);
 
@@ -69,12 +81,14 @@ export function projectAgents(
     if (role !== "unknown" && digest.role === "unknown") digest.role = role;
 
     // ★ 2026-05-29：per-agent 用量从终态事件 payload 读取（chapter:*:completed /
-    //   agent:lifecycle 由 agentUsageDetail 注入）。取最后一次非空值（终态事件携带完整累计）。
+    //   agent:lifecycle 由 agentUsageDetail 注入）。
+    // ★ Fix 3(a) (2026-06-09)：tokensUsed 改为累加（同 agentId 多次 lifecycle 事件各带部分量）。
+    //   costUsd / toolCallCount 保持末值覆盖（终态事件携带完整合计，不重复累加）。
     {
       const up = ev.payload as Record<string, unknown> | null;
       if (up) {
         if (typeof up.tokensUsed === "number")
-          digest.tokensUsed = up.tokensUsed;
+          digest.tokensUsed = (digest.tokensUsed ?? 0) + up.tokensUsed;
         if (typeof up.costUsd === "number") digest.costUsd = up.costUsd;
         if (typeof up.toolCallCount === "number")
           digest.toolCallCount = up.toolCallCount;

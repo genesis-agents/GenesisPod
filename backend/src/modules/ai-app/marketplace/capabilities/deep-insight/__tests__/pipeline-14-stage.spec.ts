@@ -987,4 +987,290 @@ describe("deep-insight 14 阶段执行内核（W2）", () => {
     expect(res.status).toBe("completed");
     expect(rich.figureRelevance.filterRelevantFigures).toHaveBeenCalled();
   });
+
+  // ── 富事件恢复断言（Task 7 emissions restored）────────────────────────────────
+
+  it("S5 reconciliation:completed 事件恢复：完整跑后收到 reconciliation:completed（含 factCount/gapCount）", async () => {
+    // reconciler mock 返回带 factTable/conflicts/gaps 的产物。
+    const agentRunner = makeAgentRunner();
+    agentRunner.run.mockImplementation(
+      async (Spec: { name?: string }, input: unknown) => {
+        const id = (Spec?.name ?? "").toLowerCase();
+        let out: unknown;
+        if (id.includes("reconciler")) {
+          out = {
+            reconciliationReport: "rec",
+            factTable: [{ fact: "f1" }, { fact: "f2" }],
+            conflicts: [{ conflict: "c1" }],
+            gaps: [{ gap: "g1" }, { gap: "g2" }],
+            overlaps: [],
+            figureCandidates: [],
+            alternativeHypotheses: [],
+          };
+        } else {
+          out = routeOutput(id, input);
+        }
+        return {
+          output: out,
+          state: "completed" as const,
+          tokensUsed: { prompt: 1, completion: 1, total: 2 },
+          costCents: 1,
+        };
+      },
+    );
+    const domainEvents: Array<{
+      event: string;
+      data: Record<string, unknown>;
+    }> = [];
+    const ctx: CapabilityRunContext = {
+      userId: "u",
+      missionId: "m-s5-reconcile",
+      onEvent: (e) => {
+        if (e.type === "domain") {
+          const p = e.payload as
+            | { event?: string; data?: Record<string, unknown> }
+            | undefined;
+          if (p?.event)
+            domainEvents.push({ event: p.event, data: p.data ?? {} });
+        }
+      },
+    };
+    const { runner } = makeRunnerWith(agentRunner, makeRichStubs());
+    const res = await runner.run({ topic: "AI", language: "zh-CN" }, ctx);
+    expect(res.status).toBe("completed");
+    const recEv = domainEvents.find(
+      (e) => e.event === "reconciliation:completed",
+    );
+    expect(recEv).toBeDefined();
+    expect(recEv?.data.factCount).toBe(2);
+    expect(recEv?.data.conflictCount).toBe(1);
+    expect(recEv?.data.gapCount).toBe(2);
+  });
+
+  it("S10 leader:foreword + leader:signed 事件恢复：完整跑后收到两个事件", async () => {
+    const domainEvents: Array<{
+      event: string;
+      data: Record<string, unknown>;
+    }> = [];
+    const ctx: CapabilityRunContext = {
+      userId: "u",
+      missionId: "m-s10-signoff",
+      onEvent: (e) => {
+        if (e.type === "domain") {
+          const p = e.payload as
+            | { event?: string; data?: Record<string, unknown> }
+            | undefined;
+          if (p?.event)
+            domainEvents.push({ event: p.event, data: p.data ?? {} });
+        }
+      },
+    };
+    const { runner } = makeRunner();
+    const res = await runner.run({ topic: "AI", language: "zh-CN" }, ctx);
+    expect(res.status).toBe("completed");
+    // leader:foreword 事件
+    const forewordEv = domainEvents.find((e) => e.event === "leader:foreword");
+    expect(forewordEv).toBeDefined();
+    // leader:signed 事件（mock signoff 返回 signed=true）
+    const signedEv = domainEvents.find((e) => e.event === "leader:signed");
+    expect(signedEv).toBeDefined();
+    expect(signedEv?.data.signed).toBe(true);
+  });
+
+  it("S9 critic:verdict 事件恢复：auditLayers=thorough 时 critic 运行并发出 critic:verdict", async () => {
+    const agentRunner = makeAgentRunner();
+    const domainEvents: Array<{
+      event: string;
+      data: Record<string, unknown>;
+    }> = [];
+    const ctx: CapabilityRunContext = {
+      userId: "u",
+      missionId: "m-s9-critic-verdict",
+      onEvent: (e) => {
+        if (e.type === "domain") {
+          const p = e.payload as
+            | { event?: string; data?: Record<string, unknown> }
+            | undefined;
+          if (p?.event)
+            domainEvents.push({ event: p.event, data: p.data ?? {} });
+        }
+      },
+    };
+    const { runner } = makeRunnerWith(agentRunner, makeRichStubs());
+    // auditLayers 放顶层，runner 从 input.auditLayers 透传进 invocation。
+    const res = await runner.run(
+      { topic: "AI", language: "zh-CN", auditLayers: ["thorough"] } as never,
+      ctx,
+    );
+    expect(res.status).toBe("completed");
+    const criticEv = domainEvents.find((e) => e.event === "critic:verdict");
+    expect(criticEv).toBeDefined();
+    expect(typeof criticEv?.data.verdict).toBe("string");
+    expect(typeof criticEv?.data.blindspotCount).toBe("number");
+    expect(Array.isArray(criticEv?.data.warnings)).toBe(true);
+  });
+
+  it("S9b verifier:verdict 事件恢复：客观评估成功后发出 verifier:verdict（含 score）", async () => {
+    const rich = makeRichStubs();
+    const domainEvents: Array<{
+      event: string;
+      data: Record<string, unknown>;
+    }> = [];
+    const ctx: CapabilityRunContext = {
+      userId: "u",
+      missionId: "m-s9b-verifier",
+      onEvent: (e) => {
+        if (e.type === "domain") {
+          const p = e.payload as
+            | { event?: string; data?: Record<string, unknown> }
+            | undefined;
+          if (p?.event)
+            domainEvents.push({ event: p.event, data: p.data ?? {} });
+        }
+      },
+    };
+    const { runner } = makeRunnerWith(
+      makeAgentRunner(),
+      rich,
+      makePostmortemClassifier(),
+    );
+    const res = await runner.run({ topic: "AI", language: "zh-CN" }, ctx);
+    expect(res.status).toBe("completed");
+    // S9b 默认路径：evaluateReport 被调（stub 返回 overallScore=88）
+    expect(rich.reportEvaluation.evaluateReport).toHaveBeenCalledTimes(1);
+    const verifierEv = domainEvents.find((e) => e.event === "verifier:verdict");
+    expect(verifierEv).toBeDefined();
+    expect(verifierEv?.data.score).toBe(88);
+    expect(verifierEv?.data.verifierId).toBe("critic-eval");
+  });
+
+  it("S3 维度失败终态信号：researcher null-output 路径发 dimension:graded{overall:0} + agent:narrative{error}", async () => {
+    const agentRunner = makeAgentRunner();
+    // 只让第一个维度（维度一）返回 null output；维度二正常。
+    let researcherCallIdx = 0;
+    agentRunner.run.mockImplementation(
+      async (Spec: { name?: string }, input: unknown) => {
+        const id = (Spec?.name ?? "").toLowerCase();
+        if (id.includes("researcher")) {
+          researcherCallIdx++;
+          if (researcherCallIdx === 1) {
+            // 第一个维度 null output（ReAct 未 finalize）
+            return {
+              output: null,
+              state: "completed" as const,
+              tokensUsed: { prompt: 0, completion: 0, total: 0 },
+              costCents: 0,
+            };
+          }
+        }
+        return {
+          output: routeOutput(id, input),
+          state: "completed" as const,
+          tokensUsed: { prompt: 1, completion: 1, total: 2 },
+          costCents: 1,
+        };
+      },
+    );
+    const domainEvents: Array<{
+      event: string;
+      data: Record<string, unknown>;
+    }> = [];
+    const ctx: CapabilityRunContext = {
+      userId: "u",
+      missionId: "m-s3-dim-fail",
+      onEvent: (e) => {
+        if (e.type === "domain") {
+          const p = e.payload as
+            | { event?: string; data?: Record<string, unknown> }
+            | undefined;
+          if (p?.event)
+            domainEvents.push({ event: p.event, data: p.data ?? {} });
+        }
+      },
+    };
+    const { runner } = makeRunnerWith(agentRunner, makeRichStubs());
+    // 1 维失败不阻断（另一维正常），mission 仍 completed。
+    const res = await runner.run({ topic: "AI", language: "zh-CN" }, ctx);
+    expect(res.status).toBe("completed");
+    // 失败维度收到 dimension:graded 信号（overall=0）。
+    const gradedEv = domainEvents.find(
+      (e) => e.event === "dimension:graded" && e.data.overall === 0,
+    );
+    expect(gradedEv).toBeDefined();
+    expect(gradedEv?.data.state).toBe("failed");
+    // 同时收到 agent:narrative{tag:"error"} 叙事。
+    const errorNarrative = domainEvents.find(
+      (e) =>
+        e.event === "agent:narrative" &&
+        e.data.tag === "error" &&
+        typeof e.data.dimension === "string",
+    );
+    expect(errorNarrative).toBeDefined();
+  });
+
+  it("S7 gated-skip narrative：无 auditLayers 时 s7 发 info narrative（跳过大纲规划）", async () => {
+    const domainEvents: Array<{
+      event: string;
+      data: Record<string, unknown>;
+    }> = [];
+    const ctx: CapabilityRunContext = {
+      userId: "u",
+      missionId: "m-s7-skip",
+      onEvent: (e) => {
+        if (e.type === "domain") {
+          const p = e.payload as
+            | { event?: string; data?: Record<string, unknown> }
+            | undefined;
+          if (p?.event)
+            domainEvents.push({ event: p.event, data: p.data ?? {} });
+        }
+      },
+    };
+    const { runner } = makeRunner();
+    const res = await runner.run({ topic: "AI", language: "zh-CN" }, ctx);
+    expect(res.status).toBe("completed");
+    // s7 skip → info narrative 含"跳过大纲规划"。
+    const s7Skip = domainEvents.find(
+      (e) =>
+        e.event === "agent:narrative" &&
+        e.data.stage === "s7-writer-outline" &&
+        e.data.tag === "info" &&
+        typeof e.data.text === "string" &&
+        e.data.text.includes("跳过"),
+    );
+    expect(s7Skip).toBeDefined();
+  });
+
+  it("S9 gated-skip narrative：无 auditLayers 时 s9 发 info narrative（跳过独立评审）", async () => {
+    const domainEvents: Array<{
+      event: string;
+      data: Record<string, unknown>;
+    }> = [];
+    const ctx: CapabilityRunContext = {
+      userId: "u",
+      missionId: "m-s9-skip",
+      onEvent: (e) => {
+        if (e.type === "domain") {
+          const p = e.payload as
+            | { event?: string; data?: Record<string, unknown> }
+            | undefined;
+          if (p?.event)
+            domainEvents.push({ event: p.event, data: p.data ?? {} });
+        }
+      },
+    };
+    const { runner } = makeRunner();
+    const res = await runner.run({ topic: "AI", language: "zh-CN" }, ctx);
+    expect(res.status).toBe("completed");
+    // s9 skip → info narrative 含"跳过"。
+    const s9Skip = domainEvents.find(
+      (e) =>
+        e.event === "agent:narrative" &&
+        e.data.stage === "s9-critic" &&
+        e.data.tag === "info" &&
+        typeof e.data.text === "string" &&
+        e.data.text.includes("跳过"),
+    );
+    expect(s9Skip).toBeDefined();
+  });
 });

@@ -371,6 +371,24 @@ export class DeepInsightStageBindings implements StageBindings {
         });
         // ReActLoop 到 maxIterations 未 finalize 时 output=null，不能伪装成功。
         if (res.output == null) {
+          // ★ 恢复维度失败终态信号（projector ~:1128 dimension:graded handler）。
+          // 选择依据：projector 无独立 "dimension:failed" handler；dimension:graded 是
+          //   projector 中最近的"终态" handler，能 upsert dim todo 并追加 0/100 评分 artifact。
+          //   handler 对已终态（cancelled/failed）保护，对 pending/in_progress 推进到 done。
+          //   UI 显示 0/100，配合 agent:narrative error 叙述，用户可见失败原因。
+          emitDomain(onEvent, "dimension:graded", {
+            dimension: dim.name,
+            overall: 0,
+            state: "failed",
+            action: "failed",
+          });
+          emitDomain(onEvent, "agent:narrative", {
+            stage: "s3-researcher-collect",
+            role: "researcher",
+            tag: "error",
+            dimension: dim.name,
+            text: `维度"${dim.name}"采集失败（ReAct 未产出 findings），标记为不可用`,
+          });
           throw new Error(
             `[s3-researcher-collect] dim "${dim.name}" 无有效产出`,
           );
@@ -400,6 +418,8 @@ export class DeepInsightStageBindings implements StageBindings {
       onPatchFailure: (_args: { item: unknown; error: unknown }): void => {
         // 单维失败不阻断 mission（research primitive 已计 failureCount）；
         // 终态有效产出数量由 runner 兜底判定（全失败 → failed）。
+        // 注：维度失败终态信号在 perItemPipeline null-output throw 路径前发射
+        // （见 throw 前的 emitDomain dimension:graded / agent:narrative），不在此重复。
       },
     });
   }
@@ -677,7 +697,14 @@ export class DeepInsightStageBindings implements StageBindings {
           full.crossStageState.set(CS_KEY.reconciliationReport, res.output);
           // Fix4：S5 substance narrative（reconciliation outcome：conflicts/gaps counts）。
           const rec = res.output as
-            | { conflicts?: unknown[]; gaps?: unknown[]; factTable?: unknown[] }
+            | {
+                conflicts?: unknown[];
+                gaps?: unknown[];
+                factTable?: unknown[];
+                overlaps?: unknown[];
+                figureCandidates?: unknown[];
+                alternativeHypotheses?: unknown[];
+              }
             | null
             | undefined;
           const conflictCount = Array.isArray(rec?.conflicts)
@@ -687,6 +714,27 @@ export class DeepInsightStageBindings implements StageBindings {
           const factCount = Array.isArray(rec?.factTable)
             ? rec.factTable.length
             : 0;
+          const overlapCount = Array.isArray(rec?.overlaps)
+            ? rec.overlaps.length
+            : 0;
+          const figureCandidateCount = Array.isArray(rec?.figureCandidates)
+            ? rec.figureCandidates.length
+            : 0;
+          const alternativeHypothesisCount = Array.isArray(
+            rec?.alternativeHypotheses,
+          )
+            ? rec.alternativeHypotheses.length
+            : 0;
+          // ★ 恢复 reconciliation:completed 事件（projector reconciler-gap todo ~:820-841）。
+          // 形状照抄旧 s5-reconciler-cross-dim-fact-check.stage.ts:143-163 payload。
+          emitDomain(onEvent, "reconciliation:completed", {
+            factCount,
+            conflictCount,
+            overlapCount,
+            gapCount,
+            figureCandidateCount,
+            alternativeHypothesisCount,
+          });
           emitDomain(onEvent, "agent:narrative", {
             stage: "s5-reconciler",
             role: "reconciler",
@@ -696,6 +744,13 @@ export class DeepInsightStageBindings implements StageBindings {
           return res.output;
         } catch {
           // reconciler 可降级：失败不阻断，下游 analyst 收空对账报告。
+          // ★ 失败路径补 warning narrative（对账失败，跳过），对齐旧 stage catch 行为。
+          emitDomain(onEvent, "agent:narrative", {
+            stage: "s5-reconciler",
+            role: "reconciler",
+            tag: "warning",
+            text: "对账失败，跳过（下游 Analyst 走退化路径）",
+          });
           full.crossStageState.set(CS_KEY.reconciliationReport, null);
           return null;
         }
@@ -773,6 +828,13 @@ export class DeepInsightStageBindings implements StageBindings {
         const hasDeepAudit =
           layers.includes("thorough") || layers.includes("thorough+");
         if (!hasDeepAudit) {
+          // ★ S7 gated-skip 可见化：让用户不再看到"done 但空白"。
+          emitDomain(onEvent, "agent:narrative", {
+            stage: "s7-writer-outline",
+            role: "writer",
+            tag: "info",
+            text: `按审核档位（${layers.join(",") || "default"}）跳过大纲规划`,
+          });
           full.crossStageState.set(CS_KEY.outlinePlan, null);
           return null;
         }
@@ -821,6 +883,14 @@ export class DeepInsightStageBindings implements StageBindings {
             : 0;
           emitDomain(onEvent, "dimension:outline:planned", {
             chapterCount,
+          });
+          // ★ dimension:outline:planned 无 dimension 字段，projector ~:1615 `if (dim)` 会丢弃。
+          // 补发 agent:narrative（stage 级，无 dimension），让编排叙事可见大纲规划完成。
+          emitDomain(onEvent, "agent:narrative", {
+            stage: "s7-writer-outline",
+            role: "writer",
+            tag: "success",
+            text: `大纲规划完成：${chapterCount} 章`,
           });
           return res.output ?? null;
         } catch {
@@ -1028,8 +1098,17 @@ export class DeepInsightStageBindings implements StageBindings {
           layers.includes("thorough") || layers.includes("thorough+");
         const isExecutive = input.invocation.audienceProfile === "executive";
         const enableCritic = hasDeepAudit || (isExecutive && !isMinimal);
-        if (!enableCritic) return { verdict: null };
         const onEvent = input.invocation.onEvent;
+        if (!enableCritic) {
+          // ★ S9 gated-skip 可见化：让用户不再看到"done 但空白"。
+          emitDomain(onEvent, "agent:narrative", {
+            stage: "s9-critic",
+            role: "critic",
+            tag: "info",
+            text: `按审核档位（${layers.join(",") || "default"}）跳过独立评审`,
+          });
+          return { verdict: null };
+        }
         const artifact = full.crossStageState.get(CS_KEY.reportArtifact);
         emitDomain(onEvent, "agent:narrative", {
           stage: "s9-critic",
@@ -1060,6 +1139,63 @@ export class DeepInsightStageBindings implements StageBindings {
             operationType: "meta-critic",
             onEvent,
           });
+          // ★ 恢复 critic:verdict 事件（projector blindspot todos ~:785-817）。
+          // 形状照抄旧 s9-reviewer-critic-l4.stage.ts:150-184 payload（warnings 数组含
+          // blindspots / biasFlags / suggestions 分条目）。
+          if (res.output != null) {
+            const rawOut = res.output as Record<string, unknown>;
+            const validVerdicts = ["pass", "concerns", "fail"] as const;
+            const overallVerdict = validVerdicts.includes(
+              rawOut.overallVerdict as "pass" | "concerns" | "fail",
+            )
+              ? (rawOut.overallVerdict as "pass" | "concerns" | "fail")
+              : ("concerns" as const);
+            const blindspots = Array.isArray(rawOut.blindspots)
+              ? (rawOut.blindspots as string[])
+              : [];
+            const biasFlags = Array.isArray(rawOut.biasFlags)
+              ? (rawOut.biasFlags as string[])
+              : [];
+            const suggestions = Array.isArray(rawOut.suggestions)
+              ? (rawOut.suggestions as string[])
+              : [];
+            const rationale =
+              typeof rawOut.rationale === "string" ? rawOut.rationale : "";
+            const criticOut = {
+              overallVerdict,
+              blindspots,
+              biasFlags,
+              suggestions,
+              rationale,
+            };
+            // 存 critic 产物供 s10 读取 blindspots/biases（替代硬编码 []）。
+            full.crossStageState.set("deep-insight.criticVerdict", criticOut);
+            emitDomain(onEvent, "critic:verdict", {
+              verdict: criticOut.overallVerdict,
+              overall: criticOut.overallVerdict,
+              blindspotCount: criticOut.blindspots.length,
+              biasCount: criticOut.biasFlags.length,
+              suggestionCount: criticOut.suggestions.length,
+              rationale: criticOut.rationale,
+              warnings: [
+                ...criticOut.blindspots.map((b) => ({
+                  kind: "l4-blindspot",
+                  message: b,
+                  severity: "warning",
+                })),
+                ...criticOut.biasFlags.map((b) => ({
+                  kind: "l4-bias",
+                  message: b,
+                  severity: "warning",
+                })),
+                ...criticOut.suggestions.map((s) => ({
+                  kind: "l4-suggestion",
+                  message: s,
+                  severity: "info",
+                })),
+              ],
+            });
+          }
           return { verdict: res.output };
         } catch {
           return { verdict: null };
@@ -1114,6 +1250,18 @@ export class DeepInsightStageBindings implements StageBindings {
             meta.pipelineEvaluation = evalResult;
             artifact.metadata = meta;
             full.crossStageState.set(CS_KEY.reportArtifact, artifact);
+          }
+          // ★ 恢复 verifier:verdict 事件（projector s8/s9 score artifact ~:1198-1225）。
+          // 形状：projector 读 verifierId + score（verifierId 含 "critic" → 路由到 s9-critic-l4 todo）。
+          // 旧路径（s9b-report-objective-evaluation.stage.ts）无此事件，等价语义是
+          //   reviewerAvgScore 通过 evaluateReport 输出；此处以 verifierId="critic-eval"
+          //   + score=overallScore 触发 projector verifier:verdict handler，让 todo 得分。
+          const onEvent = input.invocation.onEvent;
+          if (typeof evalResult?.overallScore === "number") {
+            emitDomain(onEvent, "verifier:verdict", {
+              verifierId: "critic-eval",
+              score: evalResult.overallScore,
+            });
           }
         } catch {
           // 客观评估失败降级：不阻断 mission（s10 仍可凭 reviewScore 签字）。
@@ -1439,8 +1587,15 @@ export class DeepInsightStageBindings implements StageBindings {
           ...(typeof reviewScore === "number"
             ? { reviewerAvgScore: reviewScore }
             : {}),
-          criticBlindspots: [] as string[],
-          criticBiases: [] as string[],
+          // ★ 从 CS 读 S9 critic 产物的 blindspots/biases（替代硬编码 []）。
+          criticBlindspots:
+            full.crossStageState.get<{
+              blindspots?: string[];
+            }>("deep-insight.criticVerdict")?.blindspots ?? ([] as string[]),
+          criticBiases:
+            full.crossStageState.get<{
+              biasFlags?: string[];
+            }>("deep-insight.criticVerdict")?.biasFlags ?? ([] as string[]),
           ...(typeof pipelineEval?.overallScore === "number"
             ? { objectiveScore: pipelineEval.overallScore }
             : {}),
@@ -1503,6 +1658,11 @@ export class DeepInsightStageBindings implements StageBindings {
           if (forewordOutput) {
             full.crossStageState.set(CS_KEY.leaderForeword, forewordOutput);
           }
+          // ★ 恢复 leader:foreword 事件（projector ~:1007-1023，s10 todo in_progress + foreword artifact）。
+          // 形状照抄旧 s10-leader-foreword-and-signoff.stage.ts:281-290：payload 就是 leaderForeword 对象。
+          emitDomain(onEvent, "leader:foreword", {
+            ...(forewordOutput ?? {}),
+          });
           // ── Phase 2: signoff ──────────────────────────────────────────────
           const wordCount =
             typeof artifact?.metadata?.wordCount === "number"
@@ -1601,6 +1761,26 @@ export class DeepInsightStageBindings implements StageBindings {
               ts: Date.now(),
             },
           );
+          // ★ 恢复 leader:signed 事件（projector ~:1027-1081，s10 done/failed + score/verdict/拒签原因）。
+          // 形状照抄旧 s10-leader-foreword-and-signoff.stage.ts:118-131：payload 就是 leaderSignOff 对象。
+          if (signoffRes.output != null) {
+            const so = signoffRes.output as Record<string, unknown>;
+            emitDomain(onEvent, "leader:signed", {
+              signed: so.signed ?? true,
+              ...(typeof so.leaderOverallScore === "number"
+                ? { leaderOverallScore: so.leaderOverallScore }
+                : {}),
+              ...(typeof so.leaderVerdict === "string"
+                ? { leaderVerdict: so.leaderVerdict }
+                : {}),
+              ...(typeof so.refusalReason === "string"
+                ? { refusalReason: so.refusalReason }
+                : {}),
+              ...(typeof so.accountabilityNote === "string"
+                ? { accountabilityNote: so.accountabilityNote }
+                : {}),
+            });
+          }
           return signoffRes.output;
         } catch {
           // signoff 可降级：缺 leader 签字不阻断终态产出。
@@ -1614,6 +1794,8 @@ export class DeepInsightStageBindings implements StageBindings {
       }): { forcedDegraded?: boolean; signoff: unknown } => {
         // 用 runner 绑定的 crossState（与 s4 写入、终态读取同一实例）。
         const cs = this.fullArgs(args.ctx).crossStageState;
+        const input = readPipelineInput(args.ctx);
+        const onEvent = input.invocation.onEvent;
         const patchFailures =
           cs.get<Array<{ dimension: string }>>(CS_KEY.s4PatchFailures) ?? [];
         const objectiveScore = this.objectiveFinalScore(cs);
@@ -1635,6 +1817,14 @@ export class DeepInsightStageBindings implements StageBindings {
             `s4 评估标记 ${patchFailures.length} 个维度需补救但未完成闭环，按问责规则强制拒签`;
           signoff = s;
           forcedDegraded = true;
+          // ★ 强制拒签路径发 leader:signed（projector ~:1626-1638 对应旧 emitLeaderSigned）。
+          emitDomain(onEvent, "leader:signed", {
+            signed: false,
+            refusalReason: s.refusalReason as string,
+            ...(typeof s.accountabilityNote === "string"
+              ? { accountabilityNote: s.accountabilityNote }
+              : {}),
+          });
         }
         cs.set(CS_KEY.leaderSignOff, signoff ?? null);
 

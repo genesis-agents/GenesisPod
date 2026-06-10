@@ -547,6 +547,56 @@ export class DeepInsightDefaultRunner
       );
     });
 
+    // ★ trajectory 持久化（可选端口，fire-and-forget）：报告版本快照 + 逐维 research
+    //   结果。没有它们：版本历史恒空、"更新"按钮的 loadBaselineResearchResults 查空
+    //   → 静默退化全量重跑 S3、Drawer 关键发现无持久层。
+    if (persistence.saveReportVersion && report !== undefined) {
+      const ra = reportArtifact as {
+        title?: string;
+        summary?: string;
+      } | null;
+      void persistence
+        .saveReportVersion({
+          missionId,
+          triggerType: "initial",
+          reportFull: report,
+          ...(ra?.title ? { reportTitle: ra.title } : {}),
+          ...(ra?.summary ? { reportSummary: ra.summary } : {}),
+          ...(finalScore !== undefined ? { finalScore } : {}),
+          ...(leaderSignOff?.signed !== undefined
+            ? { leaderSigned: leaderSignOff.signed }
+            : {}),
+        })
+        .catch((err) => {
+          this.log.warn(
+            `[deep-insight ${missionId}] saveReportVersion failed (non-fatal): ${this.errMsg(err)}`,
+          );
+        });
+    }
+    if (persistence.saveResearchResult) {
+      for (const raw of researcherResults) {
+        const r = raw as {
+          dimension?: string;
+          findings?: ReadonlyArray<unknown>;
+          summary?: string;
+        };
+        if (!r?.dimension) continue;
+        void persistence
+          .saveResearchResult({
+            missionId,
+            dimension: r.dimension,
+            findings: r.findings ?? [],
+            summary: r.summary ?? "",
+            state: "completed",
+          })
+          .catch((err) => {
+            this.log.warn(
+              `[deep-insight ${missionId}] saveResearchResult(${r.dimension}) failed (non-fatal): ${this.errMsg(err)}`,
+            );
+          });
+      }
+    }
+
     // ★ S12 自进化 postlude（fire-and-forget，不阻塞终态返回）。
     // 沉淀到 harness_vector_memory（经 persistence.recordPostmortem? 端口由消费方实现）。
     fireSelfEvolutionPostlude(

@@ -7,6 +7,14 @@
  *   - 把 tokens / cost 累计进 CrossStageState（deep-insight.tokensUsed / .costCents）
  *   - 每次 agent 调用完成后 emit "domain" agent:lifecycle 事件（tokensUsed/costCents）
  *   - 不碰 provider/model 硬编码（preferredModelId 缺省即走 TaskProfile + BYOK）
+ *
+ * Fix 1（agentId 命名空间桥接）：
+ *   能力核 specId（playground.researcher / playground.leader）→ 消费侧 id（researcher#<dim> / leader）。
+ *   映射规则：mapSpecIdToConsumerId(specId, dimension?)
+ *     - 有 dimension：role 部分 + '#' + dimension（如 researcher#市场规模）
+ *     - 无 dimension：剥去 'playground.' 前缀（playground.leader → leader；
+ *         playground.writer.outline-planner → writer.outline-planner）
+ *   向后兼容：保留 specId 字段（排查用），不影响现有消费方。
  */
 import type {
   AgentRunner,
@@ -25,6 +33,33 @@ export interface AgentRunProjection {
   readonly costCents: number;
   /** Fix1：真实产出模型 id（modelTrail 末项，供 agent:lifecycle 携带）。 */
   readonly modelId?: string;
+}
+
+/**
+ * Fix 1：能力核 specId → 消费侧 agentId 映射。
+ *
+ * 消费侧（frontend dvCollectAgentTraces / agent-view.projector）按如下格式建行：
+ *   - 有维度：`${role}#${dimension}`（如 researcher#市场规模）
+ *   - 无维度：去掉 'playground.' 前缀（playground.leader → leader；
+ *       playground.writer.outline-planner → writer.outline-planner）
+ *
+ * 这样 agent:lifecycle 的 agentId 与 agent:trace 的 agentId（经 agent-trace 桥映射后）
+ * 保持一致，TodoDetailDrawer linkedAgent 选取链可正确对齐。
+ */
+export function mapSpecIdToConsumerId(
+  specId: string,
+  dimension?: string,
+): string {
+  // 剥去 'playground.' 前缀，得到 role 部分（如 leader / researcher / writer.outline-planner）
+  const role = specId.startsWith("playground.")
+    ? specId.slice("playground.".length)
+    : specId;
+  if (dimension) {
+    // 有维度：取 role 的第一段（researcher.xxx → researcher）加 #<dim>
+    const baseRole = role.split(".")[0] ?? role;
+    return `${baseRole}#${dimension}`;
+  }
+  return role;
 }
 
 /**
@@ -103,8 +138,11 @@ export async function invokeAgent(args: {
 
   // ★ P0 #16b：每次 agent 调用完成后 emit domain agent:lifecycle 事件（best-effort）。
   // costCents → costUsd 换算（前端 useMissionLegacyView 读 costUsd 字段）。
+  // Fix 1：agentId 用消费侧格式（researcher#<dim> / leader），保留 specId 向后兼容。
+  const consumerId = mapSpecIdToConsumerId(args.specId, args.dimension);
   emitDomain(args.onEvent, "agent:lifecycle", {
-    agentId: args.specId,
+    agentId: consumerId,
+    specId: args.specId,
     role: args.role,
     ...(args.dimension !== undefined ? { dimension: args.dimension } : {}),
     stepId: args.stepId,

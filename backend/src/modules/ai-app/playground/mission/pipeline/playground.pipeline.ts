@@ -765,14 +765,25 @@ export class PlaygroundPipelineDispatcher
   ): Promise<void> {
     // ★ Fix 1（2026-06-09）：结构化 trace 桥接。
     //   能力核 relayAgentEvent 发 agent-trace，payload 携带：
-    //     { kind, text?, role, dimension?, toolId?, agentId }
+    //     { kind, text?, role, dimension?, toolId?, input?, output?, agentId }
     //   kind 值：thinking / action_planned / action_executed / error
     //
     //   双路发送：
     //   (a) playground.agent:trace —— 结构化，抽屉 timeline tool-call 可见；
-    //       kind 映射：thinking→thought / action_planned+toolId→action / action_executed+toolId→action / error→thought（已过滤）
+    //       kind 映射（Fix 2）：
+    //         thinking → thought（含 text）
+    //         action_planned → thought（工具调用意图归为思考，避免双计）
+    //         action_executed → action（透传 toolId/input/output）+ observation（toolId/output）
+    //         error → 不发 trace（narrative warning 已暴露）
     //   (b) playground.agent:narrative —— 精简文本，协作动态人读性；
     //       thinking 截断 280 chars，action_executed with toolId 改短摘要，不转发大 blob。
+    //
+    //   Fix 1（agentId 命名空间映射）：
+    //     p.agentId 是能力核 relayAgentEvent 注入的 specId（playground.researcher）。
+    //     消费侧（dvCollectAgentTraces / TodoDetailDrawer）期望：
+    //       有 dimension → researcher#<dim>（researcher specId + '#' + dimension）
+    //       无 dimension → 剥去 'playground.' 前缀（leader / writer.outline-planner）
+    //     映射通过 this.mapSpecIdToConsumerId(specId, dimension) 完成（一处函数）。
     if (event.type === "agent-trace") {
       const p = (event.payload ?? {}) as {
         kind?: string;
@@ -780,38 +791,79 @@ export class PlaygroundPipelineDispatcher
         role?: string;
         dimension?: string;
         toolId?: string;
+        input?: unknown;
+        output?: unknown;
         agentId?: string;
       };
       const ts = event.timestamp ?? Date.now();
       const stepId = event.stepId;
-      const traceKind = this.traceKindFromAgentKind(p.kind);
+
+      // Fix 1：agentId 命名空间映射——specId → 消费侧 id（researcher#<dim> / leader / ...）
+      const rawAgentId = p.agentId;
+      const consumerId = rawAgentId
+        ? this.mapSpecIdToConsumerId(rawAgentId, p.dimension)
+        : undefined;
 
       // (a) agent:trace — 仅对能映射到结构化 kind 的事件发送。
       // 前端 dvCollectAgentTraces 消费 payload.items[] 批量格式（能力轨快照）。
       // 单条事件包装成 items:[item] 格式与前端兼容。
-      // agentId 用 p.agentId（由能力核 relayAgentEvent 注入）；无 agentId 则无法追踪归属，skip。
-      if (traceKind !== null && p.agentId) {
-        const traceItem: Record<string, unknown> = {
-          kind: traceKind,
-          ts,
-          ...(p.toolId ? { toolId: p.toolId } : {}),
-          ...(p.text !== undefined ? { text: p.text } : {}),
-        };
-        await this.emitToBus({
-          type: "playground.agent:trace",
-          missionId,
-          userId,
-          payload: {
-            agentId: p.agentId,
-            role: p.role ?? "agent",
-            ...(p.dimension ? { dimension: p.dimension } : {}),
-            ...(stepId ? { stepId } : {}),
-            items: [traceItem],
-          },
-        }).catch(() => undefined);
+      if (consumerId) {
+        // Fix 2：action_planned → thought（归并为思考项，不发 action，避免工具调用双计）。
+        //   action_executed → action + observation（Drawer tool-result 卡与 TOKENS 来源区分）。
+        //   thinking → thought。error → 不发 trace（narrative warning 已暴露）。
+        const items: Record<string, unknown>[] = [];
+        if (p.kind === "thinking") {
+          items.push({
+            kind: "thought",
+            ts,
+            ...(p.text !== undefined ? { text: p.text } : {}),
+          });
+        } else if (p.kind === "action_planned") {
+          // 工具调用意图归为 thought（避免计数 ×2；action_executed 再发真实 action）
+          items.push({
+            kind: "thought",
+            ts,
+            ...(p.text !== undefined ? { text: p.text } : {}),
+          });
+        } else if (p.kind === "action_executed") {
+          // action 条目（工具调用完成，透传 toolId/input/output）
+          items.push({
+            kind: "action",
+            ts,
+            ...(p.toolId ? { toolId: p.toolId } : {}),
+            ...(p.input !== undefined ? { input: p.input } : {}),
+            ...(p.output !== undefined ? { output: p.output } : {}),
+            ...(p.text !== undefined ? { text: p.text } : {}),
+          });
+          // observation 条目（tool-result 来源；Drawer 的 observation 区分 toolId/output）
+          if (p.toolId || p.output !== undefined) {
+            items.push({
+              kind: "observation",
+              ts,
+              ...(p.toolId ? { toolId: p.toolId } : {}),
+              ...(p.output !== undefined ? { output: p.output } : {}),
+            });
+          }
+        }
+        // error 不发 trace（由 narrative warning 暴露），items 保持空。
+        if (items.length > 0) {
+          await this.emitToBus({
+            type: "playground.agent:trace",
+            missionId,
+            userId,
+            payload: {
+              agentId: consumerId,
+              role: p.role ?? "agent",
+              ...(p.dimension ? { dimension: p.dimension } : {}),
+              ...(stepId ? { stepId } : {}),
+              items,
+            },
+          }).catch(() => undefined);
+        }
       }
 
       // (b) agent:narrative — 精简文本，协作动态可读性
+      // Fix 3：透传 toolId 让 MissionFlowView ToolCallChip 显示真实工具名。
       const narrativeText = this.buildNarrativeText(p.kind, p.text, p.toolId);
       if (narrativeText) {
         await this.emitToBus({
@@ -824,6 +876,7 @@ export class PlaygroundPipelineDispatcher
             tag: this.narrativeTagFromKind(p.kind),
             text: narrativeText,
             ...(p.dimension ? { dimension: p.dimension } : {}),
+            ...(p.toolId ? { toolId: p.toolId } : {}),
           },
         }).catch(() => undefined);
       }
@@ -881,6 +934,28 @@ export class PlaygroundPipelineDispatcher
     );
   }
 
+  /**
+   * Fix 1（agentId 命名空间映射）：能力核 specId → 消费侧 agentId。
+   *
+   * 消费侧（dvCollectAgentTraces / TodoDetailDrawer linkedAgent 选取）期望格式：
+   *   - 有 dimension → `${baseRole}#${dimension}`（如 researcher#市场规模）
+   *   - 无 dimension → 剥去 'playground.' 前缀（playground.leader → leader；
+   *       playground.writer.outline-planner → writer.outline-planner）
+   *
+   * 此映射与 agent-invoke.helper.ts mapSpecIdToConsumerId 语义一致（两处同步，
+   * 一处覆盖 agent:lifecycle domain 事件，本处覆盖 agent:trace CapabilityRunEvent 桥）。
+   */
+  private mapSpecIdToConsumerId(specId: string, dimension?: string): string {
+    const role = specId.startsWith("playground.")
+      ? specId.slice("playground.".length)
+      : specId;
+    if (dimension) {
+      const baseRole = role.split(".")[0] ?? role;
+      return `${baseRole}#${dimension}`;
+    }
+    return role;
+  }
+
   /** 能力 agent-trace 的 kind → playground.agent:narrative 的 NarrativeTag。 */
   private narrativeTagFromKind(kind?: string): string {
     switch (kind) {
@@ -894,28 +969,6 @@ export class PlaygroundPipelineDispatcher
         return "warning";
       default:
         return "info";
-    }
-  }
-
-  /**
-   * Fix 1：CapabilityRunEvent agent-trace kind → playground.agent:trace 的结构化 kind。
-   * 返回 null 表示该 kind 不映射到结构化 trace（不发 agent:trace 事件）。
-   *   thinking             → "thought"
-   *   action_planned       → "action"（工具调用意图）
-   *   action_executed      → "action"（工具调用完成，有 toolId）
-   *   error                → null（错误通过 narrative warning 暴露，不放入 trace timeline）
-   */
-  private traceKindFromAgentKind(
-    kind?: string,
-  ): "thought" | "action" | "observation" | null {
-    switch (kind) {
-      case "thinking":
-        return "thought";
-      case "action_planned":
-      case "action_executed":
-        return "action";
-      default:
-        return null;
     }
   }
 

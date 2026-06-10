@@ -422,7 +422,8 @@ export const AgentErrorSchema = z
 export type AgentErrorPayload = z.infer<typeof AgentErrorSchema>;
 
 // ─────────── agent:narrative ───────────
-// prod: { tag, role, text, stage, agentId, dimension? }
+// prod: { tag, role, text, stage, agentId, dimension?, toolId? }
+// Fix 3（2026-06-09）：新增 toolId 可选字段，让 MissionFlowView ToolCallChip 显示真实工具名。
 export const AgentNarrativeSchema = z
   .object({
     tag: z.string().optional(),
@@ -431,6 +432,7 @@ export const AgentNarrativeSchema = z
     stage: z.string().optional(),
     agentId: z.string().optional(),
     dimension: z.string().optional(),
+    toolId: z.string().optional(),
   })
   .passthrough();
 export type AgentNarrativePayload = z.infer<typeof AgentNarrativeSchema>;
@@ -439,7 +441,9 @@ export type AgentNarrativePayload = z.infer<typeof AgentNarrativeSchema>;
 // 结构化过程追踪（工具调用可见于抽屉 timeline）。
 // 前端 dvCollectAgentTraces 消费 payload.agentId + payload.items[] 批量格式。
 // items 每项包含：kind("thought"|"action"|"observation") / toolId / text / ts / input? / output?
-// kind 映射（能力核 relayAgentEvent）：thinking→thought；action_planned/action_executed→action。
+// kind 映射（Fix 2，2026-06-09）：
+//   thinking → thought；action_planned → thought（归并，避免工具调用双计）；
+//   action_executed → action（透传 input/output）+ observation（toolId/output）。
 export const AgentTraceItemSchema = z
   .object({
     kind: z.enum(["thought", "action", "observation"]),

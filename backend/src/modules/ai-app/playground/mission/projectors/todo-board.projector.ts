@@ -554,7 +554,10 @@ class PlaygroundTodoBoardProjector extends BusinessTeamTodoBoardProjectorFramewo
       if (suffix === "dimension:research:completed") {
         const dim = this.getString(payload, "dimension");
         if (dim) {
-          const findingCount = this.getNumber(payload, "findingCount");
+          // ★ Fix 1 (2026-06-09)：bindings 发 findingsCount（复数），兜底读 findingCount（单数）旧事件。
+          const findingCount =
+            this.getNumber(payload, "findingsCount") ??
+            this.getNumber(payload, "findingCount");
           // ★ Fix 3（采集完成 ≠ 已完成）：dimension:research:completed 表示数据采集阶段
           //   结束，后续仍有章节撰写阶段（s7 outline / s8 writer）。
           //   保持 in_progress，不提前标 done；dimension:graded handler 才收 done（带评分）。
@@ -846,6 +849,10 @@ class PlaygroundTodoBoardProjector extends BusinessTeamTodoBoardProjectorFramewo
         const text = this.getString(payload, "text");
         const dim = this.getString(payload, "dimension");
         const tag = this.getString(payload, "tag");
+        // ★ Fix 2 (2026-06-09)：stage 级叙事路由——payload.stage 存在时映射到对应
+        //   system todo（leader/analyst/writer/reconciler/critic 的 stage 叙事复活）。
+        //   使用既有 mapStepToFrontendStage 翻译 step-id → stage-id，再加 system: 前缀。
+        const stageName = this.getString(payload, "stage");
         if (text) {
           const tone: TodoNarrativeItem["tone"] =
             tag === "success"
@@ -859,11 +866,26 @@ class PlaygroundTodoBoardProjector extends BusinessTeamTodoBoardProjectorFramewo
             addNarrative(state, `dim:${dim}`, ts, text, tone);
           } else if (ev.agentId) {
             // 挂到最近相关 todo（简化：找 agentRefId 匹配的）
+            let matched = false;
             for (const t of state.todos.values()) {
               if (t.agentRefId === ev.agentId) {
                 addNarrative(state, t.id, ts, text, tone);
+                matched = true;
                 break;
               }
+            }
+            // agentId 无命中时降级到 stage 路由
+            if (!matched && stageName) {
+              const systemId = `system:${mapStepToFrontendStage(stageName)}`;
+              if (state.todos.has(systemId)) {
+                addNarrative(state, systemId, ts, text, tone);
+              }
+            }
+          } else if (stageName) {
+            // 无 dimension、无 agentId：按 stage 挂到对应 system todo
+            const systemId = `system:${mapStepToFrontendStage(stageName)}`;
+            if (state.todos.has(systemId)) {
+              addNarrative(state, systemId, ts, text, tone);
             }
           }
         }

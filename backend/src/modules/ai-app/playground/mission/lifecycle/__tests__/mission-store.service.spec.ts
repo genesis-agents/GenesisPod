@@ -911,4 +911,171 @@ describe("MissionStorePersistenceAdapter", () => {
       );
     });
   });
+
+  // ── Fix 4 (2026-06-09)：saveResearchResult / saveReportVersion / leaderSigned ──
+
+  describe("saveResearchResult", () => {
+    it("delegates to store.saveResearchResult and returns true", async () => {
+      const { adapter, store } = makeAdapter();
+      const spy = jest
+        .spyOn(store, "saveResearchResult")
+        .mockResolvedValue(undefined);
+
+      const result = await adapter.saveResearchResult({
+        missionId: "m1",
+        dimension: "Market",
+        findings: [{ claim: "c", evidence: "e", source: "s" }],
+        summary: "summary",
+        state: "completed",
+      });
+
+      expect(result).toBe(true);
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          missionId: "m1",
+          dimension: "Market",
+          state: "completed",
+        }),
+      );
+    });
+
+    it("swallows store.saveResearchResult errors (best-effort) and returns true", async () => {
+      const { adapter, store } = makeAdapter();
+      jest
+        .spyOn(store, "saveResearchResult")
+        .mockRejectedValue(new Error("DB error"));
+
+      await expect(
+        adapter.saveResearchResult({
+          missionId: "m1",
+          dimension: "Market",
+          findings: [],
+          summary: "s",
+          state: "failed",
+        }),
+      ).resolves.toBe(true);
+    });
+  });
+
+  describe("saveReportVersion", () => {
+    it("delegates to store.saveReportVersion and returns version number", async () => {
+      const { adapter, store } = makeAdapter();
+      const spy = jest.spyOn(store, "saveReportVersion").mockResolvedValue(1);
+
+      const result = await adapter.saveReportVersion({
+        missionId: "m1",
+        triggerType: "initial",
+        finalScore: 85,
+        leaderSigned: true,
+      });
+
+      expect(result).toBe(1);
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          missionId: "m1",
+          triggerType: "initial",
+          finalScore: 85,
+          leaderSigned: true,
+        }),
+      );
+    });
+
+    it("assembles report object from reportFull + reportTitle + reportSummary", async () => {
+      const { adapter, store } = makeAdapter();
+      const spy = jest.spyOn(store, "saveReportVersion").mockResolvedValue(2);
+
+      await adapter.saveReportVersion({
+        missionId: "m1",
+        triggerType: "rerun-fresh",
+        reportFull: { sections: [] },
+        reportTitle: "Title",
+        reportSummary: "Summary",
+      });
+
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          report: expect.objectContaining({
+            title: "Title",
+            summary: "Summary",
+          }),
+        }),
+      );
+    });
+
+    it("swallows store.saveReportVersion errors and returns 0", async () => {
+      const { adapter, store } = makeAdapter();
+      jest
+        .spyOn(store, "saveReportVersion")
+        .mockRejectedValue(new Error("DB error"));
+
+      await expect(
+        adapter.saveReportVersion({
+          missionId: "m1",
+          triggerType: "initial",
+        }),
+      ).resolves.toBe(0);
+    });
+  });
+
+  describe("buildTerminalIntent: leaderSigned from leaderSignOff", () => {
+    /** 辅助：构建带可捕获 intent 的独立 adapter。 */
+    function makeAdapterWithCapture() {
+      let capturedIntent: unknown;
+      const prisma = makePrisma();
+      const store = new MissionStore(prisma as never);
+      const checkpointStore = {
+        save: jest.fn(),
+        load: jest.fn().mockResolvedValue(null),
+        clear: jest.fn(),
+      } as unknown as PrismaMissionCheckpointStore;
+      const postmortemHelper = {
+        recordMissionPostmortem: jest.fn().mockResolvedValue(undefined),
+        listRecentPostmortems: jest.fn().mockResolvedValue([]),
+      } as unknown as MissionPostmortemHelper;
+      const lm = {
+        finalize: jest.fn().mockImplementation((args: unknown) => {
+          capturedIntent = (args as Record<string, unknown>).intent;
+          return Promise.resolve({ won: true });
+        }),
+      };
+      const adapter = new MissionStorePersistenceAdapter(
+        store,
+        checkpointStore,
+        lm as never,
+        postmortemHelper,
+      );
+      return { adapter, getIntent: () => capturedIntent };
+    }
+
+    it("completed intent carries leaderSigned=true when leaderSignOff.signed=true", async () => {
+      const { adapter, getIntent } = makeAdapterWithCapture();
+
+      await adapter.applyTerminalIfRunning("m1", "completed", {
+        leaderSignOff: { signed: true },
+        finalScore: 90,
+      });
+
+      const intent = getIntent() as {
+        status: string;
+        extra: { kind: string; detail: Record<string, unknown> };
+      };
+      expect(intent.status).toBe("completed");
+      expect(intent.extra.detail.leaderSigned).toBe(true);
+    });
+
+    it("completed intent carries no leaderSigned when leaderSignOff absent", async () => {
+      const { adapter, getIntent } = makeAdapterWithCapture();
+
+      await adapter.applyTerminalIfRunning("m1", "completed", {
+        finalScore: 90,
+      });
+
+      const intent = getIntent() as {
+        status: string;
+        extra: { kind: string; detail: Record<string, unknown> };
+      };
+      expect(intent.status).toBe("completed");
+      expect(intent.extra.detail.leaderSigned).toBeUndefined();
+    });
+  });
 });

@@ -1014,13 +1014,17 @@ export function TodoDetailDrawer({
           />
           <MetricStat
             label="Tokens"
-            value={
-              sections.totalTokens > 0
-                ? sections.totalTokens >= 1000
-                  ? `${(sections.totalTokens / 1000).toFixed(1)}k`
-                  : sections.totalTokens
-                : null
-            }
+            value={(() => {
+              // ★ Fix 1 (2026-06-09): capability-track observations 不携带 tokensUsed
+              //   → sections.totalTokens 恒 0。用 linkedAgent.tokensUsed 兜底（由
+              //   agent:lifecycle 终态事件填充，不依赖 trace observation 求和）。
+              const t =
+                sections.totalTokens > 0
+                  ? sections.totalTokens
+                  : (linkedAgent?.tokensUsed ?? 0);
+              if (t <= 0) return null;
+              return t >= 1000 ? `${(t / 1000).toFixed(1)}k` : t;
+            })()}
           />
           <MetricStat
             label="工具调用"

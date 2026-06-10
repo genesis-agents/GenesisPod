@@ -988,7 +988,13 @@ function dvCollectAgentSummary(
         ? e.payload.agentId
         : undefined) ?? e.agentId;
     if (!agentId) continue;
-    const role = dvExtractRole(e) ?? dvDeriveRoleFromAgentId(agentId);
+    const rawRole = dvExtractRole(e) ?? dvDeriveRoleFromAgentId(agentId);
+    // ★ Fix 2 (2026-06-09): backend event payload 可能直接携带 role='reconciler'/
+    //   'critic'（todo-board.projector 原值），不经过 deriveRoleFromAgentId 归一。
+    //   对齐 agent-view.projector.ts 的别名策略（reconciler→analyst / critic→reviewer）
+    //   再走 DV_KNOWN_AGENT_ROLES 过滤，否则这两类 agent 被静默丢弃，lifecycle/trace
+    //   数据全部丢失（model 列恒 "-"，token/trace 统计空白）。
+    const role = dvNormalizeRole(rawRole);
     if (!role || !DV_KNOWN_AGENT_ROLES.has(role)) continue;
     const a =
       out.get(agentId) ??
@@ -1123,6 +1129,23 @@ function dvCollectAgentSummary(
     out.set(agentId, a);
   }
   return [...out.values()];
+}
+
+/**
+ * 别名归一：把 backend 直接写入事件 payload 的扩展 role 值映射到 5 个
+ * canonical AgentRole（对齐 agent-view.projector.ts deriveRoleFromAgentId）。
+ *   reconciler → analyst（聚合/对账类）
+ *   critic     → reviewer（质量审查类）
+ * 其它合法值原样透传；null 原样透传。
+ *
+ * 入参用 string | null 宽类型：dvExtractRole 通过 `as AgentRole` 强转 payload.role，
+ * 实际可能携带 'reconciler'/'critic' 等不在 AgentRole 联合类型里的值。
+ */
+function dvNormalizeRole(role: string | null): AgentRole | null {
+  if (role === null) return null;
+  if (role === 'reconciler') return 'analyst';
+  if (role === 'critic') return 'reviewer';
+  return role as AgentRole;
 }
 
 function dvDeriveRoleFromAgentId(agentId: string): AgentRole | null {

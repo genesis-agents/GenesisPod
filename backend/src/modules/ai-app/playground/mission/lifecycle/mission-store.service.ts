@@ -857,10 +857,12 @@ const STEP_ID_TO_STAGE_NUMBER: Readonly<Record<string, number>> = {
  * 条件写 WHERE status='running'，首写赢终态语义）。
  *
  * ★ #16b（2026-06-09）：能力轨是 playground 唯一执行轨，本适配器经 ICapabilityRunner.run
- * 的 ctx.persistence 承载全部 mission 的 checkpoint / 进度 / 终态写。可选 trajectory 方法
- * （saveResearchResult / saveReportVersion）刻意不实现：端口声明为可选，runner 用
- * `?.` 调用，缺省即 no-op，避免 port shape 与既有 report.helper 形状强行对齐的脆弱
- * 适配（留待后续 gated 任务按需补）。
+ * 的 ctx.persistence 承载全部 mission 的 checkpoint / 进度 / 终态写。
+ * ★ Fix 4 (2026-06-09)：saveResearchResult / saveReportVersion 已实现，委托 MissionStore
+ * 的同名方法（MissionReportHelper），使成功 run 后版本历史有记录、"更新"基线不为空。
+ * leaderSigned 补充写入 completed/failed intent（从 leaderSignOff.signed 提取）。
+ * 发射端现状：deep-insight runner 当前不调用 saveResearchResult/saveReportVersion（见 grep
+ * marketplace/capabilities/deep-insight，0 命中），实现完成但"待发射端接线"。
  */
 export class MissionStorePersistenceAdapter implements MissionPersistencePort {
   /** checkpoint payload 形状（与 ON 路自洽；OFF 路 payload 用 lastStage 字段，互不混用）。 */
@@ -1074,6 +1076,89 @@ export class MissionStorePersistenceAdapter implements MissionPersistencePort {
     });
   }
 
+  // ── 可选端口：trajectory（UI 展示 / 重跑复用）── Fix 4 (2026-06-09)
+
+  /**
+   * 维度研究结果持久化（能力核 s3/s4 fire-and-forget 调）。
+   * 委托 MissionStore → MissionReportHelper.saveResearchResult（upsert agentPlaygroundResearchResult）。
+   * findings 类型从端口 ReadonlyArray<unknown> 安全转换（mission-report.helper 内部 Prisma 会
+   * 把整个 array 存为 JSONB，强转不影响 DB 写入；读回路 loadBaselineResearchResults 返回原形）。
+   */
+  async saveResearchResult(args: {
+    missionId: string;
+    dimension: string;
+    findings: ReadonlyArray<unknown>;
+    summary: string;
+    state: "completed" | "failed";
+  }): Promise<boolean> {
+    await this.store
+      .saveResearchResult({
+        missionId: args.missionId,
+        dimension: args.dimension,
+        findings: args.findings as {
+          claim: string;
+          evidence: string;
+          source: string;
+        }[],
+        summary: args.summary,
+        state: args.state,
+      })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[saveResearchResult ${args.missionId}] dim=${args.dimension} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+    return true;
+  }
+
+  /**
+   * 报告版本持久化（能力核 s11 fire-and-forget 调）。
+   * 委托 MissionStore → MissionReportHelper.saveReportVersion（upsert missionReportVersion）。
+   * port triggerType "initial"/"rerun-fresh" 透传给 helper（helper 接受 string）。
+   */
+  async saveReportVersion(args: {
+    missionId: string;
+    triggerType: "initial" | "rerun-fresh";
+    reportFull?: unknown;
+    reportTitle?: string;
+    reportSummary?: string;
+    finalScore?: number;
+    leaderSigned?: boolean;
+  }): Promise<number> {
+    // 组装 report 对象（helper 期望 { title?, summary?, ... }）。
+    const report =
+      args.reportFull && typeof args.reportFull === "object"
+        ? {
+            ...(args.reportFull as Record<string, unknown>),
+            ...(args.reportTitle != null ? { title: args.reportTitle } : {}),
+            ...(args.reportSummary != null
+              ? { summary: args.reportSummary }
+              : {}),
+          }
+        : args.reportTitle != null || args.reportSummary != null
+          ? {
+              ...(args.reportTitle != null ? { title: args.reportTitle } : {}),
+              ...(args.reportSummary != null
+                ? { summary: args.reportSummary }
+                : {}),
+            }
+          : undefined;
+    return this.store
+      .saveReportVersion({
+        missionId: args.missionId,
+        triggerType: args.triggerType,
+        report,
+        finalScore: args.finalScore,
+        leaderSigned: args.leaderSigned,
+      })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[saveReportVersion ${args.missionId}] failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+        );
+        return 0;
+      });
+  }
+
   // ── 终态：条件写仲裁（经 lifecycleManager.finalize → store arbiter）──
 
   async applyTerminalIfRunning(
@@ -1119,6 +1204,15 @@ export class MissionStorePersistenceAdapter implements MissionPersistencePort {
             [k: string]: unknown;
           })
         : undefined;
+    // ★ Fix 4 (2026-06-09)：leaderSigned 从 details.leaderSignOff.signed 提取（能力端口把
+    //   leader signoff 整体放 leaderSignOff，signed 布尔在其中）。确认 schema 有 leader_signed 列。
+    const leaderSignedFromSignOff =
+      details.leaderSignOff &&
+      typeof details.leaderSignOff === "object" &&
+      typeof (details.leaderSignOff as Record<string, unknown>).signed ===
+        "boolean"
+        ? ((details.leaderSignOff as Record<string, unknown>).signed as boolean)
+        : undefined;
 
     if (outcome === "cancelled") {
       return { status: "failed", extra: { kind: "cancelled" } };
@@ -1152,6 +1246,10 @@ export class MissionStorePersistenceAdapter implements MissionPersistencePort {
             ...(details.verdicts !== undefined
               ? { verdicts: details.verdicts }
               : {}),
+            // leaderSigned=false が仲裁側で quality-failed に昇格（既存ロジック）。
+            ...(leaderSignedFromSignOff !== undefined
+              ? { leaderSigned: leaderSignedFromSignOff }
+              : {}),
           },
         },
       };
@@ -1181,6 +1279,10 @@ export class MissionStorePersistenceAdapter implements MissionPersistencePort {
           ...(report !== undefined ? { report } : {}),
           ...(details.verdicts !== undefined
             ? { verdicts: details.verdicts }
+            : {}),
+          // ★ Fix 4 (2026-06-09)：completed 分支补 leaderSigned（从 leaderSignOff.signed 提取）。
+          ...(leaderSignedFromSignOff !== undefined
+            ? { leaderSigned: leaderSignedFromSignOff }
             : {}),
         },
       },
