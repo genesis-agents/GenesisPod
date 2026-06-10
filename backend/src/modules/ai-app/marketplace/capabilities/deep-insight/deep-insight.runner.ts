@@ -498,6 +498,9 @@ export class DeepInsightDefaultRunner
   /**
    * 终态组装（completed）：从 crossStageState 取产物 + 落库 + fire S12 postlude +
    * 返回 CapabilityRunResult。
+   *
+   * P1-5：leaderSignOff.signed===false 时走 applyTerminal("failed") + quality-failed 路径，
+   *   而非伪装成 completed。
    */
   private async assembleCompleted(
     missionId: string,
@@ -523,12 +526,71 @@ export class DeepInsightDefaultRunner
       verdict?: "approve" | "revise" | "reject";
       notes?: string[];
     }>(CS_KEY.reviewVerdict);
-    const leaderSignOff = state.get<{ signed?: boolean }>(CS_KEY.leaderSignOff);
+    const leaderSignOff = state.get<{
+      signed?: boolean;
+      refusalReason?: string;
+    }>(CS_KEY.leaderSignOff);
     const verdicts = state.get(CS_KEY.verifierVerdicts);
     const usage = this.usage(state);
     // ★ W2.5：finalScore 优先用 s10 QualityTrace 客观计算（10 维评估融合），缺则回退 reviewScore。
     const finalScore =
       state.get<number>(CS_KEY.finalScore) ?? reviewVerdict?.score;
+
+    // P1-5：拒签（signed===false）→ quality-failed 终态，不伪装成 completed。
+    // signed===undefined/null 不算拒签（s10 降级/异常路径，不惩罚）。
+    if (leaderSignOff?.signed === false) {
+      const refusalReason =
+        typeof leaderSignOff.refusalReason === "string" &&
+        leaderSignOff.refusalReason
+          ? leaderSignOff.refusalReason
+          : "Leader 拒绝签字";
+      const errorMessage = `quality-failed：${refusalReason}`;
+      await this.applyTerminal(persistence, missionId, "failed", {
+        report,
+        reportArtifact,
+        themeSummary: plan?.themeSummary,
+        dimensions: plan?.dimensions,
+        verdicts,
+        leaderSignOff,
+        ...(finalScore !== undefined ? { finalScore } : {}),
+        tokensUsed: usage.totalTokens,
+        costCents: usage.totalCostCents,
+        errorMessage,
+        failureCode: "LEADER_REFUSED_SIGN",
+      });
+      await persistence.clearCheckpoint(missionId).catch((err) => {
+        this.log.warn(
+          `[deep-insight ${missionId}] clearCheckpoint failed (non-fatal): ${this.errMsg(err)}`,
+        );
+      });
+      // postlude 需要知道拒签状态（mode=failed，leaderSigned=false 分类）。
+      fireSelfEvolutionPostlude(
+        {
+          missionId,
+          userId,
+          topic,
+          leaderSignOff,
+          reportArtifact: reportArtifact as {
+            quality?: { overall?: number };
+          } | null,
+          plan: plan ?? null,
+          finalScore,
+          tokensUsed: usage.totalTokens,
+          costCents: usage.totalCostCents,
+          startedAt: runStartedAt,
+          persistence,
+          bufferedEvents,
+          onEvent,
+        },
+        { postmortemClassifier: this.postmortemClassifier, log: this.log },
+      );
+      return {
+        status: "failed",
+        stageOutputs: this.collectStageOutputs(state),
+        usage,
+        error: errorMessage,
+      };
+    }
 
     await this.applyTerminal(persistence, missionId, "completed", {
       report,
@@ -813,6 +875,37 @@ export class DeepInsightDefaultRunner
         tag = "error";
         const p = ev.payload as { message?: string } | undefined;
         text = p?.message ?? "Agent error";
+        break;
+      }
+      // P2-a：budget_warning / validation_failed → kind:"error"（桥译 tag:"warning"）。
+      // 语义选择：kind="error" 是桥接层认可的 4 种 kind 之一；text 明确区分两类，
+      //   避免语义造假（不用 "thinking"/"action_planned"/"action_executed"）。
+      case "budget_warning": {
+        kind = "error";
+        tag = "warning";
+        const p = ev.payload as {
+          tokensUsed?: number;
+          severity?: string;
+        } | null;
+        const tokensUsed =
+          typeof p?.tokensUsed === "number" ? p.tokensUsed : undefined;
+        const severity = typeof p?.severity === "string" ? p.severity : "";
+        text = `预算警告：已用 ${tokensUsed ?? "?"} tokens（${severity || "warning"}）`;
+        break;
+      }
+      case "validation_failed": {
+        kind = "error";
+        tag = "warning";
+        const p = ev.payload as {
+          rejectCount?: number;
+          maxRejects?: number;
+          issues?: string;
+        } | null;
+        const rejectCount =
+          typeof p?.rejectCount === "number" ? p.rejectCount : "?";
+        const maxRejects =
+          typeof p?.maxRejects === "number" ? p.maxRejects : "?";
+        text = `产出校验未通过（第 ${rejectCount}/${maxRejects} 次），框架将重试或降级`;
         break;
       }
       default:

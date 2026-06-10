@@ -36,6 +36,7 @@ import {
 import { describeOutputSchemaForLlm } from "./zod-schema-prompt";
 import { isSearchTimeRange } from "@/common/search/search-time-range";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
+import { extractRealCostUsd } from "../../tracing/observability/token-spend.utils";
 
 /**
  * 2026-05-13: 把 agent input 上的 mission-scoped 字段（searchTimeRange / language /
@@ -499,7 +500,7 @@ export class AgentRunner {
       iterations,
       wallTimeMs,
       tokensUsed: metrics.tokensUsed,
-      costCents: 0, // TODO Phase P0-2 后期：从 BillingContext 取
+      costCents: metrics.costCents,
       modelTrail: metrics.modelTrail,
       events,
       // 段 4
@@ -660,6 +661,7 @@ export class AgentRunner {
     diagnostic?: Record<string, unknown>;
     recoveryHint?: RunResult["recoveryHint"];
     tokensUsed: { prompt: number; completion: number; total: number };
+    costCents: number;
     modelTrail: NonNullable<RunResult["modelTrail"]>;
     toolsUsed: NonNullable<RunResult["toolsUsed"]>;
     toolsCatalogSnapshot: readonly string[];
@@ -900,6 +902,12 @@ export class AgentRunner {
       failures: v.failures,
     }));
 
+    // ★ P1-1（成本恒 $0 修复）：从 thinking 事件累加真实 costUsd（react-loop 每轮
+    //   调用 ModelPricingRegistry.estimateCost 后写入 thinking.payload.costUsd）。
+    //   fail-open：未注册模型返回 0，不破坏运行。
+    const costUsd = extractRealCostUsd(events);
+    const costCents = Math.round(costUsd * 100);
+
     return {
       exitReason,
       failureCode,
@@ -910,6 +918,7 @@ export class AgentRunner {
         completion: completionTokens,
         total: promptTokens + completionTokens,
       },
+      costCents,
       modelTrail,
       toolsUsed,
       toolsCatalogSnapshot,

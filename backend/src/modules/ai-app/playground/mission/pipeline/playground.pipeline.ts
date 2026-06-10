@@ -912,8 +912,31 @@ export class PlaygroundPipelineDispatcher
       }
       return;
     }
+    // ★ P2-d (2026-06-09)：能力轨纯生命周期事件（无 stepId）需单独处理。
+    //   type==="started"  → playground.mission:started（前端把它当 mission 进入信号）
+    //   type==="completed"→ playground.mission:completed（前端把它当终态信号之一）
+    //   type==="failed"   → 不在此发（handleMissionFailure 已发富分类 mission:failed，
+    //                        避免双发；failed 路径也无 stepId）。
+    if (!event.stepId && !event.telemetry?.systemStageId) {
+      if (event.type === "started") {
+        await this.emitToBus({
+          type: "playground.mission:started",
+          missionId,
+          userId,
+          payload: { missionId, startedAt: event.timestamp },
+        }).catch(() => undefined);
+      } else if (event.type === "completed") {
+        await this.emitToBus({
+          type: "playground.mission:completed",
+          missionId,
+          userId,
+          payload: { missionId },
+        }).catch(() => undefined);
+      }
+      return;
+    }
     const stepId = event.telemetry?.systemStageId ?? event.stepId;
-    if (!stepId) return; // 无 stage 锚点的纯生命周期事件（started/completed）不桥 stage。
+    if (!stepId) return; // 无 stage 锚点（理论不可达，上方已处理无 stepId 路径）
     if (event.type === "stage:started") {
       this.missionSpan.startStageSpan(missionId, stepId, "capability");
     } else if (
@@ -1199,51 +1222,107 @@ export class PlaygroundPipelineDispatcher
     const entry = this.sessions.get(missionId);
     const reportPayload =
       entry?.crossState.lastReportArtifact ?? entry?.crossState.lastReport;
-    await this.lifecycleManager
-      .finalize<PlaygroundTerminalExtra>({
-        missionId,
-        intent: {
-          status: "failed",
-          failureCode: mapAgentFailureCode(missionFailureCode),
-          errorMessage: displayMessage,
-          extra: {
-            kind: "failed",
-            detail: {
-              errorMessage: displayMessage,
-              // ★ C2/MAJOR-6:把 inline 大写 code 映射成 canonical MissionFailureCode 落 DB
-              failureCode: mapAgentFailureCode(missionFailureCode),
-              tokensUsed: snap.poolTokensUsed,
-              costUsd: snap.poolCostUsd,
-              elapsedWallTimeMs: Date.now() - t0,
-              themeSummary: entry?.crossState.lastPlan?.themeSummary,
-              dimensions: entry?.crossState.lastPlan?.dimensions as
-                | unknown[]
-                | undefined,
-              report: reportPayload as
-                | { title?: string; summary?: string }
-                | undefined,
-              reportArtifactVersion: entry?.crossState.lastReportArtifact
-                ? 2
-                : entry?.crossState.lastReport
-                  ? 1
-                  : undefined,
-              // ★ S4b/B-部分：userProfile 停写，不再传 entry.input
-              reconciliationReport: entry?.crossState.lastReconciliationReport,
-              verdicts: entry?.crossState.lastVerifierVerdicts,
-              leaderOverallScore:
-                entry?.crossState.lastLeaderSignOff?.leaderOverallScore,
-              leaderSigned: entry?.crossState.lastLeaderSignOff?.signed,
-              leaderVerdict: entry?.crossState.lastLeaderSignOff?.leaderVerdict,
+    // ★ P1-2 (2026-06-09)：捕获 finalize 仲裁结果，lost 时也能触发失败通知。
+    //   能力轨场景下 runner 已通过 persistence.applyTerminalIfRunning("failed") 先写终态，
+    //   dispatcher 的 finalize(failed) 条件写（WHERE status='running'）必输 → onWon 永不执行
+    //   → 通知静默丢失。修法：finalize 输掉后读真实行终态，若属失败类终态则补发通知。
+    //   MissionFailedPreset.notify 自身无 idempotencyKey，双 pod 竞态有残余双发风险，
+    //   但 notify 幂等化属后续优化（NotificationDispatcher 级别），当前无去重机制，
+    //   dispatcher 内单次 handleMissionFailure 调用中只发一次（无重试循环），风险可接受。
+    let finalizeWon = false;
+    try {
+      const finalizeResult =
+        await this.lifecycleManager.finalize<PlaygroundTerminalExtra>({
+          missionId,
+          intent: {
+            status: "failed",
+            failureCode: mapAgentFailureCode(missionFailureCode),
+            errorMessage: displayMessage,
+            extra: {
+              kind: "failed",
+              detail: {
+                errorMessage: displayMessage,
+                // ★ C2/MAJOR-6:把 inline 大写 code 映射成 canonical MissionFailureCode 落 DB
+                failureCode: mapAgentFailureCode(missionFailureCode),
+                tokensUsed: snap.poolTokensUsed,
+                costUsd: snap.poolCostUsd,
+                elapsedWallTimeMs: Date.now() - t0,
+                themeSummary: entry?.crossState.lastPlan?.themeSummary,
+                dimensions: entry?.crossState.lastPlan?.dimensions as
+                  | unknown[]
+                  | undefined,
+                report: reportPayload as
+                  | { title?: string; summary?: string }
+                  | undefined,
+                reportArtifactVersion: entry?.crossState.lastReportArtifact
+                  ? 2
+                  : entry?.crossState.lastReport
+                    ? 1
+                    : undefined,
+                // ★ S4b/B-部分：userProfile 停写，不再传 entry.input
+                reconciliationReport:
+                  entry?.crossState.lastReconciliationReport,
+                verdicts: entry?.crossState.lastVerifierVerdicts,
+                leaderOverallScore:
+                  entry?.crossState.lastLeaderSignOff?.leaderOverallScore,
+                leaderSigned: entry?.crossState.lastLeaderSignOff?.signed,
+                leaderVerdict:
+                  entry?.crossState.lastLeaderSignOff?.leaderVerdict,
+              },
             },
           },
-        },
-        arbiter: this.store,
-        // ★ e2e P0-#5: 仅在本 finalize 真正赢得终态写(running→failed)时发失败通知,
-        //   保证恰好一次(已被 liveness/cancel 抢先终态则不重发)。user_cancelled 在
-        //   上方 wasUserCancelled 已 return,不会走到这里。fire-and-forget。
-        onWon: async () => {
+          arbiter: this.store,
+          // ★ e2e P0-#5 onWon：仅在本次 finalize 赢得仲裁（running→failed）时发通知。
+          //   能力轨下此路径发生在 runner 未提前写终态的情况（纯 dispatcher 路径）。
+          onWon: async () => {
+            finalizeWon = true;
+            await this.missionFailedPreset
+              ?.notify({
+                userId,
+                missionId,
+                missionTitle: entry?.input.topic ?? "Mission",
+                missionUrl: `/agent-playground/team/${missionId}`,
+                reason: displayMessage,
+                failureCode: missionFailureCode,
+              })
+              .catch((notifyErr: unknown) => {
+                this.log.warn(
+                  `[handleMissionFailure ${missionId}] mission-failed notify (onWon) failed (non-fatal): ${notifyErr instanceof Error ? notifyErr.message : String(notifyErr)}`,
+                );
+              });
+          },
+        });
+      finalizeWon = finalizeResult.won;
+    } catch (dbErr) {
+      this.log.error(
+        `[pipeline-v1] finalize(failed) for mission ${missionId} failed: ${
+          dbErr instanceof Error ? dbErr.message : String(dbErr)
+        }`,
+      );
+    }
+
+    // ★ P1-2 通知兜底：finalize 输掉（runner 已抢先写终态）时，读真实行终态。
+    //   若行为失败类终态（failed / quality-failed）或非用户取消的 cancelled（P2-e 场景：
+    //   runner abort 写成 cancelled 但事件语义是系统失败）→ 补发失败通知。
+    //   wasUserCancelled=true 在上方已 early return，此处不会触达用户主动取消路径。
+    //   MissionFailedPreset 无 idempotencyKey，残余双发风险：onWon 和此处只会其中一路
+    //   触达（onWon 仅在 finalize won 时调；此处仅在 won===false 时调），单次调用链唯一。
+    if (!finalizeWon && this.missionFailedPreset) {
+      try {
+        const row = await this.store.getById(missionId, userId);
+        const rowStatus = row?.status;
+        const isFailureTerminal =
+          rowStatus === "failed" ||
+          rowStatus === "quality-failed" ||
+          // P2-e：runner abort 把行写成 cancelled（非用户主动取消），需补通知
+          (rowStatus === "cancelled" && abortReason !== "user_cancelled");
+        if (isFailureTerminal) {
+          this.log.warn(
+            `[P1-2 notify-fallback ${missionId}] finalize lost (row.status=${rowStatus}), ` +
+              `firing failure notification via fallback path`,
+          );
           await this.missionFailedPreset
-            ?.notify({
+            .notify({
               userId,
               missionId,
               missionTitle: entry?.input.topic ?? "Mission",
@@ -1253,18 +1332,16 @@ export class PlaygroundPipelineDispatcher
             })
             .catch((notifyErr: unknown) => {
               this.log.warn(
-                `[handleMissionFailure ${missionId}] mission-failed notify failed (non-fatal): ${notifyErr instanceof Error ? notifyErr.message : String(notifyErr)}`,
+                `[handleMissionFailure ${missionId}] mission-failed notify (fallback) failed (non-fatal): ${notifyErr instanceof Error ? notifyErr.message : String(notifyErr)}`,
               );
             });
-        },
-      })
-      .catch((dbErr) => {
-        this.log.error(
-          `[pipeline-v1] finalize(failed) for mission ${missionId} failed: ${
-            dbErr instanceof Error ? dbErr.message : String(dbErr)
-          }`,
+        }
+      } catch (readErr) {
+        this.log.warn(
+          `[P1-2 notify-fallback ${missionId}] getById failed, skipping fallback notify: ${readErr instanceof Error ? readErr.message : String(readErr)}`,
         );
-      });
+      }
+    }
     // ★ 报告版本化 (2026-05-06): 失败路径有 partial report 时也写版本，
     //   让用户能查看失败前生成的报告内容
     if (reportPayload && entry) {

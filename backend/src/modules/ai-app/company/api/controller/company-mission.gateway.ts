@@ -219,6 +219,78 @@ export class CompanyMissionGateway implements OnGatewayInit {
           })
           .passthrough(),
       },
+      // ★ 2026-06-10 富事件平价波：能力核新增/恢复的 domain 事件，company 桥透传需注册，
+      //   否则每次 mission 刷 drop-warn。形状与 playground 侧（旧 OFF-path stage）一致。
+      {
+        type: "company.reconciliation:completed",
+        schema: z
+          .object({
+            factCount: z.number().optional(),
+            conflictCount: z.number().optional(),
+            gapCount: z.number().optional(),
+          })
+          .passthrough(),
+      },
+      {
+        type: "company.critic:verdict",
+        schema: z
+          .object({
+            verdict: z.string().optional(),
+            blindspotCount: z.number().optional(),
+            biasCount: z.number().optional(),
+            warnings: z.array(z.record(z.unknown())).optional(),
+          })
+          .passthrough(),
+      },
+      {
+        type: "company.verifier:verdict",
+        schema: z
+          .object({
+            verifierId: z.string().optional(),
+            score: z.number().optional(),
+          })
+          .passthrough(),
+      },
+      {
+        type: "company.leader:foreword",
+        schema: z.record(z.unknown()),
+      },
+      {
+        type: "company.leader:signed",
+        schema: z
+          .object({
+            signed: z.boolean().optional(),
+            leaderOverallScore: z.number().optional(),
+            leaderVerdict: z.string().optional(),
+            refusalReason: z.string().optional(),
+          })
+          .passthrough(),
+      },
+      {
+        type: "company.dimension:outline:planned",
+        schema: z.object({ chapterCount: z.number().optional() }).passthrough(),
+      },
+      {
+        type: "company.chapter:writing:started",
+        schema: z
+          .object({
+            dimension: z.string().optional(),
+            heading: z.string().optional(),
+            index: z.number().optional(),
+          })
+          .passthrough(),
+      },
+      {
+        type: "company.chapter:writing:completed",
+        schema: z
+          .object({
+            dimension: z.string().optional(),
+            heading: z.string().optional(),
+            index: z.number().optional(),
+            wordCount: z.number().optional(),
+          })
+          .passthrough(),
+      },
     ]);
 
     this.log.log("CompanyMissionGateway initialized (namespace=company)");

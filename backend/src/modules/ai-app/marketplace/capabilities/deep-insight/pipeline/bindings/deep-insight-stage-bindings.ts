@@ -32,7 +32,12 @@ import type {
   FigureRelevanceService,
   ExtractedFigure,
 } from "../../runner-deps";
-import { CS_KEY, readPipelineInput, type StageBindings } from "../ports";
+import {
+  CS_KEY,
+  readPipelineInput,
+  type StageBindings,
+  type AgentInvocation,
+} from "../ports";
 import { invokeAgent, emitDomain } from "./agent-invoke.helper";
 import {
   buildAssembleInput,
@@ -186,6 +191,13 @@ export class DeepInsightStageBindings implements StageBindings {
         //   故"入口已有 plan"唯一对应 inherited 场景，判定无歧义。
         const seededPlan = full.crossStageState.get<PlanResult>(CS_KEY.plan);
         if (seededPlan) {
+          // P2-b：seeded plan 复用时通知用户，避免 S2 静默跳过无任何反馈。
+          emitDomain(onEvent, "agent:narrative", {
+            stage: "s2-leader-plan",
+            role: "leader",
+            tag: "info",
+            text: `复用上次 mission 的维度规划（${seededPlan.dimensions.length} 个维度），跳过重新规划`,
+          });
           return seededPlan;
         }
         // ★ #16b narrate：S2 开始
@@ -538,42 +550,10 @@ export class DeepInsightStageBindings implements StageBindings {
             perDimension:
               (output as { perDimension?: unknown }).perDimension ?? [],
           });
-          // Fix4：dimension:graded — 对每个维度 emit（projector 据此在 ASSESSMENT 阶段完结维度 todo）。
+          // Fix4 / P1-3：dimension:graded — 对每个维度 emit（projector 据此在 ASSESSMENT 阶段完结维度 todo）。
           // 形状：{ dimension, overall/overallScore, state }（projector ~line 1128 读 dimension/overall/overallScore）。
-          for (const o of researcherOutcomes) {
-            // 按 perDimension verdict 映射维度分（无 LLM 分则用 findingsCount 估算）。
-            const perDim = (
-              (
-                output as {
-                  perDimension?: Array<{
-                    dimensionName?: string;
-                    dimensionId?: string;
-                    action?: string;
-                  }>;
-                }
-              ).perDimension ?? []
-            ).find(
-              (d) =>
-                d.dimensionName === o.dimensionName ||
-                d.dimensionId === o.dimensionId,
-            );
-            const action =
-              perDim?.action ??
-              (o.state === "completed" ? "accept" : "retry-with-critique");
-            // 把 findingsCount 归一化为 0-100 分（accept=≥70, degraded=50, failed=30）。
-            const overall =
-              o.state === "completed" && action === "accept"
-                ? Math.min(100, 60 + Math.min(o.findingsCount * 5, 40))
-                : o.state === "degraded"
-                  ? 50
-                  : 30;
-            emitDomain(onEvent, "dimension:graded", {
-              dimension: o.dimensionName,
-              overall,
-              state: o.state,
-              action,
-            });
-          }
+          // 复用私有方法，catch 降级路径同样调用保证收口。
+          this.emitAssessGraded(onEvent, researcherOutcomes, output);
           // Fix4：S4 substance narrative with per-dimension summary.
           const acceptedCount = researcherOutcomes.filter(
             (o) => o.state === "completed",
@@ -610,8 +590,21 @@ export class DeepInsightStageBindings implements StageBindings {
             },
           );
           return output;
-        } catch {
-          // assess 可降级：leader 评估失败不阻断（视为 accept-all，下游照常成稿）。
+        } catch (err) {
+          // P1-3：assess 可降级——leader 评估失败不阻断（视为 accept-all，下游照常成稿）。
+          // (a) 发警告叙事；(b) 对每个维度发 dimension:graded（启发式兜底），保证全维收口不卡死。
+          const errSummary =
+            err instanceof Error
+              ? err.message.slice(0, 120)
+              : String(err).slice(0, 120);
+          emitDomain(onEvent, "agent:narrative", {
+            stage: "s4-leader-assess",
+            role: "leader",
+            tag: "warning",
+            text: `Leader 评审失败（${errSummary}），按启发式评分继续`,
+          });
+          // 降级路径：无 perDimension verdict，全用启发式兜底分。
+          this.emitAssessGraded(onEvent, researcherOutcomes, undefined);
           return { decision: "accept-all" };
         }
       },
@@ -645,7 +638,9 @@ export class DeepInsightStageBindings implements StageBindings {
         if (args.decision !== "retry-some") return;
         // 用 runner 绑定的 crossState（与 s10 读取同一实例）。
         const cs = this.fullArgs(args.ctx).crossStageState;
-        const weak = this.extractWeakDimensions(args.raw);
+        // P1-4：把 plan 传给 extractWeakDimensions，供 dimensionId → dimensionName 解析。
+        const plan = cs.get<PlanResult>(CS_KEY.plan);
+        const weak = this.extractWeakDimensions(args.raw, plan);
         for (const dim of weak) {
           cs.append<{ dimension: string; reason: string }>(
             CS_KEY.s4PatchFailures,
@@ -659,6 +654,31 @@ export class DeepInsightStageBindings implements StageBindings {
   // ── S5 reconciler（synthesize primitive，reconcile 模式）───────────────────────
   private buildReconcileHooks(): ResolvedStageHooks {
     return defineStageHooks({
+      // P2-c：单维度场景无需跨维对账，直接短路（synthesize primitive singleDimensionShortCircuit 钩子）。
+      singleDimensionShortCircuit: (args: {
+        ctx: StageRunArgs["ctx"];
+        previousOutputs: StageRunArgs["previousOutputs"];
+      }): unknown | undefined => {
+        void args.previousOutputs; // 短路路径不需要 previousOutputs，声明避免 lint 警告。
+        const full = this.fullArgs(args.ctx);
+        const input = readPipelineInput(full.ctx);
+        const onEvent = input.invocation.onEvent;
+        const researcherResults =
+          full.crossStageState.get<ResearcherResult[]>(
+            CS_KEY.researcherResults,
+          ) ?? [];
+        if (researcherResults.length !== 1) return undefined;
+        // 单维度：跳过跨维对账，设 reconciliationReport=null 并发叙事。
+        full.crossStageState.set(CS_KEY.reconciliationReport, null);
+        emitDomain(onEvent, "agent:narrative", {
+          stage: "s5-reconciler",
+          role: "reconciler",
+          tag: "info",
+          text: "单维度任务无需跨维对账，已跳过",
+        });
+        // 返回 null 作为 synthesize 产物（primitive 以此作为短路结果）。
+        return null;
+      },
       synthesize: async (args: {
         ctx: StageRunArgs["ctx"];
       }): Promise<unknown> => {
@@ -2054,9 +2074,16 @@ export class DeepInsightStageBindings implements StageBindings {
     return "accept-all";
   }
 
-  /** 从 leader assess perDimension 抽出非 accept 的弱维度（s4PatchFailures 记账）。 */
+  /**
+   * 从 leader assess perDimension 抽出非 accept 的弱维度（s4PatchFailures 记账）。
+   *
+   * P1-4 修复：leader schema 真实字段是 dimensionId（不是 dimension），读取顺序为
+   *   r.dimensionId ?? r.dimensionName ?? r.dimension。
+   *   若有 plan，优先把 dimensionId 经 plan.dimensions 解析为维度名；解析不到才落 "(unknown)"。
+   */
   private extractWeakDimensions(
     raw: unknown,
+    plan?: PlanResult,
   ): Array<{ dimension: string; reason: string }> {
     if (!raw || typeof raw !== "object") return [];
     const per = (raw as { perDimension?: unknown }).perDimension;
@@ -2066,15 +2093,85 @@ export class DeepInsightStageBindings implements StageBindings {
       if (!item || typeof item !== "object") continue;
       const r = item as Record<string, unknown>;
       const action = typeof r.action === "string" ? r.action : "";
-      if (action && action !== "accept") {
-        out.push({
-          dimension:
-            typeof r.dimension === "string" ? r.dimension : "(unknown)",
-          reason: action,
-        });
+      if (!action || action === "accept") continue;
+      // dimensionId 是 leader schema 真实字段；兼容旧 dimensionName / dimension 写法。
+      const rawId =
+        typeof r.dimensionId === "string"
+          ? r.dimensionId
+          : typeof r.dimensionName === "string"
+            ? r.dimensionName
+            : typeof r.dimension === "string"
+              ? r.dimension
+              : undefined;
+      // 先尝试从 plan.dimensions 按 id 或名称反查，保证维度名准确。
+      let dimName = "(unknown)";
+      if (rawId && plan) {
+        const found =
+          plan.dimensions.find((d) => d.id === rawId) ??
+          plan.dimensions.find((d) => d.name === rawId);
+        dimName = found?.name ?? rawId;
+      } else if (rawId) {
+        dimName = rawId;
       }
+      out.push({ dimension: dimName, reason: action });
     }
     return out;
+  }
+
+  /**
+   * S4 assess：对每个 researcherOutcome 发 dimension:graded 事件（成功路径 + 降级路径共用）。
+   *
+   * P1-3 提取：成功路径和 catch 降级路径共享同一发射逻辑，避免复制粘贴。
+   *   - 成功路径传入 LLM output（有 perDimension verdict），结合启发式打分；
+   *   - 降级路径传入 undefined，全部用启发式兜底（completed→60+min(findings×5,40)、degraded→50、failed→30）。
+   */
+  private emitAssessGraded(
+    onEvent: AgentInvocation["onEvent"],
+    researcherOutcomes: Array<{
+      dimensionName: string;
+      dimensionId: string;
+      state: "completed" | "degraded" | "failed";
+      findingsCount: number;
+    }>,
+    output: unknown,
+  ): void {
+    const perDimensionArr: Array<{
+      dimensionName?: string;
+      dimensionId?: string;
+      action?: string;
+    }> =
+      output != null && typeof output === "object"
+        ? (((output as { perDimension?: unknown }).perDimension as
+            | Array<{
+                dimensionName?: string;
+                dimensionId?: string;
+                action?: string;
+              }>
+            | undefined) ?? [])
+        : [];
+    for (const o of researcherOutcomes) {
+      const perDim = perDimensionArr.find(
+        (d) =>
+          d.dimensionName === o.dimensionName ||
+          d.dimensionId === o.dimensionId,
+      );
+      const action =
+        perDim?.action ??
+        (o.state === "completed" ? "accept" : "retry-with-critique");
+      // 把 findingsCount 归一化为 0-100 分（accept=≥70, degraded=50, failed=30）。
+      const overall =
+        o.state === "completed" && action === "accept"
+          ? Math.min(100, 60 + Math.min(o.findingsCount * 5, 40))
+          : o.state === "degraded"
+            ? 50
+            : 30;
+      emitDomain(onEvent, "dimension:graded", {
+        dimension: o.dimensionName,
+        overall,
+        state: o.state,
+        action,
+      });
+    }
   }
 
   /**

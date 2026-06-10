@@ -379,4 +379,140 @@ describe("PlaygroundPipelineDispatcher（#16b 能力轨唯一执行轨）", () =
       ).toBe("RUNNER_WALL_TIME_EXCEEDED");
     });
   });
+
+  // ─── P1-2：失败通知在 finalize 输掉时仍发（runner 抢先写终态场景）──────────────
+  describe("P1-2: 通知兜底路径（finalize lost, row already terminal）", () => {
+    it("finalize 输掉（applyTerminalIfRunning 返回 false）+ row.status=failed → 仍发通知一次", async () => {
+      // 模拟：能力轨 runner 已通过 persistence 先写终态 → store.applyTerminalIfRunning 返 false
+      const { dispatcher, failedPreset } = makeDispatcherBundle({
+        runnerBehavior: { status: "failed", error: "runner error" },
+        storeOverrides: {
+          // applyTerminalIfRunning 返 false：finalize 仲裁输掉（runner 先写赢）
+          applyTerminalIfRunning: jest.fn().mockResolvedValue(false),
+          // getById 返回已经是 failed 终态的行（runner 写的）
+          getById: jest
+            .fn()
+            .mockResolvedValue({ status: "failed", id: "m1", userId: "u1" }),
+        },
+      });
+      await dispatcher.runMission("m1", RUN_INPUT, "u1");
+      // 通知必须发一次（兜底路径）
+      expect(failedPreset.notify).toHaveBeenCalledTimes(1);
+      expect(failedPreset.notify).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: "u1", missionId: "m1" }),
+      );
+    });
+
+    it("finalize 输掉 + row.status=quality-failed → 仍发通知一次", async () => {
+      const { dispatcher, failedPreset } = makeDispatcherBundle({
+        runnerBehavior: { status: "failed", error: "quality gate failed" },
+        storeOverrides: {
+          applyTerminalIfRunning: jest.fn().mockResolvedValue(false),
+          getById: jest.fn().mockResolvedValue({
+            status: "quality-failed",
+            id: "m1",
+            userId: "u1",
+          }),
+        },
+      });
+      await dispatcher.runMission("m1", RUN_INPUT, "u1");
+      expect(failedPreset.notify).toHaveBeenCalledTimes(1);
+    });
+
+    it("finalize 输掉 + row.status=cancelled（P2-e: 非用户取消 abort）→ 仍发通知一次", async () => {
+      // P2-e 场景：runner abort（budget_exhausted）把行写成 cancelled，dispatcher
+      // 发 mission:failed(BUDGET_EXHAUSTED)，finalize 输掉 → 通知兜底路径应发通知。
+      const ac = new AbortController();
+      ac.abort("budget_exhausted");
+      const session = makeFakeSession("m-p2e", "u1", ac);
+      const { dispatcher, failedPreset } = makeDispatcherBundle({
+        runnerBehavior: { status: "failed", error: "budget exhausted" },
+        session,
+        storeOverrides: {
+          applyTerminalIfRunning: jest.fn().mockResolvedValue(false),
+          // runner 把行写成 cancelled（abort 路径）
+          getById: jest.fn().mockResolvedValue({
+            status: "cancelled",
+            id: "m-p2e",
+            userId: "u1",
+          }),
+        },
+      });
+      await dispatcher.runMission("m-p2e", RUN_INPUT, "u1");
+      expect(failedPreset.notify).toHaveBeenCalledTimes(1);
+    });
+
+    it("finalize 赢（applyTerminalIfRunning 返回 true）→ onWon 发通知，不走兜底（合计一次）", async () => {
+      // 正常路径（dispatcher 赢得仲裁）：通知由 onWon 发，兜底路径不应额外再发
+      const { dispatcher, failedPreset } = makeDispatcherBundle({
+        runnerBehavior: { status: "failed", error: "some error" },
+        storeOverrides: {
+          applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
+        },
+      });
+      await dispatcher.runMission("m1", RUN_INPUT, "u1");
+      // 恰好一次（onWon 路径），getById 不应被调（won=true 跳过兜底）
+      expect(failedPreset.notify).toHaveBeenCalledTimes(1);
+    });
+
+    it("finalize 输掉 + row.status=completed → 不发通知（completed 不是失败）", async () => {
+      const { dispatcher, failedPreset } = makeDispatcherBundle({
+        runnerBehavior: { status: "failed", error: "some error" },
+        storeOverrides: {
+          applyTerminalIfRunning: jest.fn().mockResolvedValue(false),
+          getById: jest.fn().mockResolvedValue({
+            status: "completed",
+            id: "m1",
+            userId: "u1",
+          }),
+        },
+      });
+      await dispatcher.runMission("m1", RUN_INPUT, "u1");
+      expect(failedPreset.notify).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── P2-d: mission:started / mission:completed 在能力轨发射 ─────────────────
+  describe("P2-d: 能力轨纯生命周期事件桥（started / completed）", () => {
+    it("runner 发 CapabilityRunEvent(started) → playground.mission:started 被 emit", async () => {
+      const { dispatcher, runner } = makeDispatcherBundle({
+        runnerBehavior: { status: "completed" },
+      });
+      // 注入一个额外的 started 事件（makeFakeCapabilityRunner 已发一次，但通过 ctx.onEvent）
+      // 这里替换 runner 让它额外发纯 started 事件（无 stepId）
+      const runSpy = jest
+        .spyOn(runner!, "run")
+        .mockImplementation(async (_input, ctx) => {
+          void ctx.onEvent?.({ type: "started", timestamp: 1 });
+          await ctx.persistence?.applyTerminalIfRunning(
+            ctx.missionId,
+            "completed",
+            {},
+          );
+          void ctx.onEvent?.({ type: "completed", timestamp: 2 });
+          return {
+            status: "completed" as const,
+            stageOutputs: {},
+          };
+        });
+      const eventBusEmit = jest
+        .spyOn(
+          (dispatcher as unknown as { eventBus: { emit: jest.Mock } }).eventBus,
+          "emit",
+        )
+        .mockResolvedValue(true);
+
+      await dispatcher.runMission("m1", RUN_INPUT, "u1");
+
+      // 验证 emitToBus 经 eventBus.emit 调了 mission:started / mission:completed
+      const allTypes = eventBusEmit.mock.calls.map(
+        (c) => (c[0] as { type: string }).type,
+      );
+      expect(allTypes).toContain("playground.mission:started");
+      expect(allTypes).toContain("playground.mission:completed");
+
+      runSpy.mockRestore();
+      eventBusEmit.mockRestore();
+    });
+  });
 });

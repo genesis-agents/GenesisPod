@@ -1273,4 +1273,321 @@ describe("deep-insight 14 阶段执行内核（W2）", () => {
     );
     expect(s9Skip).toBeDefined();
   });
+
+  // ── P1-3 / P1-4 / P1-5 / P2-a / P2-b / P2-c 新增断言 ────────────────────────
+
+  it("P1-3 S4 catch：leader assess 失败时发 warning narrative + 每维 dimension:graded（降级不卡死）", async () => {
+    // leader assess-research 抛错（phase=assess-research 时返回 reject），其余正常。
+    const agentRunner = makeAgentRunner();
+    agentRunner.run.mockImplementation(
+      async (Spec: { name?: string }, input: unknown) => {
+        const id = (Spec?.name ?? "").toLowerCase();
+        const phase = (input as { phase?: string }).phase;
+        if ((id.includes("leader") || phase) && phase === "assess-research") {
+          throw new Error("LLM assess 故意失败");
+        }
+        return {
+          output: routeOutput(id, input),
+          state: "completed" as const,
+          tokensUsed: { prompt: 1, completion: 1, total: 2 },
+          costCents: 1,
+        };
+      },
+    );
+    const domainEvents: Array<{
+      event: string;
+      data: Record<string, unknown>;
+    }> = [];
+    const ctx: CapabilityRunContext = {
+      userId: "u",
+      missionId: "m-p1-3",
+      onEvent: (e) => {
+        if (e.type === "domain") {
+          const p = e.payload as
+            | { event?: string; data?: Record<string, unknown> }
+            | undefined;
+          if (p?.event)
+            domainEvents.push({ event: p.event, data: p.data ?? {} });
+        }
+      },
+    };
+    const { runner } = makeRunnerWith(agentRunner, makeRichStubs());
+    const res = await runner.run({ topic: "AI", language: "zh-CN" }, ctx);
+    // 降级：视为 accept-all，下游照常成稿。
+    expect(res.status).toBe("completed");
+    // (a) 发出 warning narrative（标注 leader 评审失败）。
+    const warnNarrative = domainEvents.find(
+      (e) =>
+        e.event === "agent:narrative" &&
+        e.data.stage === "s4-leader-assess" &&
+        e.data.tag === "warning",
+    );
+    expect(warnNarrative).toBeDefined();
+    // (b) 每个维度都发出 dimension:graded（2 维 mock plan → 至少 2 条）。
+    const gradedEvents = domainEvents.filter(
+      (e) => e.event === "dimension:graded",
+    );
+    expect(gradedEvents.length).toBeGreaterThanOrEqual(2);
+    for (const ev of gradedEvents) {
+      expect(typeof ev.data.dimension).toBe("string");
+      expect(typeof ev.data.overall).toBe("number");
+    }
+  });
+
+  it("P1-5 leader 拒签 → applyTerminal failed + LEADER_REFUSED_SIGN + stageOutputs 保留报告", async () => {
+    // leader signoff 返回 signed=false（拒签）。
+    const agentRunner = makeAgentRunner();
+    agentRunner.run.mockImplementation(
+      async (Spec: { name?: string }, input: unknown) => {
+        const id = (Spec?.name ?? "").toLowerCase();
+        const phase = (input as { phase?: string }).phase;
+        if ((id.includes("leader") || phase) && phase === "signoff") {
+          return {
+            output: {
+              phase: "signoff",
+              signed: false,
+              refusalReason: "报告质量不达标，需要补充更多证据",
+              leaderOverallScore: 40,
+              leaderVerdict: "poor",
+              accountabilityNote: "研究覆盖面不足",
+            },
+            state: "completed" as const,
+            tokensUsed: { prompt: 1, completion: 1, total: 2 },
+            costCents: 1,
+          };
+        }
+        return {
+          output: routeOutput(id, input),
+          state: "completed" as const,
+          tokensUsed: { prompt: 1, completion: 1, total: 2 },
+          costCents: 1,
+        };
+      },
+    );
+    const probe = new ProbePersistence();
+    const { runner: refuseRunner } = makeRunnerWith(
+      agentRunner,
+      makeRichStubs(),
+    );
+    const res = await refuseRunner.run(
+      { topic: "AI", language: "zh-CN" },
+      { userId: "u", missionId: "m-p1-5", persistence: probe },
+    );
+    // 拒签 → quality-failed 路径（status="failed"）。
+    expect(res.status).toBe("failed");
+    expect(res.error).toContain("quality-failed");
+    // applyTerminal 传入 outcome="failed"。
+    expect(probe.lastTerminal?.outcome).toBe("failed");
+    // stageOutputs 仍有内容（拒签路径仍保留已组装的报告片段）。
+    expect(res.stageOutputs).toBeDefined();
+  });
+
+  it("P1-5 leader 拒签 → failureCode=LEADER_REFUSED_SIGN 写入 persistence（通过 probe 拦截）", async () => {
+    // 用可以捕获 details 的 probe 验证 failureCode。
+    class DetailedProbePersistence extends ProbePersistence {
+      lastDetails: { failureCode?: string; [k: string]: unknown } | null = null;
+      override async applyTerminalIfRunning(
+        _missionId: string,
+        outcome: "completed" | "failed" | "cancelled",
+        details?: {
+          finalScore?: number;
+          failureCode?: string;
+          [k: string]: unknown;
+        },
+      ): Promise<boolean> {
+        this.applyTerminalCount++;
+        this.lastTerminal = { outcome };
+        this.lastDetails = details ?? null;
+        if (outcome === "completed") this.lastFinalScore = details?.finalScore;
+        return true;
+      }
+    }
+    const agentRunner = makeAgentRunner();
+    agentRunner.run.mockImplementation(
+      async (Spec: { name?: string }, input: unknown) => {
+        const id = (Spec?.name ?? "").toLowerCase();
+        const phase = (input as { phase?: string }).phase;
+        if ((id.includes("leader") || phase) && phase === "signoff") {
+          return {
+            output: { signed: false, refusalReason: "证据不足" },
+            state: "completed" as const,
+            tokensUsed: { prompt: 1, completion: 1, total: 2 },
+            costCents: 1,
+          };
+        }
+        return {
+          output: routeOutput(id, input),
+          state: "completed" as const,
+          tokensUsed: { prompt: 1, completion: 1, total: 2 },
+          costCents: 1,
+        };
+      },
+    );
+    const probe = new DetailedProbePersistence();
+    const { runner: failRunner } = makeRunnerWith(agentRunner, makeRichStubs());
+    const res = await failRunner.run(
+      { topic: "AI", language: "zh-CN" },
+      { userId: "u", missionId: "m-p1-5b", persistence: probe },
+    );
+    expect(res.status).toBe("failed");
+    expect(probe.lastTerminal?.outcome).toBe("failed");
+    expect(probe.lastDetails?.failureCode).toBe("LEADER_REFUSED_SIGN");
+  });
+
+  it("P2-b S2 seededPlan 复用 → 发 info narrative（复用 N 个维度）", async () => {
+    // inheritedBaseline 注入 plan seed，触发 S2 seededPlan 路径。
+    const domainEvents: Array<{
+      event: string;
+      data: Record<string, unknown>;
+    }> = [];
+    const ctx: CapabilityRunContext = {
+      userId: "u",
+      missionId: "m-p2-b",
+      onEvent: (e) => {
+        if (e.type === "domain") {
+          const p = e.payload as
+            | { event?: string; data?: Record<string, unknown> }
+            | undefined;
+          if (p?.event)
+            domainEvents.push({ event: p.event, data: p.data ?? {} });
+        }
+      },
+    };
+    const { runner: seedRunner } = makeRunnerWith(
+      makeAgentRunner(),
+      makeRichStubs(),
+    );
+    const inheritedBaseline = {
+      plan: {
+        themeSummary: "继承主题",
+        dimensions: [
+          {
+            id: "d1",
+            name: "维度一",
+            rationale: "r1",
+            toolHint: { categories: ["general"] },
+          },
+          {
+            id: "d2",
+            name: "维度二",
+            rationale: "r2",
+            toolHint: { categories: ["general"] },
+          },
+        ],
+      },
+      researcherResults: [
+        {
+          dimension: "维度一",
+          findings: [{ claim: "c1", source: "https://r1.com" }],
+          summary: "s1",
+        },
+        {
+          dimension: "维度二",
+          findings: [{ claim: "c2", source: "https://r2.com" }],
+          summary: "s2",
+        },
+      ],
+    };
+    const res = await seedRunner.run(
+      { topic: "AI", language: "zh-CN", inheritedBaseline },
+      ctx,
+    );
+    expect(res.status).toBe("completed");
+    // P2-b：seededPlan 路径必须发出 info narrative 含"复用"。
+    const seedNarrative = domainEvents.find(
+      (e) =>
+        e.event === "agent:narrative" &&
+        e.data.stage === "s2-leader-plan" &&
+        e.data.tag === "info" &&
+        typeof e.data.text === "string" &&
+        e.data.text.includes("复用"),
+    );
+    expect(seedNarrative).toBeDefined();
+  });
+
+  it("P2-c S5 单维度短路：单维 researcherResults → 跳过对账，发 info narrative + reconciliationReport=null", async () => {
+    // 只配置 1 个维度，使 reconciler 触发 singleDimensionShortCircuit。
+    const agentRunner = makeAgentRunner();
+    agentRunner.run.mockImplementation(
+      async (Spec: { name?: string }, input: unknown) => {
+        const id = (Spec?.name ?? "").toLowerCase();
+        const phase = (input as { phase?: string }).phase;
+        if ((id.includes("leader") || phase) && phase === "plan") {
+          return {
+            output: {
+              phase: "plan",
+              themeSummary: "单维主题",
+              dimensions: [
+                {
+                  id: "d1",
+                  name: "唯一维度",
+                  rationale: "r1",
+                  toolHint: { categories: ["general"] },
+                },
+              ],
+              goals: {
+                successCriteria: ["完成研究"],
+                qualityBar: {
+                  minSources: 0,
+                  minCoverage: 0,
+                  hardConstraints: [],
+                },
+                deliverables: ["报告"],
+              },
+            },
+            state: "completed" as const,
+            tokensUsed: { prompt: 1, completion: 1, total: 2 },
+            costCents: 1,
+          };
+        }
+        return {
+          output: routeOutput(id, input),
+          state: "completed" as const,
+          tokensUsed: { prompt: 1, completion: 1, total: 2 },
+          costCents: 1,
+        };
+      },
+    );
+    const domainEvents: Array<{
+      event: string;
+      data: Record<string, unknown>;
+    }> = [];
+    const ctx: CapabilityRunContext = {
+      userId: "u",
+      missionId: "m-p2-c",
+      onEvent: (e) => {
+        if (e.type === "domain") {
+          const p = e.payload as
+            | { event?: string; data?: Record<string, unknown> }
+            | undefined;
+          if (p?.event)
+            domainEvents.push({ event: p.event, data: p.data ?? {} });
+        }
+      },
+    };
+    const { runner: singleDimRunner } = makeRunnerWith(
+      agentRunner,
+      makeRichStubs(),
+    );
+    const res = await singleDimRunner.run(
+      { topic: "AI 单维", language: "zh-CN" },
+      ctx,
+    );
+    expect(res.status).toBe("completed");
+    // reconciler agent 不应被调用（短路跳过）。
+    const reconcilerCalls = agentRunner.calls.filter((c) =>
+      c.agentId.includes("reconciler"),
+    );
+    expect(reconcilerCalls).toHaveLength(0);
+    // 发出 info narrative 包含"单维度"。
+    const singleDimNarrative = domainEvents.find(
+      (e) =>
+        e.event === "agent:narrative" &&
+        e.data.stage === "s5-reconciler" &&
+        e.data.tag === "info" &&
+        typeof e.data.text === "string" &&
+        e.data.text.includes("单维度"),
+    );
+    expect(singleDimNarrative).toBeDefined();
+  });
 });
