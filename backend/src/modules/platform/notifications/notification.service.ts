@@ -30,6 +30,7 @@ const VALID_NOTIFICATION_TYPES: Record<NotificationTypeDto, NotificationType> =
     [NotificationTypeDto.MENTION]: "MENTION",
     [NotificationTypeDto.CREDITS_LOW]: "CREDITS_LOW",
     [NotificationTypeDto.CREDITS_RECEIVED]: "CREDITS_RECEIVED",
+    [NotificationTypeDto.FEEDBACK_RECEIVED]: "FEEDBACK_RECEIVED",
     [NotificationTypeDto.FEEDBACK_REPLIED]: "FEEDBACK_REPLIED",
     [NotificationTypeDto.FEEDBACK_STATUS_CHANGED]: "FEEDBACK_STATUS_CHANGED",
     [NotificationTypeDto.SESSION_EXPIRED]: "SESSION_EXPIRED",

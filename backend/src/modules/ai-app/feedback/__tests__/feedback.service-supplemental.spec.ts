@@ -19,6 +19,9 @@ jest.mock("../../../platform/facade", () => ({
   FeedbackStatusUpdatePreset: class FeedbackStatusUpdatePreset {
     notify = jest.fn();
   },
+  NotificationPresetsService: class NotificationPresetsService {
+    notifyFeedbackReceived = jest.fn();
+  },
   ObjectStorageService: class ObjectStorageService {
     uploadBuffer = jest.fn();
     uploadStream = jest.fn();
@@ -70,6 +73,7 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import {
   EmailNotificationPresetsService,
   FeedbackStatusUpdatePreset,
+  NotificationPresetsService,
   ObjectStorageService,
 } from "../../../platform/facade";
 import { CreateFeedbackDto, FeedbackTypeDto } from "../dto/create-feedback.dto";
@@ -81,6 +85,7 @@ describe("FeedbackService (supplemental)", () => {
     sendFeedbackNotification: jest.Mock;
   };
   let mockStatusPreset: { notify: jest.Mock };
+  let mockNotificationPresets: { notifyFeedbackReceived: jest.Mock };
   let mockR2Storage: { uploadBuffer: jest.Mock; uploadStream: jest.Mock };
   let mockEventEmitter: { emit: jest.Mock };
 
@@ -112,6 +117,9 @@ describe("FeedbackService (supplemental)", () => {
     mockStatusPreset = {
       notify: jest.fn().mockResolvedValue(undefined),
     };
+    mockNotificationPresets = {
+      notifyFeedbackReceived: jest.fn().mockResolvedValue(undefined),
+    };
 
     mockR2Storage = {
       uploadBuffer: jest.fn().mockResolvedValue({
@@ -141,6 +149,10 @@ describe("FeedbackService (supplemental)", () => {
         {
           provide: FeedbackStatusUpdatePreset,
           useValue: mockStatusPreset,
+        },
+        {
+          provide: NotificationPresetsService,
+          useValue: mockNotificationPresets,
         },
         { provide: ObjectStorageService, useValue: mockR2Storage },
         { provide: EventEmitter2, useValue: mockEventEmitter },

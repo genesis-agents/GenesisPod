@@ -9,6 +9,7 @@ import { CreateFeedbackDto, FeedbackTypeDto } from "./dto/create-feedback.dto";
 import {
   EmailNotificationPresetsService,
   FeedbackStatusUpdatePreset,
+  NotificationPresetsService,
   ObjectStorageService,
 } from "../../platform/facade";
 import {
@@ -47,9 +48,30 @@ export class FeedbackService {
     private emailNotificationPresetsService: EmailNotificationPresetsService,
     // PR-DR1b F3 整改：用户面通知走 dispatcher（用户可在 settings 关 FEEDBACK_STATUS_CHANGED）
     private feedbackStatusUpdatePreset: FeedbackStatusUpdatePreset,
+    // 新反馈到达时给所有 admin 发站内信（与 admin 邮件并存）；admin 告警同样不受用户偏好控制
+    private notificationPresets: NotificationPresetsService,
     private r2Storage: ObjectStorageService,
     private eventEmitter: EventEmitter2,
   ) {}
+
+  /**
+   * 查询所有管理员 userId（role = ADMIN），用于新反馈站内信 fan-out。
+   * 任何错误一律返回空数组（通知失败不影响反馈提交），与 key-request 同模式。
+   */
+  private async listAdminUserIds(): Promise<string[]> {
+    try {
+      const admins = await this.prisma.user.findMany({
+        where: { role: "ADMIN" },
+        select: { id: true },
+      });
+      return admins.map((a) => a.id);
+    } catch (error) {
+      this.logger.warn(
+        `listAdminUserIds failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return [];
+    }
+  }
 
   /**
    * Convert DTO type to Prisma enum
@@ -215,6 +237,21 @@ export class FeedbackService {
     } catch (error) {
       // Log error but don't fail the request
       this.logger.error("Failed to send email notification", error);
+    }
+
+    // 站内信 fan-out 给所有 admin（与上面的 admin 邮件并存）。
+    // 失败仅记日志，不影响反馈提交，与 admin 邮件一致。
+    try {
+      const adminUserIds = await this.listAdminUserIds();
+      await this.notificationPresets.notifyFeedbackReceived({
+        adminUserIds,
+        feedbackId: createdId,
+        feedbackType,
+        title: dto.title,
+        requesterEmail: dto.userEmail,
+      });
+    } catch (error) {
+      this.logger.error("Failed to send in-app notification to admins", error);
     }
 
     // Emit feedback created event for auto-triage

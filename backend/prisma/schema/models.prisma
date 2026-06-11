@@ -8555,6 +8555,7 @@ enum NotificationType {
   CREDITS_RECEIVED // 收到积分
 
   // 反馈通知
+  FEEDBACK_RECEIVED // 用户提交新反馈，通知所有管理员
   FEEDBACK_REPLIED // 反馈收到回复
   FEEDBACK_STATUS_CHANGED // 反馈状态变更
 

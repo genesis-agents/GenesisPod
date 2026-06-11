@@ -9,6 +9,7 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import {
   EmailNotificationPresetsService,
   FeedbackStatusUpdatePreset,
+  NotificationPresetsService,
 } from "../../../platform/facade";
 import { ObjectStorageService } from "../../../platform/storage/object-store/object-storage.service";
 import { CreateFeedbackDto, FeedbackTypeDto } from "../dto/create-feedback.dto";
@@ -18,6 +19,7 @@ describe("FeedbackService", () => {
   let mockPrisma: jest.Mocked<Partial<PrismaService>>;
   let mockEmailService: jest.Mocked<Partial<EmailNotificationPresetsService>>;
   let mockStatusPreset: jest.Mocked<Partial<FeedbackStatusUpdatePreset>>;
+  let mockNotificationPresets: jest.Mocked<Partial<NotificationPresetsService>>;
   let mockR2Storage: jest.Mocked<Partial<ObjectStorageService>>;
   let mockEventEmitter: jest.Mocked<Partial<EventEmitter2>>;
 
@@ -41,6 +43,10 @@ describe("FeedbackService", () => {
     mockPrisma = {
       $queryRaw: jest.fn().mockResolvedValue([{ id: "feedback-1" }]),
     };
+    // listAdminUserIds() 查 admin 用户；默认返回空（无 admin → 不发站内信）
+    (mockPrisma as unknown as { user: { findMany: jest.Mock } }).user = {
+      findMany: jest.fn().mockResolvedValue([]),
+    };
 
     mockEmailService = {
       sendFeedbackNotification: jest.fn().mockResolvedValue(true),
@@ -48,6 +54,9 @@ describe("FeedbackService", () => {
     };
     mockStatusPreset = {
       notify: jest.fn().mockResolvedValue(undefined),
+    };
+    mockNotificationPresets = {
+      notifyFeedbackReceived: jest.fn().mockResolvedValue(undefined),
     };
 
     mockR2Storage = {
@@ -83,6 +92,10 @@ describe("FeedbackService", () => {
         {
           provide: FeedbackStatusUpdatePreset,
           useValue: mockStatusPreset,
+        },
+        {
+          provide: NotificationPresetsService,
+          useValue: mockNotificationPresets,
         },
         { provide: ObjectStorageService, useValue: mockR2Storage },
         { provide: EventEmitter2, useValue: mockEventEmitter },

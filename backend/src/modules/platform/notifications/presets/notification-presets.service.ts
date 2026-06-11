@@ -268,6 +268,35 @@ export class NotificationPresetsService {
   }
 
   /**
+   * 用户提交新反馈 → fan-out 站内信给所有 admin（与 admin 邮件并存，邮件单独发）。
+   * adminUserIds 由调用方查询传入（presets 不感知 user role，与 key-request 一致）。
+   */
+  async notifyFeedbackReceived(params: {
+    adminUserIds: string[];
+    feedbackId: string;
+    feedbackType: string;
+    title: string;
+    requesterEmail?: string | null;
+  }) {
+    const { adminUserIds, feedbackId, feedbackType, title, requesterEmail } =
+      params;
+    if (adminUserIds.length === 0) return;
+
+    const fromSuffix = requesterEmail ? `（来自 ${requesterEmail}）` : "";
+    // batchCreateNotifications DTO 不支持 relatedType/relatedId，故把 feedbackId 放 metadata；
+    // admin 端列表可优先读 metadata.feedbackId 跳详情
+    await this.notificationService.batchCreateNotifications({
+      userIds: adminUserIds,
+      type: NotificationTypeDto.FEEDBACK_RECEIVED,
+      title: "新的用户反馈",
+      message: `${title}${fromSuffix}`,
+      actionUrl: "/admin/feedback",
+      actionLabel: "查看反馈",
+      metadata: { feedbackId, feedbackType, requesterEmail },
+    });
+  }
+
+  /**
    * 申请被批准，通知申请人。provider/model 来自 admin 实际授予的 assignment。
    */
   async notifyKeyRequestApproved(params: {
