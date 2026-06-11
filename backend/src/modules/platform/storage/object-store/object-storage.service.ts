@@ -18,6 +18,7 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import * as crypto from "crypto";
+import type { Readable } from "stream";
 import {
   mapWithConcurrency,
   ConcurrencyLimits,
@@ -138,6 +139,56 @@ export class ObjectStorageService {
       return { success: true, url, key };
     } catch (error) {
       this.logger.error("Failed to upload buffer:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Upload failed",
+      };
+    }
+  }
+
+  /**
+   * 流式上传（内存最优）——直接把 Readable（如 fs.createReadStream）透传给 backend，
+   * 全程不在进程内驻留完整 Buffer。必须传 size（流的真实字节数，S3/R2 签名所需）。
+   *
+   * key 由随机 hash + 时间戳生成（不读流内容做 hash，避免消费流）；
+   * 若当前 backend 未实现 putObjectStream，调用方应回退到 uploadBuffer。
+   */
+  async uploadStream(
+    body: Readable,
+    size: number,
+    prefix: string,
+    filename: string,
+    contentType: string,
+  ): Promise<UploadResult> {
+    if (!this.backend.isAvailable()) {
+      return { success: false, error: "Object Storage not configured" };
+    }
+    if (typeof this.backend.putObjectStream !== "function") {
+      return {
+        success: false,
+        error: "Active storage backend does not support stream upload",
+      };
+    }
+    try {
+      const hash = crypto.randomBytes(4).toString("hex");
+      const ext = filename.split(".").pop() || "bin";
+      const key = `${prefix}/${Date.now()}-${hash}.${ext}`;
+      await this.backend.putObjectStream(key, body, {
+        contentLength: size,
+        contentType,
+        metadata: {
+          "uploaded-at": new Date().toISOString(),
+          "original-size": size.toString(),
+          "original-filename": filename,
+        },
+      });
+      const url = await this.backend.getSignedUrl(key, this.PRESIGN_EXPIRES);
+      this.logger.log(
+        `Streamed file: ${key} (${Math.round(size / 1024)}KB) - URL valid for 7 days`,
+      );
+      return { success: true, url, key };
+    } catch (error) {
+      this.logger.error("Failed to stream upload:", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Upload failed",

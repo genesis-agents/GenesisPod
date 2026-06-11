@@ -1,6 +1,9 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
+import { Readable } from "stream";
+import * as fs from "fs";
+import * as fsPromises from "fs/promises";
 import { FeedbackService } from "../feedback.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import {
@@ -52,7 +55,18 @@ describe("FeedbackService", () => {
         success: true,
         url: "https://cdn.example.com/file.png",
       }),
+      uploadStream: jest.fn().mockResolvedValue({
+        success: true,
+        url: "https://cdn.example.com/file.png",
+      }),
     };
+
+    // 去内存化：service 用 fs.createReadStream(file.path) 流式上传 + fs/promises.unlink 清理临时文件。
+    // mock 掉真实 fs，避免单测触碰磁盘；createReadStream 返回一个可读流占位。
+    jest
+      .spyOn(fs, "createReadStream")
+      .mockImplementation(() => Readable.from(["x"]) as fs.ReadStream);
+    jest.spyOn(fsPromises, "unlink").mockResolvedValue(undefined);
 
     mockEventEmitter = {
       emit: jest.fn(),
@@ -129,9 +143,9 @@ describe("FeedbackService", () => {
       );
     });
 
-    it("uploads attachments to R2 storage", async () => {
+    it("uploads attachments to R2 via stream (no in-memory buffer)", async () => {
       const file = {
-        buffer: Buffer.from("file-content"),
+        path: "/tmp/feedback-abc.png",
         originalname: "screenshot.png",
         mimetype: "image/png",
         size: 1024,
@@ -139,12 +153,67 @@ describe("FeedbackService", () => {
 
       await service.createFeedback(dto, "user-1", [file]);
 
-      expect(mockR2Storage.uploadBuffer).toHaveBeenCalledWith(
-        file.buffer,
+      // 去内存化：走 uploadStream（Readable + size），不再 uploadBuffer(file.buffer)
+      expect(mockR2Storage.uploadStream).toHaveBeenCalledWith(
+        expect.any(Readable),
+        1024,
         expect.stringContaining("feedback/"),
         "screenshot.png",
         "image/png",
       );
+      expect(mockR2Storage.uploadBuffer).not.toHaveBeenCalled();
+      // 临时文件读流来自 file.path（不是 buffer）
+      expect(fs.createReadStream).toHaveBeenCalledWith("/tmp/feedback-abc.png");
+    });
+
+    it("unlinks the temp file after a successful upload (no disk leak)", async () => {
+      const file = {
+        path: "/tmp/feedback-ok.png",
+        originalname: "ok.png",
+        mimetype: "image/png",
+        size: 1024,
+      } as Express.Multer.File;
+
+      await service.createFeedback(dto, "user-1", [file]);
+
+      expect(fsPromises.unlink).toHaveBeenCalledWith("/tmp/feedback-ok.png");
+    });
+
+    it("unlinks the temp file even when upload fails (no disk leak)", async () => {
+      (mockR2Storage.uploadStream as jest.Mock).mockResolvedValue({
+        success: false,
+        error: "Upload failed",
+      });
+      const file = {
+        path: "/tmp/feedback-fail.png",
+        originalname: "fail.png",
+        mimetype: "image/png",
+        size: 1024,
+      } as Express.Multer.File;
+
+      const result = await service.createFeedback(dto, "user-1", [file]);
+
+      expect(fsPromises.unlink).toHaveBeenCalledWith("/tmp/feedback-fail.png");
+      expect(result.success).toBe(true);
+      expect(result.attachmentsCount).toBe(0);
+    });
+
+    it("unlinks the temp file even when uploadStream throws (no disk leak)", async () => {
+      (mockR2Storage.uploadStream as jest.Mock).mockRejectedValue(
+        new Error("network down"),
+      );
+      const file = {
+        path: "/tmp/feedback-throw.png",
+        originalname: "throw.png",
+        mimetype: "image/png",
+        size: 2048,
+      } as Express.Multer.File;
+
+      const result = await service.createFeedback(dto, "user-1", [file]);
+
+      expect(fsPromises.unlink).toHaveBeenCalledWith("/tmp/feedback-throw.png");
+      expect(result.success).toBe(true);
+      expect(result.attachmentsCount).toBe(0);
     });
 
     it("continues without email when email notification fails", async () => {
@@ -169,7 +238,7 @@ describe("FeedbackService", () => {
 
     it("returns attachmentsCount in result", async () => {
       const file = {
-        buffer: Buffer.from("content"),
+        path: "/tmp/feedback-img.png",
         originalname: "img.png",
         mimetype: "image/png",
         size: 512,
@@ -181,13 +250,13 @@ describe("FeedbackService", () => {
     });
 
     it("skips failed attachments gracefully", async () => {
-      (mockR2Storage.uploadBuffer as jest.Mock).mockResolvedValue({
+      (mockR2Storage.uploadStream as jest.Mock).mockResolvedValue({
         success: false,
         error: "Upload failed",
       });
 
       const file = {
-        buffer: Buffer.from("content"),
+        path: "/tmp/feedback-img2.png",
         originalname: "img.png",
         mimetype: "image/png",
         size: 512,

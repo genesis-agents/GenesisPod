@@ -22,6 +22,15 @@ export interface PutObjectOptions {
   readonly metadata?: ObjectMetadata;
 }
 
+/**
+ * 流式写入的额外约束：S3/R2 的 PutObjectCommand 接受 Readable body，
+ * 但非 Buffer/string body 必须显式传 ContentLength（SDK 无法预知流长度）。
+ * contentLength 必须等于流的真实字节数，否则上传被服务端截断/报错。
+ */
+export interface PutObjectStreamOptions extends PutObjectOptions {
+  readonly contentLength: number;
+}
+
 export interface IObjectStorageBackend {
   /** Backend 唯一标识（"r2" / "s3" / "gcs" / "local-fs" 等） */
   readonly id: string;
@@ -37,6 +46,18 @@ export interface IObjectStorageBackend {
     key: string,
     body: Buffer,
     options?: PutObjectOptions,
+  ): Promise<void>;
+
+  /**
+   * 流式写入对象（覆盖语义）——body 为 Readable 流，全程不在进程内驻留完整 Buffer，
+   * 适合大文件 / 高并发上传（内存最优）。必须在 options.contentLength 传流的真实字节数。
+   * 不支持流式上传的 backend（如 local-fs 可走 fs.copy）可不实现此可选方法；
+   * 调用方需在缺失时回退到 putObject(Buffer)。
+   */
+  putObjectStream?(
+    key: string,
+    body: import("stream").Readable,
+    options: PutObjectStreamOptions,
   ): Promise<void>;
 
   /** 读取对象。不存在返回 null */

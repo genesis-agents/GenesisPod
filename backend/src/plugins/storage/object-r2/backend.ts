@@ -17,9 +17,11 @@ import {
   ListObjectsV2Command,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import type { Readable } from "stream";
 import type {
   IObjectStorageBackend,
   PutObjectOptions,
+  PutObjectStreamOptions,
 } from "@/plugins/core/abstractions";
 
 @Injectable()
@@ -82,6 +84,28 @@ export class R2ObjectStorageBackend implements IObjectStorageBackend {
         Body: body,
         ContentType: options?.contentType,
         Metadata: options?.metadata as Record<string, string> | undefined,
+      }),
+    );
+  }
+
+  /**
+   * 流式写入：PutObjectCommand.Body 接受 Readable，配合 ContentLength 即可不缓冲整流。
+   * R2/S3 在 body 非 Buffer/string 时要求显式 ContentLength，否则无法计算签名/分片。
+   */
+  async putObjectStream(
+    key: string,
+    body: Readable,
+    options: PutObjectStreamOptions,
+  ): Promise<void> {
+    if (!this.s3Client) throw new Error("R2 backend not configured");
+    await this.s3Client.send(
+      new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+        Body: body,
+        ContentLength: options.contentLength,
+        ContentType: options.contentType,
+        Metadata: options.metadata as Record<string, string> | undefined,
       }),
     );
   }

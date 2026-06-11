@@ -22,6 +22,7 @@ import {
 import { GlobalAIBarProvider } from '@/components/ai-bar';
 import { ByokOnboardingGuard } from '@/components/common/byok/ByokOnboardingGuard';
 import { GlobalByokErrorModal } from '@/components/common/byok/GlobalByokErrorModal';
+import FeedbackWidget from '@/components/feedback/FeedbackWidget';
 
 /**
  * Create QueryClient with global error handling
@@ -88,6 +89,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
             <CheckinModal />
             <InsufficientCreditsModal />
             <GlobalByokErrorModal />
+            {/* 全局一键反馈：任意页面浮动按钮 → html2canvas 截当前页 → 提交。
+                client-only（isHydrated）避免 SSR mismatch；I18nProvider 内可用 i18n。 */}
+            <FeedbackWidget />
           </>
         )}
       </I18nProvider>

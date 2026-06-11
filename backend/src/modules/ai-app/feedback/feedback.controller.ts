@@ -14,12 +14,64 @@ import {
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { FilesInterceptor } from "@nestjs/platform-express";
+import type { MulterOptions } from "@nestjs/platform-express/multer/interfaces/multer-options.interface";
+import { diskStorage } from "multer";
+import { tmpdir } from "os";
+import { randomUUID } from "crypto";
 import { FeedbackService } from "./feedback.service";
 import { CreateFeedbackDto } from "./dto/create-feedback.dto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
 import { OptionalJwtAuthGuard } from "../../../common/guards/optional-jwt-auth.guard";
 import { EmailService } from "../../platform/facade";
+
+export const FEEDBACK_MAX_FILES = 5;
+
+/**
+ * 反馈附件上传的 multer 配置（去内存化）。
+ *
+ * 关键：用 diskStorage 把上传文件落到 os.tmpdir() 临时文件，**不再用 multer
+ * 默认 memoryStorage**——默认下每个文件整个 Buffer 进内存，5×10MB 并发叠加会内存爆。
+ * service 层用 fs.createReadStream(file.path) 流式上传到 R2，上传后删临时文件。
+ *
+ * 导出为常量以便单测直接断言（diskStorage 实例带 getDestination/getFilename，
+ * memoryStorage 没有），无需在路由元数据里反射 multer 闭包。
+ */
+export const FEEDBACK_UPLOAD_MULTER_OPTIONS: MulterOptions = {
+  storage: diskStorage({
+    destination: tmpdir(),
+    filename: (_req, file, callback) => {
+      // 随机文件名防碰撞；保留原扩展名（仅取最后一段，去掉路径分隔符）
+      const ext = (file.originalname.split(".").pop() || "bin").replace(
+        /[^a-zA-Z0-9]/g,
+        "",
+      );
+      callback(null, `feedback-${randomUUID()}.${ext}`);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max per file
+  fileFilter: (_req, file, callback) => {
+    // Allow images, PDFs, and common document types
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+      "application/pdf",
+      "text/plain",
+      "application/json",
+      "text/html",
+      "text/css",
+      "text/javascript",
+      "application/javascript",
+    ];
+    if (allowedTypes.includes(file.mimetype)) {
+      callback(null, true);
+    } else {
+      callback(null, false); // Silently reject unsupported types
+    }
+  },
+};
 
 // Type definitions for feedback enums
 type FeedbackStatusEnum =
@@ -53,30 +105,11 @@ export class FeedbackController {
   @Post()
   @UseGuards(OptionalJwtAuthGuard)
   @UseInterceptors(
-    FilesInterceptor("files", 5, {
-      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max per file
-      fileFilter: (_req, file, callback) => {
-        // Allow images, PDFs, and common document types
-        const allowedTypes = [
-          "image/jpeg",
-          "image/png",
-          "image/gif",
-          "image/webp",
-          "application/pdf",
-          "text/plain",
-          "application/json",
-          "text/html",
-          "text/css",
-          "text/javascript",
-          "application/javascript",
-        ];
-        if (allowedTypes.includes(file.mimetype)) {
-          callback(null, true);
-        } else {
-          callback(null, false); // Silently reject unsupported types
-        }
-      },
-    }),
+    FilesInterceptor(
+      "files",
+      FEEDBACK_MAX_FILES,
+      FEEDBACK_UPLOAD_MULTER_OPTIONS,
+    ),
   )
   async submitFeedback(
     @Body() dto: CreateFeedbackDto,

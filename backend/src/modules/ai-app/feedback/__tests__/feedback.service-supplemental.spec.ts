@@ -21,6 +21,7 @@ jest.mock("../../../platform/facade", () => ({
   },
   ObjectStorageService: class ObjectStorageService {
     uploadBuffer = jest.fn();
+    uploadStream = jest.fn();
   },
   AuthService: class AuthService {},
   CreditsService: class CreditsService {},
@@ -80,7 +81,7 @@ describe("FeedbackService (supplemental)", () => {
     sendFeedbackNotification: jest.Mock;
   };
   let mockStatusPreset: { notify: jest.Mock };
-  let mockR2Storage: { uploadBuffer: jest.Mock };
+  let mockR2Storage: { uploadBuffer: jest.Mock; uploadStream: jest.Mock };
   let mockEventEmitter: { emit: jest.Mock };
 
   const makeFeedback = (overrides: Record<string, unknown> = {}) => ({
@@ -114,6 +115,10 @@ describe("FeedbackService (supplemental)", () => {
 
     mockR2Storage = {
       uploadBuffer: jest.fn().mockResolvedValue({
+        success: true,
+        url: "https://cdn.example.com/file.png",
+      }),
+      uploadStream: jest.fn().mockResolvedValue({
         success: true,
         url: "https://cdn.example.com/file.png",
       }),
@@ -161,6 +166,10 @@ describe("FeedbackService (supplemental)", () => {
     mockEmailService.sendFeedbackNotification.mockResolvedValue(true);
     mockStatusPreset.notify.mockResolvedValue(undefined);
     mockR2Storage.uploadBuffer.mockResolvedValue({
+      success: true,
+      url: "https://cdn.example.com/file.png",
+    });
+    mockR2Storage.uploadStream.mockResolvedValue({
       success: true,
       url: "https://cdn.example.com/file.png",
     });

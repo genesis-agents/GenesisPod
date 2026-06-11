@@ -1,7 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Prisma } from "@prisma/client";
+import { createReadStream } from "fs";
+import { unlink } from "fs/promises";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+import { mapWithConcurrencySettled } from "../../../common/utils/concurrency.utils";
 import { CreateFeedbackDto, FeedbackTypeDto } from "./dto/create-feedback.dto";
 import {
   EmailNotificationPresetsService,
@@ -62,46 +65,87 @@ export class FeedbackService {
     return mapping[type];
   }
 
+  // 单请求内多文件上传的并发上限。diskStorage 下每个文件用 fs.createReadStream
+  // 流式上传（不进 Buffer），但仍限并发以削平 5 文件同时读流的峰值。
+  private static readonly ATTACHMENT_UPLOAD_CONCURRENCY = 2;
+
   /**
-   * Upload attachments to R2 storage
+   * Upload attachments to R2 storage（去内存化）。
+   *
+   * 文件已由 multer diskStorage 落在 file.path 临时文件，这里用 fs.createReadStream
+   * 流式上传到 R2（uploadStream），全程不在进程内驻留完整 Buffer。
+   * 无论成功/失败，finally 中 fs.unlink 删临时文件，防磁盘泄漏。
+   * 单文件失败仅记日志、跳过，不影响其他文件与整体请求。
    */
   private async uploadAttachments(
     files: Express.Multer.File[],
     feedbackId: string,
   ): Promise<StoredAttachment[]> {
+    const results = await mapWithConcurrencySettled(
+      files,
+      (file) => this.uploadSingleAttachment(file, feedbackId),
+      FeedbackService.ATTACHMENT_UPLOAD_CONCURRENCY,
+    );
+
     const attachments: StoredAttachment[] = [];
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value) {
+        attachments.push(r.value);
+      }
+    }
+    return attachments;
+  }
 
-    for (const file of files) {
+  /**
+   * 上传单个临时文件到 R2 并清理临时文件。成功返回 StoredAttachment，失败返回 null。
+   */
+  private async uploadSingleAttachment(
+    file: Express.Multer.File,
+    feedbackId: string,
+  ): Promise<StoredAttachment | null> {
+    try {
+      const stream = createReadStream(file.path);
+      const result = await this.r2Storage.uploadStream(
+        stream,
+        file.size,
+        `feedback/${feedbackId}`,
+        file.originalname,
+        file.mimetype,
+      );
+
+      if (result.success && result.url) {
+        this.logger.log(`Uploaded attachment: ${file.originalname}`);
+        return {
+          filename: file.originalname,
+          url: result.url,
+          mimeType: file.mimetype,
+          size: file.size,
+        };
+      }
+      this.logger.warn(
+        `Failed to upload attachment: ${file.originalname} - ${result.error}`,
+      );
+      return null;
+    } catch (error) {
+      this.logger.error(
+        `Failed to upload attachment: ${file.originalname}`,
+        error,
+      );
+      return null;
+    } finally {
+      // best-effort 清理临时文件（成功/失败都删），防磁盘泄漏。
       try {
-        const result = await this.r2Storage.uploadBuffer(
-          file.buffer,
-          `feedback/${feedbackId}`,
-          file.originalname,
-          file.mimetype,
-        );
-
-        if (result.success && result.url) {
-          attachments.push({
-            filename: file.originalname,
-            url: result.url,
-            mimeType: file.mimetype,
-            size: file.size,
-          });
-          this.logger.log(`Uploaded attachment: ${file.originalname}`);
-        } else {
-          this.logger.warn(
-            `Failed to upload attachment: ${file.originalname} - ${result.error}`,
-          );
-        }
-      } catch (error) {
-        this.logger.error(
-          `Failed to upload attachment: ${file.originalname}`,
-          error,
+        await unlink(file.path);
+      } catch (cleanupError) {
+        this.logger.warn(
+          `Failed to remove temp file ${file.path}: ${
+            cleanupError instanceof Error
+              ? cleanupError.message
+              : String(cleanupError)
+          }`,
         );
       }
     }
-
-    return attachments;
   }
 
   /**
@@ -155,11 +199,10 @@ export class FeedbackService {
 
     // Send email notification to admin
     try {
-      const emailAttachments = files?.map((f) => ({
-        filename: f.originalname,
-        content: f.buffer,
-      }));
-
+      // 去内存化：diskStorage 下 file.buffer 已不存在，且临时文件在 uploadAttachments
+      // 后已被 unlink。文件本身已持久化到 R2（attachments[].url）并随 feedback 记录/事件
+      // 保留，故 admin 邮件不再内联附件内容——避免为了发邮件再把文件读回内存（违背去内存化）。
+      // 邮件正文不再显示附件数；如需附件预览，admin 可通过 feedback 记录的 R2 url 访问。
       await this.emailNotificationPresetsService.sendFeedbackNotification({
         id: createdId,
         type: feedbackType,
@@ -168,7 +211,6 @@ export class FeedbackService {
         userEmail: dto.userEmail,
         pageUrl: dto.url,
         userAgent: dto.userAgent,
-        attachments: emailAttachments,
       });
     } catch (error) {
       // Log error but don't fail the request

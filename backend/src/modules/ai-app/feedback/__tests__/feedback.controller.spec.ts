@@ -1,6 +1,10 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { FeedbackController } from "../feedback.controller";
+import {
+  FeedbackController,
+  FEEDBACK_MAX_FILES,
+  FEEDBACK_UPLOAD_MULTER_OPTIONS,
+} from "../feedback.controller";
 import { FeedbackService } from "../feedback.service";
 import { EmailService } from "../../../platform/facade";
 import { CreateFeedbackDto, FeedbackTypeDto } from "../dto/create-feedback.dto";
@@ -126,6 +130,50 @@ describe("FeedbackController", () => {
         "u-1",
         undefined,
       );
+    });
+  });
+
+  // ---------- upload multer config (de-memoization) ----------
+
+  describe("FEEDBACK_UPLOAD_MULTER_OPTIONS", () => {
+    it("uses multer diskStorage, NOT the default memoryStorage", () => {
+      const storage = FEEDBACK_UPLOAD_MULTER_OPTIONS.storage as unknown as {
+        getDestination?: unknown;
+        getFilename?: unknown;
+      };
+      // diskStorage 实例带 getDestination/getFilename 函数；memoryStorage 没有。
+      // 这保证上传文件落磁盘临时文件，而不是整个 Buffer 进内存（避免内存爆）。
+      expect(storage).toBeDefined();
+      expect(typeof storage.getDestination).toBe("function");
+      expect(typeof storage.getFilename).toBe("function");
+    });
+
+    it("keeps the 5-file count limit and 10MB per-file size limit", () => {
+      expect(FEEDBACK_MAX_FILES).toBe(5);
+      expect(FEEDBACK_UPLOAD_MULTER_OPTIONS.limits?.fileSize).toBe(
+        10 * 1024 * 1024,
+      );
+    });
+
+    it("keeps a fileFilter that rejects unsupported mime types", () => {
+      const filter = FEEDBACK_UPLOAD_MULTER_OPTIONS.fileFilter;
+      expect(typeof filter).toBe("function");
+
+      const accept = jest.fn();
+      filter!(
+        {} as never,
+        { mimetype: "image/png" } as Express.Multer.File,
+        accept,
+      );
+      expect(accept).toHaveBeenCalledWith(null, true);
+
+      const reject = jest.fn();
+      filter!(
+        {} as never,
+        { mimetype: "application/x-msdownload" } as Express.Multer.File,
+        reject,
+      );
+      expect(reject).toHaveBeenCalledWith(null, false);
     });
   });
 
