@@ -15,6 +15,7 @@ import { useTranslation } from '@/lib/i18n';
 import {
   listMissions,
   deleteMission,
+  cleanupMissions,
   updateMission,
   setVisibility,
   type MissionListItem,
@@ -58,6 +59,22 @@ export default function PlaygroundIndexPage() {
     }
   };
 
+  const handleCleanup = async () => {
+    const ok = await confirm({
+      title: '清理所有失败 / 已取消的 Mission？',
+      description:
+        '将删除「失败 / 质量未达标 / 已取消」状态的任务，保留运行中和已完成的。此操作不可恢复。',
+      type: 'danger',
+    });
+    if (!ok) return;
+    try {
+      const { deleted } = await cleanupMissions();
+      toast.success('清理完成', `已删除 ${deleted} 个已结束任务`);
+    } catch (e) {
+      toast.error('清理失败', e instanceof Error ? e.message : String(e));
+    }
+  };
+
   const handleVisibilityChange = async (
     mission: MissionListItem,
     next: 'PRIVATE' | 'SHARED' | 'PUBLIC'
@@ -78,6 +95,7 @@ export default function PlaygroundIndexPage() {
         iconGradient="from-violet-500 to-purple-600"
         createButtonLabel="新建 Mission"
         onCreateMission={() => setCreateOpen(true)}
+        onCleanup={handleCleanup}
         fetchMissions={listMissions}
         onMissionClick={(m) => router.push(`/agent-playground/team/${m.id}`)}
         onEdit={handleEdit}

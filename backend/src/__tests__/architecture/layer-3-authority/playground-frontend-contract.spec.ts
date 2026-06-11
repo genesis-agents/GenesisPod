@@ -173,6 +173,8 @@ const ENDPOINT_BASELINE: ReadonlyArray<EndpointSpec> = [
   ["POST", "missions/:id/rerun"],
   ["POST", "missions/:id/todos/:todoId/local-rerun"],
   ["POST", "missions/:id/todos/:todoId/rerun"],
+  // ★ 2026-06-11：一键清理已结束 mission（failed/quality-failed/cancelled 批删）。
+  ["POST", "missions/cleanup"],
   ["POST", "team/run"],
 ];
 

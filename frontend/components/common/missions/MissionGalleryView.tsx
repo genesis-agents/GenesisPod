@@ -25,6 +25,7 @@ import {
   Plus,
   Search,
   Sparkles,
+  Trash2,
   Trophy,
   Users,
   XCircle,
@@ -254,6 +255,14 @@ export interface MissionGalleryViewProps {
   createButtonLabel?: string;
   /** 点 "新建 Mission" 触发 */
   onCreateMission: () => void;
+  /**
+   * 可选「一键清理已结束」：传入则在 header 显示清理按钮（opt-in，不传不显示，
+   * 故 Topic Insights / Custom Agents 等其它消费方默认不受影响）。
+   * 由调用方负责确认弹层 + 结果 toast；组件只负责调用后刷新列表。
+   */
+  onCleanup?: () => Promise<void> | void;
+  /** 清理按钮文案（默认"清理已结束"） */
+  cleanupButtonLabel?: string;
   /** 数据源：返回 mission 列表 */
   fetchMissions: () => Promise<MissionListItem[]>;
   /** mission 卡片点击：跳详情 */
@@ -289,6 +298,8 @@ export function MissionGalleryView({
   iconShadowClass,
   createButtonLabel = '新建 Mission',
   onCreateMission,
+  onCleanup,
+  cleanupButtonLabel = '清理已结束',
   fetchMissions,
   onMissionClick,
   onEdit,
@@ -365,6 +376,12 @@ export function MissionGalleryView({
 
   const handleEdit = wrapAction(onEdit);
   const handleDelete = wrapAction(onDelete);
+  const handleCleanup = onCleanup
+    ? async () => {
+        await onCleanup();
+        triggerReload();
+      }
+    : undefined;
   const handleVisibilityChange = onVisibilityChange
     ? async (m: MissionListItem, next: AssetVisibility) => {
         await onVisibilityChange(m, next);
@@ -389,6 +406,12 @@ export function MissionGalleryView({
               className="rounded-xl py-3 pl-12"
             />
           </div>
+          {!showSignInPrompt && handleCleanup && (
+            <Button variant="outline" onClick={() => void handleCleanup()}>
+              <Trash2 className="mr-2 h-5 w-5" />
+              {cleanupButtonLabel}
+            </Button>
+          )}
           {!showSignInPrompt && (
             <Button onClick={onCreateMission}>
               <Plus className="mr-2 h-5 w-5" />
@@ -407,10 +430,21 @@ export function MissionGalleryView({
             iconShadowClass={iconShadowClass}
             actions={
               showSignInPrompt ? null : (
-                <Button onClick={onCreateMission}>
-                  <Plus className="mr-2 h-5 w-5" />
-                  {createButtonLabel}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {handleCleanup && (
+                    <Button
+                      variant="outline"
+                      onClick={() => void handleCleanup()}
+                    >
+                      <Trash2 className="mr-2 h-5 w-5" />
+                      {cleanupButtonLabel}
+                    </Button>
+                  )}
+                  <Button onClick={onCreateMission}>
+                    <Plus className="mr-2 h-5 w-5" />
+                    {createButtonLabel}
+                  </Button>
+                </div>
               )
             }
           >

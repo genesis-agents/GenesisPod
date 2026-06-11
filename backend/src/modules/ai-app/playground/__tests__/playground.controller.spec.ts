@@ -58,6 +58,7 @@ function makeStore() {
     // ★ C0/G1：applyTerminalIfRunning 替代 markCancelled（条件写，首写赢，返回 boolean）
     applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
     deleteByUser: jest.fn().mockResolvedValue(undefined),
+    deleteTerminalByUser: jest.fn().mockResolvedValue(3),
     updateTopicByUser: jest.fn().mockResolvedValue(undefined),
     create: jest.fn().mockResolvedValue(undefined),
     // ★ P0 并发限制 (2026-05-06): 默认返回 0（未超限）
@@ -257,6 +258,7 @@ function buildController() {
     runTeam: mainCtrl.runTeam.bind(mainCtrl),
     cancelMission: mainCtrl.cancelMission.bind(mainCtrl),
     deleteMission: mainCtrl.deleteMission.bind(mainCtrl),
+    cleanupMissions: mainCtrl.cleanupMissions.bind(mainCtrl),
     updateMission: mainCtrl.updateMission.bind(mainCtrl),
     devTriggerMission: mainCtrl.devTriggerMission.bind(mainCtrl),
   };
@@ -1041,6 +1043,22 @@ describe("AgentPlaygroundController", () => {
         controller.deleteMission("m-1", makeReq("user-1")),
       ).rejects.toThrow(/running/);
       expect(store.deleteByUser).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("cleanupMissions", () => {
+    it("throws ForbiddenException when no userId", async () => {
+      const { controller } = buildController();
+      await expect(
+        controller.cleanupMissions(makeReq(undefined)),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("bulk-deletes terminal missions and returns deleted count", async () => {
+      const { controller, store } = buildController();
+      const result = await controller.cleanupMissions(makeReq("user-1"));
+      expect(store.deleteTerminalByUser).toHaveBeenCalledWith("user-1");
+      expect(result).toEqual({ ok: true, deleted: 3 });
     });
   });
 

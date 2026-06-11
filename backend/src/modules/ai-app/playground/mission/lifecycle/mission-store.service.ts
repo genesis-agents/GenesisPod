@@ -525,6 +525,30 @@ export class MissionStore
       });
   }
 
+  /**
+   * 批量删除当前用户"已结束失败类" mission（failed / quality-failed / cancelled）。
+   *
+   * ★ 2026-06-11 一键清理：列表头「清理已结束」用。状态白名单**服务端硬编码**——
+   *   绝不含 running（删 running 会让 background worker 撞 FK，见 deleteMission）、
+   *   也不含 completed（保留报告）。返回删除条数供前端提示。
+   */
+  async deleteTerminalByUser(userId: string): Promise<number> {
+    const res = await this.prisma.agentPlaygroundMission
+      .deleteMany({
+        where: {
+          userId,
+          status: { in: ["failed", "quality-failed", "cancelled"] },
+        },
+      })
+      .catch((err: unknown) => {
+        this.storeLog.warn(
+          `[deleteTerminalByUser ${userId}] failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        return { count: 0 };
+      });
+    return res.count;
+  }
+
   async appendDimensions(
     missionId: string,
     items: { name: string; rationale: string }[],

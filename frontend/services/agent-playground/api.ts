@@ -663,6 +663,23 @@ export async function deleteMission(missionId: string): Promise<{ ok: true }> {
   return unwrapStandard<{ ok: true }>(raw);
 }
 
+/**
+ * 一键清理当前用户"已结束失败类" mission（failed / quality-failed / cancelled）。
+ * 状态白名单由服务端硬编码（不删 running / completed）。返回删除条数。
+ */
+export async function cleanupMissions(): Promise<{ deleted: number }> {
+  const res = await fetch(`${API_BASE}/missions/cleanup`, {
+    method: 'POST',
+    headers: { ...getAuthHeader() },
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Cleanup failed: ${res.status} ${text.slice(0, 200)}`);
+  }
+  const raw: unknown = await res.json();
+  return unwrapStandard<{ deleted: number }>(raw);
+}
+
 export async function updateMission(
   missionId: string,
   // 2026-05-13: 扩展支持预算字段（非运行状态可改，下次重跑生效）

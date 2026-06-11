@@ -396,6 +396,34 @@ export class AgentPlaygroundController extends BaseMissionController {
   }
 
   /**
+   * POST /api/v1/playground/missions/cleanup
+   * 一键清理当前用户"已结束失败类" mission（failed / quality-failed / cancelled）。
+   *
+   * 状态白名单服务端硬编码：不删 running（FK 安全）、不删 completed（保留报告）。
+   * 客户端不传状态、无法越权删除运行中/已完成。返回删除条数。
+   */
+  @Post("missions/cleanup")
+  async cleanupMissions(
+    @Request() req: RequestWithUser,
+  ): Promise<{ ok: true; deleted: number }> {
+    const userId = req.user?.id;
+    if (!userId) throw new ForbiddenException("Authentication required");
+    const deleted = await this.store.deleteTerminalByUser(userId);
+    await this.auditLog.record({
+      actorUserId: userId,
+      action: "mission.cleanup",
+      resourceType: "agent_playground_mission",
+      resourceId: userId,
+      result: "success",
+      metadata: {
+        deleted,
+        statuses: ["failed", "quality-failed", "cancelled"],
+      },
+    });
+    return { ok: true, deleted };
+  }
+
+  /**
    * PATCH /api/v1/playground/missions/:id
    *
    * 修改 mission 配置：topic（任意状态可改）+ 预算字段（仅非运行状态可改）。
