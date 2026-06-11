@@ -333,6 +333,11 @@ export class FigureRelevanceService {
         taskProfile: { creativity: "deterministic", outputLength: "short" },
         throwOnParseError: false,
         maxRetries: 1,
+        // ★ 2026-06-11 护栏误杀修复：caption 是网页抓取的研究语料（如 HBM/先进封装
+        //   技术图说），易被 llm-moderation 误判 harmful/injection 而整批拦掉（实测
+        //   35 张图→0 张）。trustedInternal=true：正则护栏+PII 照跑，但可疑结果不升级
+        //   LLM 审核、不 block。内部 agent-to-agent 调用，非用户输入攻击面。
+        trustedInternal: true,
       });
 
       // ★ 2026-05-13: LLM 幻觉可能返回越界 index（如 candidates 仅 3 项但
