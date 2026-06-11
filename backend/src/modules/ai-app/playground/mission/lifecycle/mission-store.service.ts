@@ -654,6 +654,17 @@ export class MissionStore
       .filter((r): r is MissionListItem => !!r);
   }
 
+  /**
+   * 轻量存在性 + status 查询（同-id 续跑/重跑用）。createMissionRow 据此判断
+   * 该"新建行"还是"原地 markReopened 续跑"——避免重跑/重启续跑撞 P2002 而被迫新建 id。
+   */
+  async getStatusById(id: string): Promise<{ status: string } | null> {
+    return this.prisma.agentPlaygroundMission.findUnique({
+      where: { id },
+      select: { status: true },
+    });
+  }
+
   async getById(id: string, userId: string): Promise<MissionDetail | null> {
     const row = await this.prisma.agentPlaygroundMission.findFirst({
       where: { id, userId },

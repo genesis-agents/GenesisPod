@@ -86,6 +86,17 @@ export class MissionRuntimeShellService {
         input,
         effectiveMaxCredits,
       }) => {
+        // ★ 2026-06-11 同-id 续跑/重跑（78/79 诉求）：行已存在 = 重跑或后端重启续跑，
+        //   不新建行（否则撞 P2002 → 旧逻辑被迫新建 missionId="新任务"）。
+        //   - 终态行（failed/quality-failed/cancelled）→ markReopened：状态翻回 running +
+        //     bump runCount（"增加一个版本"）+ 清终态字段。
+        //   - running 孤儿（重启续跑）→ markReopened 白名单不含 running → no-op，直接复用现有行。
+        //   两种情况 runMission 随后都从 checkpoint 原地续跑（R2-#37 已实现）。
+        const existing = await store.getStatusById(missionId).catch(() => null);
+        if (existing) {
+          await store.markReopened(missionId, userId).catch(() => undefined);
+          return;
+        }
         await store.create({
           id: missionId,
           userId,

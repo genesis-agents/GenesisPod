@@ -293,26 +293,25 @@ export class PlaygroundPipelineDispatcher
           `(heartbeat > ${Math.round(orphanThresholdMs / 60000)}min stale), ` +
           `claimed=${claimedWinners.length} (this pod)`,
       );
-      // 对**本 pod 认领赢家**逐个发失败事件 + 视情况续跑。
+      // ★ 2026-06-11 (78 诉求"应该是继续任务")：后端重启后，**可恢复**的孤儿原地
+      //   续跑（同 missionId + bump 版本，markReopened 发 mission:reopened），**不再
+      //   先弹"失败"红条**。仅真正不可恢复（无 checkpoint）时才 emit mission:failed
+      //   让用户手动重跑。
       for (const o of claimedWinners) {
+        const resumed = await this.maybeResumeOrphan(o.id, o.userId);
+        if (resumed) continue;
         await this.emitToBus({
           type: "playground.mission:failed",
           missionId: o.id,
           userId: o.userId,
           payload: {
             message:
-              "Mission 在执行中遇到后端重启或异常退出（dispatcher 内存丢失）。" +
-              "已自动标记为失败，建议使用顶部「重新运行」按钮重启相同主题。",
+              "Mission 在执行中遇到后端重启或异常退出，且无可恢复的进度快照。" +
+              "建议使用顶部「重新运行」按钮重启相同主题。",
             failureCode: "DISPATCHER_BOOT_ORPHAN_CLEANUP",
             source: "dispatcher-boot-orphan-cleanup",
           },
         });
-        // ★ P-DUR2 续跑：认领赢家且 canResume()=true → 经 rerun orchestrator 以
-        //   incremental（inheritFromMissionId + checkpoint clone）分配**新 missionId**
-        //   续跑，复用已落 checkpoint 的 trajectory，不从零重跑。rerun 分配新 id
-        //   规避 runMission 入口 createMission 对已存在 orphan row 的 P2002 冲突。
-        //   幂等：认领已保证同一 source 只有一个 pod 进此分支 → 只触发一次续跑。
-        await this.maybeResumeOrphan(o.id, o.userId);
       }
     } catch (err) {
       this.log.error(
@@ -332,7 +331,7 @@ export class PlaygroundPipelineDispatcher
   private async maybeResumeOrphan(
     missionId: string,
     userId: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const resumable = await this.missionCheckpoint
       .canResume(missionId)
       .then((d) => d.canResume)
@@ -343,25 +342,28 @@ export class PlaygroundPipelineDispatcher
           `resumable=${resumable} orchestrator=${this.rerunOrchestrator ? "present" : "absent"} ` +
           `action=user-manual-rerun`,
       );
-      return;
+      return false;
     }
     try {
-      const { missionId: newMissionId } =
-        await this.rerunOrchestrator.rerunFullMission(
-          missionId,
-          userId,
-          "incremental",
-        );
-      this.log.warn(
-        `orphan_resume_triggered sourceMissionId=${missionId} ` +
-          `newMissionId=${newMissionId} mode=incremental reason=boot-orphan-claimed-winner`,
+      // ★ 2026-06-11 同-id：rerunFullMission 现在原地续跑（返回的 missionId === 源 id），
+      //   不再分配新 id（createMissionRow 见已存在行走 markReopened 续命 + bump 版本）。
+      await this.rerunOrchestrator.rerunFullMission(
+        missionId,
+        userId,
+        "incremental",
       );
+      this.log.warn(
+        `orphan_resumed_in_place missionId=${missionId} ` +
+          `mode=incremental reason=boot-orphan-claimed-winner`,
+      );
+      return true;
     } catch (err) {
-      // legacy snapshot / guard 拒绝 / 配置缺失等 → 已 mark failed，用户可手动重跑。
+      // legacy snapshot / guard 拒绝 / 配置缺失等 → 返回 false，调用方 emit failed 让用户手动重跑。
       this.log.warn(
         `orphan_resume_failed missionId=${missionId} ` +
           `reason="${err instanceof Error ? err.message : String(err)}" action=user-manual-rerun`,
       );
+      return false;
     }
   }
 

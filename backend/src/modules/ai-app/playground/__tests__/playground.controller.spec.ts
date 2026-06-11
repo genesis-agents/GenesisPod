@@ -106,6 +106,8 @@ function buildController() {
   const prisma = makePrisma();
   const checkpoint = {
     cloneCheckpoint: jest.fn().mockResolvedValue(false),
+    // ★ 2026-06-11 同-id 重跑：fresh 模式清自己的 checkpoint（原地从头跑）。
+    clear: jest.fn().mockResolvedValue(undefined),
   };
   // ★ 2026-05-04 PR-10c: MissionExportService 拆出 controller 后 spec 用真实
   //   service 构造（依赖 store mock），保证 export 行为与抽出前一致。
@@ -265,6 +267,7 @@ function buildController() {
     buffer,
     ownership,
     store,
+    checkpoint,
     leaderChat,
     abortRegistry,
     prisma,
@@ -701,7 +704,8 @@ describe("AgentPlaygroundController", () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it("returns new missionId when mission found (default incremental)", async () => {
+    // ★ 2026-06-11 同-id 续跑/重跑：返回**源 missionId**（原地重跑，不再新建 id）。
+    it("returns the SAME missionId in-place (default incremental)", async () => {
       const { controller, ownership, store } = buildController();
       ownership.getOwner.mockReturnValue("user-1");
       store.getById.mockResolvedValue({
@@ -718,13 +722,13 @@ describe("AgentPlaygroundController", () => {
         undefined,
         makeReq("user-1"),
       );
-      expect(result.missionId).toBeDefined();
+      expect(result.missionId).toBe("m-1"); // 同-id，不新建
       expect(result.streamNamespace).toBe("playground");
     });
 
-    // ★ 2026-05-05 mode 参数 100% 分支覆盖
-    it("accepts mode='fresh' (no checkpoint clone)", async () => {
-      const { controller, ownership, store } = buildController();
+    // ★ 2026-06-11 fresh：同 id + 清自己的 checkpoint（从头重跑），不分配新 id。
+    it("mode='fresh' clears checkpoint, same id", async () => {
+      const { controller, ownership, store, checkpoint } = buildController();
       ownership.getOwner.mockReturnValue("user-1");
       store.getById.mockResolvedValue({
         configSnapshot: SNAP,
@@ -740,11 +744,13 @@ describe("AgentPlaygroundController", () => {
         "fresh",
         makeReq("user-1"),
       );
-      expect(result.missionId).toBeDefined();
+      expect(result.missionId).toBe("m-1");
+      expect(checkpoint.clear).toHaveBeenCalledWith("m-1");
     });
 
-    it("accepts mode='incremental' (clone checkpoint)", async () => {
-      const { controller, ownership, store } = buildController();
+    // ★ 2026-06-11 incremental：同 id + 保留 checkpoint（原地续跑），不清不新建。
+    it("mode='incremental' keeps checkpoint, same id", async () => {
+      const { controller, ownership, store, checkpoint } = buildController();
       ownership.getOwner.mockReturnValue("user-1");
       store.getById.mockResolvedValue({
         configSnapshot: SNAP,
@@ -760,7 +766,8 @@ describe("AgentPlaygroundController", () => {
         "incremental",
         makeReq("user-1"),
       );
-      expect(result.missionId).toBeDefined();
+      expect(result.missionId).toBe("m-1");
+      expect(checkpoint.clear).not.toHaveBeenCalled();
     });
 
     it("falls back to incremental when mode is invalid string", async () => {

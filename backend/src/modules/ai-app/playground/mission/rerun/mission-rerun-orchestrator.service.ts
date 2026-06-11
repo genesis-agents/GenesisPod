@@ -52,6 +52,9 @@ export class MissionRerunOrchestratorService extends BusinessTeamRerunOrchestrat
   RunMissionInput,
   RerunTodoBody
 > {
+  // ★ 2026-06-11 同-id 续跑/重跑：fresh 模式清 checkpoint 用（incremental 保留续跑）。
+  private readonly checkpointRef: MissionCheckpointService;
+
   constructor(
     // ★ P-DUR2 (2026-05-30): dispatcher 现在反向 inject 本 orchestrator（orphan boot
     //   续跑），形成模块内循环依赖 → forwardRef 解。
@@ -131,6 +134,7 @@ export class MissionRerunOrchestratorService extends BusinessTeamRerunOrchestrat
       },
     };
     super(hooks, "playground");
+    this.checkpointRef = checkpoint;
   }
 
   /**
@@ -180,16 +184,43 @@ export class MissionRerunOrchestratorService extends BusinessTeamRerunOrchestrat
     );
   }
 
-  /** 保留旧签名 rerunFullMission(sourceMissionId, userId, mode) (controller 直接调) */
+  /**
+   * 全 mission 重跑 —— ★ 2026-06-11 改为**同-id 原地续跑/重跑**（78/79 诉求：
+   * "在原来的任务上更新，无非增加一个版本"，不再 randomUUID 新建 missionId + clone
+   * checkpoint = 出现"新任务"）。
+   *   - incremental（默认）：保留 checkpoint → runMission 原地从上次完成的 stage 续跑（R2-#37）。
+   *   - fresh：清 checkpoint → 同 id 从头重跑。
+   * 两种都经 createMissionRow 的 reopen 分支：markReopened（终态→running + bump runCount
+   * = "增加一个版本" + 清终态字段）。missionId 不变，前端停在原任务、版本号自增。
+   */
   async rerunFullMission(
     sourceMissionId: string,
     userId: string,
     mode: "fresh" | "incremental" = "incremental",
   ): Promise<MissionRerunResult> {
-    return this["rerunFullMissionFrameworkCore"]({
+    const original = await this.assertSourceMissionRerunnable(
       sourceMissionId,
       userId,
-      mode,
-    });
+    );
+    // 同-id：不传 inheritFromMissionId（那是跨-mission 轨迹继承；同 id 直接读自己的
+    // checkpoint 续跑，传 self 会自继承语义混乱）。
+    const input = this.hooks.cloneInput(original, {});
+    if (mode === "fresh") {
+      // 同 id 从头：清自己的 checkpoint，runMission 不会命中 resume 分支。
+      await this.checkpointRef.clear(sourceMissionId).catch(() => undefined);
+    }
+    void this.hooks
+      .runMission(sourceMissionId, input, userId)
+      .catch((err: unknown) => {
+        this.log.error(
+          `mission ${sourceMissionId} (in-place rerun, mode=${mode}) failed: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      });
+    return {
+      missionId: sourceMissionId,
+      streamNamespace: this.hooks.streamNamespace,
+    };
   }
 }

@@ -187,6 +187,9 @@ export class MissionLifecycleHelper extends BusinessTeamLifecycleTransitionsFram
             },
             data: {
               status: "running",
+              // ★ 2026-06-11 同-id 续跑/重跑：bump 版本号（"无非增加一个版本"），
+              //   不新建 mission 行。前端可显示"第 N 次运行"。
+              runCount: { increment: 1 },
               errorMessage: null,
               completedAt: null,
               finalScore: null,

@@ -9959,6 +9959,10 @@ model AgentPlaygroundMission {
   status      String    @db.VarChar(20) // running / completed / failed / rejected
   startedAt   DateTime  @default(now()) @map("started_at")
   completedAt DateTime? @map("completed_at")
+  /// ★ 2026-06-11 同-id 续跑/重跑版本号：每次 markReopened（failed/quality-failed/
+  ///   cancelled → running）自增 1。重跑/重启续跑不再新建 mission 行，而是原地 bump
+  ///   此版本号（78/79 诉求："在原来的任务上更新，无非增加一个版本"）。UI 可显示"第 N 次运行"。
+  runCount    Int       @default(1) @map("run_count")
   /// ★ C4/G5：实测耗时（mission 结束时 Date.now()-t0 写入）。原名 wallTimeMs 与配置上限
   ///   (userProfile.wallTimeMs / DEPTH_BUDGET_TIERS) 同名两义 → 改 elapsedWallTimeMs 消二义。
   ///   配置上限仍在 input/userProfile（cap 概念，本列只读实测）。
