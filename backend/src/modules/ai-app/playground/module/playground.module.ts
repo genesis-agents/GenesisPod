@@ -395,20 +395,21 @@ export class PlaygroundModule implements OnModuleInit, OnApplicationBootstrap {
           const failureCode = isWallTime
             ? MissionFailureCode.wall_time_exceeded
             : MissionFailureCode.runtime_crashed;
-          // ★ e2e P0-#2 修 (2026-05-25): wall-time 超时时 mission 仍可能 *活跃运行*
-          //   (heartbeat 新鲜,只是跑太久) → 有 in-flight LLM/tool,必须主动 abort 止血,
-          //   否则继续烧到下一轮 loop 顶检测。abort 幂等。
-          //   stale/crash 情形不 abort:heartbeat 已停=worker presumed dead,本 pod
-          //   无 in-flight 可中断,且 MissionAbortReason 无 runtime_crashed 值(设计如此)。
+          // ★ 2026-06-11 (#2 调用超时硬化): liveness 回收**一律 abort** in-flight 止血。
+          //   背景——心跳改为跟随真实进度后（#1），"无活动"(no-activity) 不再等于"worker
+          //   已死"：可能是活着但卡在某 stage / 空转重试，仍在烧 LLM/tool credit。abort 幂等：
+          //   worker 死或在异 pod → 本 pod abortRegistry 无该 controller，no-op；活在本 pod
+          //   → 立即中断在飞调用。原仅 wall-time abort 会漏掉这类"活着卡住"的烧钱。
+          const abortReason = isWallTime
+            ? MissionAbortReason.mission_wall_time_exceeded
+            : MissionAbortReason.mission_no_activity;
           await this.lifecycleManager.finalize<PlaygroundTerminalExtra>({
             missionId,
-            abort: isWallTime,
+            abort: true,
             intent: {
               status: "failed",
               failureCode,
-              ...(isWallTime
-                ? { reason: MissionAbortReason.mission_wall_time_exceeded }
-                : {}),
+              reason: abortReason,
               errorMessage,
               extra: {
                 kind: "failed",

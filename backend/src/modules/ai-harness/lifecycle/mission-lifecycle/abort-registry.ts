@@ -22,6 +22,10 @@ export enum MissionAbortReason {
   user_cancelled = "user_cancelled",
   budget_exhausted = "budget_exhausted",
   mission_wall_time_exceeded = "mission_wall_time_exceeded",
+  // ★ 2026-06-11：liveness "无进度"回收时主动中断 in-flight。心跳改为跟随真实进度
+  //   后（#1），"无活动"不再等于"worker 已死"——可能是活着但卡住/空转仍在烧钱，必须
+  //   abort 止血。abort 幂等：worker 死/异 pod 则 no-op，活则中断。映射 runtime_crashed。
+  mission_no_activity = "mission_no_activity",
   mission_row_missing = "mission_row_missing",
   rerun_replacing_stale = "rerun_replacing_stale",
   superseded = "superseded",

@@ -2,7 +2,7 @@
  * SsrfGuard 单测 —— 重点覆盖 DNS rebinding（公网域名解析到内网）这一字面校验绕过路径。
  */
 import { lookup } from "node:dns/promises";
-import { isBlockedIp, assertUrlSafe } from "../ssrf/ssrf-guard";
+import { isBlockedIp, assertUrlSafe, safeFetch } from "../ssrf/ssrf-guard";
 
 jest.mock("node:dns/promises", () => ({ lookup: jest.fn() }));
 
@@ -110,6 +110,54 @@ describe("SsrfGuard", () => {
       await expect(
         assertUrlSafe("https://nonexistent.example.com/"),
       ).rejects.toThrow(/解析/);
+    });
+  });
+
+  // ★ 2026-06-11 (#2 调用超时硬化)：safeFetch 默认超时 + 合并 caller signal。
+  describe("safeFetch timeout / abort", () => {
+    const realFetch = global.fetch;
+    afterEach(() => {
+      global.fetch = realFetch;
+      jest.useRealTimers();
+    });
+
+    it("aborts with TimeoutError after the default timeout when fetch hangs", async () => {
+      mockLookup.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+      jest.useFakeTimers();
+      // 挂起的 fetch：永不 resolve，仅在 signal abort 时 reject（模拟真实 fetch 行为）。
+      global.fetch = jest.fn((_url: string, init?: RequestInit) => {
+        return new Promise<Response>((_resolve, reject) => {
+          const sig = init?.signal;
+          sig?.addEventListener("abort", () => reject(sig.reason), {
+            once: true,
+          });
+        });
+      }) as unknown as typeof fetch;
+
+      const assertion = expect(
+        safeFetch("https://example.com"),
+      ).rejects.toMatchObject({ name: "TimeoutError" });
+      await jest.advanceTimersByTimeAsync(120_001);
+      await assertion;
+    });
+
+    it("forwards a caller's pre-aborted signal (不静默吞 caller 取消)", async () => {
+      mockLookup.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+      global.fetch = jest.fn((_url: string, init?: RequestInit) => {
+        return new Promise<Response>((_resolve, reject) => {
+          const sig = init?.signal;
+          if (sig?.aborted) return reject(sig.reason);
+          sig?.addEventListener("abort", () => reject(sig.reason), {
+            once: true,
+          });
+        });
+      }) as unknown as typeof fetch;
+
+      const ctrl = new AbortController();
+      ctrl.abort(new DOMException("user cancel", "AbortError"));
+      await expect(
+        safeFetch("https://example.com", { signal: ctrl.signal }),
+      ).rejects.toMatchObject({ name: "AbortError" });
     });
   });
 });

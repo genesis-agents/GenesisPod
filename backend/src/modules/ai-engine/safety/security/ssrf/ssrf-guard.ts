@@ -28,6 +28,13 @@ const ALLOWED_PROTOCOLS = ["http:", "https:"];
 const MAX_URL_LENGTH = 2048;
 const DEFAULT_ALLOWED_PORTS = new Set(["", "80", "443"]);
 const MAX_REDIRECT_HOPS = 5;
+/**
+ * ★ 2026-06-11 (#2 调用超时硬化): safeFetch 默认单跳超时（ms）。
+ * 防工具/取数调用在连接挂起（server accept 后不回 body / 慢速 drip）时无限 hang——
+ * 这类 hang 会让 mission 长时间无事件产出。120s 对正常网页/内容取数足够宽裕，远小于
+ * mission 级 no-activity 回收阈值（15min）。caller 传 init.signal 时与本超时合并（任一触发即中止）。
+ */
+const DEFAULT_FETCH_TIMEOUT_MS = 120_000;
 
 /** 字面主机名黑名单（解析前的快速拦截）。 */
 const BLOCKED_HOSTNAMES = new Set([
@@ -190,7 +197,12 @@ export async function safeFetch(
   let currentUrl = rawUrl;
   for (let hop = 0; hop <= MAX_REDIRECT_HOPS; hop++) {
     await assertUrlSafe(currentUrl, opts);
-    const res = await fetch(currentUrl, { ...init, redirect: "manual" });
+    // ★ 2026-06-11 (#2): 每跳带默认超时 + 合并 caller signal，杜绝连接挂起无限 hang。
+    const res = await fetchWithTimeout(
+      currentUrl,
+      init,
+      DEFAULT_FETCH_TIMEOUT_MS,
+    );
     if (res.status < 300 || res.status >= 400) {
       return res;
     }
@@ -201,4 +213,41 @@ export async function safeFetch(
   throw new BadRequestException(
     `重定向跳数超过上限 ${MAX_REDIRECT_HOPS}（疑似重定向环 / SSRF）`,
   );
+}
+
+/**
+ * 带默认超时的 fetch（#2 调用超时硬化）。timeoutMs 后中止；若 caller 在 init.signal
+ * 传了自己的 AbortSignal，则与超时合并——任一触发即中止本次请求（不静默吞 caller 的取消）。
+ * 用手动 AbortController 合并，避免依赖 AbortSignal.any（Node 20+ 才有）。
+ */
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const onTimeout = (): void =>
+    controller.abort(
+      new DOMException(
+        `safeFetch timeout after ${timeoutMs}ms`,
+        "TimeoutError",
+      ),
+    );
+  const timer = setTimeout(onTimeout, timeoutMs);
+  const callerSignal = init.signal ?? undefined;
+  const forwardAbort = (): void => controller.abort(callerSignal?.reason);
+  if (callerSignal) {
+    if (callerSignal.aborted) forwardAbort();
+    else callerSignal.addEventListener("abort", forwardAbort, { once: true });
+  }
+  try {
+    return await fetch(url, {
+      ...init,
+      redirect: "manual",
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+    if (callerSignal) callerSignal.removeEventListener("abort", forwardAbort);
+  }
 }

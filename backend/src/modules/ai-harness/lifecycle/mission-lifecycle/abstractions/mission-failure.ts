@@ -91,6 +91,7 @@ const ABORT_REASON_TO_FAILURE_CODE: Record<
   [MissionAbortReason.budget_exhausted]: MissionFailureCode.budget_exhausted,
   [MissionAbortReason.mission_wall_time_exceeded]:
     MissionFailureCode.wall_time_exceeded,
+  [MissionAbortReason.mission_no_activity]: MissionFailureCode.runtime_crashed,
   [MissionAbortReason.mission_row_missing]:
     MissionFailureCode.mission_row_missing,
   [MissionAbortReason.rerun_replacing_stale]:
