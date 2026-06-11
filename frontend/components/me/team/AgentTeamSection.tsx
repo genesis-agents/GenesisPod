@@ -40,8 +40,8 @@ export function AgentTeamSection() {
       <PageHeaderHero
         module="ask"
         icon={<Users2 className="h-7 w-7 text-white" />}
-        title="我的 Agent 团队"
-        subtitle="一人公司：招募 Agent、组队、任命 CEO、编排管理团队"
+        title="我的专家团队"
+        subtitle="一人公司：招募专家、组队、任命 CEO、编排管理团队"
       >
         <Tabs
           items={[

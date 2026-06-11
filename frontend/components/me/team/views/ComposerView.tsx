@@ -115,7 +115,7 @@ export function ComposerView({
           <EmptyState
             type="default"
             title="还没有团队"
-            description="点左侧「新建」组建第一个 Agent Team"
+            description="点左侧「新建」组建第一个专家团队"
             action={{ label: '新建团队', onClick: handleCreateTeam }}
           />
         ) : (
@@ -260,7 +260,7 @@ export function ComposerView({
             <EmptyState
               type="default"
               size="sm"
-              title="没有可添加的 Agent"
+              title="没有可添加的专家"
               description="人才库里的人都在这个团队了"
               action={
                 <Link

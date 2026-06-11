@@ -36,7 +36,7 @@ export function DashboardView({ onGoMission }: { onGoMission: () => void }) {
       {/* 指标（全部真实） */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
-          label="Agent Team"
+          label="专家团队"
           value={teams.length}
           icon={<Users className="h-5 w-5" />}
           tone="slate"
@@ -54,18 +54,18 @@ export function DashboardView({ onGoMission }: { onGoMission: () => void }) {
           tone="emerald"
         />
         <StatCard
-          label="在编 Agent"
+          label="在编专家"
           value={hired.length}
           icon={<UserCog className="h-5 w-5" />}
           tone="amber"
         />
       </div>
 
-      {/* 各 Team 在忙啥 */}
+      {/* 各团队在忙啥 */}
       <div>
         <div className="mb-2 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-900">
-            各 Team 在忙什么
+            各团队在忙什么
           </h3>
           <button
             onClick={onGoMission}
