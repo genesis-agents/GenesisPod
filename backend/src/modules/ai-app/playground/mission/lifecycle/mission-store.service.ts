@@ -393,6 +393,26 @@ export class MissionStore
     return this.costLedger.listByMission(missionId);
   }
 
+  /**
+   * 进度门控用：mission 在 windowMs 内是否有事件产出（= 真实前进进度）。
+   *
+   * ★ 2026-06-11 修"mission 卡死永不收尾"(实测 14.5h)：心跳刷新据此门控。
+   *   背景——心跳此前由 shell 的盲 30s 计时器无条件刷新，只要进程活着就刷，
+   *   **与是否在前进无关**。于是卡在某 stage（无事件产出）的 mission 心跳永远
+   *   新鲜 → LivenessGuard 的"心跳 AND 事件双 stale>15min"路径永不触发 →
+   *   永久卡 running，只能等 4h 墙钟（且墙钟亦可能被 reopen 规避）。
+   *   改为：心跳仅在近期有事件时才刷，无进度则随事件一同老化，guard 正确回收。
+   *   读的是 guard 同一进度真值（events 表），语义对齐、零新状态。
+   *   事件表 (missionId, ts) 有联合索引，count 走索引、开销极小。
+   */
+  async hasRecentEvent(missionId: string, windowMs: number): Promise<boolean> {
+    const since = BigInt(Date.now() - windowMs);
+    const count = await this.prisma.agentPlaygroundMissionEvent.count({
+      where: { missionId, ts: { gte: since } },
+    });
+    return count > 0;
+  }
+
   // ── CRUD / heartbeat / stage / orphan: framework 已提供
   //    refreshHeartbeat / clearHeartbeat / markStageComplete /
   //    cleanupOrphanRunningMissionsAtomic / countRunningByUser / create

@@ -25,6 +25,18 @@ import { PlaygroundMissionInputRebuilder } from "../../runtime/playground.input-
 
 export type { MissionRuntimeSession };
 
+/**
+ * 心跳"活动窗口"——shell 的盲 30s 计时器每次刷心跳前，要求 mission 在过去这段
+ * 时间内有过事件产出（真实进度），否则跳过刷心跳，让 heartbeatAt 随事件一同老化。
+ *
+ * 取值约束：必须远小于 LivenessGuard 的 staleThresholdMs(playground=15min)——
+ * staleThreshold 才是真正的"容忍 N 分钟静默"阈值；本窗口只决定心跳多紧地跟随
+ * 事件。3min ≫ 心跳 tick(30s)（健康 mission 每 tick 都有事件→正常刷心跳，不误冻），
+ * 又 ≪ 15min（卡死后心跳约在静默 3min 即停刷，叠加 15min stale → 约 18min 回收）。
+ * stage 完成另由 store.markStageComplete 直接刷心跳（进度型），与此互补。
+ */
+const HEARTBEAT_ACTIVITY_WINDOW_MS = 3 * 60 * 1000;
+
 @Injectable()
 export class MissionRuntimeShellService {
   constructor(
@@ -53,12 +65,7 @@ export class MissionRuntimeShellService {
     session: MissionRuntimeSession,
     fn: () => Promise<T>,
   ): Promise<T> {
-    return this.framework.runWithinContext(
-      session,
-      "playground",
-      "team",
-      fn,
-    );
+    return this.framework.runWithinContext(session, "playground", "team", fn);
   }
 
   /** Playground 业务 adapter：注入业务专属决策给 framework */
@@ -114,6 +121,15 @@ export class MissionRuntimeShellService {
         });
       },
       refreshHeartbeat: async (missionId, podId) => {
+        // ★ 进度门控（2026-06-11 修"mission 卡死永不收尾"）：仅当近期有事件产出
+        //   （真实进度）才刷心跳；无进度则跳过，心跳随事件一同老化，让
+        //   LivenessGuard 的"心跳 AND 事件双 stale"正确触发回收。盲刷会让卡在
+        //   某 stage 的 mission 心跳永远新鲜 → 永久卡 running（实测 14.5h）。
+        const hasProgress = await store
+          .hasRecentEvent(missionId, HEARTBEAT_ACTIVITY_WINDOW_MS)
+          // 查询失败时退回"刷心跳"——宁可漏判卡死，不误杀健康 mission。
+          .catch(() => true);
+        if (!hasProgress) return;
         await store.refreshHeartbeat(missionId, podId);
       },
       emitMissionEvent: async ({ type, missionId, userId, payload }) => {

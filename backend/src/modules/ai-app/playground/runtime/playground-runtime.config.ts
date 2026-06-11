@@ -84,11 +84,19 @@ const DEFAULTS = {
    */
   softWarnThresholdMin: 20,
   /**
-   * Total wall-time cap for a mission (ms). 0 = unlimited.
-   * Production default 4h preserves clean-main behavior (deep + thorough+ +
-   * unlimited ≈ 3h actual, 4h headroom).
+   * LivenessGuard 的 namespace 级墙钟硬上限（ms）。0 = 不限（交给进度检测 +
+   * 每-mission 档位墙钟）。
+   *
+   * ★ 2026-06-11 由 4h 降为 0（不限）。原因：
+   *   1. 4h 是 namespace 单值，但每个 mission 自己的墙钟上限按档位是 3h/10h/**24h**
+   *      （DEPTH_BUDGET_TIERS，in-shell wallTimer 强制），4h 的 guard 会把合理的
+   *      深度长程任务在 4h 误杀（用户实证反馈："很多长程任务超过 4h"）。
+   *   2. "按时长杀"本就是钝器——真正该检测的是"无前进进度"。心跳改为跟随真实进度后
+   *      （hasRecentEvent 门控），卡死 mission 由"心跳 AND 事件双 stale>15min"在
+   *      ~18min 内回收，不再依赖墙钟。
+   *   绝对成本兜底仍由每-mission in-shell wallTimer（档位 3h/10h/24h）把守。
    */
-  wallTimeCapMs: 4 * 60 * 60 * 1000,
+  wallTimeCapMs: 0,
 
   // ★ 2026-05-22 follow-up：原 disableBudgetAbort 已删除——同样 config 定义但零消费
   //   (生产代码从不读),profile 设 true 也无效,"防级联 abort"保护实际不存在。删除止误导。

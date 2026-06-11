@@ -24,7 +24,9 @@ describe("playground-runtime.config", () => {
         chapterToleranceRatio: 0.3,
         staleThresholdMin: 15,
         softWarnThresholdMin: 20,
-        wallTimeCapMs: 4 * 60 * 60 * 1000,
+        // ★ 2026-06-11：guard 墙钟默认降为 0（不限）——卡死改由进度检测回收，
+        //   绝对成本兜底走每-mission 档位墙钟（in-shell wallTimer 3h/10h/24h）。
+        wallTimeCapMs: 0,
       });
     });
   });
