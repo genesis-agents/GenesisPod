@@ -827,11 +827,22 @@ export async function runPerDimPipeline(
           });
         }
       } else {
+        // ★ 2026-06-11 观测性：surface grade agent 真实失败原因（failureCode/message），
+        //   不再只写死 "state=failed"。真因来自 gradeRes.events（如 PROVIDER_SAFETY_REFUSAL
+        //   内容护栏误拦、PROVIDER_API_ERROR、JSON parse 失败），让 UI/兜底 summary 自报，
+        //   不必再翻后台日志定位。
+        const reason = extractFailureMessage(
+          gradeRes.events,
+          gradeRes.state,
+          !!gradeRes.output,
+        );
         await emitGraded({
           ok: false,
           failed: true,
           phase: "grade-failed",
-          summary: `${dimensionName} · grade 阶段失败（state=${gradeRes.state}），无 5 轴评分。`,
+          summary: `${dimensionName} · grade 阶段失败（state=${gradeRes.state}），无 5 轴评分${
+            reason ? `：${reason}` : ""
+          }。`,
         });
       }
     } else {

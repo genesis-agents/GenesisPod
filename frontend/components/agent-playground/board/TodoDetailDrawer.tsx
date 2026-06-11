@@ -315,6 +315,27 @@ function findAgentForSystemStage(
   return matches[0];
 }
 
+// ─── Dimension grade label ────────────────────────────
+// 维度总评标签：优先反映 failed/skipped 状态，避免把"评分阶段失败后用章节均分兜底"
+// 的分数误标成"不及格"。非失败时同时兼容词组(excellent/good/fair/poor)与字母(A-F)
+// 等级——后端兜底路径发的是字母等级，正常路径发的是词组，前端两者都要认。
+function dimGradeLabel(grade: {
+  overall: number;
+  grade: string;
+  failed?: boolean;
+  skipped?: boolean;
+}): string {
+  if (grade.skipped) return '评分未执行';
+  if (grade.failed) return '评分未完成·章节均分兜底';
+  const g = grade.grade;
+  if (g === 'excellent' || g === 'A') return '优秀';
+  if (g === 'good' || g === 'B') return '良好';
+  if (g === 'fair' || g === 'C') return '一般';
+  if (g === 'poor' || g === 'D' || g === 'F') return '不及格';
+  // 未知等级 token → 按分数兜底，绝不默认"不及格"
+  return grade.overall >= 80 ? '优秀' : grade.overall >= 60 ? '良好' : '不及格';
+}
+
 // ─── Status mapping ───────────────────────────────────
 function todoStatusToToken(s: MissionTodo['status']) {
   return s === 'done'
@@ -1527,15 +1548,9 @@ export function TodoDetailDrawer({
                 {pipeline.grade && (
                   <Section
                     title="维度总评（5 轴综合）"
-                    count={`${pipeline.grade.overall}/100 · ${
-                      pipeline.grade.grade === 'excellent'
-                        ? '优秀'
-                        : pipeline.grade.grade === 'good'
-                          ? '良好'
-                          : pipeline.grade.grade === 'fair'
-                            ? '一般'
-                            : '不及格'
-                    }`}
+                    count={`${pipeline.grade.overall}/100 · ${dimGradeLabel(
+                      pipeline.grade
+                    )}`}
                   >
                     <div className="p-3">
                       <p className="mb-2 text-xs text-gray-400">
