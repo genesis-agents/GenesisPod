@@ -794,7 +794,11 @@ export class ModelFallbackService {
       tokenParamName:
         model.tokenParamName ??
         (isReasoning ? "max_completion_tokens" : "max_tokens"),
-      supportsTemperature: model.supportsTemperature ?? !isReasoning,
+      // ★ reasoning 强制 false（supportsTemperature NOT NULL @default(true)，?? 对漏标
+      //   reasoning 失效；reasoning 发 temperature → OpenAI 400）。
+      supportsTemperature: isReasoning
+        ? false
+        : (model.supportsTemperature ?? true),
       supportsStreaming: model.supportsStreaming ?? true,
       supportsFunctionCalling: model.supportsFunctionCalling ?? true,
       supportsVision: model.supportsVision ?? false,

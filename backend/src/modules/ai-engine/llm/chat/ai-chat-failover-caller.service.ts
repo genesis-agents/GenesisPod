@@ -186,13 +186,21 @@ export class AiChatFailoverCallerService {
     }
     const { modelId, apiEndpoint, provider } = config;
     const apiFormat = config.apiFormat || "openai";
-    const supportsTemp = config.supportsTemperature ?? true;
     // ★ 用 || 而非 ??：DB isReasoning 是 Boolean @default(false) NOT NULL，
     //   "用户漏标"塌缩为 false（非 null），?? 不触发兜底。|| 让 false/undefined
     //   都回退 modelId 启发式，救回被漏标的 reasoning 模型（gpt-5.x/o1/o3/o4），
     //   否则发 max_tokens → OpenAI INVALID_REQUEST 全失败。admin 若需强制非推理，
     //   显式设 tokenParamName=max_tokens（直读、不被覆盖）。
     const isReasoning = config.isReasoning || inferIsReasoning(modelId);
+    // ★ reasoning 模型（OpenAI o1/o3/gpt-5）硬性拒绝任何 temperature 参数（发即
+    //   400 "Unsupported value: temperature"）。不论 DB supportsTemperature 如何，
+    //   reasoning 一律不发 temperature；非 reasoning 才尊重 config（缺省 true）。
+    //   修 chapter-reviewer 等 deterministic(temperature) agent 用漏标 gpt-5.4 时
+    //   reviewer failed（400 假失败 → 章节兜底 40 分）的根因——与 connection-test
+    //   同款 temperature bug，业务调用路径此前漏修。
+    const supportsTemp = isReasoning
+      ? false
+      : (config.supportsTemperature ?? true);
     const tokenParamName =
       config.tokenParamName ||
       (isReasoning ? "max_completion_tokens" : "max_tokens");

@@ -106,6 +106,34 @@ describe("ProviderProbeService", () => {
       expect(r.errorCode).toBe("PROVIDER_DOWN");
     });
 
+    it("anthropic endpoint 含 /messages 不双重拼（Claude key 测试 404 根因）", async () => {
+      // 修复前裸拼 ${endpoint}/messages：endpoint 已是 …/v1/messages →
+      // …/v1/messages/messages → 404 → key 测试"失败"。
+      mockFetch.mockResolvedValue({ status: 200, text: async () => "" });
+      await svc.probe({
+        apiFormat: "anthropic",
+        apiKey: "k",
+        endpoint: "https://api.anthropic.com/v1/messages",
+        providerLabel: "anthropic",
+      });
+      const url = mockFetch.mock.calls[0][0] as string;
+      expect(url).toBe("https://api.anthropic.com/v1/messages");
+      expect(url).not.toContain("/messages/messages");
+    });
+
+    it("anthropic endpoint 是 chat 路径剥到 base 拼 /messages", async () => {
+      mockFetch.mockResolvedValue({ status: 200, text: async () => "" });
+      await svc.probe({
+        apiFormat: "anthropic",
+        apiKey: "k",
+        endpoint: "https://api.anthropic.com/v1/chat",
+        providerLabel: "anthropic",
+      });
+      expect(mockFetch.mock.calls[0][0]).toBe(
+        "https://api.anthropic.com/v1/messages",
+      );
+    });
+
     it("AbortError → TIMEOUT", async () => {
       const abortErr = new Error("aborted");
       abortErr.name = "AbortError";

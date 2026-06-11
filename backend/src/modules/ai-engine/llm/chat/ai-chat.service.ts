@@ -865,12 +865,17 @@ export class AiChatService {
     const effectiveEndpoint = resolved?.apiEndpoint || apiEndpoint;
 
     const apiFormat = config.apiFormat || "openai";
-    const supportsTemp = config.supportsTemperature ?? true;
     // ★ 用 || 而非 ??：DB isReasoning 是 Boolean @default(false) NOT NULL，
     //   "用户漏标"塌缩为 false（非 null），?? 不触发兜底。|| 让 false/undefined
     //   都回退 modelId 启发式，救回被漏标的 reasoning 模型；admin 强制非推理走
     //   显式 tokenParamName=max_tokens（直读、不被覆盖）。
     const isReasoning = config.isReasoning || inferIsReasoning(modelId);
+    // ★ reasoning 模型硬性拒绝 temperature（发即 400）。supportsTemperature 列是
+    //   Boolean @default(true) NOT NULL，漏标 reasoning 塌缩为 true → ?? 不触发，
+    //   故对 reasoning 强制 false（覆盖 DB），非 reasoning 才尊重 config。
+    const supportsTemp = isReasoning
+      ? false
+      : (config.supportsTemperature ?? true);
     const tokenParamName =
       config.tokenParamName ||
       (isReasoning ? "max_completion_tokens" : "max_tokens");

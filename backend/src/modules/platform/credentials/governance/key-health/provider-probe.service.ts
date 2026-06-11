@@ -17,6 +17,23 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 const ANTHROPIC_VALIDATION_MODEL = "claude-3-haiku-20240307";
 const PROBE_TIMEOUT_MS = 15_000;
 
+/**
+ * 探测 URL 规范化 —— 修裸拼 `${endpoint}/messages` 的 bug：DB ai_providers.endpoint
+ * 可能存完整路径（…/v1/messages）或带其它后缀（…/v1/chat），裸拼会得到
+ * `/messages/messages`（双重）或 `/chat/messages`（错路径）→ provider 404，
+ * 表现为 Claude/OpenAI key 测试"失败"。逻辑对齐 ai-engine ensureMessagesPath /
+ * ensureChatCompletionsPath：已含目标后缀直接用；否则剥同级后缀再拼。
+ */
+function probeUrl(endpoint: string, suffix: "messages" | "models"): string {
+  const base = endpoint.trim().replace(/\/+$/, "");
+  if (base.endsWith(`/${suffix}`)) return base;
+  const stripped = base.replace(
+    /\/(models|messages|chat\/completions|chat)$/,
+    "",
+  );
+  return `${stripped}/${suffix}`;
+}
+
 /** 与 KeyErrorReason 对齐 + 几个 probe 专属（DECRYPTION_FAILED / NETWORK_ERROR） */
 export type ProbeErrorCode =
   | "AUTH_FAILED" // 401 / 403
@@ -107,7 +124,7 @@ export class ProviderProbeService {
     try {
       let response: Response;
       if (apiFormat === "anthropic") {
-        response = await fetch(`${endpoint}/messages`, {
+        response = await fetch(probeUrl(endpoint, "messages"), {
           method: "POST",
           headers: {
             "x-api-key": apiKey,
@@ -122,12 +139,15 @@ export class ProviderProbeService {
           signal: controller.signal,
         });
       } else if (apiFormat === "google") {
-        response = await fetch(`${endpoint}/models?key=${apiKey}&pageSize=1`, {
-          signal: controller.signal,
-        });
+        response = await fetch(
+          `${probeUrl(endpoint, "models")}?key=${apiKey}&pageSize=1`,
+          {
+            signal: controller.signal,
+          },
+        );
       } else {
         // openai-compatible default：GET /models
-        response = await fetch(`${endpoint}/models`, {
+        response = await fetch(probeUrl(endpoint, "models"), {
           headers: { Authorization: `Bearer ${apiKey}` },
           signal: controller.signal,
         });

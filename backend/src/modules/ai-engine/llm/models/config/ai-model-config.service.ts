@@ -263,8 +263,11 @@ export class AiModelConfigService {
         model.provider as string,
         model.modelId as string,
       ),
-      supportsTemperature:
-        (model.supportsTemperature as boolean | undefined) ?? !isReasoning,
+      // ★ reasoning 模型硬性拒绝 temperature；supportsTemperature 列 NOT NULL
+      //   @default(true)，漏标 reasoning 塌缩 true → ?? 失效，故 reasoning 强制 false。
+      supportsTemperature: isReasoning
+        ? false
+        : ((model.supportsTemperature as boolean | undefined) ?? true),
       supportsStreaming:
         (model.supportsStreaming as boolean | undefined) ?? true,
       supportsFunctionCalling:
