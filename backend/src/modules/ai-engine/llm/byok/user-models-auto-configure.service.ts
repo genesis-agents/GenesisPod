@@ -84,8 +84,15 @@ export class AutoConfigureService {
 
     // provider → apiKey 映射（用户保存的 Personal Key），用于按偏好顺序查找
     const providerKeyMap = new Map<string, string>();
+    // ★ 2026-06-11 修"一键配置的模型 BYOK 密钥未关联"：同时记 provider → keyId，
+    //   create 时写入 apiKeyId，让模型显式 pin 到这把已验证的 Key（编辑弹窗回显、
+    //   运行时 keyResolver(preferredKeyId) 都依赖它）。缺省 null 时虽能按 provider
+    //   兜底解析，但多 Key 同 provider 会不确定，且 UI 显示"未关联"。
+    const providerKeyIdMap = new Map<string, string>();
     for (const key of activePersonal) {
       const provider = key.provider.toLowerCase();
+      if (!providerKeyIdMap.has(provider))
+        providerKeyIdMap.set(provider, key.id);
       if (providerKeyMap.has(provider)) continue;
       const personal = await this.userApiKeys.getPersonalKey(userId, provider);
       if (personal?.apiKey) providerKeyMap.set(provider, personal.apiKey);
@@ -222,6 +229,8 @@ export class AutoConfigureService {
             displayName: this.buildDisplayName(provider, matchedId, modelType),
             modelType,
             isDefault: true, // 每个 modelType 只建一个，直接设为默认
+            // ★ 2026-06-11：显式关联探测时用的那把 BYOK Key（修"密钥未关联"）。
+            apiKeyId: providerKeyIdMap.get(provider),
             maxTokens: this.inferMaxTokens(matchedId, modelType),
             ...this.inferCapabilities(matchedId, modelType, provider),
           });

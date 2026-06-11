@@ -116,7 +116,12 @@ export function UserModelConfigModal({
   );
   const [modelId, setModelId] = useState(initial?.modelId ?? '');
   const [displayName, setDisplayName] = useState(initial?.displayName ?? '');
-  const [endpoint, setEndpoint] = useState(initial?.apiEndpoint ?? '');
+  // ★ 2026-06-11 修"编辑时 Endpoint 错误"：存量行 apiEndpoint 可能含完整路径
+  //   （…/v1/chat/completions，下游 ensure*Path 会双拼成 404）。回显时归一化为干净
+  //   base，与保存路径（normalizeEndpointBase）一致；保存即把坏值修正回 base。
+  const [endpoint, setEndpoint] = useState(
+    normalizeEndpointBase(initial?.apiEndpoint ?? '')
+  );
   // 2026-05-27 BYOK：该模型运行时使用哪把用户 Key（UserApiKey.id），空 = provider 默认
   const [apiKeyId, setApiKeyId] = useState(initial?.apiKeyId ?? '');
   const [maxTokens, setMaxTokens] = useState(

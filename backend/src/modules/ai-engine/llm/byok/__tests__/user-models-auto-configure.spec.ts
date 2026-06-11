@@ -422,7 +422,12 @@ describe("AutoConfigureService", () => {
 
   it("creates new model config when probe succeeds", async () => {
     mocks.userApiKeys.listUserApiKeys.mockResolvedValue([
-      { isActive: true, mode: "personal", provider: "openai" },
+      {
+        id: "key-openai-1",
+        isActive: true,
+        mode: "personal",
+        provider: "openai",
+      },
     ]);
     mocks.userApiKeys.getPersonalKey.mockResolvedValue({ apiKey: "sk-test" });
     mocks.userModelConfigs.listByUser.mockResolvedValue([]);
@@ -447,6 +452,8 @@ describe("AutoConfigureService", () => {
         modelId: "gpt-4o",
         modelType: AIModelType.CHAT,
         isDefault: true,
+        // ★ 2026-06-11 修"密钥未关联"：一键配置必须显式 pin 探测用的 BYOK Key。
+        apiKeyId: "key-openai-1",
       }),
     );
     expect(result.items.some((i) => i.action === "created")).toBe(true);
