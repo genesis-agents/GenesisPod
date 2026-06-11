@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { createLogger } from '@/lib/utils/logger';
+import { getAuthTokens } from '@/lib/utils/auth';
 
 const log = createLogger('useFeedbackSubmit');
 
@@ -81,8 +82,14 @@ export function useFeedbackSubmit(): UseFeedbackSubmitReturn {
           formData.append('files', file);
         }
 
+        // 带上 Bearer token（token 存 localStorage，非 cookie）——登录用户的反馈
+        // 会归属到 userId；匿名用户无 token 也能提（后端 @Public + OptionalJwtAuthGuard）。
+        const accessToken = getAuthTokens()?.accessToken;
         const response = await fetch('/api/feedback', {
           method: 'POST',
+          headers: accessToken
+            ? { Authorization: `Bearer ${accessToken}` }
+            : undefined,
           body: formData,
         });
 

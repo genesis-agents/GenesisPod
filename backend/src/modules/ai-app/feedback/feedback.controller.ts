@@ -23,6 +23,7 @@ import { CreateFeedbackDto } from "./dto/create-feedback.dto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
 import { OptionalJwtAuthGuard } from "../../../common/guards/optional-jwt-auth.guard";
+import { Public } from "../../../common/decorators/public.decorator";
 import { EmailService } from "../../platform/facade";
 
 export const FEEDBACK_MAX_FILES = 5;
@@ -102,6 +103,10 @@ export class FeedbackController {
    * Submit feedback with optional file attachments
    * POST /api/v1/feedback
    */
+  // @Public 让全局 JwtAuthGuard 放行——反馈对匿名用户也开放（设计本意）。
+  // OptionalJwtAuthGuard 仍保留：带有效 token 时填充 req.user，把反馈归属到用户；
+  // 缺这个装饰器时全局 guard 会先抛 "Please sign in to continue"（提交报错根因）。
+  @Public()
   @Post()
   @UseGuards(OptionalJwtAuthGuard)
   @UseInterceptors(

@@ -16,9 +16,14 @@ export async function POST(request: NextRequest) {
     //   易破坏 boundary 导致后端解析失败。字段校验交后端 DTO（错误会透传回前端）。
     if (contentType.includes('multipart/form-data')) {
       try {
+        // 透传 Authorization：登录用户的反馈归属 userId（后端 OptionalJwtAuthGuard 读取）。
+        const authHeader = request.headers.get('authorization');
         const response = await fetch(`${backendUrl}/api/v1/feedback`, {
           method: 'POST',
-          headers: { 'content-type': contentType },
+          headers: {
+            'content-type': contentType,
+            ...(authHeader ? { authorization: authHeader } : {}),
+          },
           body: request.body,
           // Node fetch 流式 body 必须显式 duplex（透传原始上传流，不缓冲进内存）
           duplex: 'half',
@@ -80,10 +85,12 @@ export async function POST(request: NextRequest) {
 
       // Send to backend feedback API
       try {
+        const authHeader = request.headers.get('authorization');
         const response = await fetch(`${backendUrl}/api/v1/feedback`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            ...(authHeader ? { authorization: authHeader } : {}),
           },
           body: JSON.stringify({
             type: body.type,
