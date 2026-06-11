@@ -1139,7 +1139,23 @@ export const CriticVerdictSchema = z.object({
   layer: z.string().optional(),
   score: z.number().optional(),
   pass: z.boolean().optional(),
-  warnings: z.array(z.string()).optional(),
+  // ★ 2026-06-11 fix: warnings 是结构化条目，不是字符串。生产方（s9-reviewer-critic-l4
+  //   + deep-insight-stage-bindings）均 emit 对象 { kind, message, severity }，消费方
+  //   todo-board.projector 也按 { id?, message?, severity? } 读。旧 schema
+  //   z.array(z.string()) 与产出不符 → EventBus safeParse 失败 → 整个 critic:verdict
+  //   事件被丢弃 → 前端 critic 盲点 todos 缺失。改为对象数组 + passthrough（前向兼容）。
+  warnings: z
+    .array(
+      z
+        .object({
+          kind: z.string().optional(),
+          message: z.string().optional(),
+          severity: z.string().optional(),
+          id: z.string().optional(),
+        })
+        .passthrough(),
+    )
+    .optional(),
   notes: z.string().optional(),
 });
 export type CriticVerdictPayload = z.infer<typeof CriticVerdictSchema>;
