@@ -357,7 +357,8 @@ export class UserApiKeysService {
       };
     }
 
-    const apiFormat = defaults?.apiFormat || "openai";
+    const apiFormat =
+      defaults?.apiFormat || this.inferApiFormat(normalizedProvider, endpoint);
     const result = await this.providerProbe.probe({
       apiFormat,
       apiKey,
@@ -426,7 +427,8 @@ export class UserApiKeysService {
     }
 
     const result = await this.providerProbe.probe({
-      apiFormat: defaults?.apiFormat || "openai",
+      apiFormat:
+        defaults?.apiFormat || this.inferApiFormat(key.provider, endpoint),
       apiKey: decrypted,
       endpoint,
       providerLabel: key.provider,
@@ -728,6 +730,35 @@ export class UserApiKeysService {
   }
 
   // ==================== Private Helpers ====================
+
+  /**
+   * 当 DB ai_providers 没给出 apiFormat 时，从 provider slug / endpoint 推断调用协议。
+   *
+   * ★ 2026-06-11 修"Claude Key 测试始终失败"根因：旧逻辑 `defaults?.apiFormat || "openai"`
+   *   在 slug 无匹配 ai_providers 行（或未配 apiFormat）时一律退回 "openai" → 对 Anthropic
+   *   端点发 GET /models + Bearer（Anthropic 只认 x-api-key + POST /v1/messages）→ 401/404
+   *   → 即便 Key 有效也判失败。改为按 slug/endpoint 推断，杜绝"用错协议测试"。
+   */
+  private inferApiFormat(slug: string, endpoint?: string): string {
+    const s = (slug || "").toLowerCase();
+    const e = (endpoint || "").toLowerCase();
+    if (
+      s.includes("anthropic") ||
+      s.includes("claude") ||
+      e.includes("anthropic")
+    )
+      return "anthropic";
+    if (
+      s.includes("google") ||
+      s.includes("gemini") ||
+      s.includes("vertex") ||
+      e.includes("generativelanguage") ||
+      e.includes("googleapis")
+    )
+      return "google";
+    if (s.includes("cohere") || e.includes("cohere")) return "cohere";
+    return "openai";
+  }
 
   private generateKeyHint(apiKey: string): string {
     if (apiKey.length <= 8) return "****";

@@ -33,6 +33,7 @@ const buildEncryption = (): EncryptionService =>
 describe("UserApiKeysService", () => {
   let service: UserApiKeysService;
   let mockPrisma: jest.Mocked<Partial<PrismaService>>;
+  let probeMock: { probe: jest.Mock; probeByProvider: jest.Mock };
 
   const makeApiKey = (overrides: Record<string, unknown> = {}) => ({
     id: "key-1",
@@ -107,10 +108,10 @@ describe("UserApiKeysService", () => {
         { provide: EncryptionService, useValue: buildEncryption() },
         {
           provide: ProviderProbeService,
-          useValue: {
+          useValue: (probeMock = {
             probe: jest.fn().mockResolvedValue({ ok: true }),
             probeByProvider: jest.fn().mockResolvedValue({ ok: true }),
-          },
+          }),
         },
       ],
     }).compile();
@@ -353,6 +354,32 @@ describe("UserApiKeysService", () => {
       await expect(
         service.testKeyById("user-1", "someone-elses-key"),
       ).rejects.toThrow("API Key not found");
+    });
+
+    // ★ 2026-06-11 修"Claude Key 测试始终失败"：provider slug 无匹配 ai_providers 行时
+    //   apiFormat 必须按 slug/endpoint 推断为 anthropic，而非退回 openai（用错协议必失败）。
+    it("infers anthropic apiFormat for a claude key with no DB provider row", async () => {
+      const env = await buildEncryption().encryptEnvelope("sk-claude");
+      (mockPrisma.userApiKey!.findFirst as jest.Mock).mockResolvedValue(
+        makeApiKey({
+          id: "key-claude",
+          provider: "claude", // seed 里只有 "anthropic"，"claude" → resolveProviderDefaults 返回 null
+          apiEndpoint: "https://api.anthropic.com/v1",
+          encryptedValue: env.encryptedValue,
+          iv: env.iv,
+          authTag: env.authTag,
+          wrappedDek: env.wrappedDek,
+          encVersion: env.encVersion,
+          kekVersion: env.kekVersion,
+        }),
+      );
+
+      const result = await service.testKeyById("user-1", "key-claude");
+
+      expect(result.ok).toBe(true);
+      expect(probeMock.probe).toHaveBeenCalledWith(
+        expect.objectContaining({ apiFormat: "anthropic" }),
+      );
     });
   });
 
