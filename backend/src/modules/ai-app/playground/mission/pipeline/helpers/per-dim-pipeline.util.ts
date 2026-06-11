@@ -776,25 +776,24 @@ export async function runPerDimPipeline(
     // ── 4. 5-axis grade ──
     if (fullMarkdown && abstract) {
       const sources = researcherOut.findings.map((f) => ({ url: f.source }));
-      const gradeRes = await deps.reviewer.judgeDimension(
-        {
-          topic,
-          dimension: dimensionName,
-          language,
-          abstract,
-          fullMarkdown,
-          totalWordCount: writtenChapters.reduce((s, c) => s + c.wordCount, 0),
-          sources,
-        },
-        {
-          missionId,
-          userId,
-          agentId: gradeAgentId,
-          role: "quality-judge",
-          envAdapter: billing,
-          budgetMultiplier,
-        },
-      );
+      const gradeInput = {
+        topic,
+        dimension: dimensionName,
+        language,
+        abstract,
+        fullMarkdown,
+        totalWordCount: writtenChapters.reduce((s, c) => s + c.wordCount, 0),
+        sources,
+      };
+      const gradeCtx = {
+        missionId,
+        userId,
+        agentId: gradeAgentId,
+        role: "quality-judge" as const,
+        envAdapter: billing,
+        budgetMultiplier,
+      };
+      let gradeRes = await deps.reviewer.judgeDimension(gradeInput, gradeCtx);
       await deps.invoker.tickCost(
         missionId,
         userId,
@@ -803,6 +802,30 @@ export async function runPerDimPipeline(
         extractTokenSpend(gradeRes.events),
         gradeRes.events,
       );
+      // ★ 2026-06-11 grade 输出健壮性：结构化 5 轴评分偶发坏/空 JSON（deepseek 类
+      //   模型 finish=stop content 空 / 非法 action）→ 单次即 state=failed。仅对
+      //   failed（真错）补一次全新重试，吸收瞬时坏输出；cancelled（abort）/degraded
+      //   不重试（尊重终止 / 已有部分产出，避免无谓烧 token）。
+      if (gradeRes.state === "failed") {
+        deps.log.warn(
+          `[per-dim grade] dim "${dimensionName}" 首次评分 state=failed，容错重试一次`,
+        );
+        const retryRes = await deps.reviewer.judgeDimension(gradeInput, {
+          ...gradeCtx,
+          agentId: `${gradeAgentId}.retry`,
+        });
+        await deps.invoker.tickCost(
+          missionId,
+          userId,
+          "researchers",
+          pool,
+          extractTokenSpend(retryRes.events),
+          retryRes.events,
+        );
+        if (retryRes.state === "completed" && retryRes.output) {
+          gradeRes = retryRes;
+        }
+      }
       if (gradeRes.state === "completed" && gradeRes.output) {
         const g = gradeRes.output as NonNullable<PerDimPipelineResult["grade"]>;
         // ★ 2026-05-23 review-fix #3：评分接地 + overall 重算（纯函数，见 grade-grounding.util）

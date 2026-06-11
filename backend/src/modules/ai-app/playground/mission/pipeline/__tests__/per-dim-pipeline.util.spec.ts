@@ -2445,6 +2445,35 @@ describe("runPerDimPipeline — RTK finding deduplication", () => {
       expect(graded[0].payload.summary).toMatch(/grade 阶段失败/);
     });
 
+    it("[A8b] grade failed 首次→重试成功 → 用重试分数，不走兜底", async () => {
+      const reviewer = {
+        judgeDimension: jest
+          .fn()
+          .mockResolvedValueOnce({
+            state: "failed",
+            output: undefined,
+            events: [],
+            iterations: 1,
+            wallTimeMs: 100,
+          })
+          .mockResolvedValueOnce({
+            state: "completed",
+            output: makeGradeOutput(),
+            events: [],
+            iterations: 1,
+            wallTimeMs: 100,
+          }),
+      };
+      const deps = makeDeps({ reviewer: reviewer as never });
+      await runPerDimPipeline(baseArgs, deps);
+      // 首次 failed → 触发一次容错重试
+      expect(reviewer.judgeDimension).toHaveBeenCalledTimes(2);
+      const graded = getGradedEmits(deps);
+      expect(graded).toHaveLength(1);
+      expect(graded[0].payload.failed).toBeUndefined(); // 重试成功 → 非失败
+      expect(graded[0].payload.overall).toBe(82);
+    });
+
     it("[A9] integrator throws → catch emits graded(failed,phase=pipeline-exception) + rethrows", async () => {
       const { DimensionIntegratorAgent } = jest.requireMock(
         "../../agents/writer/dimension-integrator.agent",

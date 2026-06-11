@@ -79,6 +79,14 @@ export interface ChatRequest {
   /** 跳过输入/输出 guardrails（用于内部系统调用，如 claim extraction、fact check） */
   skipGuardrails?: boolean;
 
+  /**
+   * 内部可信调用弱化档：正则护栏照常跑（含硬 block + PII 脱敏），但"可疑(warning)"
+   * 结果只记日志、不升级 LLM moderation、不 block。用于 agent-to-agent 喂外部网页/
+   * 研究语料（图文相关性、findings 复核等）的高误报场景——这些不是用户输入攻击面，
+   * 不该被内容审核误杀。与 skipGuardrails（整体跳过）的区别：仍保留 PII/硬 block。
+   */
+  trustedInternal?: boolean;
+
   /** JSON 模式：告诉 LLM 输出严格 JSON（支持 OpenAI json_object、Google JSON mode 等） */
   responseFormat?: "json" | "text";
 
