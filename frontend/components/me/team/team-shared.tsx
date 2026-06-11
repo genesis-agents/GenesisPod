@@ -93,7 +93,7 @@ export function ManagementOrgChart({
         <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
           管理团队 · 虚拟
         </span>
-        <span className="text-xs text-slate-400">CEO + 各 Team Leader</span>
+        <span className="text-xs text-slate-400">CEO + 各团队负责人</span>
       </div>
 
       <div className="flex flex-col items-center gap-1">

@@ -19,12 +19,12 @@ export function TalentPoolView() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-500">
-          已招募 {hired.length} 名 Agent。去
+          已招募 {hired.length} 名专家。去
           <Link
             href="/marketplace"
             className="mx-1 font-medium text-primary hover:underline"
           >
-            Agent 市场
+            专家市场
           </Link>
           招更多人。
         </p>
