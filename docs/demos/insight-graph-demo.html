@@ -143,6 +143,40 @@ header{
 .tour-pop .tp-act{display:flex;gap:8px;margin-top:13px;justify-content:flex-end}
 .tour-hl{outline:3px solid var(--amber-bright);outline-offset:5px}
 
+/* impact bar in review queue */
+.qimp{width:92px;display:flex;flex-direction:column;gap:3px;flex-shrink:0}
+.qimp i{display:block;height:4px;background:linear-gradient(90deg,#f59e0b,var(--red))}
+.qimp{background:rgba(29,36,51,.0)}
+.qimp em{font-style:normal;font-family:var(--mono);font-size:9px;color:var(--txt-dim);letter-spacing:.04em}
+
+/* scenario-conditioned confidence */
+.scn-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)}
+.scn-row .scn-n{font-size:11.5px;color:var(--txt);width:140px;flex-shrink:0}
+.scn-row .scn-bar{flex:1;height:5px;background:rgba(29,36,51,.08)}
+.scn-row .scn-bar i{display:block;height:100%;background:linear-gradient(90deg,#a78bfa,#6d28d9)}
+.scn-row .scn-c{font-family:var(--mono);font-size:10.5px;color:#6d28d9;width:36px;text-align:right}
+.scn-note{font-size:10.5px;color:var(--txt-dim);line-height:1.55;padding:7px 0 0}
+
+/* confidence ledger */
+.led-row{display:flex;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px dashed var(--line);font-size:11px;line-height:1.55}
+.led-row:last-child{border-bottom:none}
+.led-row .led-d{font-family:var(--mono);font-size:9.5px;color:var(--txt-faint);width:64px;flex-shrink:0}
+.led-row .led-c{font-family:var(--mono);font-size:10.5px;color:var(--txt);white-space:nowrap}
+.led-row .led-c b{color:var(--amber)}
+.led-row .led-r{color:var(--txt-dim)}
+
+/* forks */
+.fk{padding:9px 0;border-bottom:1px dashed var(--line)}
+.fk:last-child{border-bottom:none}
+.fk .fk-n{font-size:12.5px;font-weight:700}
+.fk .fk-q{font-size:11px;color:var(--txt-dim);margin:1px 0 6px}
+.fk-b{display:flex;align-items:center;gap:10px;padding:2px 0}
+.fk-b span:first-child{font-size:11px;color:var(--txt);width:120px;flex-shrink:0}
+.fk-b .dbar{flex:1;height:5px;background:rgba(29,36,51,.08)}
+.fk-b .dbar i{display:block;height:100%;background:linear-gradient(90deg,#a78bfa,#6d28d9)}
+.fk-b .fk-p{font-family:var(--mono);font-size:10.5px;color:#6d28d9;width:34px;text-align:right}
+.fk .fk-cards{margin-top:5px}
+
 /* overview review queue summary */
 .ovq-item{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px dashed var(--line);cursor:pointer}
 .ovq-item:hover{background:rgba(29,36,51,.03)}
@@ -168,7 +202,7 @@ header{
 .kpi.ok b{color:var(--green)}
 .kpi .kl{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--txt-faint);text-transform:uppercase;margin-top:6px}
 .kpi .kh{font-size:11px;color:var(--txt-dim);margin-top:4px}
-.ovgrid{display:grid;grid-template-columns:1.25fr 1fr 1.15fr;gap:18px;margin-top:20px;align-items:start}
+.ovgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:20px;align-items:start}
 @media (max-width:1100px){.ovgrid{grid-template-columns:1fr}}
 .ovcard{border:1px solid var(--line-strong);background:var(--panel);box-shadow:0 2px 10px rgba(29,36,51,.05)}
 .ovcard .oh{
@@ -276,7 +310,7 @@ header{
 .graph{position:relative;padding:6px 0 30px}
 #edges{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
 #labels{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:6}
-#edges path.e{fill:none;stroke:rgba(29,36,51,.16);stroke-width:1.2;transition:stroke .3s}
+#edges path.e{fill:none;stroke:rgba(29,36,51,.16);transition:stroke .3s} /* 基础粗细按边权以 attribute 设置 */
 #edges path.e.constrain{stroke-dasharray:5 5;stroke:rgba(214,48,58,.38)}
 #edges path.e.hov{stroke:rgba(29,36,51,.55);stroke-width:1.6}
 #edges path.e.hl-down{stroke:var(--amber-bright);stroke-width:1.9}
@@ -569,7 +603,7 @@ footer{
   <div class="brand">
     <div class="kicker">Foresight · Compute Substrate 2028–2030</div>
     <h1>AI 前瞻 <em>·</em> 判断资产</h1>
-    <div class="sub">ASSUMPTION GRAPH / 假设卡片 × 信号检验 × 影响传播 × 复核工作流 — Demo v0.2</div>
+    <div class="sub">ASSUMPTION GRAPH / 假设卡片 × 衰减传播 × 置信度账本 × 情景分叉 — Demo v0.4</div>
   </div>
   <div class="stats">
     <div class="stat"><div class="num" id="stat-cards">0</div><div class="lbl">假设 Assumptions</div></div>
@@ -651,6 +685,10 @@ footer{
       <div class="ob" id="ov-layers"></div>
     </div>
     <div class="ovcard">
+      <div class="oh"><span class="dot" style="background:#6d28d9"></span>关键情景分叉 Forks</div>
+      <div class="ob" id="ov-forks"></div>
+    </div>
+    <div class="ovcard">
       <div class="oh"><span class="dot" style="background:var(--blue)"></span>代际阶段分布 Stages</div>
       <div class="ob" id="ov-stages"></div>
     </div>
@@ -675,12 +713,12 @@ footer{
   </div>
   <div id="sig-basis"></div>
   <div class="legend">
-    <span><i class="lg-line"></i>影响传导（经量化参数）</span>
+    <span><i class="lg-line" style="border-top-width:3px"></i>边粗细 = 传导强度（w 0.5–0.9）</span>
     <span><i class="lg-dash"></i>约束反压</span>
     <span><i class="lg-dot" style="background:var(--blue)"></i>上游依赖</span>
     <span><i class="lg-dot" style="background:var(--amber-bright)"></i>下游影响 / 待复核</span>
     <span><i class="lg-dot" style="background:var(--red)"></i>证伪信号命中</span>
-    <span style="margin-left:auto">点击卡片 = 查看血缘 · 注入信号 = 传播演练</span>
+    <span style="margin-left:auto">传播冲击度沿边权连乘衰减，低于 0.30 不再标记</span>
   </div>
   <div class="legend" style="padding-top:6px">
     <span style="color:var(--txt-faint)">代际阶段</span>
@@ -875,48 +913,75 @@ const CARDS = [
    falsifiers:['散热与供电瓶颈使行业长期停在 600kW 平台期','多机架低密度方案 TCO 反超高密单机架']},
 ];
 
-/* edges: 影响经由量化参数传导; type: flow | constrain */
+/* edges: 影响经由量化参数传导; type: flow | constrain
+   w = 传导强度(0-1): 传播冲击度按路径连乘衰减, 低于阈值不再标记 —— 防告警风暴 */
 const EDGES = [
-  {from:'A-L0-01', to:'A-L2-03', metric:'并发会话数 / 会话生命周期'},
-  {from:'A-L0-02', to:'A-L1-02', metric:'上下文长度分布'},
-  {from:'A-L0-02', to:'A-L2-01', metric:'prefill : decode 突发比'},
-  {from:'A-L0-03', to:'A-L1-01', metric:'$ / token 成本压力'},
-  {from:'A-L0-03', to:'A-L4-02', metric:'推理算力总盘'},
-  {from:'A-L0-03', to:'A-L5-03', metric:'总算力 → 总电力需求'},
-  {from:'A-L1-01', to:'A-L3-01', metric:'专家并行 EP 通信量'},
-  {from:'A-L1-02', to:'A-L2-01', metric:'KV 容量 / 迁移需求'},
-  {from:'A-L1-02', to:'A-L2-02', metric:'KV 容量分层曲线'},
-  {from:'A-L1-02', to:'A-L4-04', metric:'attention 访存密度'},
-  {from:'A-L1-03', to:'A-L1-02', metric:'多模态 token 膨胀系数'},
-  {from:'A-L2-01', to:'A-L3-01', metric:'PD 间 KV 迁移带宽'},
-  {from:'A-L2-02', to:'A-L3-02', metric:'二级存储 IOPS / 延迟 SLA'},
-  {from:'A-L2-03', to:'A-L3-03', metric:'东西向流量模式'},
-  {from:'A-L4-01', to:'A-L1-01', metric:'HBM 容量 / 带宽上限', type:'constrain'},
-  {from:'A-L4-01', to:'A-L4-02', metric:'HBM 产能分配', type:'constrain'},
-  {from:'A-L3-01', to:'A-L4-03', metric:'互联距离 × 带宽密度'},
-  {from:'A-L3-01', to:'A-L5-01', metric:'域内功率密度'},
-  {from:'A-L4-03', to:'A-L5-01', metric:'互联功耗占比'},
-  {from:'A-L5-01', to:'A-L5-02', metric:'单机架热密度'},
-  {from:'A-L5-01', to:'A-L5-03', metric:'园区供电需求'},
-  {from:'A-L5-03', to:'A-L0-03', metric:'可用算力上限（反压）', type:'constrain'},
+  {from:'A-L0-01', to:'A-L2-03', metric:'并发会话数 / 会话生命周期', w:.7},
+  {from:'A-L0-02', to:'A-L1-02', metric:'上下文长度分布', w:.9},
+  {from:'A-L0-02', to:'A-L2-01', metric:'prefill : decode 突发比', w:.7},
+  {from:'A-L0-03', to:'A-L1-01', metric:'$ / token 成本压力', w:.7},
+  {from:'A-L0-03', to:'A-L4-02', metric:'推理算力总盘', w:.6},
+  {from:'A-L0-03', to:'A-L5-03', metric:'总算力 → 总电力需求', w:.8},
+  {from:'A-L1-01', to:'A-L3-01', metric:'专家并行 EP 通信量', w:.8},
+  {from:'A-L1-02', to:'A-L2-01', metric:'KV 容量 / 迁移需求', w:.8},
+  {from:'A-L1-02', to:'A-L2-02', metric:'KV 容量分层曲线', w:.9},
+  {from:'A-L1-02', to:'A-L4-04', metric:'attention 访存密度', w:.5},
+  {from:'A-L1-03', to:'A-L1-02', metric:'多模态 token 膨胀系数', w:.6},
+  {from:'A-L2-01', to:'A-L3-01', metric:'PD 间 KV 迁移带宽', w:.6},
+  {from:'A-L2-02', to:'A-L3-02', metric:'二级存储 IOPS / 延迟 SLA', w:.8},
+  {from:'A-L2-03', to:'A-L3-03', metric:'东西向流量模式', w:.5},
+  {from:'A-L4-01', to:'A-L1-01', metric:'HBM 容量 / 带宽上限', type:'constrain', w:.8},
+  {from:'A-L4-01', to:'A-L4-02', metric:'HBM 产能分配', type:'constrain', w:.7},
+  {from:'A-L3-01', to:'A-L4-03', metric:'互联距离 × 带宽密度', w:.7},
+  {from:'A-L3-01', to:'A-L5-01', metric:'域内功率密度', w:.9},
+  {from:'A-L4-03', to:'A-L5-01', metric:'互联功耗占比', w:.5},
+  {from:'A-L5-01', to:'A-L5-02', metric:'单机架热密度', w:.9},
+  {from:'A-L5-01', to:'A-L5-03', metric:'园区供电需求', w:.8},
+  {from:'A-L5-03', to:'A-L0-03', metric:'可用算力上限（反压）', type:'constrain', w:.6},
   /* 2026-06-12 扩充：MoA / 三网合一 / MW 级机架 */
-  {from:'A-L0-01', to:'A-L0-04', metric:'任务复杂度分布'},
-  {from:'A-L0-04', to:'A-L1-02', metric:'跨 Agent 上下文共享量'},
-  {from:'A-L0-04', to:'A-L2-03', metric:'Agent 间路由 / 编排开销'},
-  {from:'A-L3-03', to:'A-L3-04', metric:'以太网语义覆盖度'},
-  {from:'A-L2-02', to:'A-L3-04', metric:'存储流量并网比例'},
-  {from:'A-L3-04', to:'A-L5-01', metric:'网络功耗 / 布线密度'},
-  {from:'A-L5-01', to:'A-L5-04', metric:'代际功率曲线'},
-  {from:'A-L5-04', to:'A-L5-03', metric:'单机架供电需求（HVDC）'},
+  {from:'A-L0-01', to:'A-L0-04', metric:'任务复杂度分布', w:.6},
+  {from:'A-L0-04', to:'A-L1-02', metric:'跨 Agent 上下文共享量', w:.6},
+  {from:'A-L0-04', to:'A-L2-03', metric:'Agent 间路由 / 编排开销', w:.6},
+  {from:'A-L3-03', to:'A-L3-04', metric:'以太网语义覆盖度', w:.7},
+  {from:'A-L2-02', to:'A-L3-04', metric:'存储流量并网比例', w:.5},
+  {from:'A-L3-04', to:'A-L5-01', metric:'网络功耗 / 布线密度', w:.5},
+  {from:'A-L5-01', to:'A-L5-04', metric:'代际功率曲线', w:.7},
+  {from:'A-L5-04', to:'A-L5-03', metric:'单机架供电需求（HVDC）', w:.6},
 ];
 
 const SIGNALS = {
-  S1:{target:'A-L4-01', name:'HBM4 良率爬坡延期 12 个月',
-      effect:'证伪信号命中 A-L4-01「HBM4 路线图兑现」— 置信度 0.60 → 0.35。HBM 容量约束沿图谱向模型架构、推理 ASIC、scale-up 域规划传导。'},
-  S2:{target:'A-L1-01', name:'前沿实验室发布 Dense 旗舰，推理成本反超 MoE',
-      effect:'证伪信号命中 A-L1-01「MoE 稀疏化主导」— 置信度 0.70 → 0.45。EP 通信量假设失效，scale-up 域扩张的必要性需重估。'},
-  S3:{target:'A-L5-03', name:'北美主要 Hub 电网接入排队超 4 年',
-      effect:'约束收紧：A-L5-03「电力第一约束」置信度 0.70 → 0.85。物理层约束沿反压边向上传导，总算力供给假设需下修。'},
+  S1:{target:'A-L4-01', targetConf:.35, name:'HBM4 良率爬坡延期 12 个月',
+      effect:'证伪信号命中 A-L4-01「HBM4 路线图兑现」— 裁定后置信度 0.60 → 0.35。HBM 容量约束沿图谱向模型架构、推理 ASIC、scale-up 域规划传导。'},
+  S2:{target:'A-L1-01', targetConf:.45, name:'前沿实验室发布 Dense 旗舰，推理成本反超 MoE',
+      effect:'证伪信号命中 A-L1-01「MoE 稀疏化主导」— 裁定后置信度 0.70 → 0.45。EP 通信量假设失效，scale-up 域扩张的必要性需重估。'},
+  S3:{target:'A-L5-03', targetConf:.85, name:'北美主要 Hub 电网接入排队超 4 年',
+      effect:'约束收紧：A-L5-03「电力第一约束」裁定后置信度 0.70 → 0.85。物理层约束沿反压边向上传导，总算力供给假设需下修。'},
+};
+
+/* 置信度账本: 每次修订留痕（谁/何时/为什么/从多少到多少） */
+const HIST = {
+  'A-L4-01':[
+    {d:'2026-05-12', f:.70, t:.60, by:'Champion-L4', r:'渠道传闻 HBM4 良率爬坡偏慢，季度复核下调'},
+    {d:'2026-03-02', f:.65, t:.70, by:'Champion-L4', r:'三大厂商量产时间表官宣一致，上调'}],
+  'A-L5-01':[
+    {d:'2026-06-09', f:.70, t:.75, by:'Champion-L5', r:'Kyber 600kW 级机架实测数据公开，上调'}],
+  'A-L1-01':[
+    {d:'2026-04-20', f:.65, t:.70, by:'Owner', r:'两家前沿实验室旗舰均确认细粒度 MoE，上调'}],
+};
+
+/* 情景分叉: 分叉收敛前, 单点置信度是多情景的加权坍缩 —— 高敏决策须看条件置信度 */
+const FORKS = [
+  {name:'推理范式', q:'推理算力需求是否延续高增长？',
+   branches:[{n:'延续高增', p:.60},{n:'效率革命压缩需求', p:.40}], cards:['A-L0-03']},
+  {name:'机架密度路线', q:'走向 1MW 高密集中化，还是多机架低密分布？',
+   branches:[{n:'高密集中化', p:.55},{n:'低密分布式', p:.45}], cards:['A-L5-04','A-L5-01']},
+  {name:'推理芯片格局', q:'ASIC 能否拿走推理算力大头？',
+   branches:[{n:'GPU 主导延续', p:.55},{n:'ASIC 分流成立', p:.45}], cards:['A-L4-02']},
+];
+const SCN = {
+  'A-L0-03':[{s:'延续高增 (p 0.60)', conf:.80},{s:'效率革命 (p 0.40)', conf:.42}],
+  'A-L5-04':[{s:'高密集中化 (p 0.55)', conf:.65},{s:'低密分布式 (p 0.45)', conf:.21}],
+  'A-L4-02':[{s:'ASIC 分流成立 (p 0.45)', conf:.78},{s:'GPU 主导延续 (p 0.55)', conf:.27}],
 };
 
 /* 信号依据档案 */
@@ -1083,6 +1148,7 @@ function createCardEl(c){
     <div class="badge"></div>
     <div class="top"><span class="cid">${c.id}</span>
       <span style="display:flex;gap:5px">
+        ${SCN[c.id]?'<span class="stagechip" style="color:#6d28d9;border-color:#6d28d9">分叉</span>':''}
         <span class="stagechip" style="color:${stg.color};border-color:${stg.color}">${stg.name}</span>
         <span class="sens ${c.sens}">${SENS_TXT[c.sens]}</span>
       </span>
@@ -1147,6 +1213,8 @@ function drawEdges(){
     const p=document.createElementNS(NS,'path');
     p.setAttribute('class','e'+(e.type==='constrain'?' constrain':''));
     p.setAttribute('d', edgePath(e));
+    /* 边粗细 = 传导强度（CSS 类的高亮宽度仍会覆盖此基础值） */
+    p.setAttribute('stroke-width', (0.6 + (e.w ?? .7) * 1.6).toFixed(2));
     svg.appendChild(p);
     edgeEls[e.idx]=p;
   });
@@ -1275,6 +1343,18 @@ function renderDetail(id){
       </a>`).join('')}</div>
     <div class="sec-t red">证伪信号 FALSIFIERS</div>
     <ul class="flist red">${c.falsifiers.map(x=>`<li>${x}</li>`).join('')}</ul>
+    ${SCN[id]?`<div class="sec-t" style="color:#6d28d9">情景条件置信度 SCENARIO</div>
+      <div class="scn">${SCN[id].map(s=>`
+        <div class="scn-row"><span class="scn-n">${s.s}</span>
+          <span class="scn-bar"><i style="width:${s.conf*100}%"></i></span>
+          <span class="scn-c">${s.conf.toFixed(2)}</span></div>`).join('')}
+        <div class="scn-note">卡面置信度为情景加权综合 — 分叉收敛前，高敏决策须看条件置信度，避免对单一情景押满注</div>
+      </div>`:''}
+    ${(HIST[id]||[]).length?`<div class="sec-t">置信度账本 LEDGER</div>
+      <div class="ledger">${HIST[id].map(h=>`
+        <div class="led-row"><span class="led-d">${h.d}</span>
+          <span class="led-c">${h.f.toFixed(2)} → <b>${h.t.toFixed(2)}</b></span>
+          <span class="led-r">${h.by} · ${h.r}</span></div>`).join('')}</div>`:''}
     ${ups?`<div class="sec-t">上游依赖 UPSTREAM</div><div class="chips">${ups}</div>`:''}
     ${dns?`<div class="sec-t">下游影响 DOWNSTREAM</div><div class="chips">${dns}</div>`:''}`;
   document.getElementById('detail').querySelectorAll('.chip').forEach(ch=>{
@@ -1321,16 +1401,16 @@ function renderReview(){
   q.innerHTML='';
   const sorted=[...REVIEW_ITEMS].sort((a,b)=>{
     if(a.resolved!==b.resolved) return a.resolved?1:-1;
-    const ka=a.isSrc?-1:SENS_RANK[cardById[a.cardId].sens]*100+a.depth;
-    const kb=b.isSrc?-1:SENS_RANK[cardById[b.cardId].sens]*100+b.depth;
-    return ka-kb;
+    return (b.isSrc?2:b.impact)-(a.isSrc?2:a.impact);
   });
   sorted.forEach(item=>{
     const c=cardById[item.cardId];
     const el=document.createElement('div');
     el.className='qitem'+(item.resolved?' resolved':'');
     const act = item.resolved
-      ? `<span class="qdecision ${item.decision}">${item.decision==='adj'?'已确认调整':'维持原判'}</span>`
+      ? `<span class="qdecision ${item.decision}">${item.decision==='adj'
+            ? `已调整 ${item.confFrom.toFixed(2)} → ${item.confTo.toFixed(2)}`
+            : '维持原判'}</span>`
       : `<div class="qact">
            <button class="qbtn adj">确认调整</button>
            <button class="qbtn keep">维持原判</button>
@@ -1342,6 +1422,7 @@ function renderReview(){
         <div class="qt">${c.title}</div>
         <div class="qhint">${item.isSrc?'信号源假设 — 需确认置信度调整':'上游假设变动 — 需复核本假设是否仍成立'}</div>
       </div>
+      <span class="qimp" title="冲击度（沿边权连乘衰减）"><i style="width:${item.impact*100}%"></i><em>冲击 ${item.impact.toFixed(2)}</em></span>
       <span class="sens ${c.sens}">${SENS_TXT[c.sens]}</span>
       ${act}`;
     el.querySelector('.qmain').addEventListener('click',()=>showGraphTab(()=>selectCard(item.cardId)));
@@ -1353,21 +1434,50 @@ function renderReview(){
   updateReviewCounters();
 }
 
+/* 裁定「确认调整」时真实修订置信度并写入账本 */
+function applyConfAdjust(item){
+  const c=cardById[item.cardId];
+  const sig=SIGNALS[item.sigId];
+  const old=c.conf;
+  let next;
+  if(item.isSrc){
+    next=sig.targetConf;
+  }else{
+    const delta=+(item.impact*0.15).toFixed(2); /* 传播项按冲击度比例下调 */
+    next=Math.min(.95, Math.max(.05, +(old-delta).toFixed(2)));
+  }
+  c.conf=next;
+  item.confFrom=old; item.confTo=next;
+  (HIST[c.id] ||= []).unshift({
+    d:'今天', f:old, t:next, by:'Owner 裁定',
+    r:`${item.sigId} 复核确认调整（冲击度 ${item.impact.toFixed(2)}）`,
+  });
+  const el=document.querySelector(`.card[data-id="${c.id}"]`);
+  if(el){
+    el.querySelector('.confbar i').style.width=(next*100)+'%';
+    el.querySelector('.meta span').textContent=`CONF ${next.toFixed(2)}`;
+  }
+  if(selected===c.id) renderDetail(c.id);
+}
+
 function resolveItem(item, decision){
   item.resolved=true;
   item.decision=decision;
+  if(decision==='adj') applyConfAdjust(item);
   const el=document.querySelector(`.card[data-id="${item.cardId}"]`);
   if(el && !isCardPending(item.cardId)){
     el.classList.remove('dirty','src');
   }
   const c=cardById[item.cardId];
-  logActivity(`复核裁定：<b>${c.id} ${c.title}</b> — ${decision==='adj'?'确认调整（采纳置信度变化）':'维持原判（驳回冲击）'}`);
+  logActivity(`复核裁定：<b>${c.id} ${c.title}</b> — ${decision==='adj'
+    ? `确认调整，置信度 ${item.confFrom.toFixed(2)} → ${item.confTo.toFixed(2)}（已入账本）`
+    : '维持原判（驳回冲击）'}`);
   renderReview();
   recomputeConclusions();
 }
 
-function pushReview(cardId, depth, isSrc, sigId){
-  REVIEW_ITEMS.push({cardId, depth, isSrc, sigId, resolved:false, decision:null});
+function pushReview(cardId, depth, isSrc, sigId, impact){
+  REVIEW_ITEMS.push({cardId, depth, isSrc, sigId, impact, resolved:false, decision:null, confFrom:0, confTo:0});
   renderReview();
 }
 
@@ -1376,32 +1486,56 @@ const STEP=520;
 let timers=[];
 function clearTimers(){ timers.forEach(t=>clearTimeout(t)); timers=[]; }
 
+/* 冲击度 = 沿路径边权连乘的最大值; 低于阈值的不再标记 —— 衰减传播防告警风暴 */
+const IMPACT_THRESH = 0.30;
+function computeImpact(src){
+  const impact={[src]:1};
+  for(let k=0;k<10;k++){
+    let changed=false;
+    EDGES.forEach(e=>{
+      const base=impact[e.from];
+      if(base===undefined) return;
+      const v=base*(e.w ?? .7);
+      if(v > (impact[e.to] ?? 0) + 1e-9){ impact[e.to]=v; changed=true; }
+    });
+    if(!changed) break;
+  }
+  return impact;
+}
+
 function injectSignal(sigId){
   resetAll(false);
   showGraphTab(()=>{
     document.querySelector(`.sig[data-sig="${sigId}"]`).classList.add('active');
     const sig=SIGNALS[sigId];
     const src=sig.target;
+    const impact=computeImpact(src);
+    const marked=Object.keys(impact).filter(id=>id!==src && impact[id]>=IMPACT_THRESH);
+    const observed=Object.keys(impact).filter(id=>id!==src && impact[id]>=0.15 && impact[id]<IMPACT_THRESH);
+    const markedSet=new Set(marked);
     const {levels}=bfs(src,outEdges,e=>e.to);
-    propagation={srcId:src, levels, visitedEdges:[]};
+    const depthOf={[src]:0};
+    levels.forEach((lv,d)=>lv.forEach(n=>{ if(!(n in depthOf)) depthOf[n]=d+1; }));
+    propagation={srcId:src, visitedEdges:[]};
 
     const eff=document.getElementById('queue-effect');
     eff.style.display='block';
-    eff.innerHTML=`<span class="sid">${sigId} · SIGNAL</span>${sig.effect}`;
-
-    const depthOf={[src]:0};
-    levels.forEach((lv,d)=>lv.forEach(n=>{ if(!(n in depthOf)) depthOf[n]=d+1; }));
+    eff.innerHTML=`<span class="sid">${sigId} · SIGNAL</span>${sig.effect}<br>
+      <span style="font-family:var(--mono);font-size:10.5px">传播按边权衰减：<b>${marked.length}</b> 张冲击度 ≥ ${IMPACT_THRESH.toFixed(2)} 进入复核；${observed.length} 张低于阈值仅记录观察（${observed.map(n=>n+' '+impact[n].toFixed(2)).join('，')||'无'}），不打扰。</span>`;
 
     const srcEl=document.querySelector(`.card[data-id="${src}"]`);
     srcEl.classList.add('src');
     srcEl.querySelector('.badge').textContent='信号命中';
-    pushReview(src,0,true,sigId);
-    logActivity(`信号注入：<b>${sig.name}</b> 命中 <b>${src}</b>，传播开始`);
+    pushReview(src,0,true,sigId,1);
+    logActivity(`信号注入：<b>${sig.name}</b> 命中 <b>${src}</b>，衰减传播开始`);
 
-    levels.forEach((lv,d)=>{
+    const maxDepth=marked.reduce((m,n)=>Math.max(m,depthOf[n]??1),0);
+    for(let d=1; d<=maxDepth; d++){
+      const lv=marked.filter(n=>(depthOf[n]??99)===d);
       timers.push(setTimeout(()=>{
         EDGES.forEach(e=>{
-          if(depthOf[e.to]===d+1 && (depthOf[e.from]??99)<=d){
+          const fromIn = e.from===src || markedSet.has(e.from);
+          if(fromIn && markedSet.has(e.to) && depthOf[e.to]===d){
             classifyEdge(e.idx,'flow','amber');
             propagation.visitedEdges.push(e.idx);
           }
@@ -1410,15 +1544,15 @@ function injectSignal(sigId){
           const el=document.querySelector(`.card[data-id="${n}"]`);
           el.classList.add('dirty');
           el.querySelector('.badge').textContent='待复核';
-          pushReview(n,d+1,false,sigId);
+          pushReview(n, d, false, sigId, impact[n]);
         });
-      },(d+1)*STEP));
-    });
+      }, d*STEP));
+    }
 
     timers.push(setTimeout(()=>{
       recomputeConclusions();
-      logActivity(`传播完成：${sigId} 共标记 <b>${1+levels.flat().length} 张假设</b>进入复核队列`);
-    },(levels.length+1)*STEP));
+      logActivity(`传播完成：${sigId} 超阈值 <b>${marked.length+1} 张</b>进入复核，${observed.length} 张衰减截止仅观察`);
+    },(maxDepth+1)*STEP));
   });
 }
 
@@ -1812,10 +1946,27 @@ function renderOverview(){
     el.innerHTML=`<span class="at">${a.t}</span><span class="ax">${a.x}</span>`;
     abox.appendChild(el);
   });
-  /* ② 待我处理 — review queue summary */
+  /* 关键情景分叉 */
+  const fbox=document.getElementById('ov-forks');
+  fbox.innerHTML='';
+  FORKS.forEach(f=>{
+    const el=document.createElement('div');
+    el.className='fk';
+    el.innerHTML=`
+      <div class="fk-n">${f.name}</div>
+      <div class="fk-q">${f.q}</div>
+      ${f.branches.map(b=>`
+        <div class="fk-b"><span>${b.n}</span>
+          <span class="dbar"><i style="width:${b.p*100}%"></i></span>
+          <span class="fk-p">${Math.round(b.p*100)}%</span></div>`).join('')}
+      <div class="chips fk-cards">${f.cards.map(id=>`<span class="chip" data-go="${id}">${id} · ${cardById[id].title}</span>`).join('')}</div>`;
+    el.querySelectorAll('.chip').forEach(ch=>ch.addEventListener('click',()=>showGraphTab(()=>selectCard(ch.dataset.go))));
+    fbox.appendChild(el);
+  });
+  /* ② 待我处理 — review queue summary（按冲击度降序，源在最前） */
   const rbox=document.getElementById('ov-review');
   const pend=REVIEW_ITEMS.filter(r=>!r.resolved)
-    .sort((a,b)=>(a.isSrc?-1:SENS_RANK[cardById[a.cardId].sens]*100+a.depth)-(b.isSrc?-1:SENS_RANK[cardById[b.cardId].sens]*100+b.depth));
+    .sort((a,b)=>(b.isSrc?2:b.impact)-(a.isSrc?2:a.impact));
   if(pend.length===0){
     rbox.innerHTML='<div class="empty" style="padding:12px">当前无待办 — 强信号注入后，受冲击假设会在这里排队等你裁定（可点「开始引导巡检」体验完整流程）</div>';
   }else{
@@ -1825,7 +1976,7 @@ function renderOverview(){
         <span class="qid">${c.id}</span>
         <span class="qt">${c.title}</span>
         <span class="sens ${c.sens}">${SENS_TXT[c.sens]}</span>
-        <span class="qid" style="width:auto">${r.isSrc?'信号命中':'D'+r.depth+' 传播'}</span>
+        <span class="qid" style="width:auto">${r.isSrc?'信号命中':'冲击 '+r.impact.toFixed(2)}</span>
       </div>`;
     }).join('') + `<button class="ovq-go">去复核处理（${pend.length} 项待裁定）</button>`;
     rbox.querySelectorAll('.ovq-item').forEach(el=>el.addEventListener('click',()=>showGraphTab(()=>selectCard(el.dataset.go))));
@@ -1843,10 +1994,10 @@ const TOUR=[
    x:'注入前先核验信号依据档案：它绑定哪条预登记条件、阈值 vs 观测值、触发信源是否多源确认。依据不足的信号到不了这一步。',
    act:()=>showBasis('S1')},
   {tab:'graph', hl:'#graph', t:'第 3 步 · 注入传播',
-   x:'核验通过，注入信号。看影响如何沿「量化参数边」逐层点亮 9 张假设——一层变动，全图感知。',
+   x:'核验通过，注入信号。影响沿边权连乘衰减传播：冲击度高的逐层点亮，衰减到 0.30 以下的不再标记（注意反压边那一支就停在了进入 L0 之前）——告警不泛滥。',
    act:()=>{ closeBasis(); injectSignal('S1'); }},
   {tab:'review', hl:'#queue', t:'第 4 步 · 复核裁定',
-   x:'受影响假设按 敏感度 × 传播深度 排成待办。逐项裁定：「确认调整」采纳置信度变化，「维持原判」驳回冲击。现在就可以点第一项试试——裁定后图谱标记实时解除。'},
+   x:'受影响假设按冲击度降序排成待办。「确认调整」会真实修订置信度并写入账本（卡片详情可查全部修订史），「维持原判」驳回冲击。现在就可以点第一项试试。'},
   {tab:'conclusions', hl:'#concl', t:'第 5 步 · 校准结论',
    x:'依赖被动摇假设的决策级结论自动标记「受冲击」，上游全部裁定后自动恢复稳固。这一层（带量化决策建议）就是给管理层的最终输出。'},
   {tab:'overview', hl:'#kpis', t:'巡检完成',
