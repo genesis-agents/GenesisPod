@@ -286,8 +286,8 @@ export function PlaygroundMissionDialog({
     <MissionDialogShell
       isOpen={isOpen}
       onClose={onClose}
-      title="新建研究 Mission"
-      subtitle="基于 Harness runtime 启动多 Agent 研究任务"
+      title="新建洞察 Mission"
+      subtitle="启动多 Agent 协作的深度洞察任务"
       submitLabel={submitting ? '启动中…' : '启动 Mission'}
       submitting={submitting}
       submitDisabled={!topic.trim()}

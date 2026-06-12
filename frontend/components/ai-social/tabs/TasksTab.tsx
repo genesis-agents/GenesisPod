@@ -25,6 +25,7 @@ import {
   FileText,
   Lightbulb,
   Bot,
+  Radar,
   Link2,
   Layers,
   type LucideIcon,
@@ -89,7 +90,8 @@ const SOURCE_TYPE_META: Record<string, { label: string; Icon: LucideIcon }> = {
   AI_WRITING: { label: 'AI 写作', Icon: PenLine },
   AI_OFFICE: { label: 'AI Office', Icon: FileText },
   AI_TOPIC_INSIGHTS: { label: '专题洞察', Icon: Lightbulb },
-  AI_PLAYGROUND: { label: 'Agent 实验场', Icon: Bot },
+  AI_PLAYGROUND: { label: 'AI 洞察', Icon: Bot },
+  AI_RADAR: { label: 'AI 雷达', Icon: Radar },
 };
 function getSourceMeta(sourceType: string) {
   return SOURCE_TYPE_META[sourceType] ?? { label: sourceType, Icon: FileText };

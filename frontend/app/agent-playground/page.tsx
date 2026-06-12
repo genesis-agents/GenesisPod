@@ -90,8 +90,8 @@ export default function PlaygroundIndexPage() {
   return (
     <>
       <MissionGalleryView
-        title={t('nav.playground') || 'Agent Playground'}
-        subtitle="基于 Harness runtime 的多智能体协作演示"
+        title={t('nav.aiInsights') || 'AI Insights'}
+        subtitle="多智能体协作的深度洞察任务"
         iconGradient="from-violet-500 to-purple-600"
         createButtonLabel="新建 Mission"
         onCreateMission={() => setCreateOpen(true)}
@@ -104,8 +104,8 @@ export default function PlaygroundIndexPage() {
         reloadKey={galleryReloadKey}
         emptyState={{
           title: '还没有 Mission',
-          hint: '基于 Harness runtime 启动你的第一个研究 mission',
-          ctaLabel: '启动研究 Mission',
+          hint: '启动你的第一个深度洞察 Mission',
+          ctaLabel: '启动洞察 Mission',
         }}
       />
       <PlaygroundMissionDialog
