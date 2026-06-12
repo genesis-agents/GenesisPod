@@ -267,15 +267,16 @@ export function FeedbackWidget() {
 
   return (
     <>
-      {/* 浮动触发按钮：右下角，z 高于常规内容但不挡关键操作；截屏期间隐藏 */}
-      {!hideTrigger && (
+      {/* 浮动触发按钮：右下角，z-[60] 高于 SideDrawer/Modal 的 z-50（抽屉打开时反馈入口仍可达）；
+          截屏期间隐藏；弹窗打开期间隐藏（防止重复点击重新截屏覆盖草稿） */}
+      {!hideTrigger && !open && (
         <button
           type="button"
           onClick={handleOpen}
           disabled={capturing}
           aria-label={t('feedback.openFeedback')}
           data-export-exclude
-          className="fixed bottom-6 right-6 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105 disabled:opacity-60"
+          className="fixed bottom-6 right-6 z-[60] flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105 disabled:opacity-60"
         >
           {capturing ? (
             <Loader2 className="h-5 w-5 animate-spin" />

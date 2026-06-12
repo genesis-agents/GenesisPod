@@ -22,7 +22,8 @@ vi.mock('html2canvas', () => ({
 
 import { FeedbackWidget } from '../FeedbackWidget';
 
-const PROBLEM_URL = 'https://app.test/the-broken-page';
+const PROBLEM_PATH = '/the-broken-page';
+let problemUrl = '';
 
 function makeCanvas(): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
@@ -38,10 +39,9 @@ beforeEach(() => {
   // stable object URL + current page url
   global.URL.createObjectURL = vi.fn(() => 'blob:preview');
   global.URL.revokeObjectURL = vi.fn();
-  Object.defineProperty(window, 'location', {
-    value: { href: PROBLEM_URL },
-    writable: true,
-  });
+  // jsdom 不允许重定义 window.location（non-configurable），改用 history API 切到出问题的页面
+  window.history.replaceState(null, '', PROBLEM_PATH);
+  problemUrl = window.location.href;
 });
 
 afterEach(() => {
@@ -93,7 +93,7 @@ describe('FeedbackWidget', () => {
     fireEvent.click(screen.getByText('提交反馈'));
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalled());
-    expect(captured?.get('url')).toBe(PROBLEM_URL);
+    expect(captured?.get('url')).toBe(problemUrl);
     expect(captured?.get('title')).toBe('Broken button');
     // screenshot file present
     const files = captured?.getAll('files') as File[];
