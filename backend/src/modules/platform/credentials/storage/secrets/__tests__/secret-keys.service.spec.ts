@@ -196,6 +196,36 @@ describe("SecretKeysService", () => {
       expect(result?.label).toBe("primary");
     });
 
+    // ★ 2026-06-12 round-robin：可用 key 间按 LRU 轮询，刚用过的不再被重复选中
+    it("round-robin: 在可用 key 间选最久未用的一把（LRU 分散，优先级让位）", async () => {
+      const enc1 = encryption.encrypt("just-used");
+      const enc2 = encryption.encrypt("idle-longest");
+      prisma.secret.findFirst.mockResolvedValue(makeSecretRow());
+      prisma.secretKey.findMany.mockResolvedValue([
+        makeKeyRow({
+          id: "k1",
+          label: "primary",
+          priority: 0,
+          lastUsedAt: new Date(Date.now() - 1_000), // 刚用过
+          encryptedValue: enc1.encryptedValue,
+          iv: enc1.iv,
+        }),
+        makeKeyRow({
+          id: "k2",
+          label: "backup",
+          priority: 1,
+          lastUsedAt: new Date(Date.now() - 60_000), // 更久没用
+          encryptedValue: enc2.encryptedValue,
+          iv: enc2.iv,
+        }),
+      ]);
+
+      const result = await service.getSecretKey("test-api-key");
+      // k1 优先级更高但刚用过 → 轮询到最久未用的 k2（负载分散）
+      expect(result?.keyId).toBe("k2");
+      expect(result?.value).toBe("idle-longest");
+    });
+
     it("skips failed key inside circuit-break window and uses next", async () => {
       const enc1 = encryption.encrypt("dead-value");
       const enc2 = encryption.encrypt("alive-value");
