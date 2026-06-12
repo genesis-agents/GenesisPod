@@ -177,3 +177,41 @@ export function fetchLedger(cardId: string): Promise<ForesightConfLog[]> {
     `/cards/${encodeURIComponent(cardId)}/ledger`
   );
 }
+
+export interface CreateCardInput {
+  cardKey: string;
+  layer: string;
+  title: string;
+  claim: string;
+  conf: number;
+  sens: string;
+  horizon: number;
+  stage: string;
+  evidence?: string[];
+  falsifiers?: string[];
+  sources?: ForesightSource[];
+  scenarios?: ForesightScenario[];
+  originType?: string;
+}
+
+export function createCard(input: CreateCardInput): Promise<ForesightCard> {
+  return request<ForesightCard>('/cards', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export interface CreateEdgeInput {
+  fromKey: string;
+  toKey: string;
+  metric: string;
+  type?: 'flow' | 'constrain';
+  weight?: number;
+}
+
+export function createEdge(input: CreateEdgeInput): Promise<ForesightEdge> {
+  return request<ForesightEdge>('/edges', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}

@@ -6,12 +6,15 @@ import {
   GitBranch,
   Inbox,
   Lightbulb,
+  Link2,
   ListChecks,
+  Plus,
   Table2,
 } from 'lucide-react';
 import { Tabs } from '@/components/ui/tabs/Tabs';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { LoadingState } from '@/components/ui/states/LoadingState';
+import { PageHeaderHero } from '@/components/ui/page-header-hero/PageHeaderHero';
 import {
   fetchOverview,
   injectSignal,
@@ -27,6 +30,7 @@ import { WorkbenchTab } from './WorkbenchTab';
 import { ReviewTab } from './ReviewTab';
 import { ConclusionsTab } from './ConclusionsTab';
 import { LibraryTab } from './LibraryTab';
+import { CreateCardDialog, CreateEdgeDialog } from './ForesightDialogs';
 
 /**
  * AI 前瞻主视图 —— 判断资产 / 假设图谱。
@@ -41,6 +45,8 @@ export function ForesightView() {
   const [injecting, setInjecting] = useState<string | null>(null);
   const [resolving, setResolving] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
+  const [createCardOpen, setCreateCardOpen] = useState(false);
+  const [createEdgeOpen, setCreateEdgeOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -171,130 +177,162 @@ export function ForesightView() {
   const selectedCard = overview.cards.find((c) => c.id === selectedId) ?? null;
 
   return (
-    <div className="mx-auto max-w-screen-2xl px-6 py-6">
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="font-mono text-xs uppercase tracking-widest text-amber-700">
-            Foresight · Assumption Graph
-          </p>
-          <h1 className="text-2xl font-bold text-gray-900">
-            AI 前瞻 · 判断资产
-          </h1>
-        </div>
-        <div className="font-mono flex gap-4 text-xs text-gray-500">
-          <span>
-            假设 <b className="text-gray-900">{overview.cards.length}</b>
-          </span>
-          <span>
-            影响边 <b className="text-gray-900">{overview.edges.length}</b>
-          </span>
-          <span>
-            待复核{' '}
-            <b
-              className={pendingCount > 0 ? 'text-amber-600' : 'text-gray-900'}
+    <div className="pb-10">
+      <PageHeaderHero
+        title="AI 前瞻"
+        subtitle="判断资产 · 假设图谱 — 信号驱动复核，跨层影响衰减传播"
+        icon={<Compass className="h-7 w-7 text-white" />}
+        module="research"
+        actions={
+          <div className="flex items-center gap-2">
+            <span className="font-mono hidden items-center gap-4 pr-2 text-xs text-gray-500 lg:flex">
+              <span>
+                假设 <b className="text-gray-900">{overview.cards.length}</b>
+              </span>
+              <span>
+                影响边 <b className="text-gray-900">{overview.edges.length}</b>
+              </span>
+              <span>
+                待复核{' '}
+                <b
+                  className={
+                    pendingCount > 0 ? 'text-amber-600' : 'text-gray-900'
+                  }
+                >
+                  {pendingCount}
+                </b>
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setCreateEdgeOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
             >
-              {pendingCount}
-            </b>
-          </span>
-        </div>
+              <Link2 className="h-4 w-4" />
+              新建影响边
+            </button>
+            <button
+              type="button"
+              onClick={() => setCreateCardOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800"
+            >
+              <Plus className="h-4 w-4" />
+              新建假设卡
+            </button>
+          </div>
+        }
+      />
+      <div className="px-8">
+        {error && (
+          <p className="mb-3 border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
+            {error}
+          </p>
+        )}
+
+        <Tabs
+          value={tab}
+          onChange={setTab}
+          className="mb-5 border-b border-gray-200"
+          items={[
+            { key: 'workbench', label: '工作台', icon: Inbox },
+            { key: 'graph', label: '判断图谱', icon: GitBranch },
+            { key: 'library', label: '假设库', icon: Table2 },
+            {
+              key: 'review',
+              label: '复核',
+              icon: ListChecks,
+              count: pendingCount > 0 ? pendingCount : undefined,
+            },
+            { key: 'conclusions', label: '洞察结论', icon: Lightbulb },
+          ]}
+        />
+
+        {tab === 'workbench' && (
+          <WorkbenchTab
+            overview={overview}
+            pending={pending}
+            impactedConclusions={impactedConclusions}
+            injecting={injecting}
+            onInject={(s) => void handleInject(s)}
+            onGoTab={setTab}
+            onSelectCard={selectCard}
+          />
+        )}
+
+        {tab === 'graph' && (
+          <div className="grid gap-5 xl:grid-cols-[1fr_22rem]">
+            <div className="min-w-0">
+              <p className="font-mono mb-2 text-xs text-gray-400">
+                边粗细 = 传导强度 · 点击卡片查看血缘与详情 ·
+                传播冲击度沿边权连乘衰减（阈值 0.30）
+              </p>
+              <GraphCanvas
+                cards={overview.cards}
+                edges={overview.edges}
+                pending={pending}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+              />
+            </div>
+            <aside className="xl:sticky xl:top-4 xl:max-h-screen xl:overflow-y-auto">
+              <div className="border border-gray-300 bg-white p-4 shadow-sm">
+                {selectedCard ? (
+                  <CardDetailPanel
+                    card={selectedCard}
+                    cards={overview.cards}
+                    edges={overview.edges}
+                    onSelect={setSelectedId}
+                  />
+                ) : (
+                  <EmptyState
+                    size="sm"
+                    title="点击图谱中任意假设卡片"
+                    description="查看完整断言 / 信源 / 证伪信号 / 情景 / 账本 / 上下游血缘"
+                  />
+                )}
+              </div>
+            </aside>
+          </div>
+        )}
+
+        {tab === 'library' && (
+          <LibraryTab
+            overview={overview}
+            pending={pending}
+            onSelectCard={selectCard}
+          />
+        )}
+
+        {tab === 'review' && (
+          <ReviewTab
+            overview={overview}
+            resolving={resolving}
+            onResolve={(id, d) => void handleResolve(id, d)}
+            onSelectCard={selectCard}
+          />
+        )}
+
+        {tab === 'conclusions' && (
+          <ConclusionsTab
+            overview={overview}
+            impactedKeys={impactedKeys}
+            onSelectCardKey={selectCardKey}
+          />
+        )}
       </div>
 
-      {error && (
-        <p className="mb-3 border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
-          {error}
-        </p>
-      )}
-
-      <Tabs
-        value={tab}
-        onChange={setTab}
-        className="mb-5 border-b border-gray-200"
-        items={[
-          { key: 'workbench', label: '工作台', icon: Inbox },
-          { key: 'graph', label: '判断图谱', icon: GitBranch },
-          { key: 'library', label: '假设库', icon: Table2 },
-          {
-            key: 'review',
-            label: '复核',
-            icon: ListChecks,
-            count: pendingCount > 0 ? pendingCount : undefined,
-          },
-          { key: 'conclusions', label: '洞察结论', icon: Lightbulb },
-        ]}
+      <CreateCardDialog
+        open={createCardOpen}
+        cards={overview.cards}
+        onClose={() => setCreateCardOpen(false)}
+        onCreated={() => void load()}
       />
-
-      {tab === 'workbench' && (
-        <WorkbenchTab
-          overview={overview}
-          pending={pending}
-          impactedConclusions={impactedConclusions}
-          injecting={injecting}
-          onInject={(s) => void handleInject(s)}
-          onGoTab={setTab}
-          onSelectCard={selectCard}
-        />
-      )}
-
-      {tab === 'graph' && (
-        <div className="grid gap-5 xl:grid-cols-[1fr_22rem]">
-          <div className="min-w-0">
-            <p className="font-mono mb-2 text-xs text-gray-400">
-              边粗细 = 传导强度 · 点击卡片查看血缘与详情 ·
-              传播冲击度沿边权连乘衰减（阈值 0.30）
-            </p>
-            <GraphCanvas
-              cards={overview.cards}
-              edges={overview.edges}
-              pending={pending}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-            />
-          </div>
-          <aside className="xl:sticky xl:top-4 xl:max-h-screen xl:overflow-y-auto">
-            <div className="border border-gray-300 bg-white p-4 shadow-sm">
-              {selectedCard ? (
-                <CardDetailPanel
-                  card={selectedCard}
-                  cards={overview.cards}
-                  edges={overview.edges}
-                  onSelect={setSelectedId}
-                />
-              ) : (
-                <EmptyState
-                  size="sm"
-                  title="点击图谱中任意假设卡片"
-                  description="查看完整断言 / 信源 / 证伪信号 / 情景 / 账本 / 上下游血缘"
-                />
-              )}
-            </div>
-          </aside>
-        </div>
-      )}
-
-      {tab === 'library' && (
-        <LibraryTab
-          overview={overview}
-          pending={pending}
-          onSelectCard={selectCard}
-        />
-      )}
-
-      {tab === 'review' && (
-        <ReviewTab
-          overview={overview}
-          resolving={resolving}
-          onResolve={(id, d) => void handleResolve(id, d)}
-          onSelectCard={selectCard}
-        />
-      )}
-
-      {tab === 'conclusions' && (
-        <ConclusionsTab
-          overview={overview}
-          impactedKeys={impactedKeys}
-          onSelectCardKey={selectCardKey}
-        />
-      )}
+      <CreateEdgeDialog
+        open={createEdgeOpen}
+        cards={overview.cards}
+        onClose={() => setCreateEdgeOpen(false)}
+        onCreated={() => void load()}
+      />
     </div>
   );
 }
