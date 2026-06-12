@@ -11,11 +11,10 @@ import {
   Lightbulb,
   Telescope,
   Store,
-  FlaskConical,
   BookOpen,
   Radar,
   Eye,
-  Microscope,
+  Compass,
   Users,
   ClipboardList,
   LayoutGrid,
@@ -87,7 +86,13 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/agents', label: '我的专家团', Icon: Users, matchPrefix: true },
     ],
   },
-  // 深度洞察
+  // 深度洞察：雷达（信号流）→ 洞察（深度生成）→ 前瞻（判断资产）
+  // 2026-06-12 IA 重构：
+  //   - 「AI 洞察」菜单改指 agent-playground（多 Agent mission 全面替代 Topic Insights），
+  //     原 /ai-insights 路由与数据保活，仅摘菜单（书签/历史链接可直达）
+  //   - 「AI 研究」菜单位由「AI 前瞻」（判断资产/假设图谱）替换，
+  //     原 /ai-research 路由保活，研究能力后续收进前瞻/洞察内部作为动作
+  //   - 「AI 实验场」独立入口移除（已升级为 AI 洞察正式入口）
   {
     labelKey: 'nav.sections.researchAnalysis',
     items: [
@@ -99,22 +104,22 @@ export const NAV_GROUPS: NavGroup[] = [
         matchPrefix: true,
       },
       {
-        href: '/ai-insights',
+        href: '/agent-playground',
         labelKey: 'nav.aiInsights',
         Icon: Eye,
         moduleKey: 'insights',
         matchPrefix: true,
       },
       {
-        href: '/ai-research',
-        labelKey: 'nav.aiResearch',
-        Icon: Microscope,
+        href: '/foresight',
+        labelKey: 'nav.aiForesight',
+        Icon: Compass,
         moduleKey: 'research',
         matchPrefix: true,
       },
     ],
   },
-  // 发现更多（原「AI 广场」，置底）：去专家市场招募 / 去实验场试新能力
+  // 发现更多（原「AI 广场」，置底）：去专家市场招募
   {
     label: '发现更多',
     items: [
@@ -123,13 +128,6 @@ export const NAV_GROUPS: NavGroup[] = [
         label: '专家市场',
         Icon: Store,
         moduleKey: 'market',
-        matchPrefix: true,
-      },
-      {
-        href: '/agent-playground',
-        label: 'AI 实验场',
-        Icon: FlaskConical,
-        moduleKey: 'playground',
         matchPrefix: true,
       },
     ],
