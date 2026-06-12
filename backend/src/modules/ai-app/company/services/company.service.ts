@@ -310,6 +310,14 @@ export class CompanyService {
       );
     }
 
+    // 去重：同一用户对同一市场工作流只保留一条副本。原先无条件 create，
+    // instantiateTeam / 重复点击会反复堆积（线上出现 10 条同名「深度洞察研究」）。
+    const existing = await this.repo.findWorkflowBySourceListing(
+      userId,
+      sourceListingId,
+    );
+    if (existing) return existing;
+
     return this.repo.createWorkflow({
       userId,
       name: listing.name,

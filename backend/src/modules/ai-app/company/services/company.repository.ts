@@ -301,6 +301,20 @@ export class CompanyRepository {
     return this.prisma.companyWorkflow.findFirst({ where: { id, userId } });
   }
 
+  /**
+   * 按 (userId, sourceListingId) 查已有市场工作流副本（取最早一条），用于 acquire 去重。
+   * sourceListingId 为空的自建工作流不走此路径。
+   */
+  async findWorkflowBySourceListing(
+    userId: string,
+    sourceListingId: string,
+  ): Promise<CompanyWorkflow | null> {
+    return this.prisma.companyWorkflow.findFirst({
+      where: { userId, sourceListingId },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
   async createWorkflow(input: CreateWorkflowInput): Promise<CompanyWorkflow> {
     return this.prisma.companyWorkflow.create({ data: input });
   }
