@@ -1,4 +1,7 @@
+'use client';
+
 import { Compass } from 'lucide-react';
+import AppShell from '@/components/layout/AppShell';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 
 /**
@@ -9,12 +12,14 @@ import { EmptyState } from '@/components/ui/states/EmptyState';
  */
 export default function ForesightPage() {
   return (
-    <div className="flex h-full min-h-[60vh] items-center justify-center p-8">
-      <EmptyState
-        icon={<Compass className="h-12 w-12" />}
-        title="AI 前瞻 · 判断资产"
-        description="把洞察沉淀为可持续检验的假设图谱：信号驱动复核，跨层影响实时传播。正在建设中。"
-      />
-    </div>
+    <AppShell>
+      <main className="flex flex-1 items-center justify-center overflow-hidden p-8">
+        <EmptyState
+          icon={<Compass className="h-12 w-12" />}
+          title="AI 前瞻 · 判断资产"
+          description="把洞察沉淀为可持续检验的假设图谱：信号驱动复核，跨层影响实时传播。正在建设中。"
+        />
+      </main>
+    </AppShell>
   );
 }
