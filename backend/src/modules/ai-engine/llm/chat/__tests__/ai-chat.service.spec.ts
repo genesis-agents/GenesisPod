@@ -654,6 +654,31 @@ describe("AiChatService", () => {
       ).rejects.toThrow(/DEFAULT_AI_MODEL 未设置|DEFAULT_AI_MODEL is not set/);
     });
 
+    it("EVALUATOR 无配置 → 回落 CHAT 主模型（不再抛错让上层 abstain）", async () => {
+      // 2026-06-12: 日志实测 judge:external 因 no EVALUATOR model 直接 abstain。
+      // 现在非 CHAT 类型无配置应回落 CHAT，而非抛 AiServiceUnavailableError。
+      mockConfigService.get.mockReturnValue(""); // 无 DEFAULT_AI_MODEL env
+      mockModelConfigService.getModelConfig.mockResolvedValue(null);
+      mockModelConfigService.findUserDefaultByType.mockResolvedValue(null);
+      const chatCfg = createMockModelConfig({ modelId: "chat-model-x" });
+      mockModelConfigService.getDefaultModelByType.mockImplementation(
+        (type: AIModelType) =>
+          Promise.resolve(type === AIModelType.CHAT ? chatCfg : null),
+      );
+
+      // 核心回归：不再抛 AiServiceUnavailableError（abstain 根因），而是回落 CHAT。
+      await expect(
+        service.chat({
+          messages: [{ role: "user", content: "judge this" }],
+          modelType: AIModelType.EVALUATOR,
+        }),
+      ).resolves.toBeDefined();
+      // 回退路径执行：解析了 CHAT 主模型
+      expect(mockModelConfigService.getDefaultModelByType).toHaveBeenCalledWith(
+        AIModelType.CHAT,
+      );
+    });
+
     it("should apply taskProfile parameters when provided", async () => {
       const mockConfig = createMockModelConfig();
       mockModelConfigService.getModelConfig.mockResolvedValue(mockConfig);
