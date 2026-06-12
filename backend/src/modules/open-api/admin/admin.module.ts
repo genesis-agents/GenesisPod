@@ -23,6 +23,10 @@ import { EvalController } from "./eval/eval.controller";
 import { ConsolidationController } from "./consolidation/consolidation.controller";
 import { OpsDashboardController } from "./dashboard/ops-dashboard.controller";
 import { OpsDashboardService } from "./dashboard/ops-dashboard.service";
+import { OverviewStatusController } from "./overview/overview-status.controller";
+import { OverviewStatusService } from "./overview/overview-status.service";
+import { TenantStatusController } from "./tenants/tenant-status.controller";
+import { TenantStatusService } from "./tenants/tenant-status.service";
 import { MCPExternalController } from "./mcp/external-servers.controller";
 import { MCPServerController } from "./mcp/server.controller";
 import { AdminCreditsController } from "./credits/admin-credits.controller";
@@ -104,6 +108,8 @@ import {
     ModelTypesController, // /admin/model-types/* 2026-05-11 P3 ModelType CRUD
     ProviderDiscoveryController, // /admin/ai-models/discover 2026-05-11 P5 一键探测
     OpsDashboardController, // /admin/dashboard/* 运营看板（运营看板 W5）
+    OverviewStatusController, // /admin/overview-status 架构图实时状态（30s 轮询）
+    TenantStatusController, // /admin/tenants/status 全租户状态总览
     ...(process.env.NODE_ENV === "production"
       ? []
       : [HarnessInspectorController]), // /harness/inspector/* routes (PR-X17: migrated from ai-harness/agents/dev-tools)
@@ -125,6 +131,8 @@ import {
     NotificationsAdminService,
     AgentConfigService,
     OpsDashboardService, // 运营看板聚合（运营看板 W5）
+    OverviewStatusService, // 架构图实时状态聚合
+    TenantStatusService, // 全租户状态聚合
     // Note: ErrorTrackingService and AIMetricsService are provided globally by MonitoringModule
   ],
   exports: [

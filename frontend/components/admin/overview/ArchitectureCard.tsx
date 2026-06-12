@@ -1,11 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 import {
   type ArchitectureCard as CardType,
+  type CardStat,
   LAYER_STYLES,
 } from '@/lib/features/admin/architecture';
+import type { OverviewCardStatus } from '@/hooks/domain/useAdminStatus';
 import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils/common';
 
@@ -14,6 +16,20 @@ interface ArchitectureCardProps {
   layerLevel: 1 | 2 | 3 | 4 | 5;
   fixedWidth?: boolean;
   overviewStats?: Record<string, number>;
+  /** 实时状态（/admin/overview-status 的 cards[card.id]） */
+  cardStatus?: OverviewCardStatus;
+}
+
+// 状态灯：healthy 绿 / degraded 黄（脉冲）/ down 红（脉冲）
+const STATUS_DOT: Record<OverviewCardStatus['status'], string> = {
+  healthy: 'bg-emerald-500',
+  degraded: 'bg-amber-500 animate-pulse',
+  down: 'bg-red-500 animate-pulse',
+};
+
+function formatStatValue(value: number, stat: CardStat): string {
+  if (stat.format === 'percent') return `${value}%`;
+  return value.toLocaleString();
 }
 
 export default function ArchitectureCard({
@@ -21,91 +37,102 @@ export default function ArchitectureCard({
   layerLevel,
   fixedWidth = false,
   overviewStats,
+  cardStatus,
 }: ArchitectureCardProps) {
   const { t } = useTranslation();
   const Icon = card.icon;
   const styles = LAYER_STYLES[layerLevel];
 
-  // Configurable cards (L1/L2) should be bigger
-  const isConfigurable = fixedWidth && card.clickable;
-
-  // Resolve stat values from the overview stats response
-  const resolvedStats =
-    card.stats && overviewStats
-      ? card.stats.map((s) => ({
+  // 有实时状态时优先展示动态指标，否则回落到静态库存数
+  const useLiveMetrics = Boolean(
+    cardStatus && card.statusMetrics && card.statusMetrics.length > 0
+  );
+  const resolvedStats: Array<{ label: string; value: string }> | null =
+    useLiveMetrics
+      ? card.statusMetrics!.map((s) => ({
           label: s.label,
-          value: overviewStats[s.key] ?? 0,
+          value: formatStatValue(cardStatus!.metrics[s.key] ?? 0, s),
         }))
-      : null;
+      : card.stats && overviewStats
+        ? card.stats.map((s) => ({
+            label: s.label,
+            value: formatStatValue(overviewStats[s.key] ?? 0, s),
+          }))
+        : null;
 
   const cardContent = (
     <div
       className={cn(
-        'group flex flex-col rounded-lg border transition-all duration-200',
+        'group relative flex h-full flex-col rounded-xl border px-3.5 py-3 transition-all duration-200',
         fixedWidth && 'w-full',
-        isConfigurable ? 'px-4 py-3' : 'px-3 py-2',
         card.clickable
           ? [
-              'cursor-pointer border-gray-200 bg-white shadow-sm',
-              'hover:border-gray-300 hover:shadow-md',
+              'cursor-pointer border-slate-200/80 bg-slate-50/60',
+              'hover:-translate-y-px hover:border-slate-300 hover:bg-white hover:shadow-md hover:shadow-slate-200/60',
               styles.hoverBorder,
             ]
-          : ['cursor-default border-gray-100/50 bg-white/60']
+          : 'cursor-default border-slate-100 bg-slate-50/40 opacity-80',
+        // 异常卡片高亮，扫一眼定位问题模块
+        cardStatus?.status === 'down' &&
+          'border-red-300 bg-red-50/50 hover:border-red-400',
+        cardStatus?.status === 'degraded' &&
+          'border-amber-300 bg-amber-50/50 hover:border-amber-400'
       )}
     >
-      {/* Top row: icon + label + arrow */}
-      <div className="flex items-center gap-2">
-        {/* Icon with layer color - bigger for configurable cards */}
+      {/* Top row: icon + label + status dot / arrow */}
+      <div className="flex items-center gap-2.5">
         <div
           className={cn(
-            'flex flex-shrink-0 items-center justify-center rounded-lg transition-colors',
-            isConfigurable ? 'h-9 w-9' : 'h-7 w-7',
-            card.clickable ? styles.iconBg : 'bg-gray-100/80 text-gray-400'
+            'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg transition-colors',
+            card.clickable ? styles.iconBg : 'bg-slate-100 text-slate-400'
           )}
         >
-          <Icon className={isConfigurable ? 'h-5 w-5' : 'h-4 w-4'} />
+          <Icon className="h-4 w-4" />
         </div>
 
-        {/* Label */}
         <span
           className={cn(
-            'min-w-0 flex-1 truncate text-sm font-medium',
-            card.clickable
-              ? 'text-gray-700 group-hover:text-gray-900'
-              : 'text-gray-500'
+            'min-w-0 flex-1 truncate text-sm font-medium tracking-tight',
+            card.clickable ? 'text-slate-800' : 'text-slate-500'
           )}
           title={t(card.i18nKey)}
         >
           {t(card.i18nKey)}
         </span>
 
-        {/* Arrow indicator for clickable cards */}
-        {card.clickable && (
-          <ArrowRight
+        {/* Realtime status dot */}
+        {cardStatus && (
+          <span
             className={cn(
-              'ml-auto flex-shrink-0 text-gray-300 transition-all duration-200',
-              isConfigurable ? 'h-4 w-4' : 'h-3.5 w-3.5',
-              'group-hover:translate-x-0.5',
-              `group-hover:${styles.accent}`
+              'h-1.5 w-1.5 flex-shrink-0 rounded-full',
+              STATUS_DOT[cardStatus.status]
             )}
+            title={t(`admin.architecture.health.${cardStatus.status}`)}
+            aria-label={t(`admin.architecture.health.${cardStatus.status}`)}
           />
+        )}
+
+        {card.clickable && (
+          <ArrowUpRight className="h-3.5 w-3.5 flex-shrink-0 text-slate-300 opacity-0 transition-all duration-200 group-hover:translate-x-px group-hover:opacity-100" />
         )}
       </div>
 
-      {/* Stats row */}
+      {/* Metrics row — 等宽数字，仪表盘读数感 */}
       {resolvedStats && resolvedStats.length > 0 && (
-        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
+        <div className="mt-2.5 flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-slate-100 pt-2">
           {resolvedStats.map((s) => (
-            <span key={s.label} className="flex items-baseline gap-1">
+            <span key={s.label} className="flex items-baseline gap-1.5">
               <span
                 className={cn(
-                  'text-xs font-semibold tabular-nums',
-                  card.clickable ? styles.accent : 'text-gray-500'
+                  'font-mono text-sm font-semibold tabular-nums leading-none',
+                  card.clickable ? 'text-slate-900' : 'text-slate-500'
                 )}
               >
-                {s.value.toLocaleString()}
+                {s.value}
               </span>
-              <span className="text-[10px] text-gray-400">{s.label}</span>
+              <span className="text-xs leading-none text-slate-400">
+                {s.label}
+              </span>
             </span>
           ))}
         </div>

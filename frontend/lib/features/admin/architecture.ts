@@ -56,6 +56,7 @@ import {
 export interface CardStat {
   label: string; // e.g. '资源', '研究任务'
   key: string; // key in the flat overview-stats response
+  format?: 'percent'; // 百分比指标（如成功率）
 }
 
 // Architecture card type
@@ -67,6 +68,11 @@ export interface ArchitectureCard {
   icon: LucideIcon;
   clickable: boolean;
   stats?: CardStat[]; // Optional stats to display on the card
+  /**
+   * 实时状态指标（key 对应 /admin/overview-status 返回的 cards[id].metrics）。
+   * 有状态数据时优先展示这组动态指标，否则回落到 stats 静态库存数。
+   */
+  statusMetrics?: CardStat[];
 }
 
 // Card group for layers that need sub-grouping
@@ -164,6 +170,10 @@ const aiAppsLayer: ArchitectureLayer = {
         { label: '主题', key: 'topics' },
         { label: '研究', key: 'researchMissions' },
       ],
+      statusMetrics: [
+        { label: '进行中', key: 'researchActive' },
+        { label: '24h失败', key: 'researchFailed24h' },
+      ],
     },
     {
       id: 'aiAppsPlanning',
@@ -175,6 +185,10 @@ const aiAppsLayer: ArchitectureLayer = {
       stats: [
         { label: '辩论', key: 'debateSessions' },
         { label: '推演', key: 'simRuns' },
+      ],
+      statusMetrics: [
+        { label: '辩论 24h', key: 'debates24h' },
+        { label: '推演 24h', key: 'simRuns24h' },
       ],
     },
     {
@@ -188,6 +202,10 @@ const aiAppsLayer: ArchitectureLayer = {
         { label: '文档', key: 'officeDocuments' },
         { label: '内容', key: 'socialContent' },
       ],
+      statusMetrics: [
+        { label: '文档 24h', key: 'docs24h' },
+        { label: '内容 24h', key: 'social24h' },
+      ],
     },
     {
       id: 'aiAppsLabs',
@@ -199,6 +217,10 @@ const aiAppsLayer: ArchitectureLayer = {
       stats: [
         { label: '工具', key: 'tools' },
         { label: '技能', key: 'skills' },
+      ],
+      statusMetrics: [
+        { label: '执行 24h', key: 'toolExec24h' },
+        { label: '成功率', key: 'toolSuccessRate24h', format: 'percent' },
       ],
     },
   ],
@@ -232,6 +254,10 @@ const aiHarnessLayer: ArchitectureLayer = {
         { label: 'Running', key: 'kernelRunning' },
         { label: 'Traces', key: 'agentTraces' },
       ],
+      statusMetrics: [
+        { label: 'Running', key: 'running' },
+        { label: '24h失败', key: 'failed24h' },
+      ],
     },
     {
       id: 'harnessMemory',
@@ -241,6 +267,10 @@ const aiHarnessLayer: ArchitectureLayer = {
       icon: MemoryStick,
       clickable: true,
       stats: [{ label: 'Memories', key: 'kernelMemories' }],
+      statusMetrics: [
+        { label: 'Memories', key: 'memories' },
+        { label: '事件 24h', key: 'events24h' },
+      ],
     },
     {
       id: 'harnessGovernance',
@@ -253,6 +283,10 @@ const aiHarnessLayer: ArchitectureLayer = {
         { label: 'Eval runs', key: 'harnessEvalRuns' },
         { label: 'Guardrails', key: 'guardrailRules' },
       ],
+      statusMetrics: [
+        { label: 'Eval runs', key: 'evalRuns' },
+        { label: 'Guardrails', key: 'guardrailRules' },
+      ],
     },
     {
       id: 'harnessInterop',
@@ -262,6 +296,10 @@ const aiHarnessLayer: ArchitectureLayer = {
       icon: Network,
       clickable: true,
       stats: [{ label: 'Subscriptions', key: 'kernelSubscriptions' }],
+      statusMetrics: [
+        { label: 'Subscriptions', key: 'subscriptions' },
+        { label: 'Breakers', key: 'breakers' },
+      ],
     },
   ],
 };
@@ -290,6 +328,10 @@ const aiEngineLayer: ArchitectureLayer = {
       icon: Bot,
       clickable: true,
       stats: [{ label: '已配置', key: 'aiModels' }],
+      statusMetrics: [
+        { label: '调用 24h', key: 'llmCalls24h' },
+        { label: '成功率', key: 'llmSuccessRate24h', format: 'percent' },
+      ],
     },
     {
       id: 'tools',
@@ -299,6 +341,10 @@ const aiEngineLayer: ArchitectureLayer = {
       icon: Wrench,
       clickable: true,
       stats: [{ label: '工具', key: 'tools' }],
+      statusMetrics: [
+        { label: '执行 24h', key: 'toolExec24h' },
+        { label: '成功率', key: 'toolSuccessRate24h', format: 'percent' },
+      ],
     },
     {
       id: 'skills',
@@ -344,6 +390,10 @@ const infrastructureLayer: ArchitectureLayer = {
         { label: '总用户', key: 'totalUsers' },
         { label: '活跃', key: 'activeUsers' },
       ],
+      statusMetrics: [
+        { label: '活跃 24h', key: 'activeUsers24h' },
+        { label: '登录 24h', key: 'logins24h' },
+      ],
     },
     {
       id: 'secretManagement',
@@ -355,6 +405,10 @@ const infrastructureLayer: ArchitectureLayer = {
       stats: [
         { label: '密钥', key: 'secrets' },
         { label: '待审', key: 'pendingKeyRequests' },
+      ],
+      statusMetrics: [
+        { label: '待审', key: 'pendingKeyRequests' },
+        { label: '密钥', key: 'secrets' },
       ],
     },
     {
@@ -368,6 +422,10 @@ const infrastructureLayer: ArchitectureLayer = {
         { label: 'DB + R2', key: 'storageTotal' },
         { label: '无效', key: 'brokenResources' },
       ],
+      statusMetrics: [
+        { label: 'DB 延迟 ms', key: 'dbLatencyMs' },
+        { label: '活跃连接', key: 'activeConnections' },
+      ],
     },
     {
       id: 'systemManagement',
@@ -379,6 +437,10 @@ const infrastructureLayer: ArchitectureLayer = {
       stats: [
         { label: 'AI调用(24h)', key: 'kernelLLMCalls' },
         { label: '错误(24h)', key: 'monitoringErrors' },
+      ],
+      statusMetrics: [
+        { label: '错误 24h', key: 'errors24h' },
+        { label: '严重 24h', key: 'critical24h' },
       ],
     },
   ],
@@ -396,56 +458,66 @@ export const ARCHITECTURE_LAYERS: ArchitectureLayer[] = [
   infrastructureLayer,
 ];
 
-// Layer styling configurations - enhanced visual design
+// Layer styling configurations
+//
+// 2026-06-12 视觉重构：去掉大面积糖果色渐变（旧 from-X-50 to-Y-50 层块），
+// 改为"精密工程"风——白色层卡 + slate 发丝描边，层级色只保留在
+// 细竖轨（accentBar）、等宽字 Level 徽章（badge）和指标强调色（accent）上。
 export const LAYER_STYLES = {
   4: {
-    // Open API - Orange theme
-    badge: 'bg-orange-100 text-orange-700',
-    border: 'border-orange-200',
+    // Open API - Orange accent
+    badge: 'bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-200/70',
+    border: 'border-slate-200',
     accent: 'text-orange-600',
-    bg: 'bg-gradient-to-br from-orange-50 to-amber-50/80',
-    accentBar: 'bg-gradient-to-b from-orange-500 to-amber-600',
-    iconBg: 'bg-orange-100 text-orange-600',
+    bg: 'bg-white',
+    accentBar: 'bg-orange-500',
+    iconBg:
+      'bg-slate-100 text-slate-600 group-hover:bg-orange-50 group-hover:text-orange-600',
     hoverBorder: 'hover:border-orange-300',
   },
   3: {
-    // AI Apps - Purple theme
-    badge: 'bg-violet-100 text-violet-700',
-    border: 'border-violet-200',
+    // AI Apps - Violet accent
+    badge: 'bg-violet-50 text-violet-700 ring-1 ring-inset ring-violet-200/70',
+    border: 'border-slate-200',
     accent: 'text-violet-600',
-    bg: 'bg-gradient-to-br from-violet-50 to-purple-50/80',
-    accentBar: 'bg-gradient-to-b from-violet-500 to-purple-600',
-    iconBg: 'bg-violet-100 text-violet-600',
+    bg: 'bg-white',
+    accentBar: 'bg-violet-500',
+    iconBg:
+      'bg-slate-100 text-slate-600 group-hover:bg-violet-50 group-hover:text-violet-600',
     hoverBorder: 'hover:border-violet-300',
   },
   5: {
-    // AI Harness (L2.5) - Teal/Indigo theme (distinct from L2 blue and L3 purple)
-    badge: 'bg-teal-100 text-teal-700',
-    border: 'border-teal-200',
+    // AI Harness (L2.5) - Teal accent
+    badge: 'bg-teal-50 text-teal-700 ring-1 ring-inset ring-teal-200/70',
+    border: 'border-slate-200',
     accent: 'text-teal-600',
-    bg: 'bg-gradient-to-br from-teal-50 to-indigo-50/80',
-    accentBar: 'bg-gradient-to-b from-teal-500 to-indigo-600',
-    iconBg: 'bg-teal-100 text-teal-600',
+    bg: 'bg-white',
+    accentBar: 'bg-teal-500',
+    iconBg:
+      'bg-slate-100 text-slate-600 group-hover:bg-teal-50 group-hover:text-teal-600',
     hoverBorder: 'hover:border-teal-300',
   },
   2: {
-    // AI Engine (Core) - Blue theme
-    badge: 'bg-blue-100 text-blue-700',
-    border: 'border-blue-200',
+    // AI Engine (Core) - Blue accent
+    badge: 'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200/70',
+    border: 'border-slate-200',
     accent: 'text-blue-600',
-    bg: 'bg-gradient-to-br from-blue-50 to-cyan-50/80',
-    accentBar: 'bg-gradient-to-b from-blue-500 to-cyan-600',
-    iconBg: 'bg-blue-100 text-blue-600',
+    bg: 'bg-white',
+    accentBar: 'bg-blue-500',
+    iconBg:
+      'bg-slate-100 text-slate-600 group-hover:bg-blue-50 group-hover:text-blue-600',
     hoverBorder: 'hover:border-blue-300',
   },
   1: {
-    // Infrastructure - Green theme (bottom layer)
-    badge: 'bg-emerald-100 text-emerald-700',
-    border: 'border-emerald-200',
+    // Infrastructure - Emerald accent (bottom layer)
+    badge:
+      'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200/70',
+    border: 'border-slate-200',
     accent: 'text-emerald-600',
-    bg: 'bg-gradient-to-br from-emerald-50 to-teal-50/80',
-    accentBar: 'bg-gradient-to-b from-emerald-500 to-teal-600',
-    iconBg: 'bg-emerald-100 text-emerald-600',
+    bg: 'bg-white',
+    accentBar: 'bg-emerald-500',
+    iconBg:
+      'bg-slate-100 text-slate-600 group-hover:bg-emerald-50 group-hover:text-emerald-600',
     hoverBorder: 'hover:border-emerald-300',
   },
 } as const;
