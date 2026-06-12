@@ -1,17 +1,23 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { Modal } from '@/components/ui/dialogs/Modal';
+import { LoadingState } from '@/components/ui/states/LoadingState';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import {
   createCard,
   createEdge,
   createTopic,
+  extractFromMission,
+  fetchInsightMissions,
+  type DraftCard,
   type ForesightCard,
   type ForesightLayerDef,
   type ForesightTopic,
+  type InsightMissionItem,
 } from '@/services/foresight/api';
-import { DEFAULT_TOPIC_LAYERS, STAGE_META } from './foresight-meta';
+import { DEFAULT_TOPIC_LAYERS, STAGE_META, layerName } from './foresight-meta';
 
 const fieldCls =
   'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:border-gray-700 focus:outline-none';
@@ -617,6 +623,232 @@ export function CreateTopicDialog({
             </button>
           </div>
         </div>
+      </div>
+    </Modal>
+  );
+}
+
+interface ImportInsightDialogProps {
+  open: boolean;
+  topicId: string;
+  layers: ForesightLayerDef[];
+  cards: ForesightCard[];
+  onClose: () => void;
+  onImported: () => void;
+}
+
+/** 从 AI 洞察导入 —— 选已完成 mission，LLM 抽取草稿假设卡，人工审核后入库（P3） */
+export function ImportInsightDialog({
+  open,
+  topicId,
+  layers,
+  cards,
+  onClose,
+  onImported,
+}: ImportInsightDialogProps) {
+  const [missions, setMissions] = useState<InsightMissionItem[] | null>(null);
+  const [extracting, setExtracting] = useState(false);
+  const [missionTitle, setMissionTitle] = useState('');
+  const [drafts, setDrafts] = useState<DraftCard[] | null>(null);
+  const [checked, setChecked] = useState<Set<number>>(new Set());
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setMissions(null);
+    setDrafts(null);
+    setError(null);
+    fetchInsightMissions()
+      .then(setMissions)
+      .catch((e) => {
+        setMissions([]);
+        setError(e instanceof Error ? e.message : String(e));
+      });
+  }, [open]);
+
+  async function handlePick(m: InsightMissionItem) {
+    setExtracting(true);
+    setError(null);
+    try {
+      const res = await extractFromMission(topicId, m.id);
+      setMissionTitle(res.missionTitle);
+      setDrafts(res.drafts);
+      setChecked(new Set(res.drafts.map((_, i) => i)));
+      if (res.drafts.length === 0) {
+        setError(
+          '报告中没有抽取到符合纪律的假设卡（falsifier 必填）— 换一份报告试试'
+        );
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setExtracting(false);
+    }
+  }
+
+  async function handleAdmit() {
+    if (!drafts) return;
+    const selected = drafts.filter((_, i) => checked.has(i));
+    if (selected.length === 0) return;
+    setSubmitting(true);
+    setError(null);
+    /* 逐层计数避免同层多张草稿编号撞车 */
+    const seqByLayer = new Map<string, number>();
+    for (const c of cards) {
+      const n = parseInt(c.cardKey.split('-').pop() ?? '0', 10);
+      if (!Number.isNaN(n)) {
+        seqByLayer.set(c.layer, Math.max(seqByLayer.get(c.layer) ?? 0, n));
+      }
+    }
+    try {
+      for (const d of selected) {
+        const next = (seqByLayer.get(d.layer) ?? 0) + 1;
+        seqByLayer.set(d.layer, next);
+        await createCard({
+          topicId,
+          cardKey: `A-${d.layer}-${String(next).padStart(2, '0')}`,
+          layer: d.layer,
+          title: d.title,
+          claim: d.claim,
+          conf: d.conf,
+          sens: d.sens,
+          horizon: d.horizon,
+          stage: d.stage,
+          evidence: d.evidence,
+          falsifiers: d.falsifiers,
+          sources: d.sources,
+          originType: 'insight-mission',
+        });
+      }
+      onImported();
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const selectedCount = drafts
+    ? drafts.filter((_, i) => checked.has(i)).length
+    : 0;
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="从 AI 洞察导入草稿假设卡"
+      subtitle={
+        drafts
+          ? `来自「${missionTitle}」— 审核勾选后入库（originType=insight-mission）`
+          : '选择一份已完成的洞察 Mission 报告，AI 按本主题层级本体抽取可证伪的假设卡'
+      }
+      footer={
+        drafts ? (
+          <div className="flex w-full items-center justify-between">
+            <button
+              onClick={() => setDrafts(null)}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+            >
+              重新选择报告
+            </button>
+            <button
+              onClick={() => void handleAdmit()}
+              disabled={submitting || selectedCount === 0}
+              className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+            >
+              {submitting ? '入库中…' : `入库选中（${selectedCount} 张）`}
+            </button>
+          </div>
+        ) : undefined
+      }
+    >
+      <div className="space-y-3">
+        {error && (
+          <p className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
+            {error}
+          </p>
+        )}
+
+        {extracting ? (
+          <LoadingState
+            text="AI 正在按主题层级本体抽取假设卡…"
+            className="min-h-40"
+          />
+        ) : drafts ? (
+          <div className="space-y-2">
+            {drafts.map((d, i) => (
+              <label
+                key={i}
+                className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-3 hover:border-gray-400"
+              >
+                <input
+                  type="checkbox"
+                  checked={checked.has(i)}
+                  onChange={(e) => {
+                    setChecked((prev) => {
+                      const next = new Set(prev);
+                      if (e.target.checked) next.add(i);
+                      else next.delete(i);
+                      return next;
+                    });
+                  }}
+                  className="mt-1"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono rounded border border-gray-300 px-1.5 text-xs text-gray-500">
+                      {d.layer} {layerName(layers, d.layer)}
+                    </span>
+                    <span className="text-sm font-semibold text-gray-900">
+                      {d.title}
+                    </span>
+                    <span className="font-mono text-xs text-gray-400">
+                      conf {d.conf.toFixed(2)} · {d.sens} · H{d.horizon}
+                    </span>
+                  </span>
+                  <span className="mt-1 block text-xs leading-relaxed text-gray-600">
+                    {d.claim}
+                  </span>
+                  <span className="font-mono mt-1 block text-xs text-red-500">
+                    falsifier ×{d.falsifiers.length}：{d.falsifiers[0]}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+        ) : missions === null ? (
+          <LoadingState text="加载已完成的洞察 Mission…" className="min-h-40" />
+        ) : missions.length === 0 ? (
+          <EmptyState
+            size="sm"
+            title="没有已完成的洞察 Mission"
+            description="先在「AI 洞察」跑一个深度洞察任务，完成后回这里导入结论"
+          />
+        ) : (
+          <div className="space-y-2">
+            {missions.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => void handlePick(m)}
+                className="flex w-full items-center gap-3 rounded-lg border border-gray-200 p-3 text-left hover:border-gray-500"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-gray-900">
+                    {m.title}
+                  </span>
+                  {m.preview && (
+                    <span className="mt-0.5 block truncate text-xs text-gray-500">
+                      {m.preview}
+                    </span>
+                  )}
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </Modal>
   );

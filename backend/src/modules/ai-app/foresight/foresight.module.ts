@@ -16,6 +16,7 @@ import { ForesightGraphService } from "./services/foresight-graph.service";
 import { ForesightPropagationService } from "./services/foresight-propagation.service";
 import { ForesightReviewService } from "./services/foresight-review.service";
 import { ForesightSeedService } from "./services/foresight-seed.service";
+import { ForesightIntakeService } from "./services/foresight-intake.service";
 
 @Module({
   controllers: [ForesightController],
@@ -24,6 +25,8 @@ import { ForesightSeedService } from "./services/foresight-seed.service";
     ForesightPropagationService,
     ForesightReviewService,
     ForesightSeedService,
+    // P2/P3 供料：雷达扫描 + 洞察抽取（走 ContentSourceRegistry，不跨 app import）
+    ForesightIntakeService,
   ],
   exports: [ForesightGraphService],
 })

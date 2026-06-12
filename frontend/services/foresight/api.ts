@@ -268,3 +268,52 @@ export function createEdge(input: CreateEdgeInput): Promise<ForesightEdge> {
     body: JSON.stringify(input),
   });
 }
+
+// ── P2/P3 供料：雷达扫描 + 洞察导入 ──────────────────────────────────────
+
+export interface RadarScanResult {
+  scanned: number;
+  matched: number;
+  created: number;
+}
+
+export function scanRadar(topicId: string): Promise<RadarScanResult> {
+  return request<RadarScanResult>(
+    `/topics/${encodeURIComponent(topicId)}/intake/radar-scan`,
+    { method: 'POST' }
+  );
+}
+
+export interface InsightMissionItem {
+  id: string;
+  title: string;
+  preview?: string;
+  createdAt: string;
+}
+
+export function fetchInsightMissions(): Promise<InsightMissionItem[]> {
+  return request<InsightMissionItem[]>('/intake/missions');
+}
+
+export interface DraftCard {
+  layer: string;
+  title: string;
+  claim: string;
+  conf: number;
+  sens: 'high' | 'mid' | 'low';
+  horizon: number;
+  stage: 'current' | 'evolving' | 'exploring' | 'research';
+  evidence: string[];
+  falsifiers: string[];
+  sources: ForesightSource[];
+}
+
+export function extractFromMission(
+  topicId: string,
+  sourceId: string
+): Promise<{ drafts: DraftCard[]; missionTitle: string }> {
+  return request(`/topics/${encodeURIComponent(topicId)}/intake/extract`, {
+    method: 'POST',
+    body: JSON.stringify({ sourceId }),
+  });
+}

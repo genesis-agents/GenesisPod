@@ -22,7 +22,10 @@ interface WorkbenchTabProps {
   pending: Map<string, CardPendingState>;
   impactedConclusions: ForesightConclusion[];
   injecting: string | null;
+  scanning: boolean;
   onInject: (signal: ForesightSignal) => void;
+  onScanRadar: () => void;
+  onOpenImport: () => void;
   onGoTab: (tab: string) => void;
   onSelectCard: (cardId: string) => void;
 }
@@ -52,7 +55,10 @@ export function WorkbenchTab({
   pending,
   impactedConclusions,
   injecting,
+  scanning,
   onInject,
+  onScanRadar,
+  onOpenImport,
   onGoTab,
   onSelectCard,
 }: WorkbenchTabProps) {
@@ -108,15 +114,33 @@ export function WorkbenchTab({
             信号
           </span>
           <span className="text-sm font-bold">信号收件箱</span>
-          <span className="font-mono ml-auto text-xs text-gray-500">
+          <span className="font-mono text-xs text-gray-500">
             候选 {candidates.length} 条
+          </span>
+          <span className="ml-auto flex gap-2">
+            <button
+              type="button"
+              onClick={onScanRadar}
+              disabled={scanning}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-sky-300 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100 disabled:opacity-50"
+            >
+              <Radar className="h-3.5 w-3.5" />
+              {scanning ? '扫描中…' : '扫描雷达信号'}
+            </button>
+            <button
+              type="button"
+              onClick={onOpenImport}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+            >
+              <Zap className="h-3.5 w-3.5" />从 AI 洞察导入
+            </button>
           </span>
         </div>
         {candidates.length === 0 ? (
           <EmptyState
             size="sm"
             title="暂无候选信号"
-            description="P2 接入 AI 雷达后，命中 falsifier 的信号自动入列"
+            description="点「扫描雷达信号」用 AI 把雷达近期资讯与本主题的 falsifier 匹配；命中的在此入列。也可「从 AI 洞察导入」把 mission 报告抽取为草稿假设卡。"
           />
         ) : (
           candidates.map((s) => {

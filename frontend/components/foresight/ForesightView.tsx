@@ -25,6 +25,7 @@ import {
   fetchTopics,
   injectSignal,
   resolveReview,
+  scanRadar,
   seedDemo,
   type ForesightOverview,
   type ForesightSignal,
@@ -41,6 +42,7 @@ import {
   CreateCardDialog,
   CreateEdgeDialog,
   CreateTopicDialog,
+  ImportInsightDialog,
 } from './ForesightDialogs';
 
 /**
@@ -63,6 +65,9 @@ export function ForesightView() {
   const [createCardOpen, setCreateCardOpen] = useState(false);
   const [createEdgeOpen, setCreateEdgeOpen] = useState(false);
   const [createTopicOpen, setCreateTopicOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const loadTopics = useCallback(async (): Promise<ForesightTopic[]> => {
     try {
@@ -193,6 +198,26 @@ export function ForesightView() {
       setSeeding(false);
     }
   }, [loadTopics]);
+
+  const handleScanRadar = useCallback(async () => {
+    if (!topicId) return;
+    setScanning(true);
+    setNotice(null);
+    setError(null);
+    try {
+      const res = await scanRadar(topicId);
+      await reload();
+      setNotice(
+        res.scanned === 0
+          ? '雷达没有可扫描的近期信号 — 先在「AI 雷达」订阅与主题相关的话题源'
+          : `扫描完成：候选 ${res.scanned} 条 · 命中 falsifier ${res.matched} 条 · 新建信号 ${res.created} 条${res.created === 0 ? '（无新命中或已存在）' : '，见信号收件箱'}`
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setScanning(false);
+    }
+  }, [topicId, reload]);
 
   const handleTopicCreated = useCallback(
     async (topic: ForesightTopic) => {
@@ -398,6 +423,11 @@ export function ForesightView() {
             {error}
           </p>
         )}
+        {notice && (
+          <p className="mb-3 border border-sky-300 bg-sky-50 px-3 py-2 text-xs text-sky-700">
+            {notice}
+          </p>
+        )}
 
         {!overview ? (
           <LoadingState text="加载判断资产…" className="min-h-64" />
@@ -447,7 +477,10 @@ export function ForesightView() {
                 pending={pending}
                 impactedConclusions={impactedConclusions}
                 injecting={injecting}
+                scanning={scanning}
                 onInject={(s) => void handleInject(s)}
+                onScanRadar={() => void handleScanRadar()}
+                onOpenImport={() => setImportOpen(true)}
                 onGoTab={setTab}
                 onSelectCard={selectCard}
               />
@@ -543,6 +576,14 @@ export function ForesightView() {
             cards={overview.cards}
             onClose={() => setCreateEdgeOpen(false)}
             onCreated={() => void reload()}
+          />
+          <ImportInsightDialog
+            open={importOpen}
+            topicId={topicId}
+            layers={layers}
+            cards={overview.cards}
+            onClose={() => setImportOpen(false)}
+            onImported={() => void reload()}
           />
         </>
       )}
