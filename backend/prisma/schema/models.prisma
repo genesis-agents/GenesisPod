@@ -11272,3 +11272,169 @@ model CompanyMissionGraph {
 
   @@map("company_mission_graphs")
 }
+
+// ============================================================================
+// AI 前瞻（Foresight）—— 判断资产 / 假设图谱
+//   2026-06-12 P0: 假设卡 + 加权影响边 + 信号 + 复核工作流 + 置信度账本 + 结论。
+//   设计来源: docs/demos/insight-graph-demo.html (v0.4)
+//   关键决策（SOTA 差距三块板，schema 一等公民）：
+//     - ForesightEdge.weight: 传导强度，传播冲击度沿路径连乘衰减（防告警风暴）
+//     - ForesightConfLog: 置信度修订全留痕（校准回看的数据基础）
+//     - ForesightCard.scenarios: 情景条件置信度 JSONB（分叉收敛前避免单点坍缩）
+//   全部按 userId 行级隔离。
+// ============================================================================
+
+model ForesightCard {
+  id      String @id @default(uuid())
+  userId  String @map("user_id")
+  /// 业务编号（如 A-L4-01），用户内唯一
+  cardKey String @map("card_key") @db.VarChar(40)
+  /// 层级 L0-L5（业务负载/模型架构/系统软件/系统级硬件/芯片/物理底座）
+  layer   String @db.VarChar(8)
+  title   String @db.VarChar(200)
+  claim   String @db.Text
+  /// 置信度 0-1（情景加权综合值；分支值见 scenarios）
+  conf    Float
+  /// 敏感度 high | mid | low
+  sens    String @db.VarChar(8)
+  /// 判断时间窗（年份）
+  horizon Int
+  /// 代际阶段 current | evolving | exploring | research
+  stage   String @db.VarChar(16)
+  /// 证据要点 string[]
+  evidence   Json @default("[]")
+  /// 证伪信号（预登记条件）string[]
+  falsifiers Json @default("[]")
+  /// 信源 [{org,title,type,url}]
+  sources    Json @default("[]")
+  /// 情景条件置信度 [{scenario,p,conf}]，null = 非分叉卡
+  scenarios  Json?
+  /// 来源 manual | insight-mission | research
+  originType String @default("manual") @map("origin_type") @db.VarChar(24)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  outEdges    ForesightEdge[]       @relation("EdgeFrom")
+  inEdges     ForesightEdge[]       @relation("EdgeTo")
+  reviewItems ForesightReviewItem[]
+  confLogs    ForesightConfLog[]
+
+  @@unique([userId, cardKey])
+  @@index([userId, layer])
+  @@map("foresight_cards")
+}
+
+model ForesightEdge {
+  id         String        @id @default(uuid())
+  userId     String        @map("user_id")
+  fromCardId String        @map("from_card_id")
+  toCardId   String        @map("to_card_id")
+  from       ForesightCard @relation("EdgeFrom", fields: [fromCardId], references: [id], onDelete: Cascade)
+  to         ForesightCard @relation("EdgeTo", fields: [toCardId], references: [id], onDelete: Cascade)
+  /// 量化传导参数（边的语义，如 "专家并行 EP 通信量"）
+  metric     String        @db.VarChar(120)
+  /// flow 影响传导 | constrain 约束反压
+  type       String        @default("flow") @db.VarChar(12)
+  /// 传导强度 0-1，传播冲击度沿路径连乘衰减
+  weight     Float         @default(0.7)
+  createdAt  DateTime      @default(now()) @map("created_at")
+
+  @@unique([fromCardId, toCardId])
+  @@index([userId])
+  @@index([toCardId])
+  @@map("foresight_edges")
+}
+
+model ForesightSignal {
+  id           String  @id @default(uuid())
+  userId       String  @map("user_id")
+  name         String  @db.VarChar(300)
+  /// 命中的假设卡
+  targetCardId String  @map("target_card_id")
+  /// down 证伪下调 | up 约束收紧上调
+  direction    String  @default("down") @db.VarChar(8)
+  /// 裁定后源卡片的目标置信度
+  targetConf   Float   @map("target_conf")
+  /// 传播效果说明（横幅文案）
+  effect       String  @db.Text
+  /// 依据档案 {falsifier,dir,threshold,observed,gradeNote,sources[]}
+  basis        Json    @default("{}")
+  /// strong 强信号（可注入）| weak 弱信号（仅关注）| none 未命中
+  grade        String  @default("strong") @db.VarChar(8)
+  /// candidate 候选 | injected 已注入 | archived 归档
+  status       String  @default("candidate") @db.VarChar(12)
+  injectedAt   DateTime? @map("injected_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  reviewItems ForesightReviewItem[]
+
+  @@index([userId, status])
+  @@map("foresight_signals")
+}
+
+model ForesightReviewItem {
+  id       String          @id @default(uuid())
+  userId   String          @map("user_id")
+  signalId String          @map("signal_id")
+  signal   ForesightSignal @relation(fields: [signalId], references: [id], onDelete: Cascade)
+  cardId   String          @map("card_id")
+  card     ForesightCard   @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  /// 冲击度 = 沿路径边权连乘的最大值（源卡 = 1.0）
+  impact   Float
+  /// BFS 传播深度（源卡 = 0）
+  depth    Int
+  isSource Boolean @default(false) @map("is_source")
+  /// pending 待裁定 | resolved 已裁定
+  status   String  @default("pending") @db.VarChar(12)
+  /// adjust 确认调整 | keep 维持原判
+  decision String? @db.VarChar(8)
+  confFrom Float?  @map("conf_from")
+  confTo   Float?  @map("conf_to")
+  resolvedAt DateTime? @map("resolved_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([userId, status])
+  @@index([cardId, status])
+  @@map("foresight_review_items")
+}
+
+/// 置信度账本：每次修订留痕（校准回看的数据基础）
+model ForesightConfLog {
+  id       String        @id @default(uuid())
+  userId   String        @map("user_id")
+  cardId   String        @map("card_id")
+  card     ForesightCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  fromConf Float         @map("from_conf")
+  toConf   Float         @map("to_conf")
+  /// 操作者（Owner 裁定 / Champion-L4 / 季度复核 等）
+  actor    String        @db.VarChar(60)
+  reason   String        @db.Text
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  @@index([cardId, createdAt(sort: Desc)])
+  @@index([userId])
+  @@map("foresight_conf_logs")
+}
+
+model ForesightConclusion {
+  id        String @id @default(uuid())
+  userId    String @map("user_id")
+  conclKey  String @map("concl_key") @db.VarChar(24)
+  title     String @db.VarChar(300)
+  body      String @db.Text
+  /// 决策建议 string[]（带量化阈值与时间窗）
+  decisions Json   @default("[]")
+  /// 重估触发条件
+  trigger   String @db.Text
+  /// 依据假设的 cardKey 列表
+  upstreamKeys String[] @map("upstream_keys")
+  conf      Float
+  horizon   Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, conclKey])
+  @@index([userId])
+  @@map("foresight_conclusions")
+}

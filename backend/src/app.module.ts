@@ -63,6 +63,7 @@ import { ResearchModule } from "./modules/ai-app/research";
 import { InsightModule } from "./modules/ai-app/insight";
 import { PlaygroundModule } from "./modules/ai-app/playground/module/playground.module";
 import { RadarModule } from "./modules/ai-app/radar/module/radar.module";
+import { ForesightModule } from "./modules/ai-app/foresight/foresight.module";
 import { CompanyModule } from "./modules/ai-app/company/company.module";
 import { MarketplaceModule } from "./modules/ai-app/marketplace/marketplace.module";
 import { AiSocialModule } from "./modules/ai-app/social/module/ai-social.module";
@@ -224,6 +225,7 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     InsightModule, // Topic Insights ä¸“é¢˜æ´žå¯Ÿæ¨¡å— (ä»Ž Research æ‹†åˆ†)
     PlaygroundModule,
     RadarModule, // AI 雷达：多源数据采集 + 多 Agent 看板 (PR-R1 起)
+    ForesightModule, // AI 前瞻：判断资产 / 假设图谱（2026-06-12 P0）
     MarketplaceModule, // @Global 平台共享市场（能力 manifest + 可执行能力注册表）— design.md §4.3
     CompanyModule, // 一人公司 OS（W1a 市场目录 API）— design.md §10
     AiSocialModule,
