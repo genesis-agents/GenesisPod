@@ -10,7 +10,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check } from 'lucide-react';
+import { Check, Radar } from 'lucide-react';
 import {
   runTeam,
   type AudienceProfile,
@@ -584,6 +584,18 @@ export function PlaygroundMissionDialog({
               onlyReady
             />
           </Field>
+
+          {/* 雷达信号是 researcher 运行时自动调用的检索工具（radar-signal-search），
+              非创建时挂载项 —— 这里做可见性说明，避免用户以为雷达数据没有参与 */}
+          <div className="flex items-start gap-2.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2.5">
+            <Radar className="mt-0.5 h-4 w-4 flex-shrink-0 text-sky-600" />
+            <p className="text-xs leading-relaxed text-sky-800">
+              <span className="font-semibold">雷达信号已自动接入：</span>
+              研究员采证时会检索你 AI 雷达话题下的高分近期信号（已过 AI
+              双重筛选），作为时效性素材；没有雷达话题时自动回落 web
+              检索，无需配置。
+            </p>
+          </div>
         </>
       }
     />
