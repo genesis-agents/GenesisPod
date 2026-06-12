@@ -16,7 +16,7 @@
  *   ✅ dimension:retrying → retry child todo（self-heal / leader-assess 路径）
  *   ✅ chapter:writing:started / completed / revision / rewritten → chapter todo
  *   ✅ chapter:review:* → reviewer-revise todo lifecycle
- *   ✅ critic:verdict.warnings → critic-blindspot todos
+ *   ✅ critic:verdict → 单一聚合 "L4 复审意见" todo（N 条意见落 narrativeLog，状态随 verdict）
  *   ✅ reconciliation:completed gap → reconciler-gap todo
  *   ✅ agent:narrative → 挂到对应 todo 的 narrativeLog
  *   ✅ leader:decision (assess-research-dispatched) 概览 todo
@@ -778,37 +778,61 @@ class PlaygroundTodoBoardProjector extends BusinessTeamTodoBoardProjectorFramewo
         continue;
       }
 
-      // ── critic blindspot warnings ───────────────────────────────────
+      // ── L4 critic 复审 → 单一聚合 todo ──────────────────────────────
+      // ★ 2026-06-11 fix: 原先对 warnings[] 逐条建独立 todo，导致 L4 一次复审出 N
+      //   条意见 = 任务板 N 个独立任务刷屏；且它们建成 in_progress 永不被"完成"，
+      //   mission 收尾一律扫成 cancelled → 全部显示"已放弃"（误导，实际是批注不是
+      //   烂尾任务）。改为聚合成 1 个"L4 复审意见" todo，N 条意见落 narrativeLog，
+      //   状态随 verdict 直接落终态（fail→failed / pass|concerns→done），不再刷屏、
+      //   不再被收尾扫成"已放弃"。
       if (suffix === "critic:verdict") {
-        const warnings = getArray<{
-          id?: string;
-          message?: string;
-          severity?: string;
-        }>(payload, "warnings");
-        if (warnings && warnings.length > 0) {
-          for (const w of warnings) {
-            const wid = `critic:blindspot:${w?.id ?? `${ts}-${w?.message?.slice(0, 20) ?? "x"}`}`;
-            this.upsert(state, wid, () => ({
-              id: wid,
-              origin: "critic-blindspot",
-              createdBy: "critic",
-              createdAt: ts,
-              reasonText: w?.message ?? "L4 Critic 警示",
-              scope: "review",
-              title: w?.message?.slice(0, 80) ?? "Critic 警示",
-              assignee: { role: "critic" },
-              status: "in_progress",
-              startedAt: ts,
-              artifacts: [
-                {
-                  kind: "critic-warning",
-                  label: "Severity",
-                  value: w?.severity ?? "unknown",
-                },
-              ],
-              narrativeLog: [{ ts, text: w?.message ?? "", tone: "warn" }],
-            }));
-          }
+        const warnings =
+          getArray<{
+            id?: string;
+            kind?: string;
+            message?: string;
+            severity?: string;
+          }>(payload, "warnings") ?? [];
+        if (warnings.length > 0) {
+          const verdict =
+            this.getString(payload, "verdict") ??
+            this.getString(payload, "overall") ??
+            "concerns";
+          const blindspotCount = this.getNumber(payload, "blindspotCount") ?? 0;
+          const biasCount = this.getNumber(payload, "biasCount") ?? 0;
+          const suggestionCount =
+            this.getNumber(payload, "suggestionCount") ?? 0;
+          const rationale = this.getString(payload, "rationale");
+          // fail → failed；pass/concerns → done（复审本身已完成，concerns = 带注解完成）。
+          const status: "done" | "failed" =
+            verdict === "fail" ? "failed" : "done";
+          const id = `critic:verdict:${ts}`;
+          this.upsert(state, id, () => ({
+            id,
+            origin: "critic-blindspot",
+            createdBy: "critic",
+            createdAt: ts,
+            reasonText:
+              rationale ??
+              `L4 复审识别 ${blindspotCount} 盲点 / ${biasCount} 偏见 / ${suggestionCount} 建议`,
+            scope: "review",
+            title: `L4 复审意见 · ${verdict} · 盲点 ${blindspotCount} / 偏见 ${biasCount} / 建议 ${suggestionCount}`,
+            assignee: { role: "critic" },
+            status,
+            startedAt: ts,
+            endedAt: ts,
+            artifacts: [
+              { kind: "critic-warning", label: "Verdict", value: verdict },
+              { kind: "critic-warning", label: "盲点", value: blindspotCount },
+              { kind: "critic-warning", label: "偏见", value: biasCount },
+              { kind: "critic-warning", label: "建议", value: suggestionCount },
+            ],
+            narrativeLog: warnings.map((w) => ({
+              ts,
+              text: `[${w?.kind ?? w?.severity ?? "note"}] ${w?.message ?? ""}`,
+              tone: w?.severity === "info" ? "info" : "warn",
+            })),
+          }));
         }
         continue;
       }
