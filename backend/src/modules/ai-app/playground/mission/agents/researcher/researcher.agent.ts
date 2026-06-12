@@ -156,6 +156,8 @@ const Output = z.object({
     // === 检索 / 知识库 ===
     "rag-search",
     "knowledge-graph",
+    // === 雷达信号（2026-06-12 雷达→洞察供料：用户雷达话题的高分近期信号） ===
+    "radar-signal-search",
     // === 学术 ===
     "arxiv-search",
     "openalex-search",
@@ -305,6 +307,7 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
       `按工具描述匹配本 dim 的需求：`,
       `- 内部知识 / 已索引内容相关 → rag-search 类（**仅当本 mission 挂了本地 KB 时**，见上方"本地知识库"说明；无 KB 别用）`,
       `- 实体关系（人/组织/产品） → knowledge-graph 类（同样需要已索引数据，无 KB 时跳过）`,
+      `- **最新动态 / 一手信号 / 近 30 天市场与社区反应 → radar-signal-search**（用户 AI 雷达订阅话题持续采集的高分信号，已过 AI 双重筛选、带摘要与原文链接，时效性强于 web-search；返回空说明用户雷达未覆盖该话题，正常回落 web-search 即可）`,
       `- 学术/科研性质 → academic 类（arxiv / openalex / pubmed / semantic-scholar 等）`,
       `- 政策/法规 → policy 类（federal-register / congress-gov / whitehouse-news 等）`,
       `- 代码/开源 → community 类（github-search / hackernews-search 等）`,

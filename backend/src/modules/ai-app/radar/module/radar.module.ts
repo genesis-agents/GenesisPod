@@ -22,6 +22,7 @@ import {
   MissionLifecycleManager,
   MissionLivenessGuard,
   MissionPipelineOrchestrator,
+  ToolRegistry,
 } from "@/modules/ai-harness/facade";
 import { SkillLoaderService } from "@/modules/ai-engine/facade";
 import { NotificationModule } from "../../../platform/notifications/notification.module";
@@ -77,6 +78,10 @@ import { RadarS8PersistStage } from "../mission/pipeline/stages/s8-persist.stage
 import { RadarDiscoveryStage } from "../mission/pipeline/stages/radar-discovery.stage";
 import { RadarGateway } from "../runtime/radar.gateway";
 import { RADAR_DOMAIN_EVENTS } from "../events/radar.events";
+
+// ── 对外供料（2026-06-12 雷达 → 洞察/前瞻 集成） ─────────────────────────
+import { RadarContentSourceProvider } from "../integrations/radar-content-source.provider";
+import { RadarSignalSearchTool } from "../integrations/radar-signal-search.tool";
 
 @Module({
   imports: [
@@ -180,6 +185,9 @@ import { RADAR_DOMAIN_EVENTS } from "../events/radar.events";
     RadarS8PersistStage,
     RadarDiscoveryStage,
     RadarGateway,
+    // 对外供料：雷达信号 → ContentSourceRegistry（社交/前瞻等）+ ToolRegistry（洞察 researcher）
+    RadarContentSourceProvider,
+    RadarSignalSearchTool,
   ],
   exports: [
     RadarTopicService,
@@ -199,9 +207,16 @@ export class RadarModule implements OnModuleInit {
     private readonly missionStore: RadarMissionStore,
     // ★ C0/G1：liveness 回收也经唯一终态写入口仲裁，不直写 store。
     private readonly lifecycleManager: MissionLifecycleManager,
+    // 雷达 → 洞察供料：信号检索工具注册进全局 ToolRegistry
+    private readonly toolRegistry: ToolRegistry,
+    private readonly signalSearchTool: RadarSignalSearchTool,
   ) {}
 
   async onModuleInit(): Promise<void> {
+    // 0. 注册 radar-signal-search 到全局 ToolRegistry（information 类目）——
+    //    playground / 洞察 researcher 采证时可检索用户雷达信号（register 幂等）
+    this.toolRegistry.register(this.signalSearchTool);
+
     // 1. 注册业务事件 schema —— EventBus 校验未注册的 type 一律 drop+warn
     this.eventRegistry.registerAll(RADAR_DOMAIN_EVENTS);
     this.log.log(
