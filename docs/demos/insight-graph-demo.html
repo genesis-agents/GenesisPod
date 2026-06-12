@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>下一代算力底座 · 洞察图谱 Demo</title>
+<title>AI 前瞻 · 判断资产 Demo v0.2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@700;900&display=swap" rel="stylesheet">
@@ -25,6 +25,8 @@
   --blue-soft:rgba(3,105,161,.07);
   --red:#d6303a;
   --red-soft:rgba(214,48,58,.08);
+  --green:#15803d;
+  --green-soft:rgba(21,128,61,.07);
   --serif:'Noto Serif SC','Fraunces',serif;
   --disp:'Fraunces','Noto Serif SC',serif;
   --mono:'IBM Plex Mono','Noto Sans SC',monospace;
@@ -41,7 +43,6 @@ body{
   min-height:100vh;
   overflow-x:hidden;
 }
-/* atmosphere: warm paper + faint drafting grid */
 body::before{
   content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   background:
@@ -59,7 +60,7 @@ body::after{
 /* ============ header ============ */
 header{
   display:flex;align-items:flex-end;justify-content:space-between;gap:24px;
-  padding:38px 4px 22px;border-bottom:2px solid var(--txt);
+  padding:38px 4px 22px;
   flex-wrap:wrap;
 }
 .brand .kicker{
@@ -85,9 +86,86 @@ header{
 .stat.warn .num{color:var(--amber-bright)}
 .stat .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--txt-faint);margin-top:6px;text-transform:uppercase}
 
+/* ============ tab bar ============ */
+.tabbar{display:flex;flex-wrap:wrap;border-bottom:2px solid var(--txt);margin-top:8px}
+.tabbtn{
+  font-family:var(--sans);font-size:14px;font-weight:600;color:var(--txt-dim);
+  background:none;border:none;cursor:pointer;padding:13px 22px;position:relative;
+  display:flex;align-items:center;gap:9px;transition:color .15s;
+}
+.tabbtn .tno{font-family:var(--mono);font-size:10px;color:var(--txt-faint);letter-spacing:.08em}
+.tabbtn:hover{color:var(--txt)}
+.tabbtn.on{color:var(--txt)}
+.tabbtn.on::after{content:'';position:absolute;left:0;right:0;bottom:-2px;height:3px;background:var(--amber-bright)}
+.tbadge{
+  font-family:var(--mono);font-size:9.5px;min-width:18px;text-align:center;
+  padding:1px 6px;background:var(--amber-bright);color:#fff;border-radius:10px;display:none;
+}
+.tbadge.show{display:inline-block;animation:bpulse 1.2s ease 2}
+@keyframes bpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.25)}}
+.panel-tab{display:none;padding-top:20px}
+.panel-tab.on{display:block;animation:tabfade .3s ease}
+@keyframes tabfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ============ section heads (in-tab) ============ */
+.sechead{
+  display:flex;align-items:baseline;gap:14px;margin:26px 4px 16px;
+  border-bottom:1px solid var(--line-strong);padding-bottom:10px;flex-wrap:wrap;
+}
+.sechead:first-child{margin-top:0}
+.sechead h2{font-family:var(--serif);font-weight:900;font-size:17px;letter-spacing:.06em}
+.sechead .en{font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--txt-faint);text-transform:uppercase}
+.sechead .note{margin-left:auto;font-size:11.5px;color:var(--txt-dim)}
+
+/* ============ overview ============ */
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:16px}
+@media (max-width:1100px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{
+  border:1px solid var(--line-strong);background:var(--panel);padding:16px 18px;
+  cursor:pointer;transition:all .18s;box-shadow:0 1px 3px rgba(29,36,51,.05);
+}
+.kpi:hover{border-color:var(--txt);transform:translateY(-2px);box-shadow:0 8px 22px rgba(29,36,51,.1)}
+.kpi b{font-family:var(--disp);font-weight:700;font-size:32px;line-height:1.1;display:block;font-variant-numeric:tabular-nums}
+.kpi.warn b{color:var(--amber-bright)}
+.kpi.danger b{color:var(--red)}
+.kpi.ok b{color:var(--green)}
+.kpi .kl{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--txt-faint);text-transform:uppercase;margin-top:6px}
+.kpi .kh{font-size:11px;color:var(--txt-dim);margin-top:4px}
+.ovgrid{display:grid;grid-template-columns:1.25fr 1fr 1.15fr;gap:18px;margin-top:20px;align-items:start}
+@media (max-width:1100px){.ovgrid{grid-template-columns:1fr}}
+.ovcard{border:1px solid var(--line-strong);background:var(--panel);box-shadow:0 2px 10px rgba(29,36,51,.05)}
+.ovcard .oh{
+  display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--txt-dim);text-transform:uppercase;
+}
+.ovcard .oh .dot{width:7px;height:7px;border-radius:50%}
+.ovcard .ob{padding:14px 16px}
+.lh-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px dashed var(--line)}
+.lh-row:last-child{border-bottom:none}
+.lh-row .lid{font-family:var(--disp);font-weight:700;font-size:15px;color:var(--amber-bright);width:30px}
+.lh-row .ln{font-size:12.5px;font-weight:600;width:88px}
+.lh-row .lbar{flex:1;height:5px;background:rgba(29,36,51,.08);overflow:hidden}
+.lh-row .lbar i{display:block;height:100%;background:linear-gradient(90deg,#f59e0b,var(--amber-bright))}
+.lh-row .lconf{font-family:var(--mono);font-size:10px;color:var(--txt-dim);width:62px;text-align:right}
+.lh-row .ldirty{font-family:var(--mono);font-size:9px;padding:1px 7px;border:1px solid;min-width:48px;text-align:center}
+.lh-row .ldirty.zero{color:var(--green);border-color:rgba(21,128,61,.35)}
+.lh-row .ldirty.some{color:#fff;background:var(--amber-bright);border-color:var(--amber-bright);font-weight:600}
+.dist-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px dashed var(--line)}
+.dist-row:last-child{border-bottom:none}
+.dist-row .sq{width:10px;height:10px;flex-shrink:0}
+.dist-row .dn{font-size:12.5px;flex:1}
+.dist-row .dbar{flex:1.4;height:5px;background:rgba(29,36,51,.08)}
+.dist-row .dbar i{display:block;height:100%}
+.dist-row .dc{font-family:var(--mono);font-size:11px;color:var(--txt-dim);width:24px;text-align:right}
+.act-item{display:flex;gap:10px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:12px;line-height:1.6}
+.act-item:last-child{border-bottom:none}
+.act-item .at{font-family:var(--mono);font-size:9.5px;color:var(--txt-faint);white-space:nowrap;padding-top:2px;width:78px;flex-shrink:0}
+.act-item .ax{color:var(--txt-dim)}
+.act-item .ax b{color:var(--txt);font-weight:600}
+
 /* ============ signal console ============ */
 .console{
-  margin-top:22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
   border:1px solid var(--line-strong);background:linear-gradient(180deg,rgba(217,119,6,.06),rgba(255,255,255,.6) 70%);
   padding:14px 18px;
 }
@@ -114,8 +192,8 @@ header{
 .sig .sinfo svg{width:13.5px;height:13.5px}
 
 /* ============ signal basis dossier ============ */
-#sig-basis{display:none;border:1px solid rgba(214,48,58,.4);border-top:none;background:var(--panel);padding:18px 20px}
-#sig-basis.open{display:block;animation:rise .3s ease}
+#sig-basis{display:none;border:1px solid rgba(214,48,58,.4);background:var(--panel);padding:18px 20px;margin-top:18px}
+#sig-basis.open{display:block;animation:tabfade .3s ease}
 .basis-h{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
 .basis-h .bsid{font-family:var(--mono);font-size:10px;color:var(--red);letter-spacing:.12em}
 .basis-h b{font-size:14.5px;font-weight:700}
@@ -155,11 +233,9 @@ header{
 .lg-dash{width:26px;height:0;border-top:2px dashed rgba(214,48,58,.6)}
 .lg-dot{width:9px;height:9px;border-radius:50%}
 
-/* ============ main layout ============ */
-.main{display:grid;grid-template-columns:1fr 354px;gap:26px;margin-top:18px;align-items:start}
+/* ============ graph layout ============ */
+.main{display:grid;grid-template-columns:1fr 354px;gap:26px;margin-top:14px;align-items:start}
 @media (max-width:1180px){.main{grid-template-columns:1fr}}
-
-/* ============ graph ============ */
 .graph{position:relative;padding:6px 0 30px}
 #edges{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
 #labels{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:6}
@@ -186,10 +262,8 @@ header{
 .lane{
   position:relative;display:flex;gap:22px;align-items:stretch;
   padding:30px 0 30px 156px;border-bottom:1px dashed var(--line-strong);
-  opacity:0;transform:translateY(14px);animation:rise .6s ease forwards;
 }
 .lane:last-child{border-bottom:none}
-@keyframes rise{to{opacity:1;transform:none}}
 .lane-rail{
   position:absolute;left:0;top:30px;bottom:30px;width:106px;
   display:flex;flex-direction:column;justify-content:center;gap:4px;
@@ -236,8 +310,10 @@ header{
 .card.down{border-color:var(--amber-bright);background:linear-gradient(180deg,var(--amber-soft),var(--panel) 65%)}
 .card.selected{border-color:var(--txt);box-shadow:0 0 0 1.5px var(--txt),0 10px 28px rgba(29,36,51,.16)}
 body.focusmode .card:not(.selected):not(.up):not(.down):not(.src):not(.dirty){opacity:.38}
+.card.neu{animation:neuin 1.4s ease}
+@keyframes neuin{0%{box-shadow:0 0 0 8px rgba(3,105,161,.28);transform:scale(.95)}100%{box-shadow:none;transform:none}}
 
-/* ============ aside ============ */
+/* ============ aside (detail) ============ */
 aside{position:sticky;top:20px;display:flex;flex-direction:column;gap:18px;max-height:calc(100vh - 40px)}
 .panel{border:1px solid var(--line-strong);background:rgba(255,255,255,.92);backdrop-filter:blur(6px);display:flex;flex-direction:column;min-height:0;box-shadow:0 2px 12px rgba(29,36,51,.06)}
 .panel-h{
@@ -250,7 +326,6 @@ aside{position:sticky;top:20px;display:flex;flex-direction:column;gap:18px;max-h
 .panel-b::-webkit-scrollbar-thumb{background:var(--line-strong)}
 .empty{font-size:12px;color:var(--txt-faint);text-align:center;padding:26px 10px;line-height:1.8}
 
-/* detail */
 #detail .did{font-family:var(--mono);font-size:10px;color:var(--amber);letter-spacing:.1em;margin-bottom:6px;display:flex;justify-content:space-between}
 #detail h2{font-family:var(--serif);font-weight:900;font-size:19px;line-height:1.4;margin-bottom:10px}
 #detail .dclaim{font-size:12.5px;color:var(--txt-dim);line-height:1.7;padding:10px 12px;background:var(--panel-2);border-left:3px solid var(--amber-bright);margin-bottom:14px}
@@ -297,38 +372,6 @@ a.srcb .st{font-size:12px;color:var(--txt);line-height:1.45;white-space:nowrap;o
 a.srcb svg{width:12px;height:12px;color:var(--txt-faint);flex-shrink:0}
 a.srcb:hover svg{color:var(--blue)}
 
-/* queue */
-#queue-effect{
-  display:none;font-size:12px;line-height:1.65;color:var(--txt);background:var(--red-soft);
-  border:1px solid rgba(214,48,58,.4);padding:10px 12px;margin-bottom:12px;
-}
-#queue-effect .sid{font-family:var(--mono);font-size:10px;color:var(--red);letter-spacing:.1em;display:block;margin-bottom:3px}
-.qitem{
-  display:flex;align-items:center;gap:12px;padding:9px 4px;border-bottom:1px dashed var(--line);
-  opacity:0;transform:translateX(10px);transition:all .35s ease;cursor:pointer;
-}
-.qitem.in{opacity:1;transform:none}
-.qitem:hover{background:rgba(29,36,51,.04)}
-.qitem .depth{
-  font-family:var(--disp);font-weight:700;font-size:15px;color:var(--txt-faint);width:30px;flex-shrink:0;text-align:center;
-  border-right:1px solid var(--line);
-}
-.qitem .depth.d0{color:var(--red)}
-.qitem .qmain{flex:1;min-width:0}
-.qitem .qid{font-family:var(--mono);font-size:9.5px;color:var(--txt-faint);letter-spacing:.06em}
-.qitem .qt{font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.qitem .sens{flex-shrink:0}
-
-/* ============ section heads ============ */
-.sechead{
-  display:flex;align-items:baseline;gap:14px;margin:38px 4px 16px;
-  border-bottom:1px solid var(--line-strong);padding-bottom:10px;flex-wrap:wrap;
-}
-.sechead .no{font-family:var(--disp);font-weight:900;font-size:26px;color:var(--amber-bright);line-height:1}
-.sechead h2{font-family:var(--serif);font-weight:900;font-size:19px;letter-spacing:.06em}
-.sechead .en{font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--txt-faint);text-transform:uppercase}
-.sechead .note{margin-left:auto;font-size:11.5px;color:var(--txt-dim)}
-
 /* ============ feeds (radar / insight inboxes) ============ */
 .feeds{display:grid;grid-template-columns:1fr 1fr;gap:22px}
 @media (max-width:1000px){.feeds{grid-template-columns:1fr}}
@@ -359,6 +402,75 @@ a.srcb:hover svg{color:var(--blue)}
 .fi-note{font-family:var(--mono);font-size:9.5px;color:var(--txt-faint);letter-spacing:.04em;text-align:right;line-height:1.6;white-space:nowrap}
 .misn{font-family:var(--mono);font-size:9.5px;color:#c2366b;letter-spacing:.04em}
 
+/* ============ assumptions table ============ */
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.filters select,.filters input{
+  font-family:var(--sans);font-size:12.5px;color:var(--txt);background:var(--panel);
+  border:1px solid var(--line-strong);padding:8px 12px;outline:none;
+}
+.filters input{min-width:240px}
+.filters input:focus,.filters select:focus{border-color:var(--txt)}
+.filters .fcount{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--txt-dim)}
+table.atable{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line-strong);box-shadow:0 2px 10px rgba(29,36,51,.05)}
+.atable th{
+  font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--txt-faint);text-transform:uppercase;
+  text-align:left;padding:11px 14px;border-bottom:2px solid var(--txt);white-space:nowrap;
+}
+.atable td{padding:11px 14px;border-bottom:1px dashed var(--line);font-size:12.5px;vertical-align:middle}
+.atable tr:last-child td{border-bottom:none}
+.atable tbody tr{cursor:pointer;transition:background .12s}
+.atable tbody tr:hover{background:var(--paper-2)}
+.atable .aid{font-family:var(--mono);font-size:10.5px;color:var(--txt-faint)}
+.atable .at-title{font-weight:600}
+.atable .cbar{width:74px;height:4px;background:rgba(29,36,51,.08);display:inline-block;vertical-align:middle;margin-right:8px}
+.atable .cbar i{display:block;height:100%;background:linear-gradient(90deg,#f59e0b,var(--amber-bright))}
+.atable .cnum{font-family:var(--mono);font-size:10.5px;color:var(--txt-dim)}
+.stagecell{font-family:var(--mono);font-size:9px;letter-spacing:.06em;padding:2px 7px;border:1px solid}
+.statuspill{font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:2px 8px;border:1px solid rgba(21,128,61,.4);color:var(--green)}
+.statuspill.dirty{border-color:var(--amber-bright);background:var(--amber-bright);color:#fff;font-weight:600}
+.statuspill.src{border-color:var(--red);background:var(--red);color:#fff;font-weight:600}
+
+/* ============ review workflow ============ */
+.rv-head{display:flex;align-items:center;gap:18px;margin-bottom:16px;flex-wrap:wrap}
+.rv-prog{flex:1;min-width:200px;height:7px;background:rgba(29,36,51,.08);overflow:hidden}
+.rv-prog i{display:block;height:100%;background:linear-gradient(90deg,#34d399,var(--green));transition:width .5s ease}
+.rv-stat{font-family:var(--mono);font-size:11px;color:var(--txt-dim)}
+#queue-effect{
+  display:none;font-size:12px;line-height:1.65;color:var(--txt);background:var(--red-soft);
+  border:1px solid rgba(214,48,58,.4);padding:10px 12px;margin-bottom:14px;
+}
+#queue-effect .sid{font-family:var(--mono);font-size:10px;color:var(--red);letter-spacing:.1em;display:block;margin-bottom:3px}
+.qwrap{border:1px solid var(--line-strong);background:var(--panel);box-shadow:0 2px 10px rgba(29,36,51,.05)}
+.qitem{
+  display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px dashed var(--line);
+  opacity:0;transform:translateX(10px);transition:all .35s ease;
+}
+.qitem:last-child{border-bottom:none}
+.qitem.in{opacity:1;transform:none}
+.qitem .depth{
+  font-family:var(--disp);font-weight:700;font-size:16px;color:var(--txt-faint);width:34px;flex-shrink:0;text-align:center;
+  border-right:1px solid var(--line);
+}
+.qitem .depth.d0{color:var(--red)}
+.qitem .qmain{flex:1;min-width:0;cursor:pointer}
+.qitem .qid{font-family:var(--mono);font-size:9.5px;color:var(--txt-faint);letter-spacing:.06em}
+.qitem .qt{font-size:13px;font-weight:600}
+.qitem .qhint{font-size:11px;color:var(--txt-dim);margin-top:1px}
+.qitem .sens{flex-shrink:0}
+.qact{display:flex;gap:8px;flex-shrink:0}
+.qbtn{
+  font-family:var(--sans);font-size:11.5px;font-weight:600;cursor:pointer;padding:6px 13px;
+  border:1px solid;transition:all .15s;white-space:nowrap;
+}
+.qbtn.adj{color:#fff;background:var(--amber-bright);border-color:var(--amber-bright)}
+.qbtn.keep{color:var(--txt-dim);background:none;border-color:var(--line-strong)}
+.qbtn:hover{filter:brightness(1.05);transform:translateY(-1px)}
+.qitem.resolved{opacity:.55}
+.qitem.resolved .qt{text-decoration:line-through;text-decoration-color:var(--txt-faint)}
+.qdecision{font-family:var(--mono);font-size:10px;letter-spacing:.06em;padding:3px 9px;border:1px solid;white-space:nowrap}
+.qdecision.adj{color:var(--amber);border-color:rgba(180,83,9,.45);background:var(--amber-soft)}
+.qdecision.keep{color:var(--green);border-color:rgba(21,128,61,.4);background:var(--green-soft)}
+
 /* ============ conclusions ============ */
 .concl{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
 @media (max-width:1280px){.concl{grid-template-columns:repeat(2,1fr)}}
@@ -369,7 +481,6 @@ a.srcb:hover svg{color:var(--blue)}
   box-shadow:0 1px 3px rgba(29,36,51,.05);display:flex;flex-direction:column;gap:9px;
 }
 .ccard:hover{border-color:var(--txt);transform:translateY(-2px);box-shadow:0 8px 24px rgba(29,36,51,.12)}
-.ccard.selc{border-color:var(--txt);box-shadow:0 0 0 1.5px var(--txt)}
 .ccard .ctop{display:flex;justify-content:space-between;align-items:center}
 .ccard .cno{font-family:var(--disp);font-weight:700;font-size:14px;color:var(--amber-bright)}
 .cstat{font-family:var(--mono);font-size:9px;letter-spacing:.1em;padding:2px 8px;border:1px solid rgba(21,128,61,.45);color:#15803d;background:rgba(21,128,61,.05)}
@@ -383,10 +494,6 @@ a.srcb:hover svg{color:var(--blue)}
 }
 .ccard .cfoot{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9.5px;color:var(--txt-faint);letter-spacing:.05em}
 
-/* new card admitted from drafts */
-.card.neu{animation:neuin 1.4s ease}
-@keyframes neuin{0%{box-shadow:0 0 0 8px rgba(3,105,161,.28);transform:scale(.95)}100%{box-shadow:none;transform:none}}
-
 footer{
   margin-top:34px;padding-top:18px;border-top:1px solid var(--line-strong);
   font-family:var(--mono);font-size:10.5px;color:var(--txt-faint);letter-spacing:.1em;
@@ -399,9 +506,9 @@ footer{
 
 <header>
   <div class="brand">
-    <div class="kicker">Compute Substrate 2028–2030</div>
-    <h1>下一代算力底座 <em>·</em> 洞察图谱</h1>
-    <div class="sub">ASSUMPTION GRAPH / 假设卡片 × 参数中转边 × 影响传播 — Demo v0.1</div>
+    <div class="kicker">Foresight · Compute Substrate 2028–2030</div>
+    <h1>AI 前瞻 <em>·</em> 判断资产</h1>
+    <div class="sub">ASSUMPTION GRAPH / 假设卡片 × 信号检验 × 影响传播 × 复核工作流 — Demo v0.2</div>
   </div>
   <div class="stats">
     <div class="stat"><div class="num" id="stat-cards">0</div><div class="lbl">假设 Assumptions</div></div>
@@ -410,96 +517,153 @@ footer{
   </div>
 </header>
 
-<div class="console">
-  <span class="tag">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-    信号注入
-  </span>
-  <button class="sig" data-sig="S1"><span class="sid">SIG-01</span>HBM4 良率爬坡延期 12 个月<span class="sinfo" data-info="S1" title="查验信号依据"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span></button>
-  <button class="sig" data-sig="S2"><span class="sid">SIG-02</span>前沿实验室发布 Dense 旗舰，推理成本反超 MoE<span class="sinfo" data-info="S2" title="查验信号依据"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span></button>
-  <button class="sig" data-sig="S3"><span class="sid">SIG-03</span>北美主要 Hub 电网接入排队超 4 年<span class="sinfo" data-info="S3" title="查验信号依据"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span></button>
-  <button class="reset" id="btn-reset">RESET 复位</button>
-</div>
-<div id="sig-basis"></div>
+<nav class="tabbar">
+  <button class="tabbtn on" data-tab="overview"><span class="tno">01</span>总览</button>
+  <button class="tabbtn" data-tab="graph"><span class="tno">02</span>判断图谱</button>
+  <button class="tabbtn" data-tab="assumptions"><span class="tno">03</span>假设库</button>
+  <button class="tabbtn" data-tab="signals"><span class="tno">04</span>信号中心<span class="tbadge show" id="badge-signals">1</span></button>
+  <button class="tabbtn" data-tab="review"><span class="tno">05</span>复核<span class="tbadge" id="badge-review">0</span></button>
+  <button class="tabbtn" data-tab="conclusions"><span class="tno">06</span>洞察结论</button>
+</nav>
 
-<div class="legend">
-  <span><i class="lg-line"></i>影响传导（经量化参数）</span>
-  <span><i class="lg-dash"></i>约束反压</span>
-  <span><i class="lg-dot" style="background:var(--blue)"></i>上游依赖</span>
-  <span><i class="lg-dot" style="background:var(--amber-bright)"></i>下游影响 / 待复核</span>
-  <span><i class="lg-dot" style="background:var(--red)"></i>证伪信号命中</span>
-  <span style="margin-left:auto">点击卡片 = 查看血缘 · 点击信号 = 传播演练</span>
-</div>
-<div class="legend" style="padding-top:6px">
-  <span style="color:var(--txt-faint)">代际阶段</span>
-  <span><i class="lg-dot" style="background:#15803d;border-radius:0"></i>当前落地</span>
-  <span><i class="lg-dot" style="background:#0369a1;border-radius:0"></i>演进中</span>
-  <span><i class="lg-dot" style="background:#d97706;border-radius:0"></i>探索验证</span>
-  <span><i class="lg-dot" style="background:#7c3aed;border-radius:0"></i>研究前沿</span>
-  <span style="color:var(--txt-faint)">（卡片左侧色条）</span>
-</div>
-
-<div class="sechead">
-  <span class="no">01</span><h2>供料链</h2><span class="en">Inbound · Radar / Insights</span>
-  <span class="note">AI 雷达的信号与 AI 洞察的 Mission 产出在此汇入判断资产（P2 / P3 集成形态预览）</span>
-</div>
-<div class="feeds">
-  <div class="inbox">
-    <div class="inbox-h">
-      <span class="modtag" style="background:#0369a1">AI 雷达</span>
-      <span class="iname">信号收件箱</span><span class="ien">Signal Inbox</span>
-      <span class="icount" id="radar-count"></span>
+<!-- ============ 01 总览 ============ -->
+<section class="panel-tab on" id="panel-overview">
+  <div class="kpis" id="kpis"></div>
+  <div class="ovgrid">
+    <div class="ovcard">
+      <div class="oh"><span class="dot" style="background:var(--amber-bright)"></span>分层健康度 Layer Health</div>
+      <div class="ob" id="ov-layers"></div>
     </div>
-    <div id="radar-items"></div>
-  </div>
-  <div class="inbox">
-    <div class="inbox-h">
-      <span class="modtag" style="background:#c2366b">AI 洞察</span>
-      <span class="iname">沉淀收件箱</span><span class="ien">Draft Cards</span>
-      <span class="icount" id="draft-count"></span>
+    <div class="ovcard">
+      <div class="oh"><span class="dot" style="background:var(--blue)"></span>代际阶段分布 Stages</div>
+      <div class="ob" id="ov-stages"></div>
     </div>
-    <div id="draft-items"></div>
+    <div class="ovcard">
+      <div class="oh"><span class="dot" style="background:var(--green)"></span>最近动态 Activity</div>
+      <div class="ob" id="ov-activity"></div>
+    </div>
   </div>
-</div>
+</section>
 
-<div class="sechead">
-  <span class="no">02</span><h2>判断图谱</h2><span class="en">Assumption Graph</span>
-  <span class="note">点击卡片查看血缘 · 注入信号演练传播</span>
-</div>
-
-<div class="main">
-  <div class="graph" id="graph">
-    <svg id="edges"></svg>
-    <svg id="labels"></svg>
-    <!-- lanes injected by JS -->
+<!-- ============ 02 判断图谱 ============ -->
+<section class="panel-tab" id="panel-graph">
+  <div class="console">
+    <span class="tag">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      信号注入演练
+    </span>
+    <button class="sig" data-sig="S1"><span class="sid">SIG-01</span>HBM4 良率爬坡延期 12 个月<span class="sinfo" data-info="S1" title="查验信号依据"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span></button>
+    <button class="sig" data-sig="S2"><span class="sid">SIG-02</span>Dense 旗舰推理成本反超 MoE<span class="sinfo" data-info="S2" title="查验信号依据"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span></button>
+    <button class="sig" data-sig="S3"><span class="sid">SIG-03</span>电网接入排队超 4 年<span class="sinfo" data-info="S3" title="查验信号依据"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span></button>
+    <button class="reset" id="btn-reset">RESET 复位</button>
   </div>
-
-  <aside>
-    <div class="panel" style="flex:1.2;min-height:200px">
-      <div class="panel-h"><span class="dot" style="background:var(--blue)"></span>假设卡片详情 Detail</div>
-      <div class="panel-b" id="detail">
-        <div class="empty">点击图谱中任意假设卡片<br>查看完整断言 / 信源 / 证伪信号 / 上下游血缘</div>
+  <div id="sig-basis"></div>
+  <div class="legend">
+    <span><i class="lg-line"></i>影响传导（经量化参数）</span>
+    <span><i class="lg-dash"></i>约束反压</span>
+    <span><i class="lg-dot" style="background:var(--blue)"></i>上游依赖</span>
+    <span><i class="lg-dot" style="background:var(--amber-bright)"></i>下游影响 / 待复核</span>
+    <span><i class="lg-dot" style="background:var(--red)"></i>证伪信号命中</span>
+    <span style="margin-left:auto">点击卡片 = 查看血缘 · 注入信号 = 传播演练</span>
+  </div>
+  <div class="legend" style="padding-top:6px">
+    <span style="color:var(--txt-faint)">代际阶段</span>
+    <span><i class="lg-dot" style="background:#15803d;border-radius:0"></i>当前落地</span>
+    <span><i class="lg-dot" style="background:#0369a1;border-radius:0"></i>演进中</span>
+    <span><i class="lg-dot" style="background:#d97706;border-radius:0"></i>探索验证</span>
+    <span><i class="lg-dot" style="background:#7c3aed;border-radius:0"></i>研究前沿</span>
+    <span style="color:var(--txt-faint)">（卡片左侧色条）</span>
+  </div>
+  <div class="main">
+    <div class="graph" id="graph">
+      <svg id="edges"></svg>
+      <svg id="labels"></svg>
+      <!-- lanes injected by JS -->
+    </div>
+    <aside>
+      <div class="panel" style="flex:1;min-height:300px">
+        <div class="panel-h"><span class="dot" style="background:var(--blue)"></span>假设卡片详情 Detail</div>
+        <div class="panel-b" id="detail">
+          <div class="empty">点击图谱中任意假设卡片<br>查看完整断言 / 信源 / 证伪信号 / 上下游血缘</div>
+        </div>
       </div>
-    </div>
-    <div class="panel" style="flex:1;min-height:180px">
-      <div class="panel-h"><span class="dot" style="background:var(--amber-bright)"></span>复核队列 Review Queue</div>
-      <div class="panel-b">
-        <div id="queue-effect"></div>
-        <div id="queue"><div class="empty">注入信号后，受影响假设按<br>敏感度 × 传播深度排序入列</div></div>
-      </div>
-    </div>
-  </aside>
-</div>
+    </aside>
+  </div>
+</section>
 
-<div class="sechead">
-  <span class="no">03</span><h2>洞察结论</h2><span class="en">Conclusions · So What</span>
-  <span class="note">结论由假设推导得出 — 上游假设被信号冲击时，依赖它的结论自动标记待复核</span>
-</div>
-<div class="concl" id="concl"></div>
+<!-- ============ 03 假设库 ============ -->
+<section class="panel-tab" id="panel-assumptions">
+  <div class="filters">
+    <input type="text" id="f-search" placeholder="搜索假设标题 / 断言…">
+    <select id="f-layer"><option value="">全部层级</option></select>
+    <select id="f-stage"><option value="">全部阶段</option></select>
+    <select id="f-sens"><option value="">全部敏感度</option><option value="high">高敏</option><option value="mid">中敏</option><option value="low">低敏</option></select>
+    <select id="f-status"><option value="">全部状态</option><option value="ok">稳固</option><option value="dirty">待复核</option></select>
+    <span class="fcount" id="f-count"></span>
+  </div>
+  <table class="atable">
+    <thead><tr>
+      <th>编号</th><th>假设</th><th>层级</th><th>阶段</th><th>敏感度</th><th>置信度</th><th>Horizon</th><th>信源</th><th>状态</th>
+    </tr></thead>
+    <tbody id="atbody"></tbody>
+  </table>
+</section>
+
+<!-- ============ 04 信号中心 ============ -->
+<section class="panel-tab" id="panel-signals">
+  <div class="sechead">
+    <h2>供料链</h2><span class="en">Inbound · Radar / Insights</span>
+    <span class="note">AI 雷达的信号与 AI 洞察的 Mission 产出在此汇入判断资产（P2 / P3 集成形态预览）</span>
+  </div>
+  <div class="feeds">
+    <div class="inbox">
+      <div class="inbox-h">
+        <span class="modtag" style="background:#0369a1">AI 雷达</span>
+        <span class="iname">信号收件箱</span><span class="ien">Signal Inbox</span>
+        <span class="icount" id="radar-count"></span>
+      </div>
+      <div id="radar-items"></div>
+    </div>
+    <div class="inbox">
+      <div class="inbox-h">
+        <span class="modtag" style="background:#c2366b">AI 洞察</span>
+        <span class="iname">沉淀收件箱</span><span class="ien">Draft Cards</span>
+        <span class="icount" id="draft-count"></span>
+      </div>
+      <div id="draft-items"></div>
+    </div>
+  </div>
+  <div id="sig-basis-2"></div>
+</section>
+
+<!-- ============ 05 复核工作流 ============ -->
+<section class="panel-tab" id="panel-review">
+  <div class="sechead">
+    <h2>复核工作流</h2><span class="en">Review Queue</span>
+    <span class="note">信号传播标记的假设按 敏感度 × 传播深度 排序 — 逐项裁定后图谱状态实时解除</span>
+  </div>
+  <div class="rv-head">
+    <span class="rv-stat" id="rv-stat">暂无待复核项</span>
+    <div class="rv-prog"><i id="rv-prog" style="width:0%"></i></div>
+  </div>
+  <div id="queue-effect"></div>
+  <div class="qwrap" id="queue">
+    <div class="empty">在「判断图谱」注入信号后，受影响假设在此入列<br>逐项裁定：确认调整（采纳置信度变化）或 维持原判（驳回冲击）</div>
+  </div>
+</section>
+
+<!-- ============ 06 洞察结论 ============ -->
+<section class="panel-tab" id="panel-conclusions">
+  <div class="sechead">
+    <h2>洞察结论</h2><span class="en">Conclusions · So What</span>
+    <span class="note">结论由假设推导得出 — 上游假设被信号冲击时，依赖它的结论自动标记待复核；复核完成后自动恢复</span>
+  </div>
+  <div class="concl" id="concl"></div>
+</section>
 
 <footer>
-  <span>GENESISPOD · NEXT-GEN COMPUTE SUBSTRATE INSIGHT — DEMO</span>
-  <span>种子假设为示意数据 · 方法论：假设卡片 / Falsifier 信号 / DAG 脏标记传播</span>
+  <span>GENESISPOD · AI FORESIGHT — PRODUCT DEMO v0.2</span>
+  <span>种子假设为示意数据 · 方法论：假设卡片 / Falsifier 信号 / DAG 脏标记传播 / 复核裁定</span>
 </footer>
 
 </div>
@@ -634,7 +798,35 @@ const SIGNALS = {
       effect:'约束收紧：A-L5-03「电力第一约束」置信度 0.70 → 0.85。物理层约束沿反压边向上传导，总算力供给假设需下修。'},
 };
 
-/* 信源: 每张假设卡的可追溯依据; type: vendor 厂商 | paper 论文 | report 研报 | oss 开源 | std 标准 */
+/* 信号依据档案 */
+const SIGNAL_BASIS = {
+  S1:{
+    bind:{card:'A-L4-01', falsifier:'HBM4 良率爬坡延期超过 2 个季度', dir:'证伪方向 — 命中后置信度下调'},
+    threshold:'延期 > 2 个季度', observed:'≈ 4 个季度（12 个月）',
+    grade:'strong', gradeNote:'多源独立确认：厂商财报口径 + 渠道研报交叉验证',
+    sources:[
+      {org:'SK hynix', title:'季度财报电话会 — HBM4 量产指引调整', type:'vendor', url:'https://news.skhynix.com'},
+      {org:'TrendForce', title:'HBM 供需季度研报 — 量产节奏下修', type:'report', url:'https://www.trendforce.com'},
+    ]},
+  S2:{
+    bind:{card:'A-L1-01', falsifier:'某前沿实验室发布 Dense 旗舰且推理成本占优', dir:'证伪方向 — 命中后置信度下调'},
+    threshold:'Dense 旗舰发布 且 同级任务 $/token 低于 MoE 旗舰', observed:'两项条件均满足（技术报告 + 第三方基准）',
+    grade:'strong', gradeNote:'架构信息来自官方技术报告，成本数据来自独立基准平台',
+    sources:[
+      {org:'arXiv', title:'旗舰模型技术报告（架构披露）', type:'paper', url:'https://arxiv.org'},
+      {org:'Artificial Analysis', title:'跨模型推理成本独立基准', type:'report', url:'https://artificialanalysis.ai'},
+    ]},
+  S3:{
+    bind:{card:'A-L5-03', falsifier:'监测条件：主要 Hub 接入排队时长突破基线（2–4 年）', dir:'约束收紧方向 — 命中后置信度上调'},
+    threshold:'排队时长 > 4 年（任一主要 Hub 区域）', observed:'PJM / ERCOT 区域 > 4 年',
+    grade:'strong', gradeNote:'权威年度报告 + 国际机构交叉验证',
+    sources:[
+      {org:'LBNL', title:'Queued Up — 电网互联排队年度报告', type:'report', url:'https://emp.lbl.gov/queues'},
+      {org:'IEA', title:'Energy and AI（数据中心用电章节）', type:'report', url:'https://www.iea.org/reports/energy-and-ai'},
+    ]},
+};
+
+/* 信源 */
 const SOURCES = {
   'A-L0-01':[
     {org:'Anthropic', title:'Economic Index — Agent 任务占比追踪', type:'report', url:'https://www.anthropic.com/economic-index'},
@@ -695,35 +887,6 @@ const SOURCES = {
     {org:'EPRI', title:'数据中心用电增长预测', type:'report', url:'https://www.epri.com'}],
 };
 
-/* 信号依据档案: 信号没有独立存在的资格 —— 必须命中某张假设卡预登记的证伪/监测条件才允许注入。
-   grade: strong = 多源独立确认, 允许注入传播; weak = 单源传闻, 仅标记关注, 不触发传播 */
-const SIGNAL_BASIS = {
-  S1:{
-    bind:{card:'A-L4-01', falsifier:'HBM4 良率爬坡延期超过 2 个季度', dir:'证伪方向 — 命中后置信度下调'},
-    threshold:'延期 > 2 个季度', observed:'≈ 4 个季度（12 个月）',
-    grade:'strong', gradeNote:'多源独立确认：厂商财报口径 + 渠道研报交叉验证',
-    sources:[
-      {org:'SK hynix', title:'季度财报电话会 — HBM4 量产指引调整', type:'vendor', url:'https://news.skhynix.com'},
-      {org:'TrendForce', title:'HBM 供需季度研报 — 量产节奏下修', type:'report', url:'https://www.trendforce.com'},
-    ]},
-  S2:{
-    bind:{card:'A-L1-01', falsifier:'某前沿实验室发布 Dense 旗舰且推理成本占优', dir:'证伪方向 — 命中后置信度下调'},
-    threshold:'Dense 旗舰发布 且 同级任务 $/token 低于 MoE 旗舰', observed:'两项条件均满足（技术报告 + 第三方基准）',
-    grade:'strong', gradeNote:'架构信息来自官方技术报告，成本数据来自独立基准平台',
-    sources:[
-      {org:'arXiv', title:'旗舰模型技术报告（架构披露）', type:'paper', url:'https://arxiv.org'},
-      {org:'Artificial Analysis', title:'跨模型推理成本独立基准', type:'report', url:'https://artificialanalysis.ai'},
-    ]},
-  S3:{
-    bind:{card:'A-L5-03', falsifier:'监测条件：主要 Hub 接入排队时长突破基线（2–4 年）', dir:'约束收紧方向 — 命中后置信度上调'},
-    threshold:'排队时长 > 4 年（任一主要 Hub 区域）', observed:'PJM / ERCOT 区域 > 4 年',
-    grade:'strong', gradeNote:'权威年度报告 + 国际机构交叉验证',
-    sources:[
-      {org:'LBNL', title:'Queued Up — 电网互联排队年度报告', type:'report', url:'https://emp.lbl.gov/queues'},
-      {org:'IEA', title:'Energy and AI（数据中心用电章节）', type:'report', url:'https://www.iea.org/reports/energy-and-ai'},
-    ]},
-};
-
 /* ================= indexes ================= */
 const cardById = Object.fromEntries(CARDS.map(c=>[c.id,c]));
 const outEdges = {}, inEdges = {};
@@ -736,7 +899,6 @@ const SENS_TXT = {high:'高敏', mid:'中敏', low:'低敏'};
 const SENS_RANK = {high:0, mid:1, low:2};
 const TYPE_TXT = {vendor:'厂商', paper:'论文', report:'研报', oss:'开源', std:'标准'};
 
-/* 代际阶段: 底层技术成熟度 */
 const STAGE_DEF = {
   current:  {name:'当前落地', color:'#15803d'},
   evolving: {name:'演进中',   color:'#0369a1'},
@@ -752,13 +914,26 @@ const STAGE = {
   'A-L5-01':'evolving', 'A-L5-02':'current',  'A-L5-03':'evolving',
 };
 
+/* ================= tabs ================= */
+function switchTab(name){
+  document.querySelectorAll('.tabbtn').forEach(b=>b.classList.toggle('on', b.dataset.tab===name));
+  document.querySelectorAll('.panel-tab').forEach(p=>p.classList.toggle('on', p.id==='panel-'+name));
+  if(name==='graph'){ requestAnimationFrame(()=>drawEdges()); }
+  if(name==='overview'){ renderOverview(); }
+  if(name==='assumptions'){ renderTable(); }
+}
+document.querySelectorAll('.tabbtn').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+function showGraphTab(cb){
+  switchTab('graph');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ cb && cb(); }));
+}
+
 /* ================= render lanes & cards ================= */
 const graph = document.getElementById('graph');
 const svg = document.getElementById('edges');
-LAYERS.forEach((ly,i)=>{
+LAYERS.forEach(ly=>{
   const lane = document.createElement('div');
   lane.className='lane';
-  lane.style.animationDelay = (i*90)+'ms';
   lane.innerHTML = `
     <div class="lane-rail">
       <div class="lid">${ly.id}</div>
@@ -784,7 +959,7 @@ function createCardEl(c){
     </div>
     <h3>${c.title}</h3>
     <p class="claim">${c.claim}</p>
-    <div class="confbar"><i style="width:0%"></i></div>
+    <div class="confbar"><i style="width:${c.conf*100}%"></i></div>
     <div class="meta"><span>CONF ${c.conf.toFixed(2)}</span><span>信源 ×${(SOURCES[c.id]||[]).length}</span><span>H·${c.horizon}</span></div>`;
   graph.querySelector(`.cards[data-layer="${c.layer}"]`).appendChild(el);
   el.addEventListener('click', ()=>selectCard(c.id));
@@ -795,12 +970,6 @@ function createCardEl(c){
 CARDS.forEach(createCardEl);
 document.getElementById('stat-cards').textContent = CARDS.length;
 document.getElementById('stat-edges').textContent = EDGES.length;
-/* conf bars animate in */
-setTimeout(()=>{
-  document.querySelectorAll('.card').forEach(el=>{
-    el.querySelector('.confbar i').style.width = (cardById[el.dataset.id].conf*100)+'%';
-  });
-}, 500);
 
 /* ================= edge drawing ================= */
 const NS='http://www.w3.org/2000/svg';
@@ -836,6 +1005,7 @@ function edgePath(e){
   return `M ${ax} ${y1} C ${ax} ${y1+(down?dy:-dy)}, ${bx} ${y2+(down?-dy:dy)}, ${bx} ${y2}`;
 }
 function drawEdges(){
+  if(!document.getElementById('panel-graph').classList.contains('on')) return;
   const lsvg=document.getElementById('labels');
   svg.innerHTML=''; lsvg.innerHTML='';
   [svg,lsvg].forEach(s=>{
@@ -850,8 +1020,7 @@ function drawEdges(){
     svg.appendChild(p);
     edgeEls[e.idx]=p;
   });
-  /* labels live in a separate top-layer svg (above cards), staggered along the
-     path so neighbouring labels don't pile up on the same midpoint */
+  /* labels in top-layer svg, staggered along path to avoid pile-up */
   EDGES.forEach(e=>{
     const p=edgeEls[e.idx];
     const t=[0.5,0.36,0.64][e.idx%3];
@@ -873,11 +1042,10 @@ function drawEdges(){
 }
 let rT;
 window.addEventListener('resize', ()=>{clearTimeout(rT); rT=setTimeout(drawEdges,150)});
-window.addEventListener('load', ()=>{ setTimeout(drawEdges, 1200); /* after lane rise animation (max delay 450ms + 600ms duration) */ });
 
 /* ================= state ================= */
-let selected=null;            /* card id */
-let propagation=null;         /* {srcId, levels, visitedEdges} */
+let selected=null;
+let propagation=null;
 
 function classifyEdge(idx, cls, labelCls){
   edgeEls[idx]?.classList.add(cls);
@@ -898,10 +1066,12 @@ function reapplyState(){
   if(propagation){
     propagation.visitedEdges.forEach(i=>classifyEdge(i,'flow','amber'));
   }
-  if(selected) applySelection(selected,false);
+  if(selected) applySelection(selected);
+}
+function restoreFlow(){
+  if(propagation) propagation.visitedEdges.forEach(i=>classifyEdge(i,'flow','amber'));
 }
 
-/* hover: show direct edges */
 function hoverEdges(id,on){
   if(selected||propagation) return;
   [...(outEdges[id]||[]),...(inEdges[id]||[])].forEach(e=>{
@@ -910,7 +1080,6 @@ function hoverEdges(id,on){
   });
 }
 
-/* BFS helpers */
 function bfs(start, edgeMap, nextOf){
   const visited=new Set([start]), visitedEdges=[], levels=[];
   let frontier=[start];
@@ -930,7 +1099,7 @@ function bfs(start, edgeMap, nextOf){
 }
 
 /* ================= card selection ================= */
-function applySelection(id, scroll){
+function applySelection(id){
   const down=bfs(id,outEdges,e=>e.to), up=bfs(id,inEdges,e=>e.from);
   document.querySelector(`.card[data-id="${id}"]`).classList.add('selected');
   down.levels.flat().forEach(n=>{ if(n!==id) document.querySelector(`.card[data-id="${n}"]`).classList.add('down'); });
@@ -938,15 +1107,15 @@ function applySelection(id, scroll){
   down.visitedEdges.forEach(i=>classifyEdge(i,'hl-down','amber'));
   up.visitedEdges.forEach(i=>{ if(!down.visitedEdges.includes(i)) classifyEdge(i,'hl-up','cyan'); });
   document.body.classList.add('focusmode');
-  renderDetail(id, up, down);
+  renderDetail(id);
 }
 function selectCard(id){
   clearCardStates(true);
   clearEdgeStates();
-  if(propagation) propagation.visitedEdges.forEach(i=>classifyEdge(i,'flow','amber'));
+  restoreFlow();
   if(selected===id){ selected=null; document.body.classList.remove('focusmode'); renderDetailEmpty(); return; }
   selected=id;
-  applySelection(id,true);
+  applySelection(id);
 }
 function renderDetailEmpty(){
   document.getElementById('detail').innerHTML =
@@ -983,6 +1152,95 @@ function renderDetail(id){
   });
 }
 
+/* ================= activity log ================= */
+const ACTIVITY = [
+  {t:'06-10 14:20', x:'雷达接入<b>弱信号</b>「ASIC 订单延后传闻」— 单源未确认，仅标记关注'},
+  {t:'06-09 09:00', x:'<b>A-L5-01 机架功率密度跃迁</b> 季度复核完成：置信度 0.70 → 0.75'},
+  {t:'06-08 18:42', x:'Mission「Agent 负载结构深度洞察」产出 <b>1 张草稿卡</b>待签收'},
+  {t:'06-05 11:15', x:'<b>C-04</b> 结论新建：会话状态成为系统设计第一公民'},
+];
+function logActivity(html){
+  ACTIVITY.unshift({t:'刚刚', x:html});
+  if(document.getElementById('panel-overview').classList.contains('on')) renderOverview();
+}
+
+/* ================= review workflow ================= */
+const REVIEW_ITEMS = []; /* {cardId, depth, isSrc, sigId, resolved, decision} */
+
+function pendingCount(){ return REVIEW_ITEMS.filter(r=>!r.resolved).length; }
+function isCardPending(id){ return REVIEW_ITEMS.some(r=>r.cardId===id && !r.resolved); }
+
+function updateReviewCounters(){
+  const pending=pendingCount(), total=REVIEW_ITEMS.length;
+  document.getElementById('stat-dirty').textContent=pending;
+  const badge=document.getElementById('badge-review');
+  badge.textContent=pending;
+  badge.classList.toggle('show', pending>0);
+  document.getElementById('rv-stat').textContent =
+    total===0 ? '暂无待复核项' : `已裁定 ${total-pending} / ${total}`;
+  document.getElementById('rv-prog').style.width = total===0?'0%':((total-pending)/total*100)+'%';
+}
+
+function renderReview(){
+  const q=document.getElementById('queue');
+  if(REVIEW_ITEMS.length===0){
+    q.innerHTML='<div class="empty">在「判断图谱」注入信号后，受影响假设在此入列<br>逐项裁定：确认调整（采纳置信度变化）或 维持原判（驳回冲击）</div>';
+    updateReviewCounters();
+    return;
+  }
+  q.innerHTML='';
+  const sorted=[...REVIEW_ITEMS].sort((a,b)=>{
+    if(a.resolved!==b.resolved) return a.resolved?1:-1;
+    const ka=a.isSrc?-1:SENS_RANK[cardById[a.cardId].sens]*100+a.depth;
+    const kb=b.isSrc?-1:SENS_RANK[cardById[b.cardId].sens]*100+b.depth;
+    return ka-kb;
+  });
+  sorted.forEach(item=>{
+    const c=cardById[item.cardId];
+    const el=document.createElement('div');
+    el.className='qitem'+(item.resolved?' resolved':'');
+    const act = item.resolved
+      ? `<span class="qdecision ${item.decision}">${item.decision==='adj'?'已确认调整':'维持原判'}</span>`
+      : `<div class="qact">
+           <button class="qbtn adj">确认调整</button>
+           <button class="qbtn keep">维持原判</button>
+         </div>`;
+    el.innerHTML=`
+      <div class="depth ${item.isSrc?'d0':''}">${item.isSrc?'×':'D'+item.depth}</div>
+      <div class="qmain">
+        <div class="qid">${c.id} · ${LAYERS.find(l=>l.id===c.layer).name} · 由 ${item.sigId} ${item.isSrc?'直接命中':'传播标记'}</div>
+        <div class="qt">${c.title}</div>
+        <div class="qhint">${item.isSrc?'信号源假设 — 需确认置信度调整':'上游假设变动 — 需复核本假设是否仍成立'}</div>
+      </div>
+      <span class="sens ${c.sens}">${SENS_TXT[c.sens]}</span>
+      ${act}`;
+    el.querySelector('.qmain').addEventListener('click',()=>showGraphTab(()=>selectCard(item.cardId)));
+    el.querySelector('.qbtn.adj')?.addEventListener('click',()=>resolveItem(item,'adj'));
+    el.querySelector('.qbtn.keep')?.addEventListener('click',()=>resolveItem(item,'keep'));
+    q.appendChild(el);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add('in')));
+  });
+  updateReviewCounters();
+}
+
+function resolveItem(item, decision){
+  item.resolved=true;
+  item.decision=decision;
+  const el=document.querySelector(`.card[data-id="${item.cardId}"]`);
+  if(el && !isCardPending(item.cardId)){
+    el.classList.remove('dirty','src');
+  }
+  const c=cardById[item.cardId];
+  logActivity(`复核裁定：<b>${c.id} ${c.title}</b> — ${decision==='adj'?'确认调整（采纳置信度变化）':'维持原判（驳回冲击）'}`);
+  renderReview();
+  recomputeConclusions();
+}
+
+function pushReview(cardId, depth, isSrc, sigId){
+  REVIEW_ITEMS.push({cardId, depth, isSrc, sigId, resolved:false, decision:null});
+  renderReview();
+}
+
 /* ================= signal propagation ================= */
 const STEP=520;
 let timers=[];
@@ -990,82 +1248,48 @@ function clearTimers(){ timers.forEach(t=>clearTimeout(t)); timers=[]; }
 
 function injectSignal(sigId){
   resetAll(false);
-  document.querySelector(`.sig[data-sig="${sigId}"]`).classList.add('active');
-  const sig=SIGNALS[sigId];
-  const src=sig.target;
-  const {levels}=bfs(src,outEdges,e=>e.to);
-  propagation={srcId:src, levels, visitedEdges:[]};
+  showGraphTab(()=>{
+    document.querySelector(`.sig[data-sig="${sigId}"]`).classList.add('active');
+    const sig=SIGNALS[sigId];
+    const src=sig.target;
+    const {levels}=bfs(src,outEdges,e=>e.to);
+    propagation={srcId:src, levels, visitedEdges:[]};
 
-  /* effect banner */
-  const eff=document.getElementById('queue-effect');
-  eff.style.display='block';
-  eff.innerHTML=`<span class="sid">${sigId} · SIGNAL</span>${sig.effect}`;
-  document.getElementById('queue').innerHTML='';
+    const eff=document.getElementById('queue-effect');
+    eff.style.display='block';
+    eff.innerHTML=`<span class="sid">${sigId} · SIGNAL</span>${sig.effect}`;
 
-  /* depth of each node for queue */
-  const depthOf={[src]:0};
-  levels.forEach((lv,d)=>lv.forEach(n=>{ if(!(n in depthOf)) depthOf[n]=d+1; }));
+    const depthOf={[src]:0};
+    levels.forEach((lv,d)=>lv.forEach(n=>{ if(!(n in depthOf)) depthOf[n]=d+1; }));
 
-  /* src */
-  const srcEl=document.querySelector(`.card[data-id="${src}"]`);
-  srcEl.classList.add('src');
-  srcEl.querySelector('.badge').textContent='信号命中';
-  pushQueue(src,0,true);
+    const srcEl=document.querySelector(`.card[data-id="${src}"]`);
+    srcEl.classList.add('src');
+    srcEl.querySelector('.badge').textContent='信号命中';
+    pushReview(src,0,true,sigId);
+    logActivity(`信号注入：<b>${sig.name}</b> 命中 <b>${src}</b>，传播开始`);
 
-  /* propagate per depth */
-  let dirtyCount=0;
-  levels.forEach((lv,d)=>{
-    timers.push(setTimeout(()=>{
-      /* light edges whose target depth == d+1, source already lit */
-      EDGES.forEach(e=>{
-        if(depthOf[e.to]===d+1 && (depthOf[e.from]??99)<=d){
-          classifyEdge(e.idx,'flow','amber');
-          propagation.visitedEdges.push(e.idx);
-        }
-      });
-      lv.forEach(n=>{
-        const el=document.querySelector(`.card[data-id="${n}"]`);
-        el.classList.add('dirty');
-        el.querySelector('.badge').textContent='待复核';
-        dirtyCount++;
-        document.getElementById('stat-dirty').textContent=dirtyCount;
-        pushQueue(n,d+1,false);
-      });
-    },(d+1)*STEP));
-  });
-
-  /* conclusions impact: after propagation completes, flag conclusions whose upstream was hit */
-  const affected=new Set([src, ...levels.flat()]);
-  timers.push(setTimeout(()=>{
-    document.querySelectorAll('#concl .ccard').forEach((el,i)=>{
-      const cc=CONCLUSIONS[i];
-      if(cc.upstream.some(u=>affected.has(u))){
-        el.classList.add('hit');
-        el.querySelector('.cstat').textContent='受冲击 · 待复核';
-      }
+    levels.forEach((lv,d)=>{
+      timers.push(setTimeout(()=>{
+        EDGES.forEach(e=>{
+          if(depthOf[e.to]===d+1 && (depthOf[e.from]??99)<=d){
+            classifyEdge(e.idx,'flow','amber');
+            propagation.visitedEdges.push(e.idx);
+          }
+        });
+        lv.forEach(n=>{
+          const el=document.querySelector(`.card[data-id="${n}"]`);
+          el.classList.add('dirty');
+          el.querySelector('.badge').textContent='待复核';
+          pushReview(n,d+1,false,sigId);
+        });
+      },(d+1)*STEP));
     });
-  },(levels.length+1)*STEP));
-}
 
-function pushQueue(id,depth,isSrc){
-  const c=cardById[id];
-  const q=document.getElementById('queue');
-  const item=document.createElement('div');
-  item.className='qitem';
-  item.innerHTML=`
-    <div class="depth ${isSrc?'d0':''}">${isSrc?'×':'D'+depth}</div>
-    <div class="qmain">
-      <div class="qid">${c.id} · ${LAYERS.find(l=>l.id===c.layer).name}</div>
-      <div class="qt">${c.title}</div>
-    </div>
-    <span class="sens ${c.sens}">${SENS_TXT[c.sens]}</span>`;
-  item.addEventListener('click',()=>selectCard(id));
-  /* insert sorted: src first, then sens rank, then depth */
-  item._k = isSrc? -1 : SENS_RANK[c.sens]*100+depth;
-  const siblings=[...q.children];
-  const after=siblings.find(s=>s._k>item._k);
-  q.insertBefore(item, after||null);
-  requestAnimationFrame(()=>requestAnimationFrame(()=>item.classList.add('in')));
+    timers.push(setTimeout(()=>{
+      recomputeConclusions();
+      logActivity(`传播完成：${sigId} 共标记 <b>${1+levels.flat().length} 张假设</b>进入复核队列`);
+    },(levels.length+1)*STEP));
+  });
 }
 
 /* ================= reset ================= */
@@ -1076,15 +1300,16 @@ function resetAll(clearBanner=true){
   clearCardStates(false);
   clearEdgeStates();
   document.querySelectorAll('.sig').forEach(s=>s.classList.remove('active'));
-  document.getElementById('stat-dirty').textContent='0';
-  renderConclusions();
+  REVIEW_ITEMS.length=0;
+  renderReview();
+  recomputeConclusions();
   if(clearBanner){
     document.getElementById('queue-effect').style.display='none';
-    document.getElementById('queue').innerHTML='<div class="empty">注入信号后，受影响假设按<br>敏感度 × 传播深度排序入列</div>';
     renderDetailEmpty();
+    closeBasis();
   }
 }
-document.getElementById('btn-reset').addEventListener('click',()=>{resetAll(true); closeBasis();});
+document.getElementById('btn-reset').addEventListener('click',()=>resetAll(true));
 document.querySelectorAll('.sig').forEach(b=>b.addEventListener('click',()=>injectSignal(b.dataset.sig)));
 
 /* ================= signal basis dossier ================= */
@@ -1094,6 +1319,7 @@ function closeBasis(){
   document.getElementById('sig-basis').classList.remove('open');
 }
 function showBasis(sigId){
+  switchTab('graph');
   if(basisOpen===sigId){ closeBasis(); return; }
   basisOpen=sigId;
   const sig=SIGNAL_BASIS[sigId], meta=SIGNALS[sigId];
@@ -1140,7 +1366,7 @@ function showBasis(sigId){
   box.classList.add('open');
   box.querySelector('.binject').addEventListener('click',()=>{ closeBasis(); injectSignal(sigId); });
   box.querySelector('.bclose').addEventListener('click',closeBasis);
-  box.querySelector('.chip[data-go]').addEventListener('click',ev=>selectCard(ev.currentTarget.dataset.go));
+  box.querySelector('.chip[data-go]').addEventListener('click',ev=>showGraphTab(()=>selectCard(ev.target.dataset.go)));
 }
 document.querySelectorAll('.sinfo').forEach(ic=>{
   ic.addEventListener('click',ev=>{ ev.stopPropagation(); showBasis(ic.dataset.info); });
@@ -1179,14 +1405,14 @@ function renderRadarInbox(){
       </div>
       <div class="fi-act">${act}</div>`;
     box.appendChild(el);
-    el.querySelector('.chip[data-go]')?.addEventListener('click',ev=>selectCard(ev.currentTarget.dataset.go));
+    el.querySelector('.chip[data-go]')?.addEventListener('click',ev=>showGraphTab(()=>selectCard(ev.target.dataset.go)));
     el.querySelector('.fi-btn[data-sig]')?.addEventListener('click',ev=>showBasis(ev.currentTarget.dataset.sig));
   });
   document.getElementById('radar-count').textContent=`今日候选 ${RADAR_FEED.length} 条 · 命中 ${RADAR_FEED.filter(f=>f.match).length}`;
 }
 renderRadarInbox();
 
-/* ================= 供料链: AI 洞察 沉淀收件箱（mission 产出草稿卡） ================= */
+/* ================= 供料链: AI 洞察 沉淀收件箱 ================= */
 const DRAFTS = [
   {mission:'2028–2030 推理系统深度洞察', admitted:false,
    stage:'exploring',
@@ -1210,7 +1436,6 @@ function admitDraft(i, btn){
   const d=DRAFTS[i];
   if(d.admitted) return;
   d.admitted=true;
-  /* register into graph data */
   CARDS.push(d.card);
   cardById[d.card.id]=d.card;
   STAGE[d.card.id]=d.stage;
@@ -1220,18 +1445,19 @@ function admitDraft(i, btn){
     (outEdges[e.from] ||= []).push(e);
     (inEdges[e.to] ||= []).push(e);
   });
-  /* render */
-  const el=createCardEl(d.card);
-  el.classList.add('neu');
-  setTimeout(()=>{ el.querySelector('.confbar i').style.width=(d.card.conf*100)+'%'; },80);
-  setTimeout(()=>el.classList.remove('neu'),1600);
-  document.getElementById('stat-cards').textContent=CARDS.length;
-  document.getElementById('stat-edges').textContent=EDGES.length;
-  drawEdges();
   btn.textContent='已入库';
   btn.classList.add('done');
   btn.disabled=true;
-  el.scrollIntoView({behavior:'smooth', block:'center'});
+  document.getElementById('stat-cards').textContent=CARDS.length;
+  document.getElementById('stat-edges').textContent=EDGES.length;
+  logActivity(`草稿入库：<b>${d.card.id} ${d.card.title}</b>（来自 Mission「${d.mission}」），接入 ${d.edges.length} 条影响边`);
+  showGraphTab(()=>{
+    const el=createCardEl(d.card);
+    el.classList.add('neu');
+    setTimeout(()=>el.classList.remove('neu'),1600);
+    drawEdges();
+    el.scrollIntoView({behavior:'smooth', block:'center'});
+  });
 }
 function renderDraftInbox(){
   const box=document.getElementById('draft-items');
@@ -1247,11 +1473,11 @@ function renderDraftInbox(){
           <span class="misn">来自 Mission「${d.mission}」 · 携带 ${d.edges.length} 条候选影响边 · 待 Owner 审核</span>
         </div>
       </div>
-      <div class="fi-act"><button class="fi-btn admit">审核入库</button><span class="fi-note">入库后进入 ${d.card.layer} 层并接入图谱</span></div>`;
+      <div class="fi-act"><button class="fi-btn admit"${d.admitted?' disabled':''}>${d.admitted?'已入库':'审核入库'}</button><span class="fi-note">入库后进入 ${d.card.layer} 层并接入图谱</span></div>`;
     box.appendChild(el);
-    el.querySelector('.fi-btn').addEventListener('click',ev=>admitDraft(i, ev.currentTarget));
+    if(!d.admitted) el.querySelector('.fi-btn').addEventListener('click',ev=>admitDraft(i, ev.currentTarget));
   });
-  document.getElementById('draft-count').textContent=`待签收草稿 ${DRAFTS.length} 张`;
+  document.getElementById('draft-count').textContent=`待签收草稿 ${DRAFTS.filter(d=>!d.admitted).length} 张`;
 }
 renderDraftInbox();
 
@@ -1274,12 +1500,20 @@ const CONCLUSIONS = [
    action:'新系统设计评审增加「会话状态管理」必答项',
    upstream:['A-L0-01','A-L0-02','A-L1-02','A-L2-03'], conf:.75, horizon:2028},
 ];
-let conclSel=null;
+function conclusionImpacted(cc){
+  return cc.upstream.some(u=>isCardPending(u));
+}
+function recomputeConclusions(){
+  document.querySelectorAll('#concl .ccard').forEach((el,i)=>{
+    const hit=conclusionImpacted(CONCLUSIONS[i]);
+    el.classList.toggle('hit', hit);
+    el.querySelector('.cstat').textContent = hit ? '受冲击 · 待复核' : '稳固';
+  });
+}
 function renderConclusions(){
   const box=document.getElementById('concl');
   box.innerHTML='';
-  conclSel=null;
-  CONCLUSIONS.forEach((cc,i)=>{
+  CONCLUSIONS.forEach(cc=>{
     const el=document.createElement('div');
     el.className='ccard';
     el.innerHTML=`
@@ -1289,24 +1523,135 @@ function renderConclusions(){
       <div class="cact">行动含义：${cc.action}</div>
       <div class="cfoot"><span>依据假设 ×${cc.upstream.length}</span><span>CONF ${cc.conf.toFixed(2)}</span><span>H·${cc.horizon}</span></div>`;
     el.addEventListener('click',()=>{
-      const restoreFlow=()=>{ if(propagation) propagation.visitedEdges.forEach(x=>classifyEdge(x,'flow','amber')); };
-      if(conclSel===i){
-        conclSel=null; el.classList.remove('selc');
+      showGraphTab(()=>{
         clearCardStates(true); clearEdgeStates(); restoreFlow();
-        document.body.classList.remove('focusmode');
-        return;
-      }
-      conclSel=i; selected=null;
-      document.querySelectorAll('#concl .ccard').forEach(x=>x.classList.remove('selc'));
-      el.classList.add('selc');
-      clearCardStates(true); clearEdgeStates(); restoreFlow();
-      cc.upstream.forEach(u=>document.querySelector(`.card[data-id="${u}"]`)?.classList.add('up'));
-      document.body.classList.add('focusmode');
+        selected=null;
+        cc.upstream.forEach(u=>document.querySelector(`.card[data-id="${u}"]`)?.classList.add('up'));
+        document.body.classList.add('focusmode');
+      });
     });
     box.appendChild(el);
   });
+  recomputeConclusions();
 }
 renderConclusions();
+
+/* ================= 假设库 table ================= */
+LAYERS.forEach(l=>{
+  const o=document.createElement('option'); o.value=l.id; o.textContent=`${l.id} ${l.name}`;
+  document.getElementById('f-layer').appendChild(o);
+});
+Object.entries(STAGE_DEF).forEach(([k,v])=>{
+  const o=document.createElement('option'); o.value=k; o.textContent=v.name;
+  document.getElementById('f-stage').appendChild(o);
+});
+function cardStatus(id){
+  const el=document.querySelector(`.card[data-id="${id}"]`);
+  if(el?.classList.contains('src')) return 'src';
+  if(el?.classList.contains('dirty')) return 'dirty';
+  return 'ok';
+}
+function renderTable(){
+  const search=(document.getElementById('f-search').value||'').toLowerCase();
+  const fl=document.getElementById('f-layer').value;
+  const fs=document.getElementById('f-stage').value;
+  const fe=document.getElementById('f-sens').value;
+  const fst=document.getElementById('f-status').value;
+  const tbody=document.getElementById('atbody');
+  tbody.innerHTML='';
+  let shown=0;
+  CARDS.forEach(c=>{
+    const st=cardStatus(c.id);
+    if(search && !(c.title+c.claim).toLowerCase().includes(search)) return;
+    if(fl && c.layer!==fl) return;
+    if(fs && STAGE[c.id]!==fs) return;
+    if(fe && c.sens!==fe) return;
+    if(fst==='ok' && st!=='ok') return;
+    if(fst==='dirty' && st==='ok') return;
+    shown++;
+    const stg=STAGE_DEF[STAGE[c.id]];
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td class="aid">${c.id}</td>
+      <td class="at-title">${c.title}</td>
+      <td>${c.layer} ${LAYERS.find(l=>l.id===c.layer).name}</td>
+      <td><span class="stagecell" style="color:${stg.color};border-color:${stg.color}">${stg.name}</span></td>
+      <td><span class="sens ${c.sens}">${SENS_TXT[c.sens]}</span></td>
+      <td><span class="cbar"><i style="width:${c.conf*100}%"></i></span><span class="cnum">${c.conf.toFixed(2)}</span></td>
+      <td class="cnum">${c.horizon}</td>
+      <td class="cnum">×${(SOURCES[c.id]||[]).length}</td>
+      <td>${st==='src'?'<span class="statuspill src">信号命中</span>':st==='dirty'?'<span class="statuspill dirty">待复核</span>':'<span class="statuspill">稳固</span>'}</td>`;
+    tr.addEventListener('click',()=>showGraphTab(()=>selectCard(c.id)));
+    tbody.appendChild(tr);
+  });
+  document.getElementById('f-count').textContent=`${shown} / ${CARDS.length} 条`;
+}
+['f-search','f-layer','f-stage','f-sens','f-status'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',renderTable);
+});
+
+/* ================= 总览 overview ================= */
+function renderOverview(){
+  const pending=pendingCount();
+  const impacted=CONCLUSIONS.filter(conclusionImpacted).length;
+  const kpis=[
+    {n:CARDS.length, l:'假设资产', h:'判断卡片总量', cls:'', tab:'assumptions'},
+    {n:EDGES.length, l:'影响边', h:'经量化参数传导', cls:'', tab:'graph'},
+    {n:pending, l:'待复核', h:pending>0?'信号冲击待裁定':'全部裁定完毕', cls:pending>0?'warn':'ok', tab:'review'},
+    {n:impacted, l:'受冲击结论', h:impacted>0?'依赖假设被动摇':'结论层稳固', cls:impacted>0?'danger':'ok', tab:'conclusions'},
+    {n:RADAR_FEED.filter(f=>f.match).length, l:'本周命中信号', h:'雷达候选 '+RADAR_FEED.length+' 条', cls:'warn', tab:'signals'},
+  ];
+  const kbox=document.getElementById('kpis');
+  kbox.innerHTML='';
+  kpis.forEach(k=>{
+    const el=document.createElement('div');
+    el.className='kpi '+k.cls;
+    el.innerHTML=`<b>${k.n}</b><div class="kl">${k.l}</div><div class="kh">${k.h}</div>`;
+    el.addEventListener('click',()=>switchTab(k.tab));
+    kbox.appendChild(el);
+  });
+  /* layer health */
+  const lbox=document.getElementById('ov-layers');
+  lbox.innerHTML='';
+  LAYERS.forEach(ly=>{
+    const cs=CARDS.filter(c=>c.layer===ly.id);
+    const avg=cs.reduce((s,c)=>s+c.conf,0)/cs.length;
+    const dirty=cs.filter(c=>cardStatus(c.id)!=='ok').length;
+    const row=document.createElement('div');
+    row.className='lh-row';
+    row.innerHTML=`
+      <span class="lid">${ly.id}</span><span class="ln">${ly.name}</span>
+      <span class="lbar"><i style="width:${avg*100}%"></i></span>
+      <span class="lconf">conf ${avg.toFixed(2)}</span>
+      <span class="ldirty ${dirty>0?'some':'zero'}">${dirty>0?dirty+' 待复核':'稳固'}</span>`;
+    lbox.appendChild(row);
+  });
+  /* stage distribution */
+  const sbox=document.getElementById('ov-stages');
+  sbox.innerHTML='';
+  Object.entries(STAGE_DEF).forEach(([k,v])=>{
+    const n=CARDS.filter(c=>STAGE[c.id]===k).length;
+    const row=document.createElement('div');
+    row.className='dist-row';
+    row.innerHTML=`
+      <span class="sq" style="background:${v.color}"></span>
+      <span class="dn">${v.name}</span>
+      <span class="dbar"><i style="width:${n/CARDS.length*100}%;background:${v.color}"></i></span>
+      <span class="dc">${n}</span>`;
+    sbox.appendChild(row);
+  });
+  /* activity */
+  const abox=document.getElementById('ov-activity');
+  abox.innerHTML='';
+  ACTIVITY.slice(0,7).forEach(a=>{
+    const el=document.createElement('div');
+    el.className='act-item';
+    el.innerHTML=`<span class="at">${a.t}</span><span class="ax">${a.x}</span>`;
+    abox.appendChild(el);
+  });
+}
+renderOverview();
+updateReviewCounters();
 </script>
 </body>
 </html>
