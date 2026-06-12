@@ -202,12 +202,27 @@ export class MissionRerunOrchestratorService extends BusinessTeamRerunOrchestrat
       sourceMissionId,
       userId,
     );
-    // 同-id：不传 inheritFromMissionId（那是跨-mission 轨迹继承；同 id 直接读自己的
-    // checkpoint 续跑，传 self 会自继承语义混乱）。
+    // 同-id：有 checkpoint 时不传 inheritFromMissionId（checkpoint resume 与轨迹
+    // 继承叠加会自继承语义混乱）—— checkpoint 路径优先。
     const input = this.hooks.cloneInput(original, {});
     if (mode === "fresh") {
       // 同 id 从头：清自己的 checkpoint，runMission 不会命中 resume 分支。
       await this.checkpointRef.clear(sourceMissionId).catch(() => undefined);
+    } else {
+      // ★ 2026-06-12 修「更新全量重跑」（用户实证：失联 mission 点更新 → 14 维度全部重做）：
+      //   同-id incremental 在 **无可用 checkpoint** 时（死在首个 stage 断点之前 /
+      //   超 24h 恢复窗，正是停滞击杀 mission 的常态），此前静默退化为 fresh ——
+      //   S2 重新规划生成**不同的维度名** → S3 per-dim 持久化缓存
+      //   (agent_playground_research_results 按 dimension 名命中) 全部 miss → 全量重跑。
+      //   修复：无 checkpoint 时退化为 self-inherit —— hydrate 自己已持久化的
+      //   plan（S2 跳过重新规划，维度名稳定）+ per-dim research results + 章节草稿，
+      //   已完成的维度/章节真正跳过，incremental 兑现"保留已完成任务"的承诺。
+      const decision = await this.checkpointRef
+        .canResume(sourceMissionId)
+        .catch(() => null);
+      if (!decision?.canResume) {
+        input.inheritFromMissionId = sourceMissionId;
+      }
     }
     void this.hooks
       .runMission(sourceMissionId, input, userId)

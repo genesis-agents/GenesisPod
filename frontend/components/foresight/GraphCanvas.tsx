@@ -9,9 +9,12 @@ import {
   useState,
 } from 'react';
 import { cn } from '@/lib/utils/common';
-import type { ForesightCard, ForesightEdge } from '@/services/foresight/api';
+import type {
+  ForesightCard,
+  ForesightEdge,
+  ForesightLayerDef,
+} from '@/services/foresight/api';
 import {
-  FORESIGHT_LAYERS,
   SENS_META,
   STAGE_BAR_CLS,
   STAGE_META,
@@ -29,6 +32,8 @@ interface EdgePath {
 interface GraphCanvasProps {
   cards: ForesightCard[];
   edges: ForesightEdge[];
+  /** 主题自有层级本体（泳道定义） */
+  layers: ForesightLayerDef[];
   pending: Map<string, CardPendingState>;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
@@ -42,6 +47,7 @@ interface GraphCanvasProps {
 export function GraphCanvas({
   cards,
   edges,
+  layers,
   pending,
   selectedId,
   onSelect,
@@ -54,8 +60,8 @@ export function GraphCanvas({
   const layerIdx = useMemo(() => {
     const byId = new Map(cards.map((c) => [c.id, c.layer]));
     return (cardId: string) =>
-      FORESIGHT_LAYERS.findIndex((l) => l.id === byId.get(cardId));
-  }, [cards]);
+      layers.findIndex((l) => l.id === byId.get(cardId));
+  }, [cards, layers]);
 
   const adj = useMemo(() => buildAdjacency(edges), [edges]);
 
@@ -208,7 +214,7 @@ export function GraphCanvas({
           </span>
         ))}
 
-      {FORESIGHT_LAYERS.map((layer) => {
+      {layers.map((layer) => {
         const layerCards = cards.filter((c) => c.layer === layer.id);
         if (layerCards.length === 0) return null;
         return (

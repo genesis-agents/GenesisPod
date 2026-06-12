@@ -8,17 +8,16 @@ import {
   type ForesightCard,
   type ForesightConfLog,
   type ForesightEdge,
+  type ForesightLayerDef,
 } from '@/services/foresight/api';
-import {
-  FORESIGHT_LAYERS,
-  SENS_META,
-  SOURCE_TYPE_META,
-} from './foresight-meta';
+import { formatDateSafe } from '@/lib/utils/date';
+import { SENS_META, SOURCE_TYPE_META } from './foresight-meta';
 
 interface CardDetailPanelProps {
   card: ForesightCard;
   cards: ForesightCard[];
   edges: ForesightEdge[];
+  layers: ForesightLayerDef[];
   onSelect: (id: string) => void;
 }
 
@@ -49,6 +48,7 @@ export function CardDetailPanel({
   card,
   cards,
   edges,
+  layers,
   onSelect,
 }: CardDetailPanelProps) {
   const [ledger, setLedger] = useState<ForesightConfLog[]>([]);
@@ -71,7 +71,7 @@ export function CardDetailPanel({
   const byId = new Map(cards.map((c) => [c.id, c]));
   const ups = edges.filter((e) => e.toCardId === card.id);
   const downs = edges.filter((e) => e.fromCardId === card.id);
-  const layer = FORESIGHT_LAYERS.find((l) => l.id === card.layer);
+  const layer = layers.find((l) => l.id === card.layer);
 
   return (
     <div className="text-sm">
@@ -198,7 +198,7 @@ export function CardDetailPanel({
                 className="flex items-baseline gap-2 border-b border-dashed border-gray-100 pb-1.5 text-xs"
               >
                 <span className="font-mono w-20 shrink-0 text-gray-400">
-                  {new Date(l.createdAt).toLocaleDateString('zh-CN')}
+                  {formatDateSafe(l.createdAt, 'date')}
                 </span>
                 <span className="font-mono shrink-0 text-gray-700">
                   {l.fromConf.toFixed(2)} →{' '}

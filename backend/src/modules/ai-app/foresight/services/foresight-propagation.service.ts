@@ -35,8 +35,9 @@ export class ForesightPropagationService {
       throw new ConflictException("signal already injected");
     }
 
+    /* 传播严格限定在信号所属主题的子图内 —— 多主题互不串扰 */
     const edges = await this.prisma.foresightEdge.findMany({
-      where: { userId },
+      where: { userId, topicId: signal.topicId },
       select: { fromCardId: true, toCardId: true, weight: true },
     });
 

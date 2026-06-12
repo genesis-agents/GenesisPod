@@ -11284,10 +11284,33 @@ model CompanyMissionGraph {
 //   全部按 userId 行级隔离。
 // ============================================================================
 
+/// 前瞻主题 —— 一个独立的洞察工作台（如「下一代算力底座」「创新药出海」）。
+/// 层级本体（layers）是主题自有的：算力底座用 L0-L5 六层栈，其他主题自定义。
+model ForesightTopic {
+  id          String  @id @default(uuid())
+  userId      String  @map("user_id")
+  name        String  @db.VarChar(120)
+  description String? @db.Text
+  /// 层级定义 [{id,name,en?}]，图谱泳道与卡片归属按此渲染
+  layers      Json    @default("[]")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  cards       ForesightCard[]
+  edges       ForesightEdge[]
+  signals     ForesightSignal[]
+  conclusions ForesightConclusion[]
+
+  @@index([userId])
+  @@map("foresight_topics")
+}
+
 model ForesightCard {
   id      String @id @default(uuid())
   userId  String @map("user_id")
-  /// 业务编号（如 A-L4-01），用户内唯一
+  topicId String @map("topic_id")
+  topic   ForesightTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  /// 业务编号（如 A-L4-01），主题内唯一
   cardKey String @map("card_key") @db.VarChar(40)
   /// 层级 L0-L5（业务负载/模型架构/系统软件/系统级硬件/芯片/物理底座）
   layer   String @db.VarChar(8)
@@ -11320,14 +11343,17 @@ model ForesightCard {
   reviewItems ForesightReviewItem[]
   confLogs    ForesightConfLog[]
 
-  @@unique([userId, cardKey])
+  @@unique([topicId, cardKey])
   @@index([userId, layer])
+  @@index([topicId])
   @@map("foresight_cards")
 }
 
 model ForesightEdge {
   id         String        @id @default(uuid())
   userId     String        @map("user_id")
+  topicId    String        @map("topic_id")
+  topicRef   ForesightTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
   fromCardId String        @map("from_card_id")
   toCardId   String        @map("to_card_id")
   from       ForesightCard @relation("EdgeFrom", fields: [fromCardId], references: [id], onDelete: Cascade)
@@ -11342,6 +11368,7 @@ model ForesightEdge {
 
   @@unique([fromCardId, toCardId])
   @@index([userId])
+  @@index([topicId])
   @@index([toCardId])
   @@map("foresight_edges")
 }
@@ -11349,6 +11376,8 @@ model ForesightEdge {
 model ForesightSignal {
   id           String  @id @default(uuid())
   userId       String  @map("user_id")
+  topicId      String  @map("topic_id")
+  topic        ForesightTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
   name         String  @db.VarChar(300)
   /// 命中的假设卡
   targetCardId String  @map("target_card_id")
@@ -11370,6 +11399,7 @@ model ForesightSignal {
   reviewItems ForesightReviewItem[]
 
   @@index([userId, status])
+  @@index([topicId, status])
   @@map("foresight_signals")
 }
 
@@ -11420,6 +11450,8 @@ model ForesightConfLog {
 model ForesightConclusion {
   id        String @id @default(uuid())
   userId    String @map("user_id")
+  topicId   String @map("topic_id")
+  topic     ForesightTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
   conclKey  String @map("concl_key") @db.VarChar(24)
   title     String @db.VarChar(300)
   body      String @db.Text
@@ -11434,7 +11466,8 @@ model ForesightConclusion {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@unique([userId, conclKey])
+  @@unique([topicId, conclKey])
   @@index([userId])
+  @@index([topicId])
   @@map("foresight_conclusions")
 }

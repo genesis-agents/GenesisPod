@@ -18,9 +18,12 @@ import { ForesightSeedService } from "../services/foresight-seed.service";
 import {
   CreateForesightCardDto,
   CreateForesightEdgeDto,
+  CreateForesightTopicDto,
   ResolveReviewDto,
   UpdateForesightCardDto,
+  UpdateForesightTopicDto,
 } from "../dto/foresight.dto";
+import { BadRequestException, Query } from "@nestjs/common";
 
 interface AuthenticatedRequest {
   user?: { id?: string };
@@ -42,9 +45,40 @@ export class ForesightController {
     return id;
   }
 
+  @Get("topics")
+  listTopics(@Req() req: AuthenticatedRequest) {
+    return this.graph.listTopics(this.userId(req));
+  }
+
+  @Post("topics")
+  createTopic(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: CreateForesightTopicDto,
+  ) {
+    return this.graph.createTopic(this.userId(req), dto);
+  }
+
+  @Patch("topics/:id")
+  updateTopic(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Body() dto: UpdateForesightTopicDto,
+  ) {
+    return this.graph.updateTopic(this.userId(req), id, dto);
+  }
+
+  @Delete("topics/:id")
+  deleteTopic(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
+    return this.graph.deleteTopic(this.userId(req), id);
+  }
+
   @Get("overview")
-  overview(@Req() req: AuthenticatedRequest) {
-    return this.graph.overview(this.userId(req));
+  overview(
+    @Req() req: AuthenticatedRequest,
+    @Query("topicId") topicId?: string,
+  ) {
+    if (!topicId) throw new BadRequestException("topicId is required");
+    return this.graph.overview(this.userId(req), topicId);
   }
 
   @Post("seed")

@@ -8,17 +8,14 @@ import {
 } from '@/components/common/tables/DataTable';
 import type {
   ForesightCard,
+  ForesightLayerDef,
   ForesightOverview,
 } from '@/services/foresight/api';
-import {
-  FORESIGHT_LAYERS,
-  SENS_META,
-  STAGE_META,
-  type CardPendingState,
-} from './foresight-meta';
+import { SENS_META, STAGE_META, type CardPendingState } from './foresight-meta';
 
 interface LibraryTabProps {
   overview: ForesightOverview;
+  layers: ForesightLayerDef[];
   pending: Map<string, CardPendingState>;
   onSelectCard: (cardId: string) => void;
 }
@@ -29,6 +26,7 @@ const selectCls =
 /** 假设库 —— 全量假设的运营视图：搜索 + 四维筛选 + 实时状态（canonical DataTable） */
 export function LibraryTab({
   overview,
+  layers,
   pending,
   onSelectCard,
 }: LibraryTabProps) {
@@ -90,7 +88,7 @@ export function LibraryTab({
         sortable: true,
         cell: ({ row }) => (
           <span className="text-xs text-gray-600">
-            {row.layer} {FORESIGHT_LAYERS.find((l) => l.id === row.layer)?.name}
+            {row.layer} {layers.find((l) => l.id === row.layer)?.name}
           </span>
         ),
       },
@@ -184,7 +182,7 @@ export function LibraryTab({
         },
       },
     ],
-    [pending]
+    [pending, layers]
   );
 
   return (
@@ -202,7 +200,7 @@ export function LibraryTab({
           className={selectCls}
         >
           <option value="">全部层级</option>
-          {FORESIGHT_LAYERS.map((l) => (
+          {layers.map((l) => (
             <option key={l.id} value={l.id}>
               {l.id} {l.name}
             </option>

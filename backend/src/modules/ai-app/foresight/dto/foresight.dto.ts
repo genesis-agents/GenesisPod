@@ -19,12 +19,46 @@ export const FORESIGHT_STAGES = [
   "research",
 ] as const;
 
+export class CreateForesightTopicDto {
+  @IsString()
+  @MaxLength(120)
+  name!: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  /** 层级定义 [{id,name,en?}]，主题自有本体 */
+  @IsArray()
+  layers!: Array<{ id: string; name: string; en?: string }>;
+}
+
+export class UpdateForesightTopicDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsArray()
+  layers?: Array<{ id: string; name: string; en?: string }>;
+}
+
 export class CreateForesightCardDto {
+  @IsString()
+  topicId!: string;
+
   @IsString()
   @MaxLength(40)
   cardKey!: string;
 
-  @IsIn(FORESIGHT_LAYERS)
+  /** 层级 id（必须属于主题 layers 定义） */
+  @IsString()
+  @MaxLength(24)
   layer!: string;
 
   @IsString()
@@ -118,6 +152,9 @@ export class UpdateForesightCardDto {
 }
 
 export class CreateForesightEdgeDto {
+  @IsString()
+  topicId!: string;
+
   /** 上游卡片业务编号（如 A-L4-01） */
   @IsString()
   @MaxLength(40)

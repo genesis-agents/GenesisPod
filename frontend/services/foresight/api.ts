@@ -106,7 +106,22 @@ export interface ForesightConfLog {
   createdAt: string;
 }
 
+export interface ForesightLayerDef {
+  id: string;
+  name: string;
+  en?: string;
+}
+
+export interface ForesightTopic {
+  id: string;
+  name: string;
+  description: string | null;
+  layers: ForesightLayerDef[];
+  cardCount?: number;
+}
+
 export interface ForesightOverview {
+  topic: ForesightTopic;
   cards: ForesightCard[];
   edges: ForesightEdge[];
   signals: ForesightSignal[];
@@ -147,8 +162,44 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return unwrapStandard<T>(await res.json());
 }
 
-export function fetchOverview(): Promise<ForesightOverview> {
-  return request<ForesightOverview>('/overview');
+export function fetchTopics(): Promise<ForesightTopic[]> {
+  return request<ForesightTopic[]>('/topics');
+}
+
+export interface CreateTopicInput {
+  name: string;
+  description?: string;
+  layers: ForesightLayerDef[];
+}
+
+export function createTopic(input: CreateTopicInput): Promise<ForesightTopic> {
+  return request<ForesightTopic>('/topics', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateTopic(
+  topicId: string,
+  patch: Partial<CreateTopicInput>
+): Promise<ForesightTopic> {
+  return request<ForesightTopic>(`/topics/${encodeURIComponent(topicId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
+export function deleteTopic(topicId: string): Promise<{ deleted: boolean }> {
+  return request<{ deleted: boolean }>(
+    `/topics/${encodeURIComponent(topicId)}`,
+    { method: 'DELETE' }
+  );
+}
+
+export function fetchOverview(topicId: string): Promise<ForesightOverview> {
+  return request<ForesightOverview>(
+    `/overview?topicId=${encodeURIComponent(topicId)}`
+  );
 }
 
 export function seedDemo(): Promise<{ seeded: boolean }> {
@@ -179,6 +230,7 @@ export function fetchLedger(cardId: string): Promise<ForesightConfLog[]> {
 }
 
 export interface CreateCardInput {
+  topicId: string;
   cardKey: string;
   layer: string;
   title: string;
@@ -202,6 +254,7 @@ export function createCard(input: CreateCardInput): Promise<ForesightCard> {
 }
 
 export interface CreateEdgeInput {
+  topicId: string;
   fromKey: string;
   toKey: string;
   metric: string;

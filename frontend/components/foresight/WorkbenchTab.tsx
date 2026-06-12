@@ -5,11 +5,11 @@ import { cn } from '@/lib/utils/common';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import type {
   ForesightConclusion,
+  ForesightLayerDef,
   ForesightOverview,
   ForesightSignal,
 } from '@/services/foresight/api';
 import {
-  FORESIGHT_LAYERS,
   SENS_META,
   STAGE_BAR_CLS,
   STAGE_META,
@@ -18,6 +18,7 @@ import {
 
 interface WorkbenchTabProps {
   overview: ForesightOverview;
+  layers: ForesightLayerDef[];
   pending: Map<string, CardPendingState>;
   impactedConclusions: ForesightConclusion[];
   injecting: string | null;
@@ -47,6 +48,7 @@ function SectionHead({
 /** 工作台 —— Owner 一日巡检动线：① 今日入站 → ② 待我处理 → ③ 体系状态 */
 export function WorkbenchTab({
   overview,
+  layers,
   pending,
   impactedConclusions,
   injecting,
@@ -267,7 +269,7 @@ export function WorkbenchTab({
             分层健康度 Layer Health
           </div>
           <div className="p-4">
-            {FORESIGHT_LAYERS.map((layer) => {
+            {layers.map((layer) => {
               const cs = cards.filter((c) => c.layer === layer.id);
               if (cs.length === 0) return null;
               const avg = cs.reduce((s, c) => s + c.conf, 0) / cs.length;

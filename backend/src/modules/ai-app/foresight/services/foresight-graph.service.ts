@@ -7,49 +7,133 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import {
   CreateForesightCardDto,
   CreateForesightEdgeDto,
+  CreateForesightTopicDto,
   UpdateForesightCardDto,
+  UpdateForesightTopicDto,
 } from "../dto/foresight.dto";
 import { Prisma } from "@prisma/client";
 
 /**
- * ForesightGraphService —— 判断资产 CRUD + 全量 overview 装配。
- * 所有查询强制 userId 行级隔离。
+ * ForesightGraphService —— 判断资产 CRUD + 主题工作台装配。
+ * 多主题模型（2026-06-12）：主题是独立洞察工作台，层级本体随主题自定义；
+ * 所有查询强制 userId 行级隔离 + topicId 作用域。
  */
 @Injectable()
 export class ForesightGraphService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** 一次性返回前端工作台所需的全部数据（用户级数据量小，单请求装配最简单可靠） */
-  async overview(userId: string) {
-    const [cards, edges, signals, reviewItems, conclusions] = await Promise.all(
-      [
-        this.prisma.foresightCard.findMany({
-          where: { userId },
-          orderBy: [{ layer: "asc" }, { cardKey: "asc" }],
-        }),
-        this.prisma.foresightEdge.findMany({ where: { userId } }),
-        this.prisma.foresightSignal.findMany({
-          where: { userId },
-          orderBy: { createdAt: "desc" },
-        }),
-        this.prisma.foresightReviewItem.findMany({
-          where: { userId },
-          orderBy: [{ status: "asc" }, { impact: "desc" }],
-          take: 300,
-        }),
-        this.prisma.foresightConclusion.findMany({
-          where: { userId },
-          orderBy: { conclKey: "asc" },
-        }),
-      ],
-    );
-    return { cards, edges, signals, reviewItems, conclusions };
+  // ── 主题 ──────────────────────────────────────────────────────────────
+
+  async listTopics(userId: string) {
+    const topics = await this.prisma.foresightTopic.findMany({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
+      include: { _count: { select: { cards: true } } },
+    });
+    return topics.map((t) => ({
+      id: t.id,
+      name: t.name,
+      description: t.description,
+      layers: t.layers,
+      cardCount: t._count.cards,
+      createdAt: t.createdAt,
+    }));
   }
 
+  async createTopic(userId: string, dto: CreateForesightTopicDto) {
+    if (!Array.isArray(dto.layers) || dto.layers.length === 0) {
+      throw new BadRequestException("topic layers must be a non-empty array");
+    }
+    const ids = dto.layers.map((l) => l.id);
+    if (new Set(ids).size !== ids.length) {
+      throw new BadRequestException("layer ids must be unique");
+    }
+    return this.prisma.foresightTopic.create({
+      data: {
+        userId,
+        name: dto.name,
+        description: dto.description,
+        layers: dto.layers as unknown as Prisma.InputJsonValue,
+      },
+    });
+  }
+
+  async updateTopic(userId: string, id: string, dto: UpdateForesightTopicDto) {
+    await this.requireTopic(userId, id);
+    return this.prisma.foresightTopic.update({
+      where: { id },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.layers !== undefined && {
+          layers: dto.layers as unknown as Prisma.InputJsonValue,
+        }),
+      },
+    });
+  }
+
+  async deleteTopic(userId: string, id: string) {
+    await this.requireTopic(userId, id);
+    await this.prisma.foresightTopic.delete({ where: { id } });
+    return { deleted: true };
+  }
+
+  // ── 工作台装配 ────────────────────────────────────────────────────────
+
+  /** 单主题工作台全量数据（主题级数据量小，单请求装配最简单可靠） */
+  async overview(userId: string, topicId: string) {
+    const topic = await this.requireTopic(userId, topicId);
+    const [cards, edges, signals, conclusions] = await Promise.all([
+      this.prisma.foresightCard.findMany({
+        where: { topicId },
+        orderBy: [{ layer: "asc" }, { cardKey: "asc" }],
+      }),
+      this.prisma.foresightEdge.findMany({ where: { topicId } }),
+      this.prisma.foresightSignal.findMany({
+        where: { topicId },
+        orderBy: { createdAt: "desc" },
+      }),
+      this.prisma.foresightConclusion.findMany({
+        where: { topicId },
+        orderBy: { conclKey: "asc" },
+      }),
+    ]);
+    const reviewItems = await this.prisma.foresightReviewItem.findMany({
+      where: { userId, cardId: { in: cards.map((c) => c.id) } },
+      orderBy: [{ status: "asc" }, { impact: "desc" }],
+      take: 300,
+    });
+    return {
+      topic: {
+        id: topic.id,
+        name: topic.name,
+        description: topic.description,
+        layers: topic.layers,
+      },
+      cards,
+      edges,
+      signals,
+      reviewItems,
+      conclusions,
+    };
+  }
+
+  // ── 卡片 / 边 ─────────────────────────────────────────────────────────
+
   async createCard(userId: string, dto: CreateForesightCardDto) {
+    const topic = await this.requireTopic(userId, dto.topicId);
+    const layerIds = ((topic.layers as Array<{ id: string }> | null) ?? []).map(
+      (l) => l.id,
+    );
+    if (!layerIds.includes(dto.layer)) {
+      throw new BadRequestException(
+        `layer "${dto.layer}" is not defined in topic layers [${layerIds.join(", ")}]`,
+      );
+    }
     return this.prisma.foresightCard.create({
       data: {
         userId,
+        topicId: dto.topicId,
         cardKey: dto.cardKey,
         layer: dto.layer,
         title: dto.title,
@@ -114,20 +198,26 @@ export class ForesightGraphService {
     if (dto.fromKey === dto.toKey) {
       throw new BadRequestException("edge endpoints must differ");
     }
+    await this.requireTopic(userId, dto.topicId);
     const [from, to] = await Promise.all([
       this.prisma.foresightCard.findUnique({
-        where: { userId_cardKey: { userId, cardKey: dto.fromKey } },
+        where: {
+          topicId_cardKey: { topicId: dto.topicId, cardKey: dto.fromKey },
+        },
       }),
       this.prisma.foresightCard.findUnique({
-        where: { userId_cardKey: { userId, cardKey: dto.toKey } },
+        where: {
+          topicId_cardKey: { topicId: dto.topicId, cardKey: dto.toKey },
+        },
       }),
     ]);
     if (!from || !to) {
-      throw new NotFoundException("from/to card not found");
+      throw new NotFoundException("from/to card not found in topic");
     }
     return this.prisma.foresightEdge.create({
       data: {
         userId,
+        topicId: dto.topicId,
         fromCardId: from.id,
         toCardId: to.id,
         metric: dto.metric,
@@ -144,6 +234,16 @@ export class ForesightGraphService {
     if (!edge) throw new NotFoundException("edge not found");
     await this.prisma.foresightEdge.delete({ where: { id } });
     return { deleted: true };
+  }
+
+  // ── helpers ───────────────────────────────────────────────────────────
+
+  private async requireTopic(userId: string, id: string) {
+    const topic = await this.prisma.foresightTopic.findFirst({
+      where: { id, userId },
+    });
+    if (!topic) throw new NotFoundException("topic not found");
+    return topic;
   }
 
   private async requireCard(userId: string, id: string) {

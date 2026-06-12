@@ -1,13 +1,17 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
 import { Modal } from '@/components/ui/dialogs/Modal';
 import {
   createCard,
   createEdge,
+  createTopic,
   type ForesightCard,
+  type ForesightLayerDef,
+  type ForesightTopic,
 } from '@/services/foresight/api';
-import { FORESIGHT_LAYERS, STAGE_META } from './foresight-meta';
+import { DEFAULT_TOPIC_LAYERS, STAGE_META } from './foresight-meta';
 
 const fieldCls =
   'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:border-gray-700 focus:outline-none';
@@ -32,6 +36,8 @@ function splitLines(v: string): string[] {
 
 interface CreateCardDialogProps {
   open: boolean;
+  topicId: string;
+  layers: ForesightLayerDef[];
   cards: ForesightCard[];
   onClose: () => void;
   onCreated: () => void;
@@ -40,11 +46,13 @@ interface CreateCardDialogProps {
 /** 新建假设卡 —— 真实判断资产的手动录入通道（P0） */
 export function CreateCardDialog({
   open,
+  topicId,
+  layers,
   cards,
   onClose,
   onCreated,
 }: CreateCardDialogProps) {
-  const [layer, setLayer] = useState('L0');
+  const [layer, setLayer] = useState(layers[0]?.id ?? '');
   const [cardKey, setCardKey] = useState('');
   const [title, setTitle] = useState('');
   const [claim, setClaim] = useState('');
@@ -81,8 +89,9 @@ export function CreateCardDialog({
     setError(null);
     try {
       await createCard({
+        topicId,
         cardKey: effectiveKey,
-        layer,
+        layer: layer || layers[0]?.id || '',
         title: title.trim(),
         claim: claim.trim(),
         conf: confNum,
@@ -142,11 +151,11 @@ export function CreateCardDialog({
           <div>
             <label className={labelCls}>层级</label>
             <select
-              value={layer}
+              value={layer || layers[0]?.id || ''}
               onChange={(e) => setLayer(e.target.value)}
               className={fieldCls}
             >
-              {FORESIGHT_LAYERS.map((l) => (
+              {layers.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.id} {l.name}
                 </option>
@@ -276,6 +285,7 @@ export function CreateCardDialog({
 
 interface CreateEdgeDialogProps {
   open: boolean;
+  topicId: string;
   cards: ForesightCard[];
   /** 预选上游卡（从详情面板进入时） */
   defaultFromKey?: string;
@@ -286,6 +296,7 @@ interface CreateEdgeDialogProps {
 /** 新建影响边 —— 跨层影响必须经过量化参数中转，metric 为必填语义 */
 export function CreateEdgeDialog({
   open,
+  topicId,
   cards,
   defaultFromKey,
   onClose,
@@ -324,6 +335,7 @@ export function CreateEdgeDialog({
     setError(null);
     try {
       await createEdge({
+        topicId,
         fromKey,
         toKey,
         metric: metric.trim(),
@@ -434,6 +446,175 @@ export function CreateEdgeDialog({
               max="1"
               className={fieldCls}
             />
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+interface CreateTopicDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onCreated: (topic: ForesightTopic) => void;
+}
+
+/** 新建前瞻主题 —— 每个洞察主题是独立工作台，层级本体随主题自定义 */
+export function CreateTopicDialog({
+  open,
+  onClose,
+  onCreated,
+}: CreateTopicDialogProps) {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [layers, setLayers] = useState<ForesightLayerDef[]>([
+    ...DEFAULT_TOPIC_LAYERS,
+  ]);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function patchLayer(i: number, patch: Partial<ForesightLayerDef>) {
+    setLayers((prev) =>
+      prev.map((l, idx) => (idx === i ? { ...l, ...patch } : l))
+    );
+  }
+
+  async function handleSubmit() {
+    if (!name.trim()) {
+      setError('主题名称必填');
+      return;
+    }
+    const cleaned = layers
+      .map((l) => ({ ...l, id: l.id.trim(), name: l.name.trim() }))
+      .filter((l) => l.id && l.name);
+    if (cleaned.length === 0) {
+      setError('至少定义一个层级 — 层级是图谱泳道与影响传导的骨架');
+      return;
+    }
+    if (new Set(cleaned.map((l) => l.id)).size !== cleaned.length) {
+      setError('层级 ID 不能重复');
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const topic = await createTopic({
+        name: name.trim(),
+        description: description.trim() || undefined,
+        layers: cleaned,
+      });
+      onCreated(topic);
+      onClose();
+      setName('');
+      setDescription('');
+      setLayers([...DEFAULT_TOPIC_LAYERS]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="新建前瞻主题"
+      subtitle="一个独立的洞察工作台 — 层级本体（泳道）由主题自定义"
+      footer={
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+          >
+            取消
+          </button>
+          <button
+            onClick={() => void handleSubmit()}
+            disabled={submitting}
+            className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+          >
+            {submitting ? '创建中…' : '创建主题'}
+          </button>
+        </div>
+      }
+    >
+      <div className="space-y-3">
+        {error && (
+          <p className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
+            {error}
+          </p>
+        )}
+        <div>
+          <label className={labelCls}>主题名称 *</label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="如：创新药出海 / 具身智能供应链 / 下一代能源"
+            className={fieldCls}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>主题描述（选填）</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+            placeholder="时间窗、范围边界、这个主题要回答的核心问题"
+            className={fieldCls}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>
+            层级本体 *（图谱泳道，从需求侧到物理/约束侧排列；如算力底座用
+            业务负载→模型→软件→硬件→芯片→物理底座 六层）
+          </label>
+          <div className="space-y-2">
+            {layers.map((l, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input
+                  value={l.id}
+                  onChange={(e) => patchLayer(i, { id: e.target.value })}
+                  placeholder="ID"
+                  className="font-mono w-20 rounded-lg border border-gray-300 px-2 py-1.5 text-xs focus:border-gray-700 focus:outline-none"
+                />
+                <input
+                  value={l.name}
+                  onChange={(e) => patchLayer(i, { name: e.target.value })}
+                  placeholder="层级名称"
+                  className="flex-1 rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-gray-700 focus:outline-none"
+                />
+                <input
+                  value={l.en ?? ''}
+                  onChange={(e) => patchLayer(i, { en: e.target.value })}
+                  placeholder="EN（选填）"
+                  className="font-mono w-32 rounded-lg border border-gray-300 px-2 py-1.5 text-xs uppercase focus:border-gray-700 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLayers((prev) => prev.filter((_, idx) => idx !== i))
+                  }
+                  className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                  aria-label="删除层级"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() =>
+                setLayers((prev) => [
+                  ...prev,
+                  { id: `L${prev.length}`, name: '' },
+                ])
+              }
+              className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-500 hover:border-gray-500 hover:text-gray-700"
+            >
+              <Plus className="h-3 w-3" />
+              添加层级
+            </button>
           </div>
         </div>
       </div>

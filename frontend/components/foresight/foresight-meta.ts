@@ -1,17 +1,21 @@
 import type {
   ForesightCard,
   ForesightEdge,
+  ForesightLayerDef,
   ForesightReviewItem,
 } from '@/services/foresight/api';
 
-export const FORESIGHT_LAYERS = [
-  { id: 'L0', name: '业务负载', en: 'WORKLOAD' },
-  { id: 'L1', name: '模型架构', en: 'MODEL ARCH' },
-  { id: 'L2', name: '系统软件', en: 'SYSTEM SW' },
-  { id: 'L3', name: '系统级硬件', en: 'SYSTEMS' },
-  { id: 'L4', name: '芯片', en: 'SILICON' },
-  { id: 'L5', name: '物理底座', en: 'PHYSICAL' },
-] as const;
+/** 新建主题时的默认层级模板（通用四层；层级本体随主题自定义） */
+export const DEFAULT_TOPIC_LAYERS: ForesightLayerDef[] = [
+  { id: 'L0', name: '需求与场景', en: 'DEMAND' },
+  { id: 'L1', name: '产品与应用', en: 'PRODUCT' },
+  { id: 'L2', name: '技术与系统', en: 'TECHNOLOGY' },
+  { id: 'L3', name: '基础设施', en: 'INFRA' },
+];
+
+export function layerName(layers: ForesightLayerDef[], id: string): string {
+  return layers.find((l) => l.id === id)?.name ?? id;
+}
 
 export const STAGE_META: Record<string, { label: string; cls: string }> = {
   current: { label: '当前落地', cls: 'border-emerald-600 text-emerald-700' },
@@ -74,9 +78,12 @@ export function buildAdjacency(edges: ForesightEdge[]): Adjacency {
   const out = new Map<string, ForesightEdge[]>();
   const inn = new Map<string, ForesightEdge[]>();
   for (const e of edges) {
-    (out.get(e.fromCardId) ??
-      out.set(e.fromCardId, []).get(e.fromCardId))!.push(e);
-    (inn.get(e.toCardId) ?? inn.set(e.toCardId, []).get(e.toCardId))!.push(e);
+    const outList = out.get(e.fromCardId) ?? [];
+    outList.push(e);
+    out.set(e.fromCardId, outList);
+    const inList = inn.get(e.toCardId) ?? [];
+    inList.push(e);
+    inn.set(e.toCardId, inList);
   }
   return { out, inn };
 }
