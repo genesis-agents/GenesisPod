@@ -338,7 +338,7 @@ export class MissionLivenessGuard implements OnModuleDestroy {
             m.id,
             "wall-time-exceeded",
             `Mission 超过最大执行时长（${Math.round(config.wallTimeCapMs / 60_000)} 分钟）。\n\n` +
-              "已自动停止以释放资源。建议：使用顶部「重新运行」按钮重启相同主题，或微调档位（depth / lengthProfile）后重新发起。",
+              "已自动停止以释放资源。建议：在左侧操作区点「开始」重跑相同主题（存在断点时按钮显示「继续上次」可从断点续跑），或微调档位（depth / lengthProfile）后重新发起。",
           )
           .catch((err: unknown) => {
             this.log.warn(
@@ -366,7 +366,7 @@ export class MissionLivenessGuard implements OnModuleDestroy {
         const reason =
           `Mission 在执行过程中失联 ≥ ${Math.round(config.staleThresholdMs / 60_000)} 分钟（无心跳 + 无事件输出）。\n\n` +
           "可能原因：pod 重启 / Railway redeploy / 进程崩溃。\n" +
-          "建议：使用顶部「重新运行」按钮重启相同主题。";
+          "建议：在左侧操作区点「开始」重跑相同主题；存在断点时按钮显示「继续上次」，可从断点续跑。";
         await adapter
           .markFailed(m.id, "no-activity", reason)
           .catch((err: unknown) => {

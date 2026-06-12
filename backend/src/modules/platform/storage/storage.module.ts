@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { StorageGovernanceService } from "./governance/storage-governance.service";
+import { DataRetentionScheduler } from "./governance/data-retention.scheduler";
 import { ObjectStorageService } from "./object-store/object-storage.service";
 import { StorageOffloadService } from "./governance/storage-offload.service";
 import { StorageInventoryService } from "./governance/storage-inventory.service";
@@ -15,6 +16,8 @@ import { ObjectStorageModule } from "@/plugins/storage/object-storage.module";
   providers: [
     // Governance aggregate for storage admin/cleanup workflows.
     StorageGovernanceService,
+    // 高增长表统一老化清理（ENABLE_DATA_RETENTION 开关，03:10 UTC）
+    DataRetentionScheduler,
     // Runtime object storage orchestrator (delegates to plugin backend).
     ObjectStorageService,
     // Governance-side storage jobs.

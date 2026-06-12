@@ -307,7 +307,7 @@ export class PlaygroundPipelineDispatcher
           payload: {
             message:
               "Mission 在执行中遇到后端重启或异常退出，且无可恢复的进度快照。" +
-              "建议使用顶部「重新运行」按钮重启相同主题。",
+              "建议在左侧操作区点「开始」重跑相同主题。",
             failureCode: "DISPATCHER_BOOT_ORPHAN_CLEANUP",
             source: "dispatcher-boot-orphan-cleanup",
           },

@@ -823,6 +823,14 @@ export function TeamRosterPanel({
           区一起常驻 aside 底部。 */}
       {actionButtons.length > 0 && (
         <div className="shrink-0 border-t border-gray-200 bg-white px-3 py-3">
+          {/* 2026-06-12：失联/失败且无断点时，在按钮区就地说明恢复路径——
+              此前 liveness 文案指向不存在的"顶部重新运行按钮"造成用户找不到入口 */}
+          {missionStatus === 'failed' && !isResumable && (
+            <p className="mb-2 rounded-md bg-amber-50 px-2 py-1.5 text-[10px] leading-snug text-amber-700">
+              本次运行已失败且未找到可续跑断点 —
+              点「开始」用相同配置从头重跑；「更新」保留已完成任务做增量重跑。
+            </p>
+          )}
           <MissionActionGroup buttons={actionButtons} />
         </div>
       )}
