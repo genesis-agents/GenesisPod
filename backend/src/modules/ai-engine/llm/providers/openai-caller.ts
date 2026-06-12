@@ -7,6 +7,7 @@ import {
   reasoningDepthToEffort,
   safeReasoningEffort,
 } from "../types/task-profile.types";
+import { getKnownModelLimit } from "../types/model.utils";
 import {
   ensureChatCompletionsPath,
   ensureOpenAIEmbeddingsPath,
@@ -365,6 +366,8 @@ export class OpenaiCaller extends BaseHttpCaller {
     // Single in-request degrade attempt budget — a 4xx-degrade and a
     // degenerate-output-degrade must not double-retry.
     let degradeUsed = false;
+    // ★ 2026-06-12 推理耗尽自愈：单次 token-bump 重试预算（防止死循环）。
+    let tokenBumpUsed = false;
 
     let response;
     try {
@@ -546,6 +549,90 @@ export class OpenaiCaller extends BaseHttpCaller {
             // 重试仍退化 → 落到下方抛错（交给 model-failover 切模型）
           } catch {
             // 降级重试失败 → 落到下方抛错
+          }
+        }
+      }
+
+      // ★ 2026-06-12 推理耗尽自愈：推理模型把 token 全花在 CoT、可见输出为空时，
+      //   不直接判废（旧行为：抛 Non-retryable 错 → 无 failover 时整调用废）。先把
+      //   max_tokens 顶到该模型已知上限重试一次，给足输出空间。只有真耗尽才多花这一
+      //   轮（常规调用零成本），且单次封顶、受 getKnownModelLimit 约束（不会越 API 限）。
+      if (
+        isReasoningModelExhausted &&
+        (finishReason === "length" || finishReason === "stop") &&
+        !tokenBumpUsed
+      ) {
+        const ceiling = getKnownModelLimit(modelId) ?? 25000;
+        const bumped = Math.min(ceiling, Math.max(maxTokens * 3, 25000));
+        if (bumped > maxTokens) {
+          tokenBumpUsed = true;
+          requestBody[tokenParamName] = bumped;
+          this.logger.warn(
+            `[reasoning-token-bump] ${modelId}: 推理耗尽（visible 空, finish=${finishReason}, ` +
+              `reasoning_tokens=${reasoningTokens}）→ max_tokens ${maxTokens}→${bumped} 重试一次`,
+          );
+          try {
+            const retryResp = await doPost();
+            const retryData = retryResp.data;
+            const retryMsg = retryData.choices?.[0]?.message;
+            const retryToolCalls =
+              this.extractOpenAICompatibleToolCalls(retryMsg);
+            const retryContent =
+              retryMsg?.content ||
+              retryMsg?.text ||
+              retryMsg?.output ||
+              (typeof retryMsg === "string" ? retryMsg : null);
+            const retryReasoning =
+              (typeof retryMsg?.reasoning_content === "string" &&
+              retryMsg.reasoning_content.trim()
+                ? retryMsg.reasoning_content
+                : typeof retryMsg?.reasoning === "string" &&
+                    retryMsg.reasoning.trim()
+                  ? retryMsg.reasoning
+                  : undefined) || undefined;
+            const ru = retryData.usage || {};
+            // 重试拿到可见输出 / tool_call → 成功返回
+            if (retryContent || (retryToolCalls && retryToolCalls.length > 0)) {
+              this.logger.warn(`[reasoning-token-bump] ${modelId}: 重试成功`);
+              return {
+                content: retryContent || "",
+                model: modelId,
+                tokensUsed: ru.total_tokens || 0,
+                inputTokens: ru.prompt_tokens || 0,
+                outputTokens: ru.completion_tokens || 0,
+                cacheReadTokens:
+                  ru.prompt_tokens_details?.cached_tokens || 0,
+                finishReason:
+                  retryData.choices?.[0]?.finish_reason || undefined,
+                reasoning: retryReasoning,
+                toolCalls: retryToolCalls,
+              };
+            }
+            // content 仍空但 JSON 落在 reasoning_content → 复用 salvage 路径
+            if (wantsJson && retryReasoning) {
+              const salvaged = this.extractJsonCandidate(retryReasoning);
+              if (salvaged) {
+                this.logger.warn(
+                  `[reasoning-token-bump] ${modelId}: 重试后从 reasoning_content 抢救 JSON`,
+                );
+                return {
+                  content: salvaged,
+                  model: modelId,
+                  tokensUsed: ru.total_tokens || 0,
+                  inputTokens: ru.prompt_tokens || 0,
+                  outputTokens: ru.completion_tokens || 0,
+                  cacheReadTokens:
+                    ru.prompt_tokens_details?.cached_tokens || 0,
+                  finishReason:
+                    retryData.choices?.[0]?.finish_reason || undefined,
+                  reasoning: retryReasoning,
+                  toolCalls: retryToolCalls,
+                };
+              }
+            }
+            // 重试仍空 → 落到下方抛错
+          } catch {
+            // 重试请求本身失败 → 落到下方抛错
           }
         }
       }

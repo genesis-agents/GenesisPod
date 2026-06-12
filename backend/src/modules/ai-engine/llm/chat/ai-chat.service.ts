@@ -1841,24 +1841,44 @@ export class AiChatService {
           `[chat] Using ${effectiveModelType} model from database: ${model}`,
         );
       } else {
-        // No DB config for the requested modelType. DO NOT fall back to a
-        // hard-coded string like "gemini" — that silently routes the call to
-        // a modelId the DB may not have, producing the misleading "模型未配置"
-        // error. Honour DEFAULT_AI_MODEL only when operators explicitly set it.
-        const envDefault = this.configService.get<string>(
-          "DEFAULT_AI_MODEL",
-          "",
-        );
-        if (!envDefault) {
-          throw new AiServiceUnavailableError(
-            `AI 服务不可用：没有可用的 ${effectiveModelType} 模型。请在数据库中启用至少 1 个该用途的模型，或设置 DEFAULT_AI_MODEL 环境变量。`,
+        // ★ 2026-06-12: 非 CHAT 类型（EVALUATOR / CHAT_FAST 等）无配置时，回落到
+        //   CHAT 主模型再用，而不是直接抛错让上层弃权（abstain）。CHAT 是基线类型、
+        //   必有配置；这让外部质量评审 / 快评在未单独配 EVALUATOR/CHAT_FAST 模型时
+        //   仍能用同一 CHAT 模型工作，而非静默失效（日志实测 judge:external abstain）。
+        //   上层（JudgeService 等）注释一直承诺"未配置则回落 CHAT"，此处补齐实现。
+        let chatFallbackModelId: string | undefined;
+        if (effectiveModelType !== AIModelType.CHAT) {
+          const chatFallback = await this.getDefaultModelByType(
+            AIModelType.CHAT,
+          );
+          if (chatFallback) {
+            modelConfig = chatFallback;
+            chatFallbackModelId = chatFallback.modelId;
+            this.logger.warn(
+              `[chat] No ${effectiveModelType} model configured — falling back to CHAT model ${chatFallback.modelId} (${chatFallback.provider})`,
+            );
+          }
+        }
+        if (chatFallbackModelId) {
+          model = chatFallbackModelId;
+        } else {
+          // 仍无（连 CHAT 都没配）→ DO NOT fall back to a hard-coded string like
+          // "gemini". Honour DEFAULT_AI_MODEL only when operators explicitly set it.
+          const envDefault = this.configService.get<string>(
+            "DEFAULT_AI_MODEL",
             "",
           );
+          if (!envDefault) {
+            throw new AiServiceUnavailableError(
+              `AI 服务不可用：没有可用的 ${effectiveModelType} 模型。请在数据库中启用至少 1 个该用途的模型，或设置 DEFAULT_AI_MODEL 环境变量。`,
+              "",
+            );
+          }
+          model = envDefault;
+          this.logger.warn(
+            `[chat] No ${effectiveModelType} model found, falling back to DEFAULT_AI_MODEL=${model}`,
+          );
         }
-        model = envDefault;
-        this.logger.warn(
-          `[chat] No ${effectiveModelType} model found, falling back to DEFAULT_AI_MODEL=${model}`,
-        );
       }
     } else {
       model = this.configService.get<string>("DEFAULT_AI_MODEL", "");
