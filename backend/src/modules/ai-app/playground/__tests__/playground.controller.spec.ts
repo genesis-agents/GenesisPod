@@ -109,6 +109,11 @@ function buildController() {
     cloneCheckpoint: jest.fn().mockResolvedValue(false),
     // ★ 2026-06-11 同-id 重跑：fresh 模式清自己的 checkpoint（原地从头跑）。
     clear: jest.fn().mockResolvedValue(undefined),
+    // ★ 2026-06-12 修「更新全量重跑」：incremental 无 checkpoint 时 self-inherit
+    //   兜底 —— orchestrator 现在查 canResume；缺省 mock 为不可续（走兜底分支）。
+    canResume: jest
+      .fn()
+      .mockResolvedValue({ canResume: false, reason: "no-checkpoint" }),
   };
   // ★ 2026-05-04 PR-10c: MissionExportService 拆出 controller 后 spec 用真实
   //   service 构造（依赖 store mock），保证 export 行为与抽出前一致。
