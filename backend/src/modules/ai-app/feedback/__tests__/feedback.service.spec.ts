@@ -12,6 +12,7 @@ import {
   NotificationPresetsService,
 } from "../../../platform/facade";
 import { ObjectStorageService } from "../../../platform/storage/object-store/object-storage.service";
+import { AdminAuthService } from "../../../../common/services/admin-auth.service";
 import { CreateFeedbackDto, FeedbackTypeDto } from "../dto/create-feedback.dto";
 
 describe("FeedbackService", () => {
@@ -20,6 +21,7 @@ describe("FeedbackService", () => {
   let mockEmailService: jest.Mocked<Partial<EmailNotificationPresetsService>>;
   let mockStatusPreset: jest.Mocked<Partial<FeedbackStatusUpdatePreset>>;
   let mockNotificationPresets: jest.Mocked<Partial<NotificationPresetsService>>;
+  let mockAdminAuth: jest.Mocked<Partial<AdminAuthService>>;
   let mockR2Storage: jest.Mocked<Partial<ObjectStorageService>>;
   let mockEventEmitter: jest.Mocked<Partial<EventEmitter2>>;
 
@@ -57,6 +59,9 @@ describe("FeedbackService", () => {
     };
     mockNotificationPresets = {
       notifyFeedbackReceived: jest.fn().mockResolvedValue(undefined),
+    };
+    mockAdminAuth = {
+      getAdminEmails: jest.fn().mockReturnValue([]),
     };
 
     mockR2Storage = {
@@ -97,6 +102,7 @@ describe("FeedbackService", () => {
           provide: NotificationPresetsService,
           useValue: mockNotificationPresets,
         },
+        { provide: AdminAuthService, useValue: mockAdminAuth },
         { provide: ObjectStorageService, useValue: mockR2Storage },
         { provide: EventEmitter2, useValue: mockEventEmitter },
       ],

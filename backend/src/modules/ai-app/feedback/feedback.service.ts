@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { createReadStream } from "fs";
 import { unlink } from "fs/promises";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+import { AdminAuthService } from "../../../common/services";
 import { mapWithConcurrencySettled } from "../../../common/utils/concurrency.utils";
 import { CreateFeedbackDto, FeedbackTypeDto } from "./dto/create-feedback.dto";
 import {
@@ -50,18 +51,30 @@ export class FeedbackService {
     private feedbackStatusUpdatePreset: FeedbackStatusUpdatePreset,
     // 新反馈到达时给所有 admin 发站内信（与 admin 邮件并存）；admin 告警同样不受用户偏好控制
     private notificationPresets: NotificationPresetsService,
+    // 解析 admin 收件人：role=ADMIN 或邮箱在 ADMIN_EMAILS 白名单（与 AdminGuard 判定一致）
+    private adminAuth: AdminAuthService,
     private r2Storage: ObjectStorageService,
     private eventEmitter: EventEmitter2,
   ) {}
 
   /**
-   * 查询所有管理员 userId（role = ADMIN），用于新反馈站内信 fan-out。
-   * 任何错误一律返回空数组（通知失败不影响反馈提交），与 key-request 同模式。
+   * 查询所有管理员 userId，用于新反馈站内信 fan-out。
+   * 管理员判定与 AdminGuard 一致：role=ADMIN 或邮箱在 ADMIN_EMAILS 白名单
+   * （只查 role 会漏掉只配了邮箱白名单的 admin）。
+   * 任何错误一律返回空数组（通知失败不影响反馈提交）。
    */
   private async listAdminUserIds(): Promise<string[]> {
     try {
+      const adminEmails = this.adminAuth.getAdminEmails(); // 已小写
       const admins = await this.prisma.user.findMany({
-        where: { role: "ADMIN" },
+        where: {
+          OR: [
+            { role: "ADMIN" },
+            ...(adminEmails.length > 0
+              ? [{ email: { in: adminEmails, mode: "insensitive" as const } }]
+              : []),
+          ],
+        },
         select: { id: true },
       });
       return admins.map((a) => a.id);

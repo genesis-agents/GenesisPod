@@ -76,6 +76,7 @@ import {
   NotificationPresetsService,
   ObjectStorageService,
 } from "../../../platform/facade";
+import { AdminAuthService } from "../../../../common/services/admin-auth.service";
 import { CreateFeedbackDto, FeedbackTypeDto } from "../dto/create-feedback.dto";
 
 describe("FeedbackService (supplemental)", () => {
@@ -86,6 +87,7 @@ describe("FeedbackService (supplemental)", () => {
   };
   let mockStatusPreset: { notify: jest.Mock };
   let mockNotificationPresets: { notifyFeedbackReceived: jest.Mock };
+  let mockAdminAuth: { getAdminEmails: jest.Mock };
   let mockR2Storage: { uploadBuffer: jest.Mock; uploadStream: jest.Mock };
   let mockEventEmitter: { emit: jest.Mock };
 
@@ -119,6 +121,9 @@ describe("FeedbackService (supplemental)", () => {
     };
     mockNotificationPresets = {
       notifyFeedbackReceived: jest.fn().mockResolvedValue(undefined),
+    };
+    mockAdminAuth = {
+      getAdminEmails: jest.fn().mockReturnValue([]),
     };
 
     mockR2Storage = {
@@ -154,6 +159,7 @@ describe("FeedbackService (supplemental)", () => {
           provide: NotificationPresetsService,
           useValue: mockNotificationPresets,
         },
+        { provide: AdminAuthService, useValue: mockAdminAuth },
         { provide: ObjectStorageService, useValue: mockR2Storage },
         { provide: EventEmitter2, useValue: mockEventEmitter },
       ],
