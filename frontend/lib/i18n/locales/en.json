@@ -3475,6 +3475,7 @@
       "overview": "Overview",
       "dashboard": "Dashboard",
       "operations": "Operations",
+      "tenants": "Tenant Status",
       "aiConfig": "AI Configuration",
       "models": "Model Management",
       "recommendations": "Recommendation Matrix",
@@ -4654,6 +4655,15 @@
       "title": "System Architecture",
       "subtitle": "Click on configurable cards to manage settings",
       "backToOverview": "Back to Architecture",
+      "health": {
+        "score": "Health",
+        "healthy": "Healthy",
+        "degraded": "Degraded",
+        "down": "Down",
+        "unhealthy": "Unhealthy",
+        "running": "Running",
+        "updatedAt": "Updated"
+      },
       "layers": {
         "openApi": "Layer 4: Open API",
         "openApiDesc": "Open interfaces for external agents and third-party integrations",

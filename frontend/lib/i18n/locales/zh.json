@@ -3475,6 +3475,7 @@
       "overview": "概览",
       "dashboard": "仪表盘",
       "operations": "运营看板",
+      "tenants": "租户状态",
       "aiConfig": "AI 配置",
       "models": "模型管理",
       "recommendations": "推荐矩阵",
@@ -4654,6 +4655,15 @@
       "title": "系统架构图",
       "subtitle": "点击可配置的卡片进入管理设置",
       "backToOverview": "返回架构图",
+      "health": {
+        "score": "健康度",
+        "healthy": "健康",
+        "degraded": "降级",
+        "down": "故障",
+        "unhealthy": "异常",
+        "running": "运行中",
+        "updatedAt": "更新于"
+      },
       "layers": {
         "openApi": "第四层：开放接口",
         "openApiDesc": "面向外部 Agent 与第三方的访问接口",

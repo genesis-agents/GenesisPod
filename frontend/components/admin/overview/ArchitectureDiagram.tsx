@@ -1,102 +1,113 @@
 'use client';
 
-import { MousePointerClick, Eye, Layers, BarChart3 } from 'lucide-react';
+import {
+  MousePointerClick,
+  Eye,
+  Layers,
+  BarChart3,
+  Activity,
+  Users,
+} from 'lucide-react';
 import Link from 'next/link';
 import { ARCHITECTURE_LAYERS } from '@/lib/features/admin/architecture';
 import { useTranslation } from '@/lib/i18n';
 import { useApiGet } from '@/hooks/core';
+import { useOverviewStatus } from '@/hooks/domain/useAdminStatus';
+import AdminStatusBadge from '@/components/admin/shared/AdminStatusBadge';
+import type { StatusType } from '@/lib/features/admin/styles';
 import ArchitectureLayer from './ArchitectureLayer';
+
+// 全局健康状态 → AdminStatusBadge 状态色
+const HEALTH_BADGE: Record<string, StatusType> = {
+  healthy: 'active',
+  degraded: 'pending',
+  unhealthy: 'error',
+};
 
 export default function ArchitectureDiagram() {
   const { t } = useTranslation();
 
-  // Fetch module-level stats for all cards
+  // 静态库存统计（无实时状态的卡片回落用）
   const { data: overviewStats } = useApiGet<Record<string, number>>(
     '/admin/overview-stats'
   );
 
-  // Count total cards
-  const totalCards = ARCHITECTURE_LAYERS.reduce((acc, layer) => {
-    if (layer.cards) {
-      return acc + layer.cards.length;
-    }
-    if (layer.groups) {
-      return acc + layer.groups.reduce((g, group) => g + group.cards.length, 0);
-    }
-    return acc;
-  }, 0);
-
-  const clickableCards = ARCHITECTURE_LAYERS.reduce((acc, layer) => {
-    if (layer.cards) {
-      return acc + layer.cards.filter((c) => c.clickable).length;
-    }
-    if (layer.groups) {
-      return (
-        acc +
-        layer.groups.reduce(
-          (g, group) => g + group.cards.filter((c) => c.clickable).length,
-          0
-        )
-      );
-    }
-    return acc;
-  }, 0);
+  // 实时状态：30s 轮询（卡片健康灯 + 全局健康分）
+  const { data: status, lastUpdatedAt } = useOverviewStatus();
 
   return (
-    <div className="flex min-h-full flex-col bg-gray-50/50">
-      {/* Header - Consistent with other admin pages */}
-      <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 px-6 py-5 backdrop-blur-sm">
-        <div className="flex items-center justify-between">
-          {/* Left: Title section with icon */}
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/25">
-              <Layers className="h-6 w-6 text-white" />
+    <div className="flex min-h-full flex-col bg-slate-50">
+      {/* Header */}
+      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 px-6 py-4 backdrop-blur-sm">
+        <div className="flex items-center justify-between gap-4">
+          {/* Left: Title */}
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-900 shadow-sm">
+              <Layers className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-gray-900">
-                {t('admin.architecture.title')}
-              </h1>
-              <p className="text-sm text-gray-500">
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-lg font-semibold tracking-tight text-slate-900">
+                  {t('admin.architecture.title')}
+                </h1>
+                {status && (
+                  <span className="font-mono flex items-center gap-1.5 rounded-full border border-slate-200 px-2 py-0.5 text-xs text-slate-500">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                    LIVE · 30s
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-slate-400">
                 {t('admin.architecture.subtitle')}
               </p>
             </div>
           </div>
 
-          {/* Right: 运营看板入口 + Stats pills */}
-          <div className="hidden items-center gap-3 md:flex">
+          {/* Right: 实时健康 + 入口 */}
+          <div className="hidden items-center gap-2.5 md:flex">
+            {status && (
+              <>
+                <AdminStatusBadge
+                  status={HEALTH_BADGE[status.global.status] ?? 'inactive'}
+                  label={`${t('admin.architecture.health.score')} ${status.global.healthScore}`}
+                  dot
+                />
+                <div
+                  className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5"
+                  title={t('admin.architecture.health.running')}
+                >
+                  <Activity className="h-3.5 w-3.5 text-slate-400" />
+                  <span className="font-mono text-sm font-semibold tabular-nums text-slate-800">
+                    {status.global.runningProcesses}
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    {t('admin.architecture.health.running')}
+                  </span>
+                </div>
+                <div className="h-5 w-px bg-slate-200" />
+              </>
+            )}
+            <Link
+              href="/admin/tenants"
+              className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+            >
+              <Users className="h-4 w-4" />
+              {t('admin.nav.tenants')}
+            </Link>
             <Link
               href="/admin/operations"
-              className="flex items-center gap-1.5 rounded-full bg-indigo-600 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700"
+              className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-slate-700"
             >
               <BarChart3 className="h-4 w-4" />
               {t('admin.nav.operations')}
             </Link>
-            <div className="flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1.5">
-              <span className="text-sm font-semibold text-gray-700">
-                {ARCHITECTURE_LAYERS.length}
-              </span>
-              <span className="text-sm text-gray-500">Layers</span>
-            </div>
-            <div className="flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1.5">
-              <span className="text-sm font-semibold text-gray-700">
-                {totalCards}
-              </span>
-              <span className="text-sm text-gray-500">Modules</span>
-            </div>
-            <div className="flex items-center gap-1.5 rounded-full bg-indigo-100 px-3 py-1.5">
-              <span className="text-sm font-semibold text-indigo-700">
-                {clickableCards}
-              </span>
-              <span className="text-sm text-indigo-600">Configurable</span>
-            </div>
           </div>
         </div>
       </header>
 
-      {/* Architecture Layers - Compact spacing */}
-      <main className="flex-1 overflow-auto px-4 py-4">
+      {/* Architecture Layers */}
+      <main className="flex-1 overflow-auto px-4 py-5">
         <div className="mx-auto max-w-5xl">
-          {/* Layers */}
           <div className="space-y-0">
             {ARCHITECTURE_LAYERS.map((layer, index) => (
               <ArchitectureLayer
@@ -104,28 +115,30 @@ export default function ArchitectureDiagram() {
                 layer={layer}
                 showArrow={index < ARCHITECTURE_LAYERS.length - 1}
                 overviewStats={overviewStats ?? undefined}
+                cardStatuses={status?.cards}
               />
             ))}
           </div>
 
-          {/* Legend - Compact pills design */}
-          <div className="mt-4 flex items-center justify-center gap-4">
-            <div className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 shadow-sm">
-              <div className="flex h-5 w-5 items-center justify-center rounded bg-blue-100">
-                <MousePointerClick className="h-3 w-3 text-blue-600" />
-              </div>
-              <span className="text-xs text-gray-600">
-                {t('admin.architecture.legend.clickable')}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 shadow-sm">
-              <div className="flex h-5 w-5 items-center justify-center rounded bg-gray-100">
-                <Eye className="h-3 w-3 text-gray-400" />
-              </div>
-              <span className="text-xs text-gray-500">
-                {t('admin.architecture.legend.readOnly')}
-              </span>
-            </div>
+          {/* Footer: legend + refresh time */}
+          <div className="mt-5 flex items-center justify-center gap-5 text-xs text-slate-400">
+            <span className="flex items-center gap-1.5">
+              <MousePointerClick className="h-3.5 w-3.5" />
+              {t('admin.architecture.legend.clickable')}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Eye className="h-3.5 w-3.5" />
+              {t('admin.architecture.legend.readOnly')}
+            </span>
+            {lastUpdatedAt && (
+              <>
+                <span className="h-3 w-px bg-slate-200" />
+                <span className="font-mono">
+                  {t('admin.architecture.health.updatedAt')}{' '}
+                  {lastUpdatedAt.toLocaleTimeString()}
+                </span>
+              </>
+            )}
           </div>
         </div>
       </main>
