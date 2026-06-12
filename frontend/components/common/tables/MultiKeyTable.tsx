@@ -101,6 +101,22 @@ function StatusBadge({ row }: { row: SecretKeyRow }) {
       </span>
     );
   }
+  // testStatus 为 null = 健康状态未知（业务流量只累计 accessCount/lastUsedAt，
+  // 不回写 testStatus）。但有命中或使用时间就说明"确实用过"，不能显示「未使用」——
+  // 区分两种 null 态：用过但未做健康探测 vs 真的从未使用。
+  const used = row.accessCount > 0 || !!row.lastUsedAt;
+  if (used) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700"
+        title={`已被业务调用${
+          row.accessCount > 0 ? ` · 累计 ${row.accessCount} 次` : ''
+        }，尚未做健康探测（点 Test 可验证 key 有效性）`}
+      >
+        <CircleHelp className="h-3 w-3" /> 已用·未测
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
       <CircleHelp className="h-3 w-3" /> 未使用
