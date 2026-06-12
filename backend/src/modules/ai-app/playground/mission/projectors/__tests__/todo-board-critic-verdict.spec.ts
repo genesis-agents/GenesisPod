@@ -27,7 +27,11 @@ function fakeRow(status = "completed"): MissionDetail {
   } as unknown as MissionDetail;
 }
 
-const criticEvent = (warnings: unknown[], verdict = "concerns") => ({
+const criticEvent = (
+  warnings: unknown[],
+  verdict = "concerns",
+  ts = 1700000000000,
+) => ({
   type: "playground.critic:verdict",
   payload: {
     verdict,
@@ -38,7 +42,7 @@ const criticEvent = (warnings: unknown[], verdict = "concerns") => ({
     rationale: "样本理由",
     warnings,
   },
-  timestamp: 1700000000000,
+  timestamp: ts,
 });
 
 const sampleWarnings = [
@@ -81,5 +85,19 @@ describe("§ todo-board projector × critic:verdict 聚合（IMG_9111-9113 regre
   it("空 warnings → 不建 critic todo", () => {
     const out = projectTodoBoard(fakeRow(), [criticEvent([])]);
     expect(criticTodos(out)).toHaveLength(0);
+  });
+
+  it("s9-critic 重跑（两次 critic:verdict）→ 仍只 1 条，最新一次覆盖（IMG_9114）", () => {
+    const firstRun = criticEvent(sampleWarnings.slice(0, 2), "concerns", 1700000000000);
+    // 重跑：不同时间戳 + 不同 verdict/意见数
+    const rerun = criticEvent(sampleWarnings, "fail", 1700000009999);
+    const out = projectTodoBoard(fakeRow("completed"), [firstRun, rerun]);
+    const todos = criticTodos(out);
+    // 稳定 id → 重跑更新同一条，不新增第二条
+    expect(todos).toHaveLength(1);
+    // 反映最新一次复审：verdict=fail → failed，意见数 = 重跑的 4 条
+    expect(todos[0].status).toBe("failed");
+    expect(todos[0].narrativeLog).toHaveLength(sampleWarnings.length);
+    expect(todos[0].endedAt).toBe(1700000009999);
   });
 });
