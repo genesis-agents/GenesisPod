@@ -106,6 +106,18 @@ export const MissionDegradedSchema = z
   .passthrough();
 export type MissionDegradedPayload = z.infer<typeof MissionDegradedSchema>;
 
+// ─────────── mission:auto-recovered ───────────
+// 2026-06-12: liveness 停滞击杀后的自动恢复审计（同时是"终生 1 次"上限的计数来源）
+export const MissionAutoRecoveredSchema = z
+  .object({
+    trigger: z.string().optional(),
+    attempt: z.number().optional(),
+  })
+  .passthrough();
+export type MissionAutoRecoveredPayload = z.infer<
+  typeof MissionAutoRecoveredSchema
+>;
+
 // ─────────── mission:cancelled ───────────
 // prod: { reason: "user_cancelled", message }
 export const MissionCancelledSchema = z

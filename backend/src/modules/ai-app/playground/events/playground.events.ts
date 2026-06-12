@@ -21,6 +21,7 @@ import {
   MissionRerunCompletedSchema,
   MissionRerunFailedSchema,
   MissionReopenedSchema,
+  MissionAutoRecoveredSchema,
   MissionZombieCleanupSchema,
   MissionPostludeStartedSchema,
   MissionPostludeCompletedSchema,
@@ -137,6 +138,8 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   S("mission:rerun-failed", MissionRerunFailedSchema), // 局部重跑失败，原产物保留（payload: scope, todoId, errorMessage）
   // PR-R3 (2026-05-07): markReopened 审计事件（failed/quality-failed → running）
   S("mission:reopened", MissionReopenedSchema),
+  // 2026-06-12: liveness 停滞击杀后的自动恢复审计 + 终生 1 次上限计数源
+  S("mission:auto-recovered", MissionAutoRecoveredSchema),
   // rerun-overhaul v1.1 (2026-05-07): RerunGuard 主动清 zombie heartbeat 审计事件
   S("mission:zombie-cleanup", MissionZombieCleanupSchema),
   S("stage:started", StageStartedSchema),

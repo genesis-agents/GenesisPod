@@ -77,6 +77,8 @@ import { PlaygroundMissionInputRebuilder } from "../runtime/playground.input-reb
 // ★ 单源 LeaderRunFn 工厂（dispatcher + rerun 共用，去 buildLeaderInvocation 双源）
 import { LeaderInvocationFactory } from "../mission/pipeline/leader-invocation.factory";
 import { MissionRerunOrchestratorService } from "../mission/rerun/mission-rerun-orchestrator.service";
+// ★ 2026-06-12: liveness 停滞击杀后的自动恢复（boot 孤儿路径之外的第二条恢复线）
+import { MissionAutoRecoveryService } from "../mission/rerun/mission-auto-recovery.service";
 import { MissionExportService } from "../mission/export/mission-export.service";
 import { AgentPlaygroundContentSourceProvider } from "../integrations/playground-content-source.provider";
 // PostmortemClassifierService 已上提到 @Global HarnessModule（PR-2 standardize playground）
@@ -195,6 +197,8 @@ import {
     RerunMissionRuntimeBuilder,
     PlaygroundMissionInputRebuilder,
     MissionRerunOrchestratorService,
+    // liveness 停滞击杀 → 带护栏自动恢复（终生 1 次 + canResume 门 + wall-time 不复活）
+    MissionAutoRecoveryService,
     // ── 导出装配（CSV / Markdown / JSON）──
     MissionExportService,
     // ── Social data source (PR-V2g: Playground as social content source) ──
@@ -265,6 +269,8 @@ export class PlaygroundModule implements OnModuleInit, OnApplicationBootstrap {
     //   调 promptSkillBridge.registerDomain，否则 SkillActivator tryGet
     //   全部 miss → "skipped: dimension-research / web-research"。
     private readonly promptSkillBridge: PromptSkillRegistrationService,
+    // ★ 2026-06-12: liveness 停滞击杀后的带护栏自动恢复（wall-time 击杀不恢复）
+    private readonly autoRecovery: MissionAutoRecoveryService,
     // ★ e2e P0-#5 / 深审 F1：liveness 回收(pod 崩/wall-time/失联)也要发失败通知 ——
     //   这才是"用户关了 UI 不知道失败"最典型的场景（dispatcher handleMissionFailure
     //   只覆盖即时失败）。@Optional：NotificationDispatcherModule 未装配则优雅缺省。
@@ -441,6 +447,24 @@ export class PlaygroundModule implements OnModuleInit, OnApplicationBootstrap {
                     `[liveness] emit mission:failed failed: ${err instanceof Error ? err.message : String(err)}`,
                   );
                 });
+              // ★ 2026-06-12: 停滞击杀（非 wall-time）→ 尝试带护栏自动恢复。
+              //   fire-and-forget：恢复成功会 markReopened 转回 running 并发
+              //   mission:reopened；失败/被护栏拦截则维持 failed（上面的失败
+              //   事件与通知已如实送达，恢复只是后续的 best-effort 升级）。
+              if (!isWallTime) {
+                const meta = await this.store
+                  .getMetaForNotify(missionId)
+                  .catch(() => null);
+                if (meta?.userId) {
+                  void this.autoRecovery
+                    .attemptAfterStaleKill(missionId, meta.userId)
+                    .catch((err: unknown) => {
+                      this.playgroundLogger.warn(
+                        `[liveness] auto-recovery threw: ${err instanceof Error ? err.message : String(err)}`,
+                      );
+                    });
+                }
+              }
               // ★ 深审 F1 (2026-05-25): liveness 回收也发 MISSION_FAILED 通知(email +
               //   site) —— 这是"用户关了 UI"最典型场景。mission:failed 事件 userId 为空,
               //   需从 DB 反查真实 owner + topic。fire-and-forget,查不到/未装配则跳。
