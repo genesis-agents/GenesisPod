@@ -112,13 +112,16 @@ describe('useSlideGenerationTeam', () => {
     mockStoreState.pages = [];
     mockStoreState.error = null;
 
-    vi.mocked(useSlidesStore).mockReturnValue(
+    const mockedStore = vi.mocked(useSlidesStore);
+    mockedStore.mockReturnValue(
       mockStoreState as ReturnType<typeof useSlidesStore>
     );
-    vi.mocked(useSlidesStore).getState = vi.fn(() => ({
+    // vitest 4.1: vi.mocked 属性类型收紧为 MockInstance 交叉型，cast 目标
+    // 必须取 mocked 实例自身的 getState 类型而非原 store 的
+    mockedStore.getState = vi.fn(() => ({
       ...mockStoreState,
       pages: [],
-    })) as unknown as typeof useSlidesStore.getState;
+    })) as unknown as (typeof mockedStore)['getState'];
 
     vi.mocked(useAuth).mockReturnValue({
       user: {
