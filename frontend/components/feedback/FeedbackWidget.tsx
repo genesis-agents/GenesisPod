@@ -292,6 +292,8 @@ export function FeedbackWidget() {
         subtitle={capturedUrl || undefined}
         size="lg"
         closeButtonDisabled={submitState.submitting}
+        // 防误触：点遮罩不关闭，避免正在填写的反馈被一键点丢（只能 X / 取消显式关闭）
+        closeOnOverlayClick={false}
         footer={
           <>
             <Button
