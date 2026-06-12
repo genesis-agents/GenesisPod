@@ -94,6 +94,9 @@ const EVENT_BASELINE: ReadonlyArray<string> = [
   "playground.leader:rejected-revision-recommended",
   "playground.leader:signed",
   "playground.memory:indexed",
+  // 2026-06-12: liveness 停滞击杀自动恢复审计（终生 1 次上限计数源）。前端无需
+  // 监听（恢复的用户可见信号是既有 mission:reopened），仅 journal 审计用。
+  "playground.mission:auto-recovered",
   "playground.mission:budget-warning-hard",
   "playground.mission:budget-warning-soft",
   "playground.mission:cancelled",
