@@ -806,33 +806,56 @@ class PlaygroundTodoBoardProjector extends BusinessTeamTodoBoardProjectorFramewo
           // fail → failed；pass/concerns → done（复审本身已完成，concerns = 带注解完成）。
           const status: "done" | "failed" =
             verdict === "fail" ? "failed" : "done";
-          const id = `critic:verdict:${ts}`;
-          this.upsert(state, id, () => ({
-            id,
-            origin: "critic-blindspot",
-            createdBy: "critic",
-            createdAt: ts,
-            reasonText:
-              rationale ??
-              `L4 复审识别 ${blindspotCount} 盲点 / ${biasCount} 偏见 / ${suggestionCount} 建议`,
-            scope: "review",
-            title: `L4 复审意见 · ${verdict} · 盲点 ${blindspotCount} / 偏见 ${biasCount} / 建议 ${suggestionCount}`,
-            assignee: { role: "critic" },
-            status,
-            startedAt: ts,
-            endedAt: ts,
-            artifacts: [
-              { kind: "critic-warning", label: "Verdict", value: verdict },
-              { kind: "critic-warning", label: "盲点", value: blindspotCount },
-              { kind: "critic-warning", label: "偏见", value: biasCount },
-              { kind: "critic-warning", label: "建议", value: suggestionCount },
-            ],
-            narrativeLog: warnings.map((w) => ({
-              ts,
-              text: `[${w?.kind ?? w?.severity ?? "note"}] ${w?.message ?? ""}`,
-              tone: w?.severity === "info" ? "info" : "warn",
-            })),
+          const reasonText =
+            rationale ??
+            `L4 复审识别 ${blindspotCount} 盲点 / ${biasCount} 偏见 / ${suggestionCount} 建议`;
+          const title = `L4 复审意见 · ${verdict} · 盲点 ${blindspotCount} / 偏见 ${biasCount} / 建议 ${suggestionCount}`;
+          const artifacts: TodoBoardEntry["artifacts"] = [
+            { kind: "critic-warning", label: "Verdict", value: verdict },
+            { kind: "critic-warning", label: "盲点", value: blindspotCount },
+            { kind: "critic-warning", label: "偏见", value: biasCount },
+            { kind: "critic-warning", label: "建议", value: suggestionCount },
+          ];
+          const narrativeLog = warnings.map((w) => ({
+            ts,
+            text: `[${w?.kind ?? w?.severity ?? "note"}] ${w?.message ?? ""}`,
+            tone: (w?.severity === "info" ? "info" : "warn") as
+              | "info"
+              | "warn",
           }));
+          // ★ 2026-06-12 fix: 稳定 id（不带 ts）。s9-critic 重跑会再发一次
+          //   critic:verdict——按时间戳的 id 会新增第二条"复审意见"。改用固定 id，
+          //   重跑时走 upsert 的 mutate 分支更新同一条（最新一次复审覆盖），保证
+          //   一个 mission 始终只有一条 L4 复审意见。
+          const applyLatest = (t: TodoBoardEntry) => {
+            t.reasonText = reasonText;
+            t.title = title;
+            t.status = status;
+            t.startedAt = ts;
+            t.endedAt = ts;
+            t.artifacts = artifacts;
+            t.narrativeLog = narrativeLog;
+          };
+          this.upsert(
+            state,
+            "critic:verdict",
+            () => ({
+              id: "critic:verdict",
+              origin: "critic-blindspot",
+              createdBy: "critic",
+              createdAt: ts,
+              reasonText,
+              scope: "review",
+              title,
+              assignee: { role: "critic" },
+              status,
+              startedAt: ts,
+              endedAt: ts,
+              artifacts,
+              narrativeLog,
+            }),
+            applyLatest,
+          );
         }
         continue;
       }
