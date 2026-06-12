@@ -469,22 +469,37 @@ export class SecretKeysService {
     //   AUTH_FAILED / 配额耗尽 / 解密失败 → 永久熔断（等替换）；限流 60s；超时 30s；未分类 5min。
     const now = Date.now();
     let fallback: SecretKey | null = null; // 全熔断时兜底：优先非永久熔断的那把
+    const eligible: SecretKey[] = []; // 可用 key（active + 不在熔断窗口）
     for (const k of candidates) {
       if (k.testStatus === "failed" && k.lastUsedAt) {
         const cooldownMs = cooldownMsForCode(k.lastErrorCode);
         const since = now - k.lastUsedAt.getTime();
         if (since < cooldownMs) {
-          // 仍在熔断窗口：跳过。非永久熔断的留作兜底候选（让业务到期后自然恢复）。
+          // 仍在熔断窗口：跳过（不进轮询）。非永久熔断的留作全熔断时兜底。
           if (fallback === null && !isPermanentCooldown(cooldownMs))
             fallback = k;
           continue;
         }
       }
-      return k;
+      eligible.push(k);
     }
     // 全部在熔断窗口内 → 兜底返回一个非永久熔断的（避免硬返回已 DEAD 的坏 key）；
     // 若全是永久熔断（全坏/全配额耗尽），仍返回第一个让上层拿到明确失败。
-    return fallback ?? candidates[0];
+    if (eligible.length === 0) return fallback ?? candidates[0];
+
+    // ★ 2026-06-12 round-robin：在「可用」key 间按 LRU 轮询（选最久未用的一把），
+    //   把负载/限流分散到所有可用 key，不再永远只用优先级第 0 把。
+    //   解析后 caller 会 stamp lastUsedAt=now（getValueInternal 等），下次自然轮到别把；
+    //   DB 为准、多进程安全。只轮询可用 key —— 熔断中 / 永久坏 / 已禁用的上面已滤除。
+    //   并列 tiebreak：命中少的优先，再按 priority 小的（保留优先级作为最终次序）。
+    eligible.sort((a, b) => {
+      const ta = a.lastUsedAt ? a.lastUsedAt.getTime() : 0;
+      const tb = b.lastUsedAt ? b.lastUsedAt.getTime() : 0;
+      if (ta !== tb) return ta - tb;
+      if (a.accessCount !== b.accessCount) return a.accessCount - b.accessCount;
+      return a.priority - b.priority;
+    });
+    return eligible[0];
   }
 
   /**
