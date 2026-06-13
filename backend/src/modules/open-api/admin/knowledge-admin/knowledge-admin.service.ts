@@ -15,7 +15,10 @@ function paging(pageStr?: string, pageSizeStr?: string) {
   const page = Math.max(1, parseInt(pageStr ?? "1", 10) || 1);
   const pageSize = Math.min(
     MAX_PAGE_SIZE,
-    Math.max(1, parseInt(pageSizeStr ?? `${DEFAULT_PAGE_SIZE}`, 10) || DEFAULT_PAGE_SIZE),
+    Math.max(
+      1,
+      parseInt(pageSizeStr ?? `${DEFAULT_PAGE_SIZE}`, 10) || DEFAULT_PAGE_SIZE,
+    ),
   );
   return { page, pageSize };
 }
@@ -40,7 +43,8 @@ export class KnowledgeAdminService {
         { description: { contains: f.search, mode: "insensitive" } },
       ];
     }
-    if (f.status) where.status = f.status as Prisma.KnowledgeBaseWhereInput["status"];
+    if (f.status)
+      where.status = f.status as Prisma.KnowledgeBaseWhereInput["status"];
     if (f.type) where.type = f.type as Prisma.KnowledgeBaseWhereInput["type"];
     if (f.ownerId) where.userId = f.ownerId;
 
@@ -87,7 +91,12 @@ export class KnowledgeAdminService {
         updatedAt: kb.updatedAt,
         lastSyncedAt: kb.lastSyncedAt,
       })),
-      pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
     };
   }
 
@@ -100,7 +109,9 @@ export class KnowledgeAdminService {
         wikiConfig: true,
         members: {
           take: 20,
-          include: { user: { select: { id: true, email: true, fullName: true } } },
+          include: {
+            user: { select: { id: true, email: true, fullName: true } },
+          },
         },
       },
     });
@@ -128,7 +139,10 @@ export class KnowledgeAdminService {
         members: kb._count.members,
         wikiPages: kb._count.wikiPages,
       },
-      docStatusBuckets: docStatusBuckets.map((b) => ({ status: b.status, count: b._count })),
+      docStatusBuckets: docStatusBuckets.map((b) => ({
+        status: b.status,
+        count: b._count,
+      })),
       members: kb.members.map((m) => ({
         userId: m.userId,
         role: m.role,
@@ -154,7 +168,9 @@ export class KnowledgeAdminService {
     const { page, pageSize } = paging(f.page, f.pageSize);
     const where: Prisma.KnowledgeBaseDocumentWhereInput = {};
     if (f.search) where.title = { contains: f.search, mode: "insensitive" };
-    if (f.status) where.status = f.status as Prisma.KnowledgeBaseDocumentWhereInput["status"];
+    if (f.status)
+      where.status =
+        f.status as Prisma.KnowledgeBaseDocumentWhereInput["status"];
     if (f.knowledgeBaseId) where.knowledgeBaseId = f.knowledgeBaseId;
     if (f.sourceType) where.sourceType = f.sourceType;
 
@@ -204,7 +220,12 @@ export class KnowledgeAdminService {
         processedAt: d.processedAt,
         hasError: !!d.lastError,
       })),
-      pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
     };
   }
 
@@ -223,13 +244,14 @@ export class KnowledgeAdminService {
     });
     if (!doc) return null;
 
-    const [parentChunks, embeddedChildChunks, totalChildChunks] = await Promise.all([
-      this.prisma.parentChunk.count({ where: { documentId: id } }),
-      this.prisma.childChunk.count({
-        where: { documentId: id, embeddings: { some: {} } },
-      }),
-      this.prisma.childChunk.count({ where: { documentId: id } }),
-    ]);
+    const [parentChunks, embeddedChildChunks, totalChildChunks] =
+      await Promise.all([
+        this.prisma.parentChunk.count({ where: { documentId: id } }),
+        this.prisma.childChunk.count({
+          where: { documentId: id, embeddings: { some: {} } },
+        }),
+        this.prisma.childChunk.count({ where: { documentId: id } }),
+      ]);
 
     return {
       id: doc.id,
@@ -272,7 +294,8 @@ export class KnowledgeAdminService {
         { slug: { contains: f.search, mode: "insensitive" } },
       ];
     }
-    if (f.category) where.category = f.category as Prisma.WikiPageWhereInput["category"];
+    if (f.category)
+      where.category = f.category as Prisma.WikiPageWhereInput["category"];
     if (f.knowledgeBaseId) where.knowledgeBaseId = f.knowledgeBaseId;
 
     const [rows, total] = await Promise.all([
@@ -313,7 +336,12 @@ export class KnowledgeAdminService {
         createdAt: p.createdAt,
         updatedAt: p.updatedAt,
       })),
-      pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
     };
   }
 
@@ -332,7 +360,12 @@ export class KnowledgeAdminService {
           take: 50,
           include: {
             document: {
-              select: { id: true, title: true, sourceType: true, sourceUrl: true },
+              select: {
+                id: true,
+                title: true,
+                sourceType: true,
+                sourceUrl: true,
+              },
             },
           },
         },

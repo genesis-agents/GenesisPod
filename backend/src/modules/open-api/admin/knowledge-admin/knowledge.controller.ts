@@ -1,15 +1,15 @@
 /**
- * Knowledge admin controller —— 薄 HTTP，逻辑在 ai-app/library/KnowledgeAdminService。
+ * Knowledge admin controller —— 薄 HTTP，逻辑在 KnowledgeAdminService。
  * Admin 视角"知识管理"：跨用户 KB / 文档 / Wiki 列表 + 详情（不按 user 过滤，看全量）。
  */
 import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
-import { KnowledgeAdminService } from "@/modules/ai-app/library/knowledge-graph/knowledge-admin.service";
+import { KnowledgeAdminService } from "./knowledge-admin.service";
 
 @UseGuards(JwtAuthGuard, AdminGuard)
 @Controller("admin/knowledge")
-export class KnowledgeController {
+export class KnowledgeAdminController {
   constructor(private readonly knowledgeAdmin: KnowledgeAdminService) {}
 
   @Get("kbs")

@@ -231,6 +231,45 @@ export const roleToken: Record<
   },
 };
 
+// ─── Entity type（知识本体实体类型色）───────────────────────
+export type EntityKey = 'org' | 'person' | 'technology' | 'product' | 'event';
+
+export const entityToken: Record<
+  EntityKey,
+  { text: string; bg: string; ring: string; label: string }
+> = {
+  org: {
+    text: 'text-blue-700',
+    bg: 'bg-blue-50',
+    ring: 'ring-blue-200',
+    label: '组织',
+  },
+  person: {
+    text: 'text-amber-700',
+    bg: 'bg-amber-50',
+    ring: 'ring-amber-200',
+    label: '人物',
+  },
+  technology: {
+    text: 'text-emerald-700',
+    bg: 'bg-emerald-50',
+    ring: 'ring-emerald-200',
+    label: '技术',
+  },
+  product: {
+    text: 'text-purple-700',
+    bg: 'bg-purple-50',
+    ring: 'ring-purple-200',
+    label: '产品',
+  },
+  event: {
+    text: 'text-red-700',
+    bg: 'bg-red-50',
+    ring: 'ring-red-200',
+    label: '事件',
+  },
+};
+
 // ─── Tone（叙事语气）──────────────────────────────────────
 export type ToneKey = 'info' | 'success' | 'warn' | 'error' | 'neutral';
 

@@ -374,7 +374,6 @@ export const TOOL_CATEGORIES: ToolCategoryDef[] = [
     toolIds: [
       'rag-search',
       'knowledge-base',
-      'knowledge-graph',
       'ontology.upsertObject',
       'ontology.addLink',
       'entity-memory',

@@ -10,10 +10,10 @@
     "frontend/lib/design/tokens.ts"
   ],
   "totals": {
-    "all": 1923,
+    "all": 1926,
     "byLayer": {
       "engine": 535,
-      "frontend": 246,
+      "frontend": 249,
       "harness": 1092,
       "platform": 50
     },
@@ -35,12 +35,12 @@
       "frontend/cards": 31,
       "frontend/collapsible": 3,
       "frontend/content": 5,
-      "frontend/design-tokens": 16,
+      "frontend/design-tokens": 18,
       "frontend/dialogs": 5,
       "frontend/feedback": 5,
       "frontend/form": 4,
       "frontend/hooks-core": 13,
-      "frontend/hooks-domain": 79,
+      "frontend/hooks-domain": 80,
       "frontend/nav": 4,
       "frontend/page-header-hero": 2,
       "frontend/pagination": 2,
@@ -4845,6 +4845,14 @@
       "import": "import { AVATAR_GRADIENTS } from \"@/lib/design/tokens\";"
     },
     {
+      "name": "EntityKey",
+      "kind": "type",
+      "layer": "frontend",
+      "domain": "design-tokens",
+      "source": "frontend/lib/design/tokens.ts",
+      "import": "import { EntityKey } from \"@/lib/design/tokens\";"
+    },
+    {
       "name": "MARKET_KIND_GRADIENTS",
       "kind": "value",
       "layer": "frontend",
@@ -4883,6 +4891,14 @@
       "domain": "design-tokens",
       "source": "frontend/lib/design/tokens.ts",
       "import": "import { border } from \"@/lib/design/tokens\";"
+    },
+    {
+      "name": "entityToken",
+      "kind": "value",
+      "layer": "frontend",
+      "domain": "design-tokens",
+      "source": "frontend/lib/design/tokens.ts",
+      "import": "import { entityToken } from \"@/lib/design/tokens\";"
     },
     {
       "name": "iconSize",
@@ -5491,6 +5507,14 @@
       "domain": "hooks-domain",
       "source": "frontend/hooks/domain/useNotifications.ts",
       "import": "import { useNotifications } from \"@/hooks/domain/useNotifications\";"
+    },
+    {
+      "name": "useOntology",
+      "kind": "value",
+      "layer": "frontend",
+      "domain": "hooks-domain",
+      "source": "frontend/hooks/domain/useOntology.ts",
+      "import": "import { useOntology } from \"@/hooks/domain/useOntology\";"
     },
     {
       "name": "useOperationMetrics",

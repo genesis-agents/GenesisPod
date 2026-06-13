@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   StickyNote,
   ThumbsUp,
+  Network,
 } from 'lucide-react';
 import {
   AssetCard,
@@ -140,6 +141,14 @@ const DataSourcesTab = dynamicImport(
   }
 );
 
+const OntologyTabContent = dynamicImport(
+  () => import('@/components/library/ontology/OntologyTabContent'),
+  {
+    ssr: false,
+    loading: () => <LoadingState size="lg" text="" />,
+  }
+);
+
 export const dynamic = 'force-dynamic';
 
 // Type for data source sub-tabs
@@ -196,14 +205,15 @@ function LibraryPageContent() {
 
   // 简化后的4个主TAB：Wiki、个人知识库、团队知识库、数据源
   const [activeTab, setActiveTab] = useState<
-    'wiki' | 'personal-kb' | 'team-kb' | 'data-sources'
+    'wiki' | 'personal-kb' | 'team-kb' | 'data-sources' | 'knowledge-ontology'
   >(() => {
     // Initialize from URL parameter if present
     if (
       tabParam === 'wiki' ||
       tabParam === 'personal-kb' ||
       tabParam === 'team-kb' ||
-      tabParam === 'data-sources'
+      tabParam === 'data-sources' ||
+      tabParam === 'knowledge-ontology'
     ) {
       return tabParam;
     }
@@ -243,7 +253,8 @@ function LibraryPageContent() {
       tabParam === 'wiki' ||
       tabParam === 'personal-kb' ||
       tabParam === 'team-kb' ||
-      tabParam === 'data-sources'
+      tabParam === 'data-sources' ||
+      tabParam === 'knowledge-ontology'
     ) {
       setActiveTab(tabParam);
     } else if (
@@ -1376,6 +1387,11 @@ function LibraryPageContent() {
       label: t('dataSources.title'),
       icon: HardDrive,
     },
+    {
+      id: 'knowledge-ontology',
+      label: t('library.ontology.title') || '知识本体',
+      icon: Network,
+    },
   ];
 
   const inWikiDetail = activeTab === 'wiki' && Boolean(wikiKbParam);
@@ -1400,22 +1416,29 @@ function LibraryPageContent() {
             activeTab={activeTab}
             onChange={(id) =>
               setActiveTab(
-                id as 'wiki' | 'personal-kb' | 'team-kb' | 'data-sources'
+                id as
+                  | 'wiki'
+                  | 'personal-kb'
+                  | 'team-kb'
+                  | 'data-sources'
+                  | 'knowledge-ontology'
               )
             }
           />
         )}
 
-        {/* Search bar — 放在 Tab 下方（数据源 tab 有自己的子导航/内容，不挂全局搜索）。 */}
-        {!inWikiDetail && activeTab !== 'data-sources' && (
-          <div className="px-8 pt-4">
-            <LibrarySearchBar
-              placeholder={t('library.search.resources')}
-              value={searchQuery}
-              onChange={setSearchQuery}
-            />
-          </div>
-        )}
+        {/* Search bar — 放在 Tab 下方（数据源 tab 和知识本体 tab 有自己的搜索，不挂全局搜索）。 */}
+        {!inWikiDetail &&
+          activeTab !== 'data-sources' &&
+          activeTab !== 'knowledge-ontology' && (
+            <div className="px-8 pt-4">
+              <LibrarySearchBar
+                placeholder={t('library.search.resources')}
+                value={searchQuery}
+                onChange={setSearchQuery}
+              />
+            </div>
+          )}
 
         {/* Main content area — wiki detail owns its own padding via subheader */}
         <div className={inWikiDetail ? '' : 'px-8 py-6'}>
@@ -1560,6 +1583,9 @@ function LibraryPageContent() {
               renderGoogleDrive={() => <GoogleDriveTabContent />}
             />
           )}
+
+          {/* Knowledge Ontology Tab */}
+          {activeTab === 'knowledge-ontology' && <OntologyTabContent />}
         </div>
       </main>
 

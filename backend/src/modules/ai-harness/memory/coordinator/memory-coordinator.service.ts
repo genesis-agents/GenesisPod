@@ -8,12 +8,12 @@
  *   Layer 1: 对话记忆 (ShortTermMemoryService) — 当前 session 上下文
  *   Layer 2: 工作记忆 (ShortTermMemoryService，键前缀 work:) — Agent 任务活跃状态
  *   Layer 3: 长期记忆 (LongTermMemoryService) — 用户偏好、领域知识
- *   Layer 4: 知识图谱 (保留接口，待 KnowledgeGraphTool 成熟后接入)
+ *   Layer 4: 本体知识 (OntologyService — 标签模糊匹配实体，降级为 [])
  *
  * 架构原则：
  *   - recall() 并行读取所有可用层，以 relevanceScore 排序后返回
  *   - store() 根据 MemoryEventType 路由到对应层，写入失败不影响主流程
- *   - Layer 4 通过 @Optional() 接入，未接入时降级运行
+ *   - Layer 4 通过 @Optional() 接入 OntologyService，未接入时降级运行
  *
  * 使用场景：
  *   - GenesisAgent 执行前：recall() 丰富 Agent 上下文
@@ -24,7 +24,7 @@
 import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import { ShortTermMemoryService } from "../stores/short-term-memory.service";
 import { LongTermMemoryService } from "../stores/long-term-memory.service";
-import { KnowledgeGraphTool } from "../../../ai-engine/tools/categories/information/knowledge/knowledge-graph.tool";
+import { OntologyService } from "../../../ai-engine/facade";
 import { PrismaVectorStore } from "../vector/prisma-vector-store";
 import type { IEmbeddingProvider } from "../vector/embedding-provider";
 
@@ -117,8 +117,8 @@ export class MemoryCoordinatorService {
   constructor(
     private readonly shortTermMemory: ShortTermMemoryService,
     private readonly longTermMemory: LongTermMemoryService,
-    // Layer 4: KnowledgeGraphTool — @Optional() 降级兼容（无 Prisma 时跳过）
-    @Optional() private readonly knowledgeGraph?: KnowledgeGraphTool,
+    // Layer 4: OntologyService — @Optional() 降级兼容（注入失败时跳过）
+    @Optional() private readonly ontologyService?: OntologyService,
     // G2 语义记忆（可选）：向量库 + 嵌入器同时注入且 flag on 才启用，
     // 否则 Layer 3 退化为纯精确 key 查找（现网默认行为不变）。
     @Optional() private readonly vectorStore?: PrismaVectorStore,
@@ -183,7 +183,7 @@ export class MemoryCoordinatorService {
             return [];
           })
         : Promise.resolve([] as MemoryFragment[]),
-      layers.includes(4) && this.knowledgeGraph
+      layers.includes(4) && this.ontologyService
         ? this.recallLayer4(query, userId).catch((err) => {
             this.logger.warn(
               `[recall] Layer 4 failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -407,43 +407,39 @@ export class MemoryCoordinatorService {
   }
 
   /**
-   * Layer 4: 从知识图谱中查找与查询关键词相关的实体（实体名称模糊匹配）
-   * 使用 find_entity queryType，将匹配到的图节点转为 MemoryFragment
+   * Layer 4: 从本体知识库中查找与查询关键词标签匹配的实体
+   * 使用 OntologyService.listObjects({ labelContains }) 模糊匹配，
+   * 将 OntologyObjectView 转为 MemoryFragment（relevanceScore 取 obj.confidence）
    */
   private async recallLayer4(
     query: MemoryQuery,
-    userId: string,
+    _userId: string,
   ): Promise<MemoryFragment[]> {
-    if (!this.knowledgeGraph) return [];
+    if (!this.ontologyService) return [];
 
-    const result = await this.knowledgeGraph.execute(
-      {
-        queryType: "find_entity",
-        entityName: query.query,
+    try {
+      const objects = await this.ontologyService.listObjects({
+        labelContains: query.query,
         limit: 8,
-      },
-      {
-        executionId: `memory-recall-${Date.now()}`,
-        toolId: "knowledge-graph",
-        userId,
-        createdAt: new Date(),
-      },
-    );
+      });
 
-    if (!result.success || !result.data?.nodes?.length) return [];
-
-    // 每个匹配节点 → 一条 MemoryFragment，relevanceScore 固定 0.7（图谱命中）
-    return result.data.nodes.map((node) => ({
-      layer: 4 as const,
-      key: `graph:${node.id}`,
-      value: {
-        entity: node.name,
-        type: node.type,
-        properties: node.properties,
-        resourceId: node.resourceId,
-      },
-      relevanceScore: 0.7,
-      type: "knowledge" as MemoryEventType,
-    }));
+      return objects.map((obj) => ({
+        layer: 4 as const,
+        key: `ontology:${obj.id}`,
+        value: {
+          label: obj.label,
+          typeKey: obj.typeKey,
+          aliases: obj.aliases,
+          properties: obj.properties,
+        },
+        relevanceScore: obj.confidence,
+        type: "knowledge" as MemoryEventType,
+      }));
+    } catch (err) {
+      this.logger.warn(
+        `[recallLayer4] OntologyService.listObjects failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return [];
+    }
   }
 }

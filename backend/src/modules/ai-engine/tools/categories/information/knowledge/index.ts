@@ -15,16 +15,6 @@ export type {
   DatabaseQueryOutput,
 } from "./database-query.tool";
 
-export { KnowledgeGraphTool } from "./knowledge-graph.tool";
-export type {
-  QueryType,
-  KnowledgeGraphInput,
-  GraphNode,
-  GraphEdge,
-  GraphPath,
-  KnowledgeGraphOutput,
-} from "./knowledge-graph.tool";
-
 export { WikiPageReadTool } from "./wiki-page-read.tool";
 export type {
   WikiPageReadInput,

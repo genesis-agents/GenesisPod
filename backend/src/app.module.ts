@@ -46,8 +46,8 @@ import { KeyResolverModule } from "./modules/platform/credentials/resolution/key
 import { UserModelConfigsModule } from "./modules/platform/credentials/user-owned/user-model-configs";
 // AI modules
 import { AiEngineModule } from "./modules/ai-engine/ai-engine.module";
-// AI Harness â€” Agent kernel / execution / memory / process / protocol / governance / facade
-// æ•´ä½“ç”± app.module.ts è£…é…ï¼ˆ@Globalï¼Œæä¾›å™¨å…¨å±€å¯æ³¨å…¥ï¼‰ï¼Œai-engine ä¸å†åå‘ä¾èµ–
+// AI Harness â€" Agent kernel / execution / memory / process / protocol / governance / facade
+// æ•´ä½"ç"± app.module.ts è£…é…ï¼ˆ@Globalï¼Œæä¾›å™¨å…¨å±€å¯æ³¨å…¥ï¼‰ï¼Œai-engine ä¸å†åå‘ä¾èµ–
 import { HarnessModule } from "./modules/ai-harness/harness.module";
 import { HarnessApiModule } from "./modules/ai-harness/facade/api/harness-api.module";
 import { RealtimeModule } from "./modules/ai-harness/protocols/realtime/realtime.module";
@@ -81,7 +81,7 @@ import { OrganizeChatModule } from "./modules/ai-app/library/organize-chat/organ
 import { NotesModule } from "./modules/ai-app/library/notes/notes.module";
 // ★ v1.5.3 LLM Wiki — Library 主形态（顶层 tab 第一位）
 import { WikiModule } from "./modules/ai-app/library/wiki/wiki.module";
-import { KnowledgeGraphModule } from "./modules/ai-app/library/knowledge-graph/knowledge-graph.module";
+import { OntologyModule } from "./modules/ai-app/library/ontology/ontology.module";
 import { RecommendationsModule } from "./modules/ai-app/library/recommendations/recommendations.module";
 // Admin modules (backend management)
 import { WorkspaceModule } from "./modules/open-api/user/workspace/workspace.module";
@@ -110,10 +110,12 @@ import { OpenApiUserModule } from "./modules/open-api/user/user.module";
 import { AiModule } from "./modules/open-api/user/ai/ai.module";
 import { AgentsModule } from "./modules/open-api/user/agents/agents.module";
 import { SkillsModule } from "./modules/open-api/user/skills/skills.module";
-// A2A API module (open-api layer â€” PR-X17: controller moved from ai-harness/protocols/a2a)
+// A2A API module (open-api layer â€" PR-X17: controller moved from ai-harness/protocols/a2a)
 import { A2AApiModule } from "./modules/open-api/external/a2a/a2a.module";
-// BYOK Admin module (open-api layer â€” PR-X17: 4 admin controllers moved from platform/credentials)
+// BYOK Admin module (open-api layer â€" PR-X17: 4 admin controllers moved from platform/credentials)
 import { ByokAdminModule } from "./modules/open-api/admin/byok/byok-admin.module";
+// Knowledge Admin module (open-api layer - v1.2: admin/knowledge/* routes split from knowledge-graph)
+import { KnowledgeAdminModule } from "./modules/open-api/admin/knowledge-admin/knowledge-admin.module";
 // Request context middleware
 import { RequestContextMiddleware } from "./common/context/request-context.middleware";
 // Plugin system 内核（v5.1 R0.5）
@@ -143,7 +145,7 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
       envFilePath: [".env", "../.env"],
     }),
 
-    // å…¨å±€äº‹ä»¶æ¨¡å—ï¼ˆå¿…é¡»åœ¨ AppModule ä¸­åªè°ƒç”¨ä¸€æ¬¡ forRootï¼Œè®¾ç½® global: true ç¡®ä¿å…¨å±€å¯ç”¨ï¼‰
+    // å…¨å±€äº‹ä»¶æ¨¡å—ï¼ˆå¿…é¡»åœ¨ AppModule ä¸­åªè°ƒç"¨ä¸€æ¬¡ forRootï¼Œè®¾ç½® global: true ç¡®ä¿å…¨å±€å¯ç"¨ï¼‰
     EventEmitterModule.forRoot({
       global: true,
     }),
@@ -168,7 +170,7 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     // å…¬å…±åŸºç¡€æ¨¡å—
     CommonModule,
 
-    // æ•°æ®åº“æ¨¡å—
+    // æ•°æ®åº"æ¨¡å—
     PrismaModule,
     SeedModule, // boot-time idempotent system-data sync (simulation providers / youtube sources)
     RawDataModule,
@@ -178,7 +180,7 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     FeatureFlagModule,
 
     // å…¬å…±æœåŠ¡æ¨¡å—
-    CacheModule, // Redis/å†…å­˜ç¼“å­˜ï¼ˆå…¨å±€ï¼‰
+    CacheModule, // Redis/å†…å­˜ç¼"å­˜ï¼ˆå…¨å±€ï¼‰
     StreamingModule,
     ContentProcessingModule,
     AuditModule,
@@ -200,14 +202,14 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     EncryptionModule, // å…¨å±€åŠ å¯†æœåŠ¡ï¼ˆå¿…é¡»å…ˆäºŽä¾èµ–å®ƒçš„æ¨¡å—æ³¨å†Œï¼‰
     UserApiKeysModule,
     ByokModule, // BYOK user-facing controllers (PR-X17: migrated from ai-engine/llm)
-    // BYOK v2ï¼šå¯åˆ†å‘ Key æ±  + åˆ†é… + ç”³è¯· + ç»Ÿä¸€è§£æž
+    // BYOK v2ï¼šå¯åˆ†å‘ Key æ±  + åˆ†é… + ç"³è¯· + ç»Ÿä¸€è§£æž
     KeyAssignmentsModule,
     KeyRequestsModule,
     KeyResolverModule,
     UserModelConfigsModule,
 
     // AI modules (ai-* prefix)
-    // â˜… Harness å¿…é¡»å…ˆäºŽ AiEngineModule è£…é… â€” engine å­æ¨¡å—ï¼ˆå¦‚ RuntimeResourceModuleï¼‰
+    // â˜… Harness å¿…é¡»å…ˆäºŽ AiEngineModule è£…é… â€" engine å­æ¨¡å—ï¼ˆå¦‚ RuntimeResourceModuleï¼‰
     // ä¾èµ– harness æ³¨å†Œçš„ DI tokenï¼ˆSPEC_AGENT_REGISTRY_PROBE / TOOL_CIRCUIT_BREAKER_PROBEï¼‰
     HarnessModule,
     HarnessApiModule,
@@ -222,7 +224,7 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     RAGModule,
     AiWritingModule,
     ResearchModule, // Deep Research æ¨¡å— (Deep Research + Notebook Research)
-    InsightModule, // Topic Insights ä¸“é¢˜æ´žå¯Ÿæ¨¡å— (ä»Ž Research æ‹†åˆ†)
+    InsightModule, // Topic Insights ä¸"é¢˜æ´žå¯Ÿæ¨¡å— (ä»Ž Research æ‹†åˆ†)
     PlaygroundModule,
     RadarModule, // AI 雷达：多源数据采集 + 多 Agent 看板 (PR-R1 起)
     ForesightModule, // AI 前瞻：判断资产 / 假设图谱（2026-06-12 P0）
@@ -246,7 +248,7 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     ExploreModule,
     LibraryModule, // R2 P1 fix (2026-05-18): registers LibrarySocialSourceProvider so DiscoveryService can find it
     WorkspaceModule,
-    KnowledgeGraphModule,
+    OntologyModule,
     RecommendationsModule,
 
     // Ingestion modules
@@ -292,6 +294,9 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
 
     // BYOK Admin API (PR-X17: 4 admin controllers moved from platform/credentials)
     ByokAdminModule,
+
+    // Knowledge Admin API (v1.2: admin/knowledge/* routes split from knowledge-graph)
+    KnowledgeAdminModule,
   ],
   controllers: [AppController],
   providers: [
@@ -304,17 +309,17 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
     },
-    // å…¨å±€å¯ç”¨é™æµå®ˆå«
+    // å…¨å±€å¯ç"¨é™æµå®ˆå«
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
-    // å…¨å±€è¯·æ±‚æ—¥å¿— & æ€§èƒ½è¿½è¸ªæ‹¦æˆªå™¨ï¼ˆServer-Timing header + æŒ‡æ ‡æ”¶é›†ï¼‰
+    // å…¨å±€è¯·æ±‚æ—¥å¿— & æ€§èƒ½è¿½è¸ªæ‹¦æˆªå™¨ï¼ˆServer-Timing header + æŒ‡æ ‡æ"¶é›†ï¼‰
     {
       provide: APP_INTERCEPTOR,
       useClass: RequestLoggerInterceptor,
     },
-    // å…¨å±€å“åº”æ ¼å¼è½¬æ¢æ‹¦æˆªå™¨
+    // å…¨å±€å"åº"æ ¼å¼è½¬æ¢æ‹¦æˆªå™¨
     // Ensures consistent API response format: { success, data, metadata }
     {
       provide: APP_INTERCEPTOR,

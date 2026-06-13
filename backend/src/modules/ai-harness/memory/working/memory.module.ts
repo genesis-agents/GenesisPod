@@ -70,9 +70,8 @@ const HARNESS_MEMORY_PROVIDERS = [
   conversationMemoryFactory,
   ShortTermMemoryService,
   LongTermMemoryService,
-  // Coordinator (KnowledgeGraphTool 通过 @Optional 注入；它在 ai-engine/tools
-  // 由 AiEngineToolsModule 提供，AiEngineModule @Global 让它全局可见，因此
-  // 这里不需要重复注册。)
+  // Coordinator (OntologyService 通过 @Optional 注入；它在 ai-engine/knowledge/ontology
+  // 由 AiEngineModule @Global 提供，因此这里不需要重复注册。)
   MemoryCoordinatorService,
   // Tools (迁自 ai-engine/tools/categories/memory)
   ShortTermMemoryTool,
