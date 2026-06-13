@@ -101,8 +101,10 @@ import {
   OntologyService,
   OntologyBuilderSkill,
 } from "@/modules/ai-engine/facade";
-import { mapSubgraphToContextPackage } from "./ontology-context.mapper";
-import { mergeContextPackages } from "@/modules/ai-harness/facade";
+import {
+  loadOntologyIntoPackage,
+  writeBackMissionToOntology,
+} from "./ontology-mission-bridge";
 
 // 注：ReviewResult 已迁移至 ./utils/parsing.utils.ts
 
@@ -1169,38 +1171,15 @@ export class TeamMissionService implements OnModuleInit {
         );
       }
 
-      // ★ P4: 从知识本体加载已有子图，合并到 contextPackage（Leader 优先，本体补充）
-      let mergedContextPackage = contextPackage;
-      if (this.ontologyService && mission.topicId) {
-        try {
-          const subgraph = await this.ontologyService.querySubgraphByTopic(
+      // ★ P4 Knowledge Ontology: 加载已有子图并合并进 contextPackage（详见 ontology-mission-bridge）
+      const mergedContextPackage = this.ontologyService
+        ? await loadOntologyIntoPackage(
+            this.ontologyService,
             mission.topicId,
-            { maxNodes: 100 },
-          );
-          if (subgraph.nodes.length > 0) {
-            const ontologyPkg = mapSubgraphToContextPackage(
-              subgraph,
-              "ontology",
-            );
-            if (contextPackage) {
-              // Leader 输出优先；本体仅补充 Leader 未提取的实体/术语
-              mergedContextPackage = mergeContextPackages(
-                contextPackage,
-                ontologyPkg,
-              );
-            } else {
-              mergedContextPackage = ontologyPkg;
-            }
-            this.logger.log(
-              `[startMission] Merged ontology subgraph: ${subgraph.nodes.length} nodes into context (total entities: ${mergedContextPackage.entities.length})`,
-            );
-          }
-        } catch (err) {
-          this.logger.warn(
-            `[startMission] Ontology subgraph load failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-      }
+            contextPackage,
+            this.logger,
+          )
+        : contextPackage;
 
       // 保存任务分解方案和上下文
       await this.prisma.teamMission.update({
@@ -3430,39 +3409,14 @@ export class TeamMissionService implements OnModuleInit {
         topicKey: mission.topicId,
       });
 
-      // ★ P4 Knowledge Ontology: 回写 — 把 finalReport 中的新事实写入本体图谱
-      // fire-and-forget，不阻塞主流程；跳过已有 ontology 来源的预填项（无循环回写）
+      // ★ P4 Knowledge Ontology: mission 完成后回写新事实（fire-and-forget，详见 bridge）
       if (this.ontologyBuilderSkill && finalReport) {
-        // 24000 与 skill 内部 MAX_INPUT_CHARS(32000) 对齐，尽量覆盖报告新发现
-        const ontologyWritebackText = finalReport.slice(0, 24000);
-        // 确保 skill 持有 toolRegistry（用于 callTool 工具调用）
-        this.ontologyBuilderSkill.setToolRegistry(this.toolRegistry);
-        void this.ontologyBuilderSkill
-          .execute(
-            {
-              text: ontologyWritebackText,
-              topicId: mission.topicId,
-              sourceType: "mission",
-              sourceId: missionId,
-            },
-            {
-              executionId: `ontology-writeback-${missionId}`,
-              skillId: this.ontologyBuilderSkill.id,
-              createdAt: new Date(),
-            },
-          )
-          .then((result) => {
-            if (result.success && result.data) {
-              this.logger.log(
-                `[completeMission] Ontology write-back done — created=${result.data.created}, merged=${result.data.merged}, linked=${result.data.linked}`,
-              );
-            }
-          })
-          .catch((err: unknown) => {
-            this.logger.warn(
-              `[completeMission] Ontology write-back failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
-            );
-          });
+        writeBackMissionToOntology(
+          this.ontologyBuilderSkill,
+          this.toolRegistry,
+          { finalReport, topicId: mission.topicId, missionId },
+          this.logger,
+        );
       }
 
       // ★ AI Kernel: 标记进程完成
