@@ -8,6 +8,7 @@
 
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
+import { apiError } from '@/lib/utils/api-error';
 import type { MissionGraphArtifact, NodeEnrichment } from './graph-types';
 
 const API_BASE = `${config.apiBaseUrl}/api/v1/playground`;
@@ -116,9 +117,7 @@ export async function runTeam(
     body: JSON.stringify(input),
   });
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    const detail = text.length > 200 ? text.slice(0, 200) + '…' : text;
-    throw new Error(`Failed to start mission: ${res.status} ${detail}`);
+    throw await apiError(res);
   }
   let raw: unknown;
   try {
@@ -557,8 +556,7 @@ export async function rerunTodo(
     }
   );
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Rerun todo failed: ${res.status} ${text.slice(0, 200)}`);
+    throw await apiError(res);
   }
   const raw: unknown = await res.json();
   return unwrapStandard<{ missionId: string; streamNamespace: string }>(raw);
@@ -604,8 +602,7 @@ export async function localRerunTodo(
     }
   );
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Local rerun failed: ${res.status} ${text.slice(0, 300)}`);
+    throw await apiError(res);
   }
   const raw: unknown = await res.json();
   return unwrapStandard<{
@@ -640,8 +637,7 @@ export async function rerunMission(
     headers: { ...getAuthHeader() },
   });
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Rerun failed: ${res.status} ${text.slice(0, 200)}`);
+    throw await apiError(res);
   }
   const raw: unknown = await res.json();
   return unwrapStandard<{ missionId: string; streamNamespace: string }>(raw);
@@ -656,8 +652,7 @@ export async function deleteMission(missionId: string): Promise<{ ok: true }> {
     }
   );
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Delete failed: ${res.status} ${text.slice(0, 200)}`);
+    throw await apiError(res);
   }
   const raw: unknown = await res.json();
   return unwrapStandard<{ ok: true }>(raw);
@@ -673,8 +668,7 @@ export async function cleanupMissions(): Promise<{ deleted: number }> {
     headers: { ...getAuthHeader() },
   });
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Cleanup failed: ${res.status} ${text.slice(0, 200)}`);
+    throw await apiError(res);
   }
   const raw: unknown = await res.json();
   return unwrapStandard<{ deleted: number }>(raw);
@@ -702,8 +696,7 @@ export async function updateMission(
     }
   );
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Update failed: ${res.status} ${text.slice(0, 200)}`);
+    throw await apiError(res);
   }
   const raw: unknown = await res.json();
   return unwrapStandard<{ ok: true }>(raw);
@@ -725,10 +718,7 @@ export async function setVisibility(
     }
   );
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(
-      `Set visibility failed: ${res.status} ${text.slice(0, 200)}`
-    );
+    throw await apiError(res);
   }
   const raw: unknown = await res.json();
   return unwrapStandard<{
@@ -748,8 +738,7 @@ export async function cancelMission(
     }
   );
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Cancel failed: ${res.status} ${text.slice(0, 200)}`);
+    throw await apiError(res);
   }
   const raw: unknown = await res.json();
   return unwrapStandard<{ ok: true; status: string }>(raw);
@@ -784,10 +773,7 @@ export async function sendLeaderChat(
     }
   );
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(
-      `Failed to send to leader: ${res.status} ${text.slice(0, 200)}`
-    );
+    throw await apiError(res);
   }
   const raw: unknown = await res.json();
   return unwrapStandard<LeaderChatSendResponse>(raw);
@@ -870,10 +856,7 @@ export async function getReportVersion(
     { headers: { ...getAuthHeader() } }
   );
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(
-      `Failed to load report version v${version}: ${res.status} ${text.slice(0, 200)}`
-    );
+    throw await apiError(res);
   }
   const raw: unknown = await res.json();
   return unwrapStandard<ReportVersionDetail>(raw);
@@ -977,10 +960,7 @@ export async function getMissionGraph(
     { headers: { ...getAuthHeader() } }
   );
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(
-      `Failed to fetch mission graph: ${res.status} ${text.slice(0, 200)}`
-    );
+    throw await apiError(res);
   }
   const raw: unknown = await res.json();
   return unwrapStandard<MissionGraphArtifact>(raw);
@@ -1000,10 +980,7 @@ export async function buildMissionGraph(
     }
   );
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(
-      `Failed to build mission graph: ${res.status} ${text.slice(0, 200)}`
-    );
+    throw await apiError(res);
   }
   const raw: unknown = await res.json();
   return unwrapStandard<MissionGraphArtifact>(raw);
@@ -1020,10 +997,7 @@ export async function enrichGraphNode(
     { headers: { ...getAuthHeader() } }
   );
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(
-      `Failed to enrich graph node: ${res.status} ${text.slice(0, 200)}`
-    );
+    throw await apiError(res);
   }
   const raw: unknown = await res.json();
   return unwrapStandard<NodeEnrichment>(raw);

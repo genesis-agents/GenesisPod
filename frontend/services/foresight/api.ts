@@ -8,6 +8,7 @@
 
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
+import { apiError } from '@/lib/utils/api-error';
 
 const API_BASE = `${config.apiBaseUrl}/api/v1/foresight`;
 
@@ -156,8 +157,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     },
   });
   if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`foresight api ${res.status}: ${body.slice(0, 300)}`);
+    throw await apiError(res);
   }
   return unwrapStandard<T>(await res.json());
 }

@@ -7,6 +7,7 @@
 
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
+import { apiError } from '@/lib/utils/api-error';
 import type {
   CancelRunResponse,
   CreateRadarSourceInput,
@@ -46,14 +47,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     },
   });
   if (!res.ok) {
-    let detail = '';
-    try {
-      const text = await res.text();
-      detail = text.length > 300 ? `${text.slice(0, 300)}…` : text;
-    } catch {
-      // ignore
-    }
-    throw new Error(`Radar API ${res.status}: ${detail || res.statusText}`);
+    throw await apiError(res);
   }
   const raw = (await res.json()) as unknown;
   return unwrapStandard<T>(raw);

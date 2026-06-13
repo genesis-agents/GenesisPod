@@ -1,5 +1,6 @@
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
+import { apiError } from '@/lib/utils/api-error';
 import type { MissionEvent } from '@/hooks/features/useMissionStream';
 
 /**
@@ -20,13 +21,13 @@ export async function replaySocialMission(
     { headers: { ...getAuthHeader() } }
   );
   if (!res.ok) {
-    throw new Error(`Failed to replay social mission: ${res.status}`);
+    throw await apiError(res, '加载任务回放');
   }
   let raw: unknown;
   try {
     raw = await res.json();
   } catch {
-    throw new Error('Failed to replay social mission: invalid JSON response');
+    throw new Error('加载任务回放失败：服务返回了无法解析的内容，请刷新重试');
   }
   // 兼容标准包裹（{ data: {...} }）与裸 { events, serverNow }
   const body = (
