@@ -10,9 +10,9 @@
     "frontend/lib/design/tokens.ts"
   ],
   "totals": {
-    "all": 1926,
+    "all": 1936,
     "byLayer": {
-      "engine": 535,
+      "engine": 545,
       "frontend": 249,
       "harness": 1092,
       "platform": 50
@@ -21,7 +21,7 @@
       "engine/content": 201,
       "engine/credentials": 17,
       "engine/facade": 39,
-      "engine/knowledge": 40,
+      "engine/knowledge": 50,
       "engine/llm": 71,
       "engine/planning": 11,
       "engine/rag": 30,
@@ -2293,6 +2293,30 @@
       "import": "import { OntologyBuilderSkill } from \"@/modules/ai-engine/facade\";"
     },
     {
+      "name": "OntologyEditPropertyInput",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.types.ts",
+      "import": "import { OntologyEditPropertyInput } from \"@/modules/ai-engine/facade\";"
+    },
+    {
+      "name": "OntologyEditView",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.types.ts",
+      "import": "import { OntologyEditView } from \"@/modules/ai-engine/facade\";"
+    },
+    {
+      "name": "OntologyLinkTypeView",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.types.ts",
+      "import": "import { OntologyLinkTypeView } from \"@/modules/ai-engine/facade\";"
+    },
+    {
       "name": "OntologyLinkView",
       "kind": "type",
       "layer": "engine",
@@ -2301,12 +2325,44 @@
       "import": "import { OntologyLinkView } from \"@/modules/ai-engine/facade\";"
     },
     {
+      "name": "OntologyListEditsFilter",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.types.ts",
+      "import": "import { OntologyListEditsFilter } from \"@/modules/ai-engine/facade\";"
+    },
+    {
       "name": "OntologyListFilter",
       "kind": "type",
       "layer": "engine",
       "domain": "knowledge",
       "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.types.ts",
       "import": "import { OntologyListFilter } from \"@/modules/ai-engine/facade\";"
+    },
+    {
+      "name": "OntologyListTypesFilter",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.types.ts",
+      "import": "import { OntologyListTypesFilter } from \"@/modules/ai-engine/facade\";"
+    },
+    {
+      "name": "OntologyMergeObjectsInput",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.types.ts",
+      "import": "import { OntologyMergeObjectsInput } from \"@/modules/ai-engine/facade\";"
+    },
+    {
+      "name": "OntologyObjectTypeView",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.types.ts",
+      "import": "import { OntologyObjectTypeView } from \"@/modules/ai-engine/facade\";"
     },
     {
       "name": "OntologyObjectView",
@@ -2323,6 +2379,14 @@
       "domain": "knowledge",
       "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.service.ts",
       "import": "import { OntologyService } from \"@/modules/ai-engine/facade\";"
+    },
+    {
+      "name": "OntologySetConfidenceInput",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.types.ts",
+      "import": "import { OntologySetConfidenceInput } from \"@/modules/ai-engine/facade\";"
     },
     {
       "name": "RerankAdapter",
@@ -2453,12 +2517,28 @@
       "import": "import { SynthesisResult } from \"@/modules/ai-engine/facade\";"
     },
     {
+      "name": "UpsertLinkTypeInput",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.types.ts",
+      "import": "import { UpsertLinkTypeInput } from \"@/modules/ai-engine/facade\";"
+    },
+    {
       "name": "UpsertObjectInput",
       "kind": "type",
       "layer": "engine",
       "domain": "knowledge",
       "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.types.ts",
       "import": "import { UpsertObjectInput } from \"@/modules/ai-engine/facade\";"
+    },
+    {
+      "name": "UpsertObjectTypeInput",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.types.ts",
+      "import": "import { UpsertObjectTypeInput } from \"@/modules/ai-engine/facade\";"
     },
     {
       "name": "AIError",

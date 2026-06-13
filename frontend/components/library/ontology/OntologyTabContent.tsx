@@ -16,11 +16,20 @@ import {
   HelpCircle,
   Clock,
   RefreshCw,
+  Sliders,
+  Merge,
+  Pencil,
+  GitBranch,
+  History,
+  Link2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import {
   useOntology,
   type OntologyObjectView,
+  type ObjectType,
+  type LinkType,
+  type OntologyEdit,
   type ListEntitiesParams,
 } from '@/hooks/domain/useOntology';
 import { LoadingState, EmptyState, ErrorState } from '@/components/ui/states';
@@ -30,6 +39,11 @@ import { SideDrawer } from '@/components/common/drawers/SideDrawer';
 import DataTable, {
   type ColumnDef,
 } from '@/components/common/tables/DataTable';
+import { Tabs, type TabItem } from '@/components/ui/tabs/Tabs';
+import { Modal } from '@/components/ui/dialogs/Modal';
+import { ConfirmDialog } from '@/components/ui/dialogs/ConfirmDialog';
+import { Button } from '@/components/ui/primitives/button';
+import KnowledgeGraphView from '@/components/common/views/KnowledgeGraphView';
 import { entityToken, type EntityKey } from '@/lib/design/tokens';
 import { logger } from '@/lib/utils/logger';
 
@@ -83,6 +97,20 @@ function formatDate(value: string | Date): string {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
+    });
+  } catch {
+    return String(value);
+  }
+}
+
+function formatDateTime(value: string | Date): string {
+  try {
+    return new Date(value).toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
     });
   } catch {
     return String(value);
@@ -225,6 +253,210 @@ function RecentChanges({ items }: RecentChangesProps) {
   );
 }
 
+// ─── Action modals ─────────────────────────────────────────────────────────────
+
+interface EditPropertyModalProps {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (key: string, value: string, reason: string) => Promise<void>;
+  entityLabel: string;
+}
+
+function EditPropertyModal({
+  open,
+  onClose,
+  onSubmit,
+  entityLabel,
+}: EditPropertyModalProps) {
+  const [key, setKey] = useState('');
+  const [value, setValue] = useState('');
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!key.trim() || !value.trim()) return;
+    setSubmitting(true);
+    try {
+      await onSubmit(key.trim(), value.trim(), reason.trim());
+      setKey('');
+      setValue('');
+      setReason('');
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="编辑属性"
+      subtitle={entityLabel}
+      size="sm"
+      closeButtonDisabled={submitting}
+      footer={
+        <>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onClose}
+            disabled={submitting}
+          >
+            取消
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => void handleSubmit()}
+            disabled={submitting || !key.trim() || !value.trim()}
+          >
+            {submitting ? '保存中…' : '保存'}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-600">
+            属性键
+          </label>
+          <input
+            type="text"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder="如 industry"
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-600">
+            属性值
+          </label>
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="如 互联网"
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-600">
+            备注（可选）
+          </label>
+          <input
+            type="text"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="修改原因"
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+          />
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+interface SetConfidenceModalProps {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (value: number, reason: string) => Promise<void>;
+  entityLabel: string;
+  currentConfidence: number;
+}
+
+function SetConfidenceModal({
+  open,
+  onClose,
+  onSubmit,
+  entityLabel,
+  currentConfidence,
+}: SetConfidenceModalProps) {
+  const [value, setValue] = useState(Math.round(currentConfidence * 100));
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  // sync when entity changes
+  useEffect(() => {
+    setValue(Math.round(currentConfidence * 100));
+  }, [currentConfidence, open]);
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    try {
+      await onSubmit(value / 100, reason.trim());
+      setReason('');
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="标注置信度"
+      subtitle={entityLabel}
+      size="sm"
+      closeButtonDisabled={submitting}
+      footer={
+        <>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onClose}
+            disabled={submitting}
+          >
+            取消
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => void handleSubmit()}
+            disabled={submitting}
+          >
+            {submitting ? '保存中…' : '保存'}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-600">
+            置信度：{value}%
+          </label>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={value}
+            onChange={(e) => setValue(Number(e.target.value))}
+            className="w-full accent-violet-600"
+          />
+          <div className="mt-1 flex justify-between text-[10px] text-gray-400">
+            <span>0%</span>
+            <span>50%</span>
+            <span>100%</span>
+          </div>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-600">
+            备注（可选）
+          </label>
+          <input
+            type="text"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="调整原因"
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+          />
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 // ─── Detail Drawer ────────────────────────────────────────────────────────────
 
 interface EntityDetailDrawerProps {
@@ -232,6 +464,9 @@ interface EntityDetailDrawerProps {
   related: OntologyObjectView[];
   relatedLoading: boolean;
   onClose: () => void;
+  onEditProperty: (entity: OntologyObjectView) => void;
+  onSetConfidence: (entity: OntologyObjectView) => void;
+  onMerge: (entity: OntologyObjectView) => void;
 }
 
 function EntityDetailDrawer({
@@ -239,16 +474,19 @@ function EntityDetailDrawer({
   related,
   relatedLoading,
   onClose,
+  onEditProperty,
+  onSetConfidence,
+  onMerge,
 }: EntityDetailDrawerProps) {
   return (
     <SideDrawer
       open={entity !== null}
       onClose={onClose}
       title={entity?.label ?? ''}
-      widthPx={420}
+      widthPx={440}
     >
       {entity && (
-        <div className="space-y-5 p-4">
+        <div className="space-y-5">
           {/* Type + confidence */}
           <div className="flex items-center gap-2">
             <EntityTypeBadge typeKey={entity.typeKey} />
@@ -256,6 +494,42 @@ function EntityDetailDrawer({
               置信度 {Math.round(entity.confidence * 100)}%
             </span>
           </div>
+
+          {/* Action panel */}
+          <section className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              操作
+            </h4>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onEditProperty(entity)}
+                className="flex items-center gap-1.5 text-xs"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                编辑属性
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onSetConfidence(entity)}
+                className="flex items-center gap-1.5 text-xs"
+              >
+                <Sliders className="h-3.5 w-3.5" />
+                标注置信度
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onMerge(entity)}
+                className="flex items-center gap-1.5 text-xs text-red-600 hover:text-red-700"
+              >
+                <Merge className="h-3.5 w-3.5" />
+                合并对象
+              </Button>
+            </div>
+          </section>
 
           {/* Aliases */}
           {entity.aliases.length > 0 && (
@@ -384,33 +658,434 @@ function EntityCard({ entity, onClick }: EntityCardProps) {
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── Meta-model tab ───────────────────────────────────────────────────────────
 
-interface OntologyTabContentProps {
-  /** Optional topic scope for initial load */
+interface MetaModelTabProps {
   topicId?: string;
 }
 
-export default function OntologyTabContent({
-  topicId,
-}: OntologyTabContentProps) {
-  const { items, loading, error, listEntities, getRelated } = useOntology();
+function MetaModelTab({ topicId: _topicId }: MetaModelTabProps) {
+  const { listTypes, listLinkTypes } = useOntology();
+  const [objectTypes, setObjectTypes] = useState<ObjectType[]>([]);
+  const [linkTypes, setLinkTypes] = useState<LinkType[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    Promise.all([listTypes(), listLinkTypes()])
+      .then(([ot, lt]) => {
+        setObjectTypes(ot);
+        setLinkTypes(lt);
+      })
+      .catch((e: unknown) => {
+        const err = e instanceof Error ? e : new Error(String(e));
+        setError(err);
+        logger.error('[MetaModelTab] load failed', { error: err.message });
+      })
+      .finally(() => setLoading(false));
+  }, [listTypes, listLinkTypes]);
+
+  const objectTypeCols: ColumnDef<ObjectType>[] = [
+    {
+      id: 'key',
+      header: '键名',
+      accessorKey: 'key',
+      sortable: true,
+      cell: ({ row }) => (
+        <span className="font-mono text-xs text-gray-700">{row.key}</span>
+      ),
+    },
+    {
+      id: 'label',
+      header: '标签',
+      accessorKey: 'label',
+      sortable: true,
+      cell: ({ row }) => (
+        <span className="font-medium text-gray-900">{row.label}</span>
+      ),
+    },
+    {
+      id: 'description',
+      header: '描述',
+      accessorKey: 'description',
+      cell: ({ row }) =>
+        row.description ? (
+          <span className="text-sm text-gray-500">{row.description}</span>
+        ) : (
+          <span className="text-gray-300">—</span>
+        ),
+    },
+  ];
+
+  const linkTypeCols: ColumnDef<LinkType>[] = [
+    {
+      id: 'key',
+      header: '键名',
+      accessorKey: 'key',
+      sortable: true,
+      cell: ({ row }) => (
+        <span className="font-mono text-xs text-gray-700">{row.key}</span>
+      ),
+    },
+    {
+      id: 'label',
+      header: '标签',
+      accessorKey: 'label',
+      sortable: true,
+      cell: ({ row }) => (
+        <span className="font-medium text-gray-900">{row.label}</span>
+      ),
+    },
+    {
+      id: 'directed',
+      header: '有向',
+      accessorKey: 'directed',
+      cell: ({ row }) => (
+        <span
+          className={cn(
+            'text-xs font-medium',
+            row.directed ? 'text-violet-600' : 'text-gray-400'
+          )}
+        >
+          {row.directed ? '是' : '否'}
+        </span>
+      ),
+    },
+    {
+      id: 'description',
+      header: '描述',
+      accessorKey: 'description',
+      cell: ({ row }) =>
+        row.description ? (
+          <span className="text-sm text-gray-500">{row.description}</span>
+        ) : (
+          <span className="text-gray-300">—</span>
+        ),
+    },
+  ];
+
+  if (loading) return <LoadingState size="lg" text="加载元模型..." />;
+  if (error) {
+    return (
+      <ErrorState
+        error={error}
+        onRetry={() => {
+          setError(null);
+          setLoading(true);
+          Promise.all([listTypes(), listLinkTypes()])
+            .then(([ot, lt]) => {
+              setObjectTypes(ot);
+              setLinkTypes(lt);
+            })
+            .catch((e: unknown) => {
+              const err = e instanceof Error ? e : new Error(String(e));
+              setError(err);
+            })
+            .finally(() => setLoading(false));
+        }}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <section>
+        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+          <GitBranch className="h-4 w-4 text-gray-400" />
+          对象类型
+          <Tag className="bg-gray-100 text-gray-500 ring-gray-200">
+            {objectTypes.length}
+          </Tag>
+        </h3>
+        {objectTypes.length === 0 ? (
+          <EmptyState size="sm" title="暂无对象类型" />
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+            <DataTable
+              data={objectTypes}
+              columns={objectTypeCols}
+              getRowId={(row) => row.key}
+              emptyState={{ title: '暂无对象类型' }}
+            />
+          </div>
+        )}
+      </section>
+
+      <section>
+        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+          <Link2 className="h-4 w-4 text-gray-400" />
+          关系类型
+          <Tag className="bg-gray-100 text-gray-500 ring-gray-200">
+            {linkTypes.length}
+          </Tag>
+        </h3>
+        {linkTypes.length === 0 ? (
+          <EmptyState size="sm" title="暂无关系类型" />
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+            <DataTable
+              data={linkTypes}
+              columns={linkTypeCols}
+              getRowId={(row) => row.key}
+              emptyState={{ title: '暂无关系类型' }}
+            />
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+// ─── Graph tab ────────────────────────────────────────────────────────────────
+
+interface GraphTabProps {
+  topicId?: string;
+}
+
+function GraphTab({ topicId }: GraphTabProps) {
+  const { loading, error } = useOntology();
+  const [subgraphData, setSubgraphData] = useState<{
+    nodes: Array<{
+      id: string;
+      label: string;
+      type: string;
+      properties: Record<string, unknown>;
+    }>;
+    edges: Array<{
+      source: string;
+      target: string;
+      type: string;
+      weight?: number;
+    }>;
+  } | null>(null);
+  const [loadingGraph, setLoadingGraph] = useState(false);
+  const [graphError, setGraphError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    setLoadingGraph(true);
+    setGraphError(null);
+    const url = topicId
+      ? `/ontology/subgraph?topicId=${topicId}`
+      : '/ontology/subgraph';
+
+    import('@/lib/api/client')
+      .then(({ apiClient }) =>
+        apiClient.get<{
+          nodes: Array<{
+            id: string;
+            label: string;
+            typeKey: string;
+            properties: Record<string, unknown>;
+          }>;
+          links: Array<{
+            fromId: string;
+            toId: string;
+            linkTypeKey: string;
+            confidence?: number;
+          }>;
+        }>(url)
+      )
+      .then((data) => {
+        setSubgraphData({
+          nodes: (data.nodes ?? []).map((n) => ({
+            id: n.id,
+            label: n.label,
+            type: n.typeKey,
+            properties: n.properties ?? {},
+          })),
+          edges: (data.links ?? []).map((l) => ({
+            source: l.fromId,
+            target: l.toId,
+            type: l.linkTypeKey,
+            weight: l.confidence,
+          })),
+        });
+      })
+      .catch((e: unknown) => {
+        const err = e instanceof Error ? e : new Error(String(e));
+        setGraphError(err);
+        logger.error('[GraphTab] subgraph load failed', { error: err.message });
+      })
+      .finally(() => setLoadingGraph(false));
+  }, [topicId]);
+
+  const nodeColor = useCallback(
+    (node: { type: string }): string | undefined => {
+      const key = normalizeTypeKey(node.type);
+      if (!key) return undefined;
+      // map entityToken text color → a hex via simple lookup
+      const colorMap: Record<EntityKey, string> = {
+        org: '#3b82f6',
+        person: '#f59e0b',
+        technology: '#10b981',
+        product: '#8b5cf6',
+        event: '#ef4444',
+      };
+      return colorMap[key];
+    },
+    []
+  );
+
+  if (loadingGraph || loading) {
+    return <LoadingState size="lg" text="加载图谱数据..." />;
+  }
+  if (graphError || error) {
+    return (
+      <ErrorState
+        error={graphError ?? error ?? new Error('Unknown error')}
+        onRetry={() => {
+          setGraphError(null);
+          setLoadingGraph(true);
+        }}
+      />
+    );
+  }
+  if (!subgraphData || subgraphData.nodes.length === 0) {
+    return (
+      <EmptyState
+        icon={<Network className="h-12 w-12" />}
+        title="暂无图谱数据"
+        description="当前范围内尚未构建知识图谱"
+      />
+    );
+  }
+
+  return (
+    <div className="h-[600px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <KnowledgeGraphView
+        nodes={subgraphData.nodes}
+        edges={subgraphData.edges}
+        title="知识本体图谱"
+        nodeColor={nodeColor}
+      />
+    </div>
+  );
+}
+
+// ─── Edit feed tab ────────────────────────────────────────────────────────────
+
+interface EditFeedTabProps {
+  topicId?: string;
+}
+
+function EditFeedTab({ topicId }: EditFeedTabProps) {
+  const { listEdits } = useOntology();
+  const [edits, setEdits] = useState<OntologyEdit[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    listEdits({ topicId, limit: 50 })
+      .then((items) => setEdits(items))
+      .catch((e: unknown) => {
+        const err = e instanceof Error ? e : new Error(String(e));
+        setError(err);
+        logger.error('[EditFeedTab] load failed', { error: err.message });
+      })
+      .finally(() => setLoading(false));
+  }, [listEdits, topicId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (loading) return <LoadingState size="lg" text="加载编辑历史..." />;
+  if (error) return <ErrorState error={error} onRetry={load} />;
+  if (edits.length === 0) {
+    return (
+      <EmptyState
+        icon={<History className="h-12 w-12" />}
+        title="暂无编辑记录"
+        description="本体变更历史将在这里展示"
+      />
+    );
+  }
+
+  const ACTION_LABEL: Record<string, string> = {
+    create: '创建',
+    update: '更新',
+    delete: '删除',
+    merge: '合并',
+    confidence_update: '置信度更新',
+    property_edit: '属性编辑',
+  };
+
+  return (
+    <div className="space-y-3">
+      {edits.map((edit) => (
+        <div
+          key={edit.id}
+          className="flex gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm"
+        >
+          <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-50">
+            <History className="h-3.5 w-3.5 text-violet-600" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <Tag className="bg-violet-50 text-violet-700 ring-1 ring-violet-200">
+                {ACTION_LABEL[edit.action] ?? edit.action}
+              </Tag>
+              <span className="text-xs text-gray-400">{edit.actorType}</span>
+            </div>
+            {edit.reason && (
+              <p className="mt-1 text-sm text-gray-700">{edit.reason}</p>
+            )}
+            {(edit.before ?? edit.after) && (
+              <dl className="mt-2 space-y-0.5 rounded-lg bg-gray-50 p-2 text-xs">
+                {edit.before && (
+                  <div className="flex gap-1.5">
+                    <dt className="shrink-0 font-medium text-gray-500">
+                      变更前:
+                    </dt>
+                    <dd className="truncate text-gray-600">
+                      {JSON.stringify(edit.before)}
+                    </dd>
+                  </div>
+                )}
+                {edit.after && (
+                  <div className="flex gap-1.5">
+                    <dt className="shrink-0 font-medium text-gray-500">
+                      变更后:
+                    </dt>
+                    <dd className="truncate text-gray-600">
+                      {JSON.stringify(edit.after)}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            )}
+            <p className="mt-1.5 text-[10px] text-gray-400">
+              {formatDateTime(edit.createdAt)}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Objects tab (existing table/card view) ───────────────────────────────────
+
+interface ObjectsTabProps {
+  topicId?: string;
+  onEntityClick: (entity: OntologyObjectView) => void;
+}
+
+function ObjectsTab({ topicId, onEntityClick }: ObjectsTabProps) {
+  const { items, loading, error, listEntities } = useOntology();
   const [search, setSearch] = useState('');
   const [selectedTypeKey, setSelectedTypeKey] = useState<string | null>(null);
   const [view, setView] = useState<'table' | 'card'>('table');
-  const [selectedEntity, setSelectedEntity] =
-    useState<OntologyObjectView | null>(null);
-  const [related, setRelated] = useState<OntologyObjectView[]>([]);
-  const [relatedLoading, setRelatedLoading] = useState(false);
 
-  // Initial load
   useEffect(() => {
     const params: ListEntitiesParams = {};
     if (topicId) params.topicId = topicId;
     void listEntities(params).catch((e: unknown) => {
-      logger.error('[OntologyTabContent] initial load failed', {
-        error: String(e),
-      });
+      logger.error('[ObjectsTab] initial load failed', { error: String(e) });
     });
   }, [topicId, listEntities]);
 
@@ -437,22 +1112,6 @@ export default function OntologyTabContent({
     [topicId, search, listEntities]
   );
 
-  const handleEntityClick = useCallback(
-    async (entity: OntologyObjectView) => {
-      setSelectedEntity(entity);
-      setRelatedLoading(true);
-      try {
-        const result = await getRelated(entity.id);
-        setRelated(result ?? []);
-      } catch {
-        setRelated([]);
-      } finally {
-        setRelatedLoading(false);
-      }
-    },
-    [getRelated]
-  );
-
   const handleRefresh = useCallback(() => {
     const params: ListEntitiesParams = {};
     if (topicId) params.topicId = topicId;
@@ -461,7 +1120,6 @@ export default function OntologyTabContent({
     void listEntities(params).catch(() => undefined);
   }, [topicId, selectedTypeKey, search, listEntities]);
 
-  // DataTable columns
   const columns: ColumnDef<OntologyObjectView>[] = [
     {
       id: 'label',
@@ -516,130 +1174,387 @@ export default function OntologyTabContent({
   ];
 
   return (
-    <div className="flex h-full min-h-0 bg-gray-50/50 px-6 py-6">
-      <div className="grid min-h-0 w-full gap-6 md:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)]">
-        {/* ── Left sidebar ── */}
-        <aside className="flex min-h-0 flex-col rounded-xl border border-gray-200 bg-white shadow-sm">
-          {/* Search */}
-          <div className="border-b border-gray-100 p-3">
-            <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-              <Search className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => handleSearch(e.target.value)}
-                placeholder="搜索实体..."
-                className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none"
-              />
-            </div>
-          </div>
-
-          {/* Type tree + Recent changes */}
-          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-            <TypeTree
-              items={items}
-              selectedTypeKey={selectedTypeKey}
-              onSelect={handleTypeSelect}
+    <div className="flex h-full min-h-0 gap-6">
+      {/* ── Left sidebar ── */}
+      <aside className="flex min-h-0 w-64 shrink-0 flex-col rounded-xl border border-gray-200 bg-white shadow-sm xl:w-72">
+        {/* Search */}
+        <div className="border-b border-gray-100 p-3">
+          <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+            <Search className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+              placeholder="搜索实体..."
+              className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none"
             />
-            <RecentChanges items={items} />
           </div>
-        </aside>
+        </div>
 
-        {/* ── Main content ── */}
-        <main className="flex min-h-0 min-w-0 flex-col gap-4">
-          {/* Toolbar */}
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-500">
-              共{' '}
-              <span className="font-semibold text-gray-800">
-                {items.length}
-              </span>{' '}
-              条实体
-            </p>
-            <div className="flex items-center gap-2">
+        {/* Type tree + Recent changes */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+          <TypeTree
+            items={items}
+            selectedTypeKey={selectedTypeKey}
+            onSelect={handleTypeSelect}
+          />
+          <RecentChanges items={items} />
+        </div>
+      </aside>
+
+      {/* ── Main content ── */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
+        {/* Toolbar */}
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-gray-500">
+            共{' '}
+            <span className="font-semibold text-gray-800">{items.length}</span>{' '}
+            条实体
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              title="刷新"
+              onClick={handleRefresh}
+              className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-gray-100"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+            <div className="flex items-center rounded-lg border border-gray-200 bg-white">
               <button
                 type="button"
-                title="刷新"
-                onClick={handleRefresh}
-                className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-gray-100"
+                title="表格视图"
+                onClick={() => setView('table')}
+                className={cn(
+                  'rounded-l-lg p-1.5 transition-colors',
+                  view === 'table'
+                    ? 'bg-violet-50 text-violet-700'
+                    : 'text-gray-500 hover:bg-gray-50'
+                )}
               >
-                <RefreshCw className="h-4 w-4" />
+                <LayoutList className="h-4 w-4" />
               </button>
-              <div className="flex items-center rounded-lg border border-gray-200 bg-white">
-                <button
-                  type="button"
-                  title="表格视图"
-                  onClick={() => setView('table')}
-                  className={cn(
-                    'rounded-l-lg p-1.5 transition-colors',
-                    view === 'table'
-                      ? 'bg-violet-50 text-violet-700'
-                      : 'text-gray-500 hover:bg-gray-50'
-                  )}
-                >
-                  <LayoutList className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  title="卡片视图"
-                  onClick={() => setView('card')}
-                  className={cn(
-                    'rounded-r-lg p-1.5 transition-colors',
-                    view === 'card'
-                      ? 'bg-violet-50 text-violet-700'
-                      : 'text-gray-500 hover:bg-gray-50'
-                  )}
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                </button>
-              </div>
+              <button
+                type="button"
+                title="卡片视图"
+                onClick={() => setView('card')}
+                className={cn(
+                  'rounded-r-lg p-1.5 transition-colors',
+                  view === 'card'
+                    ? 'bg-violet-50 text-violet-700'
+                    : 'text-gray-500 hover:bg-gray-50'
+                )}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
             </div>
           </div>
+        </div>
 
-          {/* Content */}
-          {error ? (
-            <ErrorState error={error} onRetry={handleRefresh} />
-          ) : loading ? (
-            <LoadingState size="lg" text="加载实体中..." />
-          ) : items.length === 0 ? (
-            <EmptyState
-              icon={<Network className="h-12 w-12" />}
-              title="暂无实体数据"
-              description="当前范围内尚未提取到知识本体实体"
+        {/* Content */}
+        {error ? (
+          <ErrorState error={error} onRetry={handleRefresh} />
+        ) : loading ? (
+          <LoadingState size="lg" text="加载实体中..." />
+        ) : items.length === 0 ? (
+          <EmptyState
+            icon={<Network className="h-12 w-12" />}
+            title="暂无实体数据"
+            description="当前范围内尚未提取到知识本体实体"
+          />
+        ) : view === 'table' ? (
+          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+            <DataTable
+              data={items}
+              columns={columns}
+              onRowClick={(row) => onEntityClick(row)}
+              getRowId={(row) => row.id}
+              emptyState={{
+                title: '暂无实体',
+                description: '调整筛选条件后重试',
+              }}
             />
-          ) : view === 'table' ? (
-            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-              <DataTable
-                data={items}
-                columns={columns}
-                onRowClick={(row) => void handleEntityClick(row)}
-                getRowId={(row) => row.id}
-                emptyState={{
-                  title: '暂无实体',
-                  description: '调整筛选条件后重试',
-                }}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {items.map((entity) => (
+              <EntityCard
+                key={entity.id}
+                entity={entity}
+                onClick={() => onEntityClick(entity)}
               />
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {items.map((entity) => (
-                <EntityCard
-                  key={entity.id}
-                  entity={entity}
-                  onClick={() => void handleEntityClick(entity)}
-                />
-              ))}
-            </div>
-          )}
-        </main>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Merge modal ──────────────────────────────────────────────────────────────
+
+interface MergeModalProps {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (
+    sourceIds: string[],
+    targetId: string,
+    reason: string
+  ) => Promise<void>;
+  entity: OntologyObjectView | null;
+}
+
+function MergeModal({ open, onClose, onSubmit, entity }: MergeModalProps) {
+  const [sourceIdsText, setSourceIdsText] = useState('');
+  const [reason, setReason] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handlePrepare = () => {
+    if (!entity || !sourceIdsText.trim()) return;
+    setConfirmOpen(true);
+  };
+
+  const handleConfirm = async () => {
+    if (!entity) return;
+    const sourceIds = sourceIdsText
+      .split(/[\n,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    setSubmitting(true);
+    try {
+      await onSubmit(sourceIds, entity.id, reason.trim());
+      setSourceIdsText('');
+      setReason('');
+      setConfirmOpen(false);
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <Modal
+        open={open}
+        onClose={onClose}
+        title="合并对象"
+        subtitle={entity?.label ?? ''}
+        size="sm"
+        closeButtonDisabled={submitting}
+        footer={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onClose}
+              disabled={submitting}
+            >
+              取消
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handlePrepare}
+              disabled={submitting || !sourceIdsText.trim()}
+            >
+              合并（不可逆）
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            将以下来源对象合并到当前对象（
+            <span className="font-medium text-gray-900">{entity?.label}</span>
+            ）。此操作<strong className="text-red-600">不可逆</strong>
+            ，请谨慎操作。
+          </p>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-600">
+              来源对象 ID（多个用逗号或换行分隔）
+            </label>
+            <textarea
+              value={sourceIdsText}
+              onChange={(e) => setSourceIdsText(e.target.value)}
+              placeholder="id1, id2, id3"
+              rows={3}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-600">
+              合并原因（可选）
+            </label>
+            <input
+              type="text"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="如：重复实体去重"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
+            />
+          </div>
+        </div>
+      </Modal>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={handleConfirm}
+        title="确认合并对象？"
+        description="此操作不可逆，来源对象将被永久合并。请确认。"
+        type="danger"
+        confirmText="确认合并"
+        loading={submitting}
+      />
+    </>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
+type MainTab = 'objects' | 'metamodel' | 'graph' | 'edits';
+
+interface OntologyTabContentProps {
+  /** Optional topic scope for initial load */
+  topicId?: string;
+}
+
+export default function OntologyTabContent({
+  topicId,
+}: OntologyTabContentProps) {
+  const { setConfidence, editProperty, mergeObjects } = useOntology();
+
+  const [mainTab, setMainTab] = useState<MainTab>('objects');
+  const [selectedEntity, setSelectedEntity] =
+    useState<OntologyObjectView | null>(null);
+  const [related, setRelated] = useState<OntologyObjectView[]>([]);
+  const [relatedLoading, setRelatedLoading] = useState(false);
+
+  // action modals
+  const [editPropOpen, setEditPropOpen] = useState(false);
+  const [confidenceOpen, setConfidenceOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
+
+  const { getRelated } = useOntology();
+
+  const handleEntityClick = useCallback(
+    async (entity: OntologyObjectView) => {
+      setSelectedEntity(entity);
+      setRelatedLoading(true);
+      try {
+        const result = await getRelated(entity.id);
+        setRelated(result ?? []);
+      } catch {
+        setRelated([]);
+      } finally {
+        setRelatedLoading(false);
+      }
+    },
+    [getRelated]
+  );
+
+  const handleEditProperty = useCallback((entity: OntologyObjectView) => {
+    setSelectedEntity(entity);
+    setEditPropOpen(true);
+  }, []);
+
+  const handleSetConfidence = useCallback((entity: OntologyObjectView) => {
+    setSelectedEntity(entity);
+    setConfidenceOpen(true);
+  }, []);
+
+  const handleMerge = useCallback((entity: OntologyObjectView) => {
+    setSelectedEntity(entity);
+    setMergeOpen(true);
+  }, []);
+
+  const handleEditPropertySubmit = useCallback(
+    async (key: string, value: string, reason: string) => {
+      if (!selectedEntity) return;
+      await editProperty(selectedEntity.id, key, value, reason || undefined);
+    },
+    [selectedEntity, editProperty]
+  );
+
+  const handleConfidenceSubmit = useCallback(
+    async (value: number, reason: string) => {
+      if (!selectedEntity) return;
+      await setConfidence(selectedEntity.id, value, reason || undefined);
+    },
+    [selectedEntity, setConfidence]
+  );
+
+  const handleMergeSubmit = useCallback(
+    async (sourceIds: string[], targetId: string, reason: string) => {
+      await mergeObjects(sourceIds, targetId, reason || undefined);
+    },
+    [mergeObjects]
+  );
+
+  const tabItems: TabItem[] = [
+    { key: 'objects', label: '对象', icon: Network },
+    { key: 'metamodel', label: '元模型', icon: GitBranch },
+    { key: 'graph', label: '图谱', icon: LayoutGrid },
+    { key: 'edits', label: 'Edit 流', icon: History },
+  ];
+
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-gray-50/50 px-6 py-6">
+      {/* Top tab bar */}
+      <Tabs
+        items={tabItems}
+        value={mainTab}
+        onChange={(key) => setMainTab(key as MainTab)}
+        variant="underline"
+        className="mb-6 rounded-xl border border-gray-200 bg-white px-4 shadow-sm"
+      />
+
+      {/* Tab content */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {mainTab === 'objects' && (
+          <ObjectsTab
+            topicId={topicId}
+            onEntityClick={(entity) => void handleEntityClick(entity)}
+          />
+        )}
+        {mainTab === 'metamodel' && <MetaModelTab topicId={topicId} />}
+        {mainTab === 'graph' && <GraphTab topicId={topicId} />}
+        {mainTab === 'edits' && <EditFeedTab topicId={topicId} />}
       </div>
 
-      {/* Detail drawer */}
+      {/* Detail drawer (only relevant in objects tab) */}
       <EntityDetailDrawer
         entity={selectedEntity}
         related={related}
         relatedLoading={relatedLoading}
         onClose={() => setSelectedEntity(null)}
+        onEditProperty={handleEditProperty}
+        onSetConfidence={handleSetConfidence}
+        onMerge={handleMerge}
+      />
+
+      {/* Action modals */}
+      <EditPropertyModal
+        open={editPropOpen}
+        onClose={() => setEditPropOpen(false)}
+        onSubmit={handleEditPropertySubmit}
+        entityLabel={selectedEntity?.label ?? ''}
+      />
+
+      <SetConfidenceModal
+        open={confidenceOpen}
+        onClose={() => setConfidenceOpen(false)}
+        onSubmit={handleConfidenceSubmit}
+        entityLabel={selectedEntity?.label ?? ''}
+        currentConfidence={selectedEntity?.confidence ?? 1}
+      />
+
+      <MergeModal
+        open={mergeOpen}
+        onClose={() => setMergeOpen(false)}
+        onSubmit={handleMergeSubmit}
+        entity={selectedEntity}
       />
     </div>
   );

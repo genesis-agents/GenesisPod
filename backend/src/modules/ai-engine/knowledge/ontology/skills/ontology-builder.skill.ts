@@ -26,6 +26,7 @@ import { AiChatService } from "@/modules/ai-engine/facade";
 import type { ChatMessage, TaskProfile } from "@/modules/ai-engine/facade";
 import { EntityResolutionService } from "../../entity-resolution/entity-resolution.service";
 import type { OntologyObjectView, OntologyLinkView } from "../ontology.types";
+import { OntologyService } from "../ontology.service";
 import { BaseSkill } from "@/modules/ai-engine/skills/base/base-skill";
 import type {
   SkillContext,
@@ -95,11 +96,17 @@ interface LLMExtractionResult {
   relations: ExtractedRelation[];
 }
 
-// ─── Allowlists ───────────────────────────────────────────────────────────────
+// ─── Allowlists (seed fallback) ────────────────────────────────────────────────
 
 const MAX_INPUT_CHARS = 32000;
 
-const ENTITY_TYPE_ALLOWLIST = new Set([
+/**
+ * Seed entity typeKey set: used as fallback when no OntologyObjectType rows are
+ * declared for the given topic (or globally). At runtime the skill first loads
+ * declared types from the DB via OntologyService; the seed set is only consulted
+ * when the DB returns nothing.
+ */
+const ENTITY_TYPE_SEED = new Set([
   "company",
   "person",
   "technology",
@@ -110,7 +117,10 @@ const ENTITY_TYPE_ALLOWLIST = new Set([
   "location",
 ]);
 
-const LINK_TYPE_ALLOWLIST = new Set([
+/**
+ * Seed link typeKey set: same fallback logic as ENTITY_TYPE_SEED.
+ */
+const LINK_TYPE_SEED = new Set([
   "developed",
   "owns",
   "partnered_with",
@@ -159,6 +169,7 @@ export class OntologyBuilderSkill extends BaseSkill<
   constructor(
     @Optional() private readonly aiChatService: AiChatService | undefined,
     private readonly entityResolution: EntityResolutionService,
+    @Optional() private readonly ontologyService: OntologyService | undefined,
   ) {
     super();
     // Wire AiChatService as the LLM adapter expected by BaseSkill.callLLM
@@ -191,11 +202,20 @@ export class OntologyBuilderSkill extends BaseSkill<
       return { created: 0, merged: 0, linked: 0, nodes: [], edges: [] };
     }
 
-    // ── 2. LLM structured extraction ─────────────────────────────────────────
+    // ── 2. Load declared meta-model types (W-A) ──────────────────────────────
+    const [entityAllowlist, linkAllowlist] = await this.resolveAllowlists(
+      input.topicId,
+    );
+
+    // ── 3. LLM structured extraction ─────────────────────────────────────────
     const extracted = await this.extractEntitiesAndRelations(text, context);
 
-    // ── 3. Validate + normalise extracted items ───────────────────────────────
-    const { entities, relations } = this.validateAndNormalise(extracted);
+    // ── 4. Validate + normalise extracted items ───────────────────────────────
+    const { entities, relations } = this.validateAndNormalise(
+      extracted,
+      entityAllowlist,
+      linkAllowlist,
+    );
 
     if (entities.length === 0) {
       this.logger.log(
@@ -204,11 +224,11 @@ export class OntologyBuilderSkill extends BaseSkill<
       return { created: 0, merged: 0, linked: 0, nodes: [], edges: [] };
     }
 
-    // ── 4. Entity resolution (canonical dedup) ───────────────────────────────
+    // ── 5. Entity resolution (canonical dedup) ───────────────────────────────
     const allNames = entities.flatMap((e) => [e.label, ...(e.aliases ?? [])]);
     const resolution = await this.entityResolution.resolve(allNames);
 
-    // ── 5. Upsert each canonical entity via tool ──────────────────────────────
+    // ── 6. Upsert each canonical entity via tool ──────────────────────────────
     const labelToNodeId = new Map<string, string>();
     const nodes: OntologyObjectView[] = [];
     let created = 0;
@@ -250,7 +270,7 @@ export class OntologyBuilderSkill extends BaseSkill<
       }
     }
 
-    // ── 6. Write relations via tool ───────────────────────────────────────────
+    // ── 7. Write relations via tool ───────────────────────────────────────────
     const edges: OntologyLinkView[] = [];
 
     for (const rel of relations) {
@@ -329,6 +349,49 @@ export class OntologyBuilderSkill extends BaseSkill<
   }
 
   /**
+   * Resolves the effective entity and link type allowlists for a given topicId.
+   *
+   * Priority:
+   *  1. OntologyObjectType / OntologyLinkType rows declared in DB for this topic
+   *     (plus global rows with topicId=null).
+   *  2. Fallback to ENTITY_TYPE_SEED / LINK_TYPE_SEED when no rows are found.
+   *
+   * Returns [entityAllowlist, linkAllowlist] as Sets of valid typeKey strings.
+   */
+  private async resolveAllowlists(
+    topicId: string | undefined,
+  ): Promise<[Set<string>, Set<string>]> {
+    if (!this.ontologyService) {
+      return [ENTITY_TYPE_SEED, LINK_TYPE_SEED];
+    }
+    try {
+      const [objectTypes, linkTypes] = await Promise.all([
+        this.ontologyService.listObjectTypes({ topicId }),
+        this.ontologyService.listLinkTypes({ topicId }),
+      ]);
+      const entitySet =
+        objectTypes.length > 0
+          ? new Set(objectTypes.map((t) => t.key))
+          : ENTITY_TYPE_SEED;
+      const linkSet =
+        linkTypes.length > 0
+          ? new Set(linkTypes.map((t) => t.key))
+          : LINK_TYPE_SEED;
+      if (objectTypes.length > 0 || linkTypes.length > 0) {
+        this.logger.debug(
+          `[${this.id}] loaded ${objectTypes.length} object types + ${linkTypes.length} link types from DB`,
+        );
+      }
+      return [entitySet, linkSet];
+    } catch (err) {
+      this.logger.warn(
+        `[${this.id}] Failed to load declared types, falling back to seed sets: ${String(err)}`,
+      );
+      return [ENTITY_TYPE_SEED, LINK_TYPE_SEED];
+    }
+  }
+
+  /**
    * Validates and normalises the raw LLM extraction output:
    *  - Drops entities missing required fields (typeKey, label, confidence).
    *  - Normalises typeKey to lowercase_underscore; maps unknown types to "concept".
@@ -336,8 +399,15 @@ export class OntologyBuilderSkill extends BaseSkill<
    *  - Drops relations missing from/to/linkTypeKey.
    *  - Normalises linkTypeKey; maps unknown link types to "related_to".
    * Logs warn counts for dropped / normalised items.
+   *
+   * @param entityAllowlist Set of valid entity typeKeys (declared or seed)
+   * @param linkAllowlist   Set of valid link typeKeys (declared or seed)
    */
-  private validateAndNormalise(raw: LLMExtractionResult): LLMExtractionResult {
+  private validateAndNormalise(
+    raw: LLMExtractionResult,
+    entityAllowlist: Set<string>,
+    linkAllowlist: Set<string>,
+  ): LLMExtractionResult {
     const validEntities: ExtractedEntity[] = [];
     let droppedEntities = 0;
     let normalisedEntityTypes = 0;
@@ -353,7 +423,7 @@ export class OntologyBuilderSkill extends BaseSkill<
 
       const normType = typeKey.toLowerCase().trim().replace(/\s+/g, "_");
       let resolvedType: string;
-      if (ENTITY_TYPE_ALLOWLIST.has(normType)) {
+      if (entityAllowlist.has(normType)) {
         resolvedType = normType;
       } else {
         resolvedType = "concept";
@@ -397,7 +467,7 @@ export class OntologyBuilderSkill extends BaseSkill<
 
       const normLink = linkTypeKey.toLowerCase().trim().replace(/\s+/g, "_");
       let resolvedLink: string;
-      if (LINK_TYPE_ALLOWLIST.has(normLink)) {
+      if (linkAllowlist.has(normLink)) {
         resolvedLink = normLink;
       } else {
         resolvedLink = "related_to";

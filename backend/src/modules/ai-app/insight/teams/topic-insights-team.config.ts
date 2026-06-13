@@ -177,6 +177,8 @@ export const TOPIC_INSIGHTS_TEAM_CONFIG: TeamConfig = {
     "figure-extraction",
     "interactive-research",
     "evidence-management",
+    // ★ W-C Knowledge Ontology: 洞察结束后把新发现的实体/关系写入知识图谱
+    "knowledge.ontology-builder",
   ],
   availableTools: [
     BUILTIN_TOOLS.WEB_SEARCH,
@@ -186,6 +188,9 @@ export const TOPIC_INSIGHTS_TEAM_CONFIG: TeamConfig = {
     BUILTIN_TOOLS.TEXT_GENERATION,
     BUILTIN_TOOLS.EXPORT_DOCX,
     BUILTIN_TOOLS.EXPORT_PDF,
+    // ★ W-C Knowledge Ontology: 写入知识图谱节点/关系
+    "ontology.upsertObject",
+    "ontology.addLink",
   ],
   constraintProfile: createConstraintProfile("thorough", {
     quality: {

@@ -11,6 +11,7 @@ import {
 import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { OntologyService } from "@/modules/ai-engine/facade";
+import type { OntologyListTypesFilter } from "@/modules/ai-engine/facade";
 import { ListEntitiesQueryDto } from "./dto/list-entities-query.dto";
 
 /**
@@ -33,6 +34,8 @@ export class OntologyReadController {
   /**
    * List ontology entities with optional filtering and pagination.
    * GET /ontology/entities
+   *
+   * `total` now reflects the true DB count (not just the page size).
    */
   @Get("entities")
   async listEntities(@Query() query: ListEntitiesQueryDto) {
@@ -40,15 +43,20 @@ export class OntologyReadController {
     const limit = query.limit ?? 50;
     const offset = (page - 1) * limit;
 
-    const items = await this.ontologyService.listObjects({
+    const filter = {
       topicId: query.topicId,
       typeKey: query.typeKey,
       labelContains: query.search,
       limit,
       offset,
-    });
+    };
 
-    return { items, total: items.length };
+    const [items, total] = await Promise.all([
+      this.ontologyService.listObjects(filter),
+      this.ontologyService.countObjects(filter),
+    ]);
+
+    return { items, total };
   }
 
   /**
@@ -106,5 +114,33 @@ export class OntologyReadController {
     return this.ontologyService.querySubgraphByTopic(topicId, {
       maxNodes: safeMaxNodes,
     });
+  }
+
+  /**
+   * List declared OntologyObjectType meta-model entries.
+   * GET /ontology/types?topicId=...
+   *
+   * Returns global types (topicId=null) and, when topicId is provided,
+   * topic-scoped types as well.
+   */
+  @Get("types")
+  async listObjectTypes(@Query("topicId") topicId?: string) {
+    const filter: OntologyListTypesFilter = topicId ? { topicId } : {};
+    this.logger.debug(`[listObjectTypes] topicId=${topicId ?? "global"}`);
+    return this.ontologyService.listObjectTypes(filter);
+  }
+
+  /**
+   * List declared OntologyLinkType meta-model entries.
+   * GET /ontology/link-types?topicId=...
+   *
+   * Returns global types (topicId=null) and, when topicId is provided,
+   * topic-scoped types as well.
+   */
+  @Get("link-types")
+  async listLinkTypes(@Query("topicId") topicId?: string) {
+    const filter: OntologyListTypesFilter = topicId ? { topicId } : {};
+    this.logger.debug(`[listLinkTypes] topicId=${topicId ?? "global"}`);
+    return this.ontologyService.listLinkTypes(filter);
   }
 }

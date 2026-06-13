@@ -1,8 +1,51 @@
 // ============================================================================
-// Knowledge Ontology v1 — P0 Data Layer
-// 3 tables: OntologyObject / OntologyLink / OntologyEdit
-// No ObjectType/LinkType meta-model tables; no embedding columns.
+// Knowledge Ontology v1 — P0 Data Layer + W-A Meta-Model
+// 5 tables: OntologyObjectType / OntologyLinkType / OntologyObject / OntologyLink / OntologyEdit
 // ============================================================================
+
+/// 本体对象类型元模型：声明 typeKey 的规范定义与 JSON Schema 约束
+model OntologyObjectType {
+  id             String   @id @default(uuid())
+  /// 可选话题作用域；为 null 时为全局共享类型
+  topicId        String?  @map("topic_id")
+  /// 类型键，如 "company" / "technology"，全局或话题内唯一
+  key            String   @db.VarChar(64)
+  /// 显示标签
+  label          String   @db.VarChar(128)
+  /// JSON Schema（object 型），约束该类型对象的 properties 字段
+  propertySchema Json     @default("{}") @map("property_schema")
+  /// 显示颜色 hex 或 CSS 颜色名，可选
+  color          String?  @db.VarChar(32)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@unique([topicId, key])
+  @@index([topicId])
+  @@map("ontology_object_types")
+}
+
+/// 本体关系类型元模型：声明 linkTypeKey 的规范定义、方向及端点类型约束
+model OntologyLinkType {
+  id             String   @id @default(uuid())
+  /// 可选话题作用域；为 null 时为全局共享类型
+  topicId        String?  @map("topic_id")
+  /// 关系键，如 "depends_on" / "part_of"，全局或话题内唯一
+  key            String   @db.VarChar(64)
+  /// 显示标签
+  label          String   @db.VarChar(128)
+  /// 允许的起始节点 typeKey（空字符串表示无约束）
+  fromTypeKey    String   @default("") @map("from_type_key") @db.VarChar(64)
+  /// 允许的终止节点 typeKey（空字符串表示无约束）
+  toTypeKey      String   @default("") @map("to_type_key") @db.VarChar(64)
+  /// true = 有向边（fromId→toId 有语义方向）；false = 无向关联
+  directed       Boolean  @default(true)
+  /// JSON Schema（object 型），约束该类型边的 properties 字段
+  propertySchema Json     @default("{}") @map("property_schema")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@unique([topicId, key])
+  @@index([topicId])
+  @@map("ontology_link_types")
+}
 
 /// 本体对象：知识图谱中的节点（概念、实体、技术等）
 model OntologyObject {

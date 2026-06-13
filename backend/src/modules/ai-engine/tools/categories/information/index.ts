@@ -88,6 +88,9 @@ export {
   WikiSearchTool,
   OntologyUpsertObjectTool,
   OntologyAddLinkTool,
+  OntologySetConfidenceTool,
+  OntologyEditPropertyTool,
+  OntologyMergeObjectsTool,
 } from "./knowledge";
 export type {
   RAGSearchInput,
@@ -100,6 +103,12 @@ export type {
   OntologyUpsertObjectOutput,
   OntologyAddLinkInput,
   OntologyAddLinkOutput,
+  OntologySetConfidenceToolInput,
+  OntologySetConfidenceOutput,
+  OntologyEditPropertyToolInput,
+  OntologyEditPropertyOutput,
+  OntologyMergeObjectsToolInput,
+  OntologyMergeObjectsOutput,
 } from "./knowledge";
 
 // Policy Research Tools

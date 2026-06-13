@@ -109,12 +109,17 @@ export const PLANNING_TEAM_CONFIG: TeamConfig = {
     "debate-facilitation",
     "synthesis",
     "document-writing",
+    // ★ W-C Knowledge Ontology: 策划结束后把关键实体/关系写入知识图谱
+    "knowledge.ontology-builder",
   ],
   availableTools: [
     BUILTIN_TOOLS.WEB_SEARCH,
     BUILTIN_TOOLS.TEXT_GENERATION,
     BUILTIN_TOOLS.DATA_ANALYSIS,
     BUILTIN_TOOLS.STRUCTURED_OUTPUT,
+    // ★ W-C Knowledge Ontology: 写入知识图谱节点/关系
+    "ontology.upsertObject",
+    "ontology.addLink",
   ],
   constraintProfile: createConstraintProfile("balanced", {
     quality: {

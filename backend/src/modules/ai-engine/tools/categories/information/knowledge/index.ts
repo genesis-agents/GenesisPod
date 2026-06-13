@@ -28,11 +28,23 @@ export type {
   WikiSearchOutput,
 } from "./wiki-search.tool";
 
-// Ontology Action Tools (P2)
-export { OntologyUpsertObjectTool, OntologyAddLinkTool } from "./ontology";
+// Ontology Action Tools (P2 + W-B)
+export {
+  OntologyUpsertObjectTool,
+  OntologyAddLinkTool,
+  OntologySetConfidenceTool,
+  OntologyEditPropertyTool,
+  OntologyMergeObjectsTool,
+} from "./ontology";
 export type {
   OntologyUpsertObjectInput,
   OntologyUpsertObjectOutput,
   OntologyAddLinkInput,
   OntologyAddLinkOutput,
+  OntologySetConfidenceToolInput,
+  OntologySetConfidenceOutput,
+  OntologyEditPropertyToolInput,
+  OntologyEditPropertyOutput,
+  OntologyMergeObjectsToolInput,
+  OntologyMergeObjectsOutput,
 } from "./ontology";

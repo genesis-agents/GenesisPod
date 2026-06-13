@@ -6,7 +6,12 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { ChatFacade, TeamFacade, TeamRegistry, RoleRegistry } from "@/modules/ai-harness/facade";
+import {
+  ChatFacade,
+  TeamFacade,
+  TeamRegistry,
+  RoleRegistry,
+} from "@/modules/ai-harness/facade";
 import type { ITeam } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
 
@@ -445,8 +450,17 @@ export class WritingAgentCoordinator {
           },
         ],
       },
-      availableSkills: ["creative-writing", "consistency-check"],
-      availableTools: ["text-generation", "rag-search"],
+      availableSkills: [
+        "creative-writing",
+        "consistency-check",
+        "knowledge.ontology-builder",
+      ],
+      availableTools: [
+        "text-generation",
+        "rag-search",
+        "ontology.upsertObject",
+        "ontology.addLink",
+      ],
       constraintProfile: {
         cost: {
           budget: 1000,

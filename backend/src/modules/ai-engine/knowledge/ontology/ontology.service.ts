@@ -25,6 +25,16 @@ import type {
   OntologyObjectView,
   OntologyLinkView,
   SubgraphResult,
+  OntologyObjectTypeView,
+  OntologyLinkTypeView,
+  UpsertObjectTypeInput,
+  UpsertLinkTypeInput,
+  ListTypesFilter,
+  SetConfidenceInput,
+  EditPropertyInput,
+  MergeObjectsInput,
+  ListEditsFilter,
+  OntologyEditView,
 } from "./ontology.types";
 
 @Injectable()
@@ -511,6 +521,521 @@ export class OntologyService {
     return { nodes: allNodes, links: uniqueLinks };
   }
 
+  // ─── Count ─────────────────────────────────────────────────────────────────
+
+  /**
+   * Count ontology objects matching the given filter.
+   * Fixes the P1 read-API total gap where listObjects returned items.length
+   * instead of the true DB count.
+   */
+  async countObjects(filter: ListObjectsFilter): Promise<number> {
+    const where: Prisma.OntologyObjectWhereInput = {};
+    if (filter.topicId !== undefined) where.topicId = filter.topicId;
+    if (filter.typeKey !== undefined) where.typeKey = filter.typeKey;
+    if (filter.createdBy !== undefined) where.createdBy = filter.createdBy;
+    if (filter.labelContains !== undefined) {
+      where.label = { contains: filter.labelContains, mode: "insensitive" };
+    }
+    return this.prisma.ontologyObject.count({ where });
+  }
+
+  // ─── Meta-Model: ObjectType ────────────────────────────────────────────────
+
+  /**
+   * List all declared OntologyObjectType rows, optionally scoped to a topicId.
+   * Returns global types (topicId=null) plus topic-specific types when a topicId
+   * is provided.
+   */
+  async listObjectTypes(
+    filter: ListTypesFilter = {},
+  ): Promise<OntologyObjectTypeView[]> {
+    const where: Prisma.OntologyObjectTypeWhereInput = filter.topicId
+      ? { OR: [{ topicId: filter.topicId }, { topicId: null }] }
+      : { topicId: null };
+
+    const rows = await this.prisma.ontologyObjectType.findMany({
+      where,
+      orderBy: { createdAt: "asc" },
+    });
+    return rows.map((r) => this.mapObjectType(r));
+  }
+
+  /**
+   * Upsert an OntologyObjectType by (topicId, key).
+   * Creates a new row on first call; updates label/propertySchema/color on subsequent calls.
+   */
+  async upsertObjectType(
+    input: UpsertObjectTypeInput,
+  ): Promise<OntologyObjectTypeView> {
+    const existing = await this.prisma.ontologyObjectType.findFirst({
+      where: { topicId: input.topicId ?? null, key: input.key },
+    });
+
+    if (existing) {
+      const updated = await this.prisma.ontologyObjectType.update({
+        where: { id: existing.id },
+        data: {
+          label: input.label,
+          propertySchema: (input.propertySchema ??
+            this.parseJsonObject(
+              existing.propertySchema,
+            )) as unknown as Prisma.InputJsonValue,
+          color: input.color ?? existing.color,
+        },
+      });
+      this.logger.debug(
+        `[upsertObjectType] updated key="${input.key}" id=${existing.id}`,
+      );
+      return this.mapObjectType(updated);
+    }
+
+    const created = await this.prisma.ontologyObjectType.create({
+      data: {
+        topicId: input.topicId ?? null,
+        key: input.key,
+        label: input.label,
+        propertySchema: (input.propertySchema ??
+          {}) as unknown as Prisma.InputJsonValue,
+        color: input.color ?? null,
+      },
+    });
+    this.logger.debug(
+      `[upsertObjectType] created key="${input.key}" id=${created.id}`,
+    );
+    return this.mapObjectType(created);
+  }
+
+  // ─── Meta-Model: LinkType ──────────────────────────────────────────────────
+
+  /**
+   * List all declared OntologyLinkType rows, optionally scoped to a topicId.
+   * Returns global types (topicId=null) plus topic-specific types when a topicId
+   * is provided.
+   */
+  async listLinkTypes(
+    filter: ListTypesFilter = {},
+  ): Promise<OntologyLinkTypeView[]> {
+    const where: Prisma.OntologyLinkTypeWhereInput = filter.topicId
+      ? { OR: [{ topicId: filter.topicId }, { topicId: null }] }
+      : { topicId: null };
+
+    const rows = await this.prisma.ontologyLinkType.findMany({
+      where,
+      orderBy: { createdAt: "asc" },
+    });
+    return rows.map((r) => this.mapLinkType(r));
+  }
+
+  /**
+   * Upsert an OntologyLinkType by (topicId, key).
+   * Creates a new row on first call; updates label/fromTypeKey/toTypeKey/directed/propertySchema
+   * on subsequent calls.
+   */
+  async upsertLinkType(
+    input: UpsertLinkTypeInput,
+  ): Promise<OntologyLinkTypeView> {
+    const existing = await this.prisma.ontologyLinkType.findFirst({
+      where: { topicId: input.topicId ?? null, key: input.key },
+    });
+
+    if (existing) {
+      const updated = await this.prisma.ontologyLinkType.update({
+        where: { id: existing.id },
+        data: {
+          label: input.label,
+          fromTypeKey: input.fromTypeKey ?? existing.fromTypeKey,
+          toTypeKey: input.toTypeKey ?? existing.toTypeKey,
+          directed: input.directed ?? existing.directed,
+          propertySchema: (input.propertySchema ??
+            this.parseJsonObject(
+              existing.propertySchema,
+            )) as unknown as Prisma.InputJsonValue,
+        },
+      });
+      this.logger.debug(
+        `[upsertLinkType] updated key="${input.key}" id=${existing.id}`,
+      );
+      return this.mapLinkType(updated);
+    }
+
+    const created = await this.prisma.ontologyLinkType.create({
+      data: {
+        topicId: input.topicId ?? null,
+        key: input.key,
+        label: input.label,
+        fromTypeKey: input.fromTypeKey ?? "",
+        toTypeKey: input.toTypeKey ?? "",
+        directed: input.directed ?? true,
+        propertySchema: (input.propertySchema ??
+          {}) as unknown as Prisma.InputJsonValue,
+      },
+    });
+    this.logger.debug(
+      `[upsertLinkType] created key="${input.key}" id=${created.id}`,
+    );
+    return this.mapLinkType(created);
+  }
+
+  // ─── W-B Action Methods ───────────────────────────────────────────────────
+
+  /**
+   * Set the confidence score on an OntologyObject or OntologyLink.
+   * Idempotent: calling with the same value is a no-op in effect but still
+   * writes an OntologyEdit row for audit completeness.
+   *
+   * Exactly one of objectId or linkId must be provided.
+   */
+  async setConfidence(
+    input: SetConfidenceInput,
+    audit: AuditContext,
+  ): Promise<void> {
+    if (input.objectId !== undefined) {
+      const obj = await this.prisma.ontologyObject.findUnique({
+        where: { id: input.objectId },
+      });
+      if (!obj) {
+        throw new NotFoundException(
+          `OntologyObject not found: ${input.objectId}`,
+        );
+      }
+      await this.prisma.$transaction(async (tx) => {
+        await tx.ontologyObject.update({
+          where: { id: input.objectId },
+          data: { confidence: input.value, updatedAt: new Date() },
+        });
+        await tx.ontologyEdit.create({
+          data: {
+            objectId: input.objectId,
+            action: "setConfidence",
+            actorType: audit.actorType,
+            actorId: audit.actorId,
+            before: {
+              confidence: obj.confidence,
+            } as unknown as Prisma.InputJsonValue,
+            after: {
+              confidence: input.value,
+            } as unknown as Prisma.InputJsonValue,
+            reason: audit.reason ?? null,
+          },
+        });
+      });
+      this.logger.debug(
+        `[setConfidence] objectId=${input.objectId} value=${input.value}`,
+      );
+    } else if (input.linkId !== undefined) {
+      const link = await this.prisma.ontologyLink.findUnique({
+        where: { id: input.linkId },
+      });
+      if (!link) {
+        throw new NotFoundException(`OntologyLink not found: ${input.linkId}`);
+      }
+      await this.prisma.$transaction(async (tx) => {
+        await tx.ontologyLink.update({
+          where: { id: input.linkId },
+          data: { confidence: input.value },
+        });
+        await tx.ontologyEdit.create({
+          data: {
+            linkId: input.linkId,
+            action: "setConfidence",
+            actorType: audit.actorType,
+            actorId: audit.actorId,
+            before: {
+              confidence: link.confidence,
+            } as unknown as Prisma.InputJsonValue,
+            after: {
+              confidence: input.value,
+            } as unknown as Prisma.InputJsonValue,
+            reason: audit.reason ?? null,
+          },
+        });
+      });
+      this.logger.debug(
+        `[setConfidence] linkId=${input.linkId} value=${input.value}`,
+      );
+    } else {
+      throw new Error(
+        "[setConfidence] Either objectId or linkId must be provided",
+      );
+    }
+  }
+
+  /**
+   * Edit a single property key on an OntologyObject.
+   * Setting value to null removes the key from the properties object.
+   * Idempotent: re-running with the same key+value produces the same result.
+   */
+  async editProperty(
+    input: EditPropertyInput,
+    audit: AuditContext,
+  ): Promise<OntologyObjectView> {
+    const obj = await this.prisma.ontologyObject.findUnique({
+      where: { id: input.objectId },
+    });
+    if (!obj) {
+      throw new NotFoundException(
+        `OntologyObject not found: ${input.objectId}`,
+      );
+    }
+
+    const existing = this.parseJsonObject(obj.properties);
+    const before = { ...existing };
+
+    let updated: Record<string, unknown>;
+    if (input.value === null) {
+      // Remove the key
+      const { [input.key]: _removed, ...rest } = existing;
+      updated = rest;
+    } else {
+      updated = { ...existing, [input.key]: input.value };
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.ontologyObject.update({
+        where: { id: input.objectId },
+        data: {
+          properties: updated as unknown as Prisma.InputJsonValue,
+          updatedAt: new Date(),
+        },
+      });
+      await tx.ontologyEdit.create({
+        data: {
+          objectId: input.objectId,
+          action: "editProperty",
+          actorType: audit.actorType,
+          actorId: audit.actorId,
+          before: { properties: before } as unknown as Prisma.InputJsonValue,
+          after: {
+            key: input.key,
+            value: input.value,
+            properties: updated,
+          } as unknown as Prisma.InputJsonValue,
+          reason: audit.reason ?? null,
+        },
+      });
+      return row;
+    });
+
+    this.logger.debug(
+      `[editProperty] objectId=${input.objectId} key="${input.key}"`,
+    );
+    return this.mapObject(result);
+  }
+
+  /**
+   * Merge multiple source OntologyObjects into a single target object.
+   *
+   * Steps (all in one transaction):
+   *   1. Validate all source and target IDs exist.
+   *   2. Retarget every OntologyLink whose fromId or toId is a source → target.
+   *      Deduplicates by the (fromId, toId, linkTypeKey) unique triple; when a
+   *      retargeted edge would collide with an existing edge, the duplicate is deleted.
+   *   3. Merge aliases of all sources into the target's aliases array (deduped).
+   *   4. Mark each source deleted (properties._deleted = true, confidence = 0).
+   *   5. Write one OntologyEdit per source (action="merge") and one for the target
+   *      (action="merge_target") for the audit trail.
+   *
+   * requiredEntitlements: declared at the tool layer as ['ontology.edit', 'ontology.admin'].
+   * The service itself performs no entitlement check — that is the harness tool-invoker's job.
+   */
+  async mergeObjects(
+    input: MergeObjectsInput,
+    audit: AuditContext,
+  ): Promise<OntologyObjectView> {
+    const { sourceIds, targetId } = input;
+
+    // Validate target
+    const target = await this.prisma.ontologyObject.findUnique({
+      where: { id: targetId },
+    });
+    if (!target) {
+      throw new NotFoundException(
+        `Target OntologyObject not found: ${targetId}`,
+      );
+    }
+
+    // Validate all sources
+    const sources = await this.prisma.ontologyObject.findMany({
+      where: { id: { in: sourceIds } },
+    });
+    const foundIds = new Set(sources.map((s) => s.id));
+    const missing = sourceIds.filter((id) => !foundIds.has(id));
+    if (missing.length > 0) {
+      throw new NotFoundException(
+        `Source OntologyObjects not found: ${missing.join(", ")}`,
+      );
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Step 2: retarget edges for each source
+      for (const srcId of sourceIds) {
+        // Retarget outgoing edges (fromId = srcId → targetId)
+        const outLinks = await tx.ontologyLink.findMany({
+          where: { fromId: srcId },
+        });
+        for (const link of outLinks) {
+          if (link.toId === targetId) {
+            // Self-loop after retarget — delete
+            await tx.ontologyLink.delete({ where: { id: link.id } });
+            continue;
+          }
+          const collision = await tx.ontologyLink.findUnique({
+            where: {
+              fromId_toId_linkTypeKey: {
+                fromId: targetId,
+                toId: link.toId,
+                linkTypeKey: link.linkTypeKey,
+              },
+            },
+          });
+          if (collision) {
+            await tx.ontologyLink.delete({ where: { id: link.id } });
+          } else {
+            await tx.ontologyLink.update({
+              where: { id: link.id },
+              data: { fromId: targetId },
+            });
+          }
+        }
+
+        // Retarget incoming edges (toId = srcId → targetId)
+        const inLinks = await tx.ontologyLink.findMany({
+          where: { toId: srcId },
+        });
+        for (const link of inLinks) {
+          if (link.fromId === targetId) {
+            // Self-loop after retarget — delete
+            await tx.ontologyLink.delete({ where: { id: link.id } });
+            continue;
+          }
+          const collision = await tx.ontologyLink.findUnique({
+            where: {
+              fromId_toId_linkTypeKey: {
+                fromId: link.fromId,
+                toId: targetId,
+                linkTypeKey: link.linkTypeKey,
+              },
+            },
+          });
+          if (collision) {
+            await tx.ontologyLink.delete({ where: { id: link.id } });
+          } else {
+            await tx.ontologyLink.update({
+              where: { id: link.id },
+              data: { toId: targetId },
+            });
+          }
+        }
+      }
+
+      // Step 3: merge aliases into target
+      const allSourceAliases = sources.flatMap((s) => [
+        ...this.parseJsonArray(s.aliases),
+        s.label,
+      ]);
+      const targetAliases = this.parseJsonArray(target.aliases);
+      const mergedAliases = Array.from(
+        new Set(
+          [...targetAliases, ...allSourceAliases].filter(
+            (a) => a !== target.label,
+          ),
+        ),
+      );
+      const updatedTarget = await tx.ontologyObject.update({
+        where: { id: targetId },
+        data: {
+          aliases: mergedAliases as unknown as Prisma.InputJsonValue,
+          updatedAt: new Date(),
+        },
+      });
+
+      // Step 4: mark each source as deleted
+      for (const src of sources) {
+        const deletedProps = {
+          ...this.parseJsonObject(src.properties),
+          _deleted: true,
+          _mergedInto: targetId,
+        };
+        await tx.ontologyObject.update({
+          where: { id: src.id },
+          data: {
+            confidence: 0,
+            properties: deletedProps as unknown as Prisma.InputJsonValue,
+            updatedAt: new Date(),
+          },
+        });
+
+        // Step 5a: audit edit for source
+        await tx.ontologyEdit.create({
+          data: {
+            objectId: src.id,
+            action: "merge",
+            actorType: audit.actorType,
+            actorId: audit.actorId,
+            before: {
+              label: src.label,
+              aliases: this.parseJsonArray(src.aliases),
+              confidence: src.confidence,
+            } as unknown as Prisma.InputJsonValue,
+            after: {
+              _deleted: true,
+              _mergedInto: targetId,
+            } as unknown as Prisma.InputJsonValue,
+            reason: audit.reason ?? null,
+          },
+        });
+      }
+
+      // Step 5b: audit edit for target
+      await tx.ontologyEdit.create({
+        data: {
+          objectId: targetId,
+          action: "merge_target",
+          actorType: audit.actorType,
+          actorId: audit.actorId,
+          before: {
+            aliases: targetAliases,
+          } as unknown as Prisma.InputJsonValue,
+          after: {
+            aliases: mergedAliases,
+            absorbedIds: sourceIds,
+          } as unknown as Prisma.InputJsonValue,
+          reason: audit.reason ?? null,
+        },
+      });
+
+      return updatedTarget;
+    });
+
+    this.logger.debug(
+      `[mergeObjects] targetId=${targetId} absorbed=${sourceIds.join(",")}`,
+    );
+    return this.mapObject(result);
+  }
+
+  /**
+   * List OntologyEdit audit rows with optional filtering.
+   * Results are ordered by createdAt DESC (newest first).
+   */
+  async listEdits(filter: ListEditsFilter): Promise<OntologyEditView[]> {
+    const where: Prisma.OntologyEditWhereInput = {};
+    if (filter.objectId !== undefined) {
+      where.objectId = filter.objectId;
+    }
+    if (filter.topicId !== undefined) {
+      // Filter by edits whose associated object belongs to the given topicId
+      where.object = { topicId: filter.topicId };
+    }
+
+    const rows = await this.prisma.ontologyEdit.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: filter.limit ?? 50,
+    });
+
+    return rows.map((r) => this.mapEdit(r));
+  }
+
   // ─── Private Helpers ───────────────────────────────────────────────────────
 
   /**
@@ -595,6 +1120,76 @@ export class OntologyService {
       toId: row.toId,
       properties: this.parseJsonObject(row.properties),
       confidence: row.confidence,
+      createdAt: row.createdAt,
+    };
+  }
+
+  private mapObjectType(row: {
+    id: string;
+    topicId: string | null;
+    key: string;
+    label: string;
+    propertySchema: Prisma.JsonValue;
+    color: string | null;
+    createdAt: Date;
+  }): OntologyObjectTypeView {
+    return {
+      id: row.id,
+      topicId: row.topicId,
+      key: row.key,
+      label: row.label,
+      propertySchema: this.parseJsonObject(row.propertySchema),
+      color: row.color,
+      createdAt: row.createdAt,
+    };
+  }
+
+  private mapLinkType(row: {
+    id: string;
+    topicId: string | null;
+    key: string;
+    label: string;
+    fromTypeKey: string;
+    toTypeKey: string;
+    directed: boolean;
+    propertySchema: Prisma.JsonValue;
+    createdAt: Date;
+  }): OntologyLinkTypeView {
+    return {
+      id: row.id,
+      topicId: row.topicId,
+      key: row.key,
+      label: row.label,
+      fromTypeKey: row.fromTypeKey,
+      toTypeKey: row.toTypeKey,
+      directed: row.directed,
+      propertySchema: this.parseJsonObject(row.propertySchema),
+      createdAt: row.createdAt,
+    };
+  }
+
+  private mapEdit(row: {
+    id: string;
+    objectId: string | null;
+    linkId: string | null;
+    action: string;
+    actorType: string;
+    actorId: string;
+    before: Prisma.JsonValue;
+    after: Prisma.JsonValue;
+    reason: string | null;
+    createdAt: Date;
+  }): OntologyEditView {
+    return {
+      id: row.id,
+      objectId: row.objectId,
+      linkId: row.linkId,
+      action: row.action,
+      actorType: row.actorType,
+      actorId: row.actorId,
+      before: row.before,
+      after: row.after,
+      reason: row.reason,
       createdAt: row.createdAt,
     };
   }

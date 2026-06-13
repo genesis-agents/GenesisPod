@@ -118,3 +118,109 @@ export interface SubgraphResult {
   nodes: OntologyObjectView[];
   links: OntologyLinkView[];
 }
+
+// ─── Meta-Model Types (W-A) ───────────────────────────────────────────────────
+
+/** View of an OntologyObjectType meta-model row */
+export interface OntologyObjectTypeView {
+  id: string;
+  topicId: string | null;
+  key: string;
+  label: string;
+  /** JSON Schema (object shape) constraining node properties */
+  propertySchema: Record<string, unknown>;
+  color: string | null;
+  createdAt: Date;
+}
+
+/** View of an OntologyLinkType meta-model row */
+export interface OntologyLinkTypeView {
+  id: string;
+  topicId: string | null;
+  key: string;
+  label: string;
+  /** Allowed fromNode typeKey; empty string means unconstrained */
+  fromTypeKey: string;
+  /** Allowed toNode typeKey; empty string means unconstrained */
+  toTypeKey: string;
+  directed: boolean;
+  /** JSON Schema (object shape) constraining edge properties */
+  propertySchema: Record<string, unknown>;
+  createdAt: Date;
+}
+
+/** Input for creating or updating an OntologyObjectType */
+export interface UpsertObjectTypeInput {
+  topicId?: string;
+  key: string;
+  label: string;
+  propertySchema?: Record<string, unknown>;
+  color?: string;
+}
+
+/** Input for creating or updating an OntologyLinkType */
+export interface UpsertLinkTypeInput {
+  topicId?: string;
+  key: string;
+  label: string;
+  fromTypeKey?: string;
+  toTypeKey?: string;
+  directed?: boolean;
+  propertySchema?: Record<string, unknown>;
+}
+
+/** Filter for listObjectTypes / listLinkTypes */
+export interface ListTypesFilter {
+  topicId?: string;
+}
+
+// ─── W-B Action Inputs ────────────────────────────────────────────────────────
+
+/** Input for setConfidence — updates the confidence score on an object or link */
+export interface SetConfidenceInput {
+  /** ID of the OntologyObject (mutually exclusive with linkId) */
+  objectId?: string;
+  /** ID of the OntologyLink (mutually exclusive with objectId) */
+  linkId?: string;
+  /** New confidence value, 0–1 */
+  value: number;
+}
+
+/** Input for editProperty — updates a single property key on an OntologyObject */
+export interface EditPropertyInput {
+  /** ID of the OntologyObject to update */
+  objectId: string;
+  /** Property key to set */
+  key: string;
+  /** New property value (set to null to remove the key) */
+  value: unknown;
+}
+
+/** Input for mergeObjects — merges source objects into a target object */
+export interface MergeObjectsInput {
+  /** IDs of the source OntologyObjects to absorb (will be marked deleted) */
+  sourceIds: string[];
+  /** ID of the surviving target OntologyObject */
+  targetId: string;
+}
+
+/** Filter for listEdits */
+export interface ListEditsFilter {
+  objectId?: string;
+  topicId?: string;
+  limit?: number;
+}
+
+/** View of an OntologyEdit audit row */
+export interface OntologyEditView {
+  id: string;
+  objectId: string | null;
+  linkId: string | null;
+  action: string;
+  actorType: string;
+  actorId: string;
+  before: unknown;
+  after: unknown;
+  reason: string | null;
+  createdAt: Date;
+}

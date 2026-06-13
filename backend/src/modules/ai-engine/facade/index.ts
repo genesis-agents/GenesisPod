@@ -274,7 +274,7 @@ export type {
   EntityCluster,
   EntityResolutionResult,
 } from "../knowledge/entity-resolution/entity-resolution.service";
-// ★ Knowledge Ontology v1 (P1 engine core)
+// ★ Knowledge Ontology v1 (P1 engine core) + W-A meta-model + W-B action methods
 export { OntologyService } from "../knowledge/ontology/ontology.service";
 export type {
   AuditContext as OntologyAuditContext,
@@ -285,6 +285,16 @@ export type {
   OntologyObjectView,
   OntologyLinkView,
   SubgraphResult,
+  OntologyObjectTypeView,
+  OntologyLinkTypeView,
+  UpsertObjectTypeInput,
+  UpsertLinkTypeInput,
+  ListTypesFilter as OntologyListTypesFilter,
+  SetConfidenceInput as OntologySetConfidenceInput,
+  EditPropertyInput as OntologyEditPropertyInput,
+  MergeObjectsInput as OntologyMergeObjectsInput,
+  ListEditsFilter as OntologyListEditsFilter,
+  OntologyEditView,
 } from "../knowledge/ontology/ontology.types";
 // ★ Knowledge Ontology v1 (P3 engine skill) — P4 callers inject via facade
 export {
