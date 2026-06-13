@@ -87,6 +87,8 @@ export {
   KnowledgeGraphTool,
   WikiPageReadTool,
   WikiSearchTool,
+  OntologyUpsertObjectTool,
+  OntologyAddLinkTool,
 } from "./knowledge";
 export type {
   RAGSearchInput,
@@ -101,6 +103,10 @@ export type {
   GraphEdge,
   GraphPath,
   KnowledgeGraphOutput,
+  OntologyUpsertObjectInput,
+  OntologyUpsertObjectOutput,
+  OntologyAddLinkInput,
+  OntologyAddLinkOutput,
 } from "./knowledge";
 
 // Policy Research Tools

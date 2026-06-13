@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>知识内容本体 · 它如何改变每个既有能力</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f7f4ee;--paper-2:#f2eee6;--panel:#ffffff;--panel-2:#fbf9f4;
+  --line:rgba(29,36,51,.09);--line-strong:rgba(29,36,51,.2);
+  --txt:#1d2433;--txt-dim:#5a6478;--txt-faint:#98a0b0;
+  --amber:#b45309;--amber-bright:#d97706;--amber-soft:rgba(217,119,6,.09);
+  --blue:#0369a1;--blue-soft:rgba(3,105,161,.07);
+  --red:#d6303a;--red-soft:rgba(214,48,58,.08);
+  --green:#15803d;--green-soft:rgba(21,128,61,.07);
+  --plum:#9d174d;--plum-soft:rgba(157,23,77,.08);
+  --serif:'Noto Serif SC','Fraunces',serif;--disp:'Fraunces','Noto Serif SC',serif;
+  --mono:'IBM Plex Mono','Noto Sans SC',monospace;--sans:'Noto Sans SC',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--paper);color:var(--txt);font-family:var(--sans);font-size:14px;line-height:1.6;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(1100px 480px at 18% -8%,rgba(217,119,6,.06),transparent 60%),radial-gradient(900px 520px at 88% 0%,rgba(3,105,161,.045),transparent 55%),repeating-linear-gradient(0deg,transparent 0 47px,rgba(29,36,51,.035) 47px 48px),repeating-linear-gradient(90deg,transparent 0 47px,rgba(29,36,51,.035) 47px 48px)}
+body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.45;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E")}
+.wrap{position:relative;z-index:1;max-width:1340px;margin:0 auto;padding:0 28px 90px}
+
+/* hero */
+header{padding:54px 4px 30px}
+.kicker{font-family:var(--mono);font-size:11px;letter-spacing:.32em;color:var(--amber);text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.kicker::before{content:'';width:26px;height:2px;background:var(--amber-bright)}
+header h1{font-family:var(--serif);font-weight:900;font-size:clamp(30px,4.2vw,52px);letter-spacing:.03em;line-height:1.15;max-width:18ch}
+header h1 em{font-style:normal;color:var(--amber-bright)}
+.thesis{font-family:var(--serif);font-size:clamp(16px,1.7vw,20px);color:var(--txt-dim);margin-top:20px;max-width:62ch;line-height:1.7}
+.thesis b{color:var(--txt);font-weight:700}
+
+/* section heads */
+.sec{margin-top:64px}
+.sechead{display:flex;align-items:baseline;gap:14px;margin:0 4px 22px;border-bottom:2px solid var(--txt);padding-bottom:12px;flex-wrap:wrap}
+.sechead .no{font-family:var(--mono);font-size:12px;color:var(--amber);letter-spacing:.1em}
+.sechead h2{font-family:var(--serif);font-weight:900;font-size:clamp(20px,2.4vw,28px);letter-spacing:.04em}
+.sechead .en{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--txt-faint);text-transform:uppercase}
+.sechead .note{margin-left:auto;font-size:12px;color:var(--txt-dim);max-width:40ch;text-align:right}
+
+/* ===== toggle compare ===== */
+.toggle{display:inline-flex;border:1px solid var(--line-strong);background:var(--panel);margin:0 4px 18px;box-shadow:0 2px 8px rgba(29,36,51,.05)}
+.toggle button{font-family:var(--sans);font-size:13px;font-weight:600;padding:10px 22px;border:none;background:none;cursor:pointer;color:var(--txt-dim);display:flex;align-items:center;gap:8px;transition:all .15s}
+.toggle button .d{width:8px;height:8px;border-radius:50%}
+.toggle button:first-child .d{background:var(--red)}
+.toggle button:last-child .d{background:var(--green)}
+.toggle button.on{color:var(--txt);background:var(--paper-2)}
+.toggle button:first-child.on{box-shadow:inset 0 -3px 0 var(--red)}
+.toggle button:last-child.on{box-shadow:inset 0 -3px 0 var(--green)}
+.stage{position:relative;border:1px solid var(--line-strong);background:var(--panel);box-shadow:0 4px 22px rgba(29,36,51,.06);height:520px;overflow:hidden}
+.layer{position:absolute;inset:0;transition:opacity .5s ease;padding:24px}
+.layer.hide{opacity:0;pointer-events:none}
+.layer .cap{position:absolute;left:24px;right:24px;bottom:20px;font-size:12.5px;color:var(--txt-dim);font-family:var(--mono);letter-spacing:.02em;text-align:center;line-height:1.7}
+.layer .cap b{color:var(--red)}
+.layer.future .cap b{color:var(--green)}
+.layer .tag{position:absolute;top:18px;left:24px;font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;padding:4px 11px}
+.tag.bad{color:var(--red);background:var(--red-soft)}
+.tag.good{color:var(--green);background:var(--green-soft)}
+/* islands (today) */
+.island{position:absolute;border:1.5px dashed var(--line-strong);background:var(--panel-2);padding:10px 13px;width:170px}
+.island .h{font-family:var(--mono);font-size:10px;color:var(--txt-faint);letter-spacing:.06em;margin-bottom:8px;text-transform:uppercase}
+.island .nv{display:inline-flex;align-items:center;gap:6px;font-family:var(--serif);font-weight:700;font-size:12.5px;background:var(--panel);border:1px solid var(--line);padding:4px 9px}
+.island .nv .d{width:7px;height:7px;border-radius:50%;background:var(--blue)}
+.island .dup{font-family:var(--mono);font-size:9px;color:var(--red);margin-top:6px}
+/* hub (future) */
+.hub{position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);z-index:3;text-align:center;background:var(--txt);color:#fff;padding:16px 22px;box-shadow:0 8px 30px rgba(29,36,51,.25)}
+.hub .lab{font-family:var(--mono);font-size:9px;letter-spacing:.2em;opacity:.7;text-transform:uppercase}
+.hub .nm{font-family:var(--serif);font-weight:900;font-size:19px;margin-top:5px;display:flex;align-items:center;gap:8px;justify-content:center}
+.hub .nm .d{width:9px;height:9px;border-radius:50%;background:#7cc7ef}
+.hub .one{font-family:var(--mono);font-size:9.5px;color:#9fe6b6;margin-top:6px}
+.spoke{position:absolute;transform:translate(-50%,-50%);z-index:2;background:var(--panel);border:1px solid var(--line-strong);padding:7px 11px;font-size:11.5px;font-weight:600;white-space:nowrap;box-shadow:0 2px 8px rgba(29,36,51,.08)}
+.spoke .io{font-family:var(--mono);font-size:8.5px;letter-spacing:.05em;display:block;margin-top:2px}
+.spoke .io.prod{color:var(--amber)}
+.spoke .io.cons{color:var(--blue)}
+.spoke .io.both{color:var(--green)}
+svg.wires{position:absolute;inset:0;width:100%;height:100%;z-index:1}
+
+/* ===== module impact cards ===== */
+.mods{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px}
+.mod{border:1px solid var(--line-strong);background:var(--panel);box-shadow:0 2px 10px rgba(29,36,51,.05);display:flex;flex-direction:column}
+.mod .mh{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.mod .mh .nm{font-family:var(--serif);font-weight:900;font-size:16px}
+.mod .mh .en{font-family:var(--mono);font-size:9.5px;color:var(--txt-faint);letter-spacing:.08em}
+.mod .roles{margin-left:auto;display:flex;gap:5px}
+.role{font-family:var(--mono);font-size:9px;letter-spacing:.06em;padding:2px 7px;text-transform:uppercase}
+.role.prod{color:var(--amber);background:var(--amber-soft)}
+.role.cons{color:var(--blue);background:var(--blue-soft)}
+.ba{padding:13px 16px;font-size:12.5px;line-height:1.6}
+.ba .row{display:flex;gap:10px;padding:6px 0}
+.ba .row .lab{flex:none;width:54px;font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;padding-top:2px}
+.ba .row.t .lab{color:var(--red)}
+.ba .row.f .lab{color:var(--green)}
+.ba .row.t .txt{color:var(--txt-dim)}
+.ba .row.f .txt{color:var(--txt);font-weight:500}
+.ba .sep{height:1px;background:var(--line);margin:3px 0}
+
+/* ===== one object's life ===== */
+.life{position:relative;border:1px solid var(--line-strong);background:var(--panel);box-shadow:0 4px 22px rgba(29,36,51,.06);padding:30px 26px 26px}
+.life .subj{text-align:center;margin-bottom:26px}
+.life .subj .nm{font-family:var(--serif);font-weight:900;font-size:22px;display:inline-flex;align-items:center;gap:9px}
+.life .subj .nm .d{width:11px;height:11px;border-radius:50%;background:var(--blue)}
+.life .subj .cid{font-family:var(--mono);font-size:10.5px;color:var(--txt-faint);margin-top:5px}
+.lifeline{display:grid;grid-template-columns:repeat(7,1fr);gap:0;position:relative}
+.lifeline::before{content:'';position:absolute;left:6%;right:6%;top:26px;height:2px;background:var(--line-strong)}
+.station{text-align:center;padding:0 7px;position:relative}
+.station .dotn{width:34px;height:34px;border-radius:50%;background:var(--panel);border:2px solid var(--amber-bright);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:600;color:var(--amber);margin:8px auto 12px;position:relative;z-index:2}
+.station .md{font-family:var(--serif);font-weight:700;font-size:12.5px;margin-bottom:5px}
+.station .act{font-size:11px;color:var(--txt-dim);line-height:1.5}
+.station .io{font-family:var(--mono);font-size:8.5px;letter-spacing:.05em;margin-top:7px;text-transform:uppercase}
+.station .io.prod{color:var(--amber)}
+.station .io.cons{color:var(--blue)}
+.life .punch{text-align:center;margin-top:26px;padding-top:20px;border-top:1px solid var(--line);font-family:var(--serif);font-size:14.5px;color:var(--txt)}
+.life .punch b{color:var(--amber-bright)}
+
+/* ===== evolution ladder ===== */
+.ladder{display:flex;flex-direction:column;gap:0;border:1px solid var(--line-strong);background:var(--panel);box-shadow:0 2px 10px rgba(29,36,51,.05)}
+.rung{display:grid;grid-template-columns:120px 1fr;gap:0;border-bottom:1px solid var(--line)}
+.rung:last-child{border-bottom:none}
+.rung .lv{padding:18px 16px;border-right:1px solid var(--line);background:var(--panel-2);display:flex;flex-direction:column;justify-content:center}
+.rung .lv .n{font-family:var(--disp);font-weight:700;font-size:30px;color:var(--amber-bright);line-height:1}
+.rung .lv .t{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;color:var(--txt-faint);margin-top:6px;text-transform:uppercase}
+.rung .body{padding:16px 20px}
+.rung .body h4{font-family:var(--serif);font-weight:900;font-size:16px;margin-bottom:7px}
+.rung .body p{font-size:12.5px;color:var(--txt-dim);line-height:1.65}
+.rung .body .un{margin-top:9px;display:flex;flex-wrap:wrap;gap:7px}
+.rung .body .un span{font-family:var(--mono);font-size:10.5px;color:var(--green);background:var(--green-soft);padding:2px 9px}
+.rung.lvgrey .lv .n{color:var(--txt-faint)}
+
+/* cold water */
+.cold{border:1px solid var(--amber-bright);background:linear-gradient(180deg,var(--amber-soft),transparent);padding:24px 26px;box-shadow:0 2px 10px rgba(29,36,51,.05)}
+.cold h3{font-family:var(--serif);font-weight:900;font-size:18px;margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.cold h3 .ic{font-family:var(--mono);color:var(--amber-bright)}
+.cold ul{list-style:none;display:flex;flex-direction:column;gap:12px}
+.cold li{display:flex;gap:12px;font-size:13px;line-height:1.6}
+.cold li .n{flex:none;font-family:var(--disp);font-weight:700;font-size:18px;color:var(--amber-bright);line-height:1.3}
+.cold li b{color:var(--txt)}
+.cold li span{color:var(--txt-dim)}
+
+footer{margin-top:64px;padding:20px 4px;border-top:1px solid var(--line-strong);display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px;font-family:var(--mono);font-size:10.5px;color:var(--txt-faint);letter-spacing:.04em}
+
+.reveal{opacity:0;transform:translateY(16px);transition:opacity .6s ease,transform .6s ease}
+.reveal.in{opacity:1;transform:none}
+@media(max-width:880px){.lifeline{grid-template-columns:1fr;gap:14px}.lifeline::before{display:none}.station{display:flex;align-items:flex-start;gap:12px;text-align:left}.station .dotn{margin:0}.rung{grid-template-columns:1fr}.rung .lv{border-right:none;border-bottom:1px solid var(--line);flex-direction:row;align-items:baseline;gap:12px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="kicker">GenesisPod · 知识层演进 / Why It Matters</div>
+    <h1>本体不是新功能，<br>它是让<em>每个既有能力</em>变强的地基</h1>
+    <p class="thesis">今天你的知识是<b>一次性</b>的——每份报告跑完即死，同一个实体在六个模块里各存一份、互不相认。本体把这件事反过来：<b>所有模块产出的知识汇入同一张不断增值的图，所有模块又从这张图里取用。</b>下面用三个具体场景讲明白未来态。</p>
+  </header>
+
+  <!-- ============ 01 today vs future ============ -->
+  <section class="sec reveal">
+    <div class="sechead"><span class="no">01</span><h2>核心转变：碎片孤岛 → 统一地基</h2><span class="en">Fragmented Islands → Shared Substrate</span><span class="note">同一个对象「NVIDIA」在两种世界里的处境</span></div>
+    <div class="toggle">
+      <button id="bt-today" class="on"><span class="d"></span>今天的状态</button>
+      <button id="bt-future"><span class="d"></span>接入本体后</button>
+    </div>
+    <div class="stage">
+      <!-- TODAY -->
+      <div class="layer today" id="layer-today">
+        <span class="tag bad">现状 · 知识不复利</span>
+        <div class="island" style="left:5%;top:70px"><div class="h">AI Research 报告</div><div class="nv"><span class="d"></span>NVIDIA</div><div class="dup">↳ 报告 #1 里的裸文本</div></div>
+        <div class="island" style="left:38%;top:62px"><div class="h">Foresight 判断卡</div><div class="nv"><span class="d"></span>NVIDIA</div><div class="dup">↳ claim 里的字符串</div></div>
+        <div class="island" style="left:70%;top:74px"><div class="h">Library 图谱</div><div class="nv"><span class="d"></span>NVIDIA</div><div class="dup">↳ 查询时合成的节点</div></div>
+        <div class="island" style="left:8%;top:250px"><div class="h">entity-memory</div><div class="nv"><span class="d"></span>NVIDIA</div><div class="dup">↳ Agent 临时写入</div></div>
+        <div class="island" style="left:41%;top:262px"><div class="h">Wiki ENTITY 页</div><div class="nv"><span class="d"></span>NVIDIA</div><div class="dup">↳ 又一份</div></div>
+        <div class="island" style="left:72%;top:254px"><div class="h">Mission Graph JSONB</div><div class="nv"><span class="d"></span>NVIDIA</div><div class="dup">↳ 序列化在报告里</div></div>
+        <div class="cap">同一个 NVIDIA 存了 <b>6 份</b>，互相不认识 · 报告跑完即死 · 第 1001 份研究并不比第 1 份更聪明</div>
+      </div>
+      <!-- FUTURE -->
+      <div class="layer future hide" id="layer-future">
+        <span class="tag good">未来 · 知识复利</span>
+        <svg class="wires" id="wires" viewBox="0 0 1000 520" preserveAspectRatio="none"></svg>
+        <div class="hub"><div class="lab">Knowledge Ontology</div><div class="nm"><span class="d"></span>NVIDIA</div><div class="one">obj://org/nvidia · 唯一一份</div></div>
+        <!-- spokes injected -->
+        <div class="cap">一个对象，<b>全平台共享</b> · <span style="color:var(--amber)">供料</span> 的模块让它增值，<span style="color:var(--blue)">消费</span> 的模块直接受益 · 研究开始复利</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 module by module ============ -->
+  <section class="sec reveal">
+    <div class="sechead"><span class="no">02</span><h2>逐个模块看：本体带来什么</h2><span class="en">Before → After, per capability</span><span class="note"><span style="color:var(--amber)">供料</span>=向本体写入知识 · <span style="color:var(--blue)">消费</span>=从本体取用</span></div>
+    <div class="mods" id="mods"></div>
+  </section>
+
+  <!-- ============ 03 one object's life ============ -->
+  <section class="sec reveal">
+    <div class="sechead"><span class="no">03</span><h2>一个对象的一生</h2><span class="en">One Object, Many Lives</span><span class="note">跟着「NVIDIA」这一个对象，看它如何被全平台反复复用</span></div>
+    <div class="life">
+      <div class="subj"><div class="nm"><span class="d"></span>NVIDIA</div><div class="cid">obj://org/nvidia · 由 1 个对象服务整个平台，而非 6 份各管各</div></div>
+      <div class="lifeline" id="lifeline"></div>
+      <div class="punch">没有本体，上面 7 步是 <b>7 段互不相干的临时数据</b>；有了本体，它们是 <b>同一个对象的 7 次增值与复用</b>。</div>
+    </div>
+  </section>
+
+  <!-- ============ 04 evolution ============ -->
+  <section class="sec reveal">
+    <div class="sechead"><span class="no">04</span><h2>演进阶梯：解锁什么，按什么顺序</h2><span class="en">Capability Ladder</span><span class="note">先打地基再往上爬，每级都有独立可交付的价值</span></div>
+    <div class="ladder" id="ladder"></div>
+  </section>
+
+  <!-- ============ 05 cold water ============ -->
+  <section class="sec reveal">
+    <div class="cold">
+      <h3><span class="ic">!</span>但也要冷静：什么时候不值得做</h3>
+      <ul>
+        <li><span class="n">1</span><div><b>它是地基，空转就是纯成本。</b><span> 建完若没有任何模块真去消费它，就只是多了一层维护负担。所以第一步不是设计表结构，是先锁定「第一个消费方」——建议 AI Ask + Topic Insights，有真实消费再往外扩。</span></div></li>
+        <li><span class="n">2</span><div><b>抽取质量是天花板。</b><span> 垃圾进、垃圾出。本体会放大抽取管线的质量，也会放大它的错误，必须配套溯源与置信度门槛。</span></div></li>
+        <li><span class="n">3</span><div><b>是工程，但是「焊接」不是「从零」。</b><span> 你已有大半零件：entity-resolution、ForesightEdge、顶配的 tool/action 底座。单位投入的回报比一般项目高——这正是现在做的理由。</span></div></li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    <div>GenesisPod Knowledge Ontology · 价值与演进 · 配套于 knowledge-ontology-demo.html（工作台目标态）</div>
+    <div>数据为示意 · 目标态原型</div>
+  </footer>
+</div>
+
+<script>
+/* ===== toggle ===== */
+const btT=document.getElementById('bt-today'),btF=document.getElementById('bt-future');
+const lyT=document.getElementById('layer-today'),lyF=document.getElementById('layer-future');
+btT.onclick=()=>{btT.classList.add('on');btF.classList.remove('on');lyT.classList.remove('hide');lyF.classList.add('hide')};
+btF.onclick=()=>{btF.classList.add('on');btT.classList.remove('on');lyF.classList.remove('hide');lyT.classList.add('hide')};
+
+/* ===== future hub spokes ===== */
+const HUB={x:500,y:250};
+const SPOKES=[
+  {nm:'AI Research',x:160,y:90,io:'both',t:'供料·消费'},
+  {nm:'Topic Insights',x:500,y:64,io:'both',t:'供料·消费'},
+  {nm:'Foresight 判断',x:840,y:90,io:'both',t:'供料·消费'},
+  {nm:'AI Ask 问答',x:880,y:250,io:'cons',t:'消费'},
+  {nm:'AI Teams 辩论',x:840,y:410,io:'both',t:'供料·消费'},
+  {nm:'AI Writing',x:500,y:436,io:'cons',t:'消费'},
+  {nm:'Agent Playground',x:160,y:410,io:'both',t:'供料·消费'},
+  {nm:'Library / RAG',x:120,y:250,io:'cons',t:'消费'},
+];
+const wires=document.getElementById('wires');
+let ws='';SPOKES.forEach(s=>{ws+=`<path d="M${HUB.x} ${HUB.y} L${s.x} ${s.y}" stroke="rgba(21,128,61,.3)" stroke-width="1.4" fill="none"/>`});
+wires.innerHTML=ws;
+SPOKES.forEach(s=>{const d=document.createElement('div');d.className='spoke';d.style.left=s.x/1000*100+'%';d.style.top=s.y/520*100+'%';
+  d.innerHTML=`${s.nm}<span class="io ${s.io}">${s.t}</span>`;lyF.appendChild(d)});
+
+/* ===== module cards ===== */
+const MODS=[
+  {nm:'AI Research',en:'深度研究',roles:['prod','cons'],t:'每个 mission 产出一份静态报告，跑完即死，下一个从零开始。',f:'抽取的实体/关系并入图（供料）；新 mission 开局即加载已知子图，不重复研究（消费）。研究开始复利。'},
+  {nm:'Topic Insights',en:'话题洞察',roles:['prod','cons'],t:'洞察卡基于单次报告、彼此孤立，同话题的洞察不聚合。',f:'洞察挂在对象上，跨报告自动聚合；新信号关联到已有对象，而不是再造一个。'},
+  {nm:'Foresight',en:'判断资产',roles:['prod','cons'],t:'卡与边自成一套，claim 里的实体是裸文本，证伪条件难落地监控。',f:'claim 指向本体对象，证伪条件沿图监控；ForesightEdge 复用为本体 Link 的一种视图。'},
+  {nm:'AI Ask',en:'智能问答',roles:['cons'],t:'chunk 级 RAG，实体级推理弱，容易幻觉、难追责。',f:'实体级问答 + 多跳推理（"X 依赖的、受 Y 影响的供应商"），每条答案带 provenance。'},
+  {nm:'AI Teams',en:'多 Agent 辩论',roles:['prod','cons'],t:'辩论凭 LLM 记忆，各说各话、缺共同事实基。',f:'团队在同一张带溯源的图上辩论，论据可追溯，结论经 Action 写回图。'},
+  {nm:'AI Writing',en:'长文创作',roles:['cons'],t:'引用事实靠临时 RAG，人物/设定一致性各管各，长文易自相矛盾。',f:'引用直接指向本体对象 + 溯源，长文事实一致性有保障；WritingCharacter 即一类对象。'},
+  {nm:'Library / RAG',en:'资源库',roles:['cons'],t:'library 图是查询时合成的，节点无稳定身份，只读 + 卸载。',f:'图节点 = 本体对象，可编辑、可跨库共享、可被 Agent 操作。'},
+  {nm:'Agent Playground',en:'Agent 运行时',roles:['prod','cons'],t:'Agent 无状态重抽取，工具是通用能力，写回无约束、难审计。',f:'Agent 在持久图上查询/行动，Action 绑定到对象类型，写回可审计、可人审。'},
+];
+document.getElementById('mods').innerHTML=MODS.map(m=>`
+  <div class="mod">
+    <div class="mh"><span class="nm">${m.nm}</span><span class="en">${m.en}</span>
+      <span class="roles">${m.roles.map(r=>`<span class="role ${r}">${r==='prod'?'供料':'消费'}</span>`).join('')}</span></div>
+    <div class="ba">
+      <div class="row t"><span class="lab">今天</span><span class="txt">${m.t}</span></div>
+      <div class="sep"></div>
+      <div class="row f"><span class="lab">接入后</span><span class="txt">${m.f}</span></div>
+    </div>
+  </div>`).join('');
+
+/* ===== one object's life ===== */
+const LIFE=[
+  {md:'AI Research',act:'深研报告抽取，首次创建对象',io:'prod'},
+  {md:'entity-resolution',act:'「辉达/英伟达」语义去重，合并为唯一身份',io:'prod'},
+  {md:'Topic Insights',act:'累积多份报告的洞察，挂到该对象',io:'prod'},
+  {md:'Foresight',act:'判断卡的 claim 指向它，监控证伪条件',io:'both'},
+  {md:'AI Ask',act:'用户多跳追问，沿它的供应链推理作答',io:'cons'},
+  {md:'AI Writing',act:'长文引用其属性与溯源，保证一致',io:'cons'},
+  {md:'AI Teams',act:'团队基于同一份事实辩论并回写结论',io:'both'},
+];
+document.getElementById('lifeline').innerHTML=LIFE.map((s,i)=>`
+  <div class="station">
+    <div class="dotn">${i+1}</div>
+    <div><div class="md">${s.md}</div><div class="act">${s.act}</div>
+    <div class="io ${s.io==='both'?'prod':s.io}">${s.io==='prod'?'供料':s.io==='cons'?'消费':'供料·消费'}</div></div>
+  </div>`).join('');
+
+/* ===== ladder ===== */
+const LADDER=[
+  {n:'L1',t:'地基',h:'统一身份 + 元模型',p:'把散在 6 处的实体焊成「一个对象一个稳定 id」，建声明式元模型（类型/属性/Link）。让 entity-resolution 的 canonical id 成为全局主键。',un:['知识不再重复','跨模块互通','溯源可查']},
+  {n:'L2',t:'行动',h:'Agent 在图上行动',p:'在现有 tool/action 底座上加一层「绑定到对象类型的 Action」，Agent 查询/写回都经校验、权限、人审。',un:['实体级问答','安全写回','可审计 Edit 流']},
+  {n:'L3',t:'推演',h:'模拟与影响传播',p:'沿 Link 做传播计算：新信号算影响面、"台积电产能 -30%" 沿 dependsOn 链推演下游冲击。',un:['雷达影响面','假设推演','风险预警']},
+  {n:'L4',t:'资产',h:'私有本体 / 商业化',p:'每个用户/组织一张私有的活体行业本体，成为可售卖、可订阅、难复制的数据资产。',un:['数据护城河','可售本体','行业数字孪生'],grey:true},
+];
+document.getElementById('ladder').innerHTML=LADDER.map(r=>`
+  <div class="rung ${r.grey?'lvgrey':''}"><div class="lv"><div class="n">${r.n}</div><div class="t">${r.t}</div></div>
+    <div class="body"><h4>${r.h}</h4><p>${r.p}</p><div class="un">${r.un.map(u=>`<span>${u}</span>`).join('')}</div></div></div>`).join('');
+
+/* ===== reveal ===== */
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.12});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+</script>
+</body>
+</html>

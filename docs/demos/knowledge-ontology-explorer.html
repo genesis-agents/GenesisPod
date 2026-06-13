@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>知识内容本体 · 浏览器 / Ontology Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f7f4ee;--paper-2:#f2eee6;--panel:#ffffff;--panel-2:#fbf9f4;
+  --line:rgba(29,36,51,.09);--line-strong:rgba(29,36,51,.2);
+  --txt:#1d2433;--txt-dim:#5a6478;--txt-faint:#98a0b0;
+  --amber:#b45309;--amber-bright:#d97706;--amber-soft:rgba(217,119,6,.09);
+  --blue:#0369a1;--blue-soft:rgba(3,105,161,.07);
+  --red:#d6303a;--red-soft:rgba(214,48,58,.08);
+  --green:#15803d;--green-soft:rgba(21,128,61,.07);
+  --plum:#9d174d;--plum-soft:rgba(157,23,77,.08);
+  --serif:'Noto Serif SC','Fraunces',serif;--disp:'Fraunces','Noto Serif SC',serif;
+  --mono:'IBM Plex Mono','Noto Sans SC',monospace;--sans:'Noto Sans SC',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--txt);font-family:var(--sans);font-size:14px;line-height:1.55;height:100vh;overflow:hidden}
+.app{display:grid;grid-template-columns:64px 1fr;height:100vh}
+
+/* ===== global slim sidebar (现有 AppShell) ===== */
+.gnav{background:#1d2433;display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:4px}
+.gnav .logo{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--amber-bright),var(--amber));display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:900;color:#fff;font-size:18px;margin-bottom:14px}
+.gnav .gi{width:42px;height:42px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.5);cursor:pointer;position:relative;transition:all .14s}
+.gnav .gi:hover{background:rgba(255,255,255,.08);color:#fff}
+.gnav .gi.on{background:rgba(217,119,6,.18);color:var(--amber-bright)}
+.gnav .gi.on::before{content:'';position:absolute;left:-12px;top:50%;transform:translateY(-50%);width:3px;height:22px;background:var(--amber-bright);border-radius:2px}
+.gnav .gi .tip{position:absolute;left:52px;background:#1d2433;color:#fff;font-size:11px;padding:5px 10px;border-radius:5px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .12s;z-index:50;box-shadow:0 4px 14px rgba(0,0,0,.3)}
+.gnav .gi:hover .tip{opacity:1}
+.gnav .sp{flex:1}
+
+/* ===== explorer ===== */
+.explorer{display:grid;grid-template-columns:268px 1fr 360px;height:100vh;min-width:0}
+
+/* left menu */
+.menu{background:var(--panel-2);border-right:1px solid var(--line);overflow-y:auto;display:flex;flex-direction:column}
+.menu .top{padding:16px 16px 12px;border-bottom:1px solid var(--line)}
+.menu .crumb{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--txt-faint);text-transform:uppercase;margin-bottom:9px}
+.menu .crumb b{color:var(--amber)}
+.menu h1{font-family:var(--serif);font-weight:900;font-size:18px;letter-spacing:.03em}
+.searchbox{margin:12px 16px 4px;display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line-strong);padding:9px 11px}
+.searchbox svg{flex:none;color:var(--txt-faint)}
+.searchbox input{border:none;background:none;outline:none;font-family:var(--sans);font-size:12.5px;color:var(--txt);width:100%}
+.searchbox input::placeholder{color:var(--txt-faint)}
+.topicsel{margin:10px 16px 6px;padding:10px 12px;background:var(--blue-soft);border:1px solid rgba(3,105,161,.18);cursor:pointer}
+.topicsel .l{font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--blue);text-transform:uppercase}
+.topicsel .v{font-family:var(--serif);font-weight:700;font-size:13.5px;margin-top:3px;display:flex;align-items:center;gap:7px}
+.topicsel .v svg{margin-left:auto;color:var(--txt-faint)}
+.mgroup{padding:6px 8px}
+.mgroup .gl{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;color:var(--txt-faint);text-transform:uppercase;padding:10px 10px 6px}
+.mitem{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:none;cursor:pointer;padding:8px 10px;border-radius:4px;font-family:var(--sans);font-size:13px;color:var(--txt);transition:background .12s}
+.mitem:hover{background:rgba(29,36,51,.045)}
+.mitem.on{background:var(--panel);box-shadow:inset 2px 0 0 var(--amber-bright),0 1px 4px rgba(29,36,51,.06)}
+.mitem .dot{width:9px;height:9px;border-radius:50%;flex:none}
+.d-org{background:var(--blue)}.d-person{background:var(--amber-bright)}.d-tech{background:var(--green)}.d-product{background:var(--plum)}.d-event{background:var(--red)}
+.mitem .cnt{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--txt-faint);font-variant-numeric:tabular-nums}
+.mitem .chev{flex:none;color:var(--txt-faint);transition:transform .15s}
+.mitem.open .chev{transform:rotate(90deg)}
+.subitems{display:none;padding:2px 0 6px 28px}
+.subitems.open{display:block}
+.subitem{display:block;width:100%;text-align:left;background:none;border:none;cursor:pointer;padding:5px 10px;font-size:12px;color:var(--txt-dim);border-left:1px solid var(--line);transition:all .12s}
+.subitem:hover{color:var(--amber);border-color:var(--amber-bright)}
+.subitem.on{color:var(--amber);font-weight:600;border-color:var(--amber-bright)}
+.recent{font-family:var(--mono);font-size:11px;color:var(--txt-dim);padding:6px 10px;display:flex;gap:7px;cursor:pointer}
+.recent:hover{color:var(--amber)}
+.recent .tm{color:var(--txt-faint);flex:none}
+.recent .star{color:var(--amber-bright)}
+.msep{height:1px;background:var(--line);margin:6px 12px}
+
+/* center */
+.center{background:var(--paper);overflow-y:auto;display:flex;flex-direction:column;min-width:0}
+.chead{padding:18px 24px 0;position:sticky;top:0;background:var(--paper);z-index:5}
+.chead .tt{display:flex;align-items:center;gap:11px;margin-bottom:4px}
+.chead .tt h2{font-family:var(--serif);font-weight:900;font-size:23px;letter-spacing:.03em}
+.chead .tt .pill{font-family:var(--mono);font-size:10px;padding:3px 9px;letter-spacing:.04em}
+.t-org{color:var(--blue);background:var(--blue-soft)}.t-person{color:var(--amber);background:var(--amber-soft)}.t-tech{color:var(--green);background:var(--green-soft)}.t-product{color:var(--plum);background:var(--plum-soft)}.t-event{color:var(--red);background:var(--red-soft)}
+.chead .sub{font-size:12.5px;color:var(--txt-dim);margin-bottom:14px}
+.ctools{display:flex;align-items:center;gap:10px;padding-bottom:12px;border-bottom:2px solid var(--txt);flex-wrap:wrap}
+.viewsw{display:inline-flex;border:1px solid var(--line-strong);background:var(--panel)}
+.viewsw button{font-family:var(--mono);font-size:11px;padding:6px 13px;border:none;background:none;cursor:pointer;color:var(--txt-dim);letter-spacing:.04em;display:flex;align-items:center;gap:6px}
+.viewsw button.on{background:var(--txt);color:#fff}
+.csort{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--txt-faint);display:flex;align-items:center;gap:8px}
+.csort select{font-family:var(--mono);font-size:11px;border:1px solid var(--line-strong);background:var(--panel);padding:4px 8px;color:var(--txt-dim)}
+
+/* table view */
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.tbl th{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;color:var(--txt-faint);text-transform:uppercase;text-align:left;padding:11px 24px;font-weight:400;border-bottom:1px solid var(--line);position:sticky;top:128px;background:var(--paper)}
+.tbl td{padding:13px 24px;border-bottom:1px solid var(--line);vertical-align:middle}
+.tbl tr{cursor:pointer;transition:background .1s}
+.tbl tbody tr:hover{background:var(--panel)}
+.tbl tr.on{background:var(--amber-soft);box-shadow:inset 3px 0 0 var(--amber-bright)}
+.tbl .onm{font-family:var(--serif);font-weight:700;font-size:13.5px;display:flex;align-items:center;gap:8px}
+.tbl .oalias{font-size:11px;color:var(--txt-faint);margin-top:2px}
+.tbl .prop{color:var(--txt-dim)}
+.tbl .lk{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--blue)}
+.minicred{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--txt-dim)}
+.minicred .t{width:40px;height:4px;background:var(--paper-2);border:1px solid var(--line);position:relative}
+.minicred .f{position:absolute;inset:0 auto 0 0;background:var(--green)}
+.tbl .upd{font-family:var(--mono);font-size:11px;color:var(--txt-faint)}
+
+/* card view */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;padding:18px 24px}
+.ocard{border:1px solid var(--line-strong);background:var(--panel);padding:14px 15px;cursor:pointer;transition:all .13s;box-shadow:0 1px 5px rgba(29,36,51,.04)}
+.ocard:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(29,36,51,.1);border-color:var(--amber-bright)}
+.ocard.on{border-color:var(--amber-bright);box-shadow:0 0 0 2px var(--amber-soft)}
+.ocard .ch{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.ocard .ch .nm{font-family:var(--serif);font-weight:900;font-size:15px}
+.ocard .pr{font-size:11.5px;color:var(--txt-dim);line-height:1.5;margin-bottom:10px}
+.ocard .ft{display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:10px;color:var(--txt-faint);padding-top:9px;border-top:1px dotted var(--line)}
+.ocard .ft .lk{color:var(--blue)}
+
+/* graph placeholder */
+.graphnote{margin:40px 24px;padding:40px;border:1.5px dashed var(--line-strong);text-align:center;background:var(--panel-2)}
+.graphnote h3{font-family:var(--serif);font-weight:900;font-size:18px;margin-bottom:10px}
+.graphnote p{font-size:12.5px;color:var(--txt-dim);max-width:46ch;margin:0 auto;line-height:1.7}
+.graphnote .lnk{font-family:var(--mono);font-size:11px;color:var(--amber);margin-top:14px;display:inline-block}
+
+/* right detail */
+.detail{background:var(--panel);border-left:1px solid var(--line);overflow-y:auto}
+.dempty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--txt-faint);text-align:center;padding:40px;gap:12px}
+.dempty svg{opacity:.4}
+.dempty p{font-size:12.5px;max-width:24ch;line-height:1.7}
+.dhead{padding:20px 22px 16px;border-bottom:1px solid var(--line)}
+.dhead .toprow{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+.dhead h3{font-family:var(--serif);font-weight:900;font-size:21px;letter-spacing:.02em}
+.dhead .cid{font-family:var(--mono);font-size:10px;color:var(--txt-faint);margin-top:7px;word-break:break-all}
+.dhead .alias{font-size:11.5px;color:var(--txt-dim);margin-top:8px}
+.dsec{padding:15px 22px;border-bottom:1px solid var(--line)}
+.dsec h4{font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;color:var(--txt-faint);text-transform:uppercase;margin-bottom:11px;display:flex}
+.dsec h4 .c{margin-left:auto}
+.props{display:grid;grid-template-columns:auto 1fr;gap:7px 14px}
+.props dt{font-size:12px;color:var(--txt-dim)}
+.props dd{font-size:12.5px;text-align:right;font-weight:500}
+.linkitem{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px dotted var(--line);font-size:12.5px;cursor:pointer}
+.linkitem:last-child{border-bottom:none}
+.linkitem:hover{color:var(--amber)}
+.linkitem .rel{font-family:var(--mono);font-size:10px;color:var(--txt-faint);background:var(--paper-2);padding:1px 6px;flex:none}
+.linkitem .arr{color:var(--txt-faint)}
+.dact{display:flex;flex-wrap:wrap;gap:7px}
+.dact button{font-family:var(--sans);font-size:11.5px;font-weight:600;border:1px solid var(--line-strong);background:var(--panel);padding:7px 12px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .12s}
+.dact button:hover{border-color:var(--amber-bright);background:var(--amber-soft);color:var(--amber)}
+.dopen{display:block;text-align:center;margin:14px 22px;padding:11px;background:var(--txt);color:#fff;font-family:var(--mono);font-size:11px;letter-spacing:.04em;cursor:pointer;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- global slim sidebar = 现有 AppShell Sidebar，本体浏览器挂在「知识/Library」下 -->
+  <nav class="gnav">
+    <div class="logo">G</div>
+    <div class="gi" title=""><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 2 9l10 6 10-6-10-6Z"/><path d="m2 15 10 6 10-6"/></svg><span class="tip">AI Research 深研</span></div>
+    <div class="gi"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/></svg><span class="tip">Topic Insights 洞察</span></div>
+    <div class="gi"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/></svg><span class="tip">AI Ask 问答</span></div>
+    <div class="gi on"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M7 7 10.5 16M17 7 13.5 16M7.5 6h9"/></svg><span class="tip">知识本体 Ontology</span></div>
+    <div class="gi"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 3h6l2 3h12v13H2Z"/></svg><span class="tip">Library 资源库</span></div>
+    <div class="gi"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg><span class="tip">Foresight 判断</span></div>
+    <div class="sp"></div>
+    <div class="gi"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></div>
+  </nav>
+
+  <div class="explorer">
+
+    <!-- ===== left navigation menu ===== -->
+    <aside class="menu">
+      <div class="top">
+        <div class="crumb">知识 / <b>本体浏览器</b></div>
+        <h1>Ontology Explorer</h1>
+      </div>
+      <div class="searchbox">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="search" placeholder="搜索对象、关系、属性…">
+      </div>
+      <div class="topicsel">
+        <div class="l">当前议题 Topic</div>
+        <div class="v">AI 算力与芯片供应链 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></div>
+      </div>
+
+      <div class="mgroup">
+        <div class="gl">按类型浏览 · Object Types</div>
+        <div id="typetree"></div>
+      </div>
+      <div class="msep"></div>
+      <div class="mgroup">
+        <div class="gl">我的关注 · Starred</div>
+        <div class="recent" onclick="pick('nvidia')"><span class="star">★</span>NVIDIA</div>
+        <div class="recent" onclick="pick('tsmc')"><span class="star">★</span>台积电 TSMC</div>
+        <div class="recent" onclick="pick('hbm')"><span class="star">★</span>HBM3E</div>
+      </div>
+      <div class="msep"></div>
+      <div class="mgroup">
+        <div class="gl">最近变更 · Recent Edits</div>
+        <div class="recent" onclick="pick('hbm')"><span class="tm">11:20</span>HBM3E 置信度↑</div>
+        <div class="recent" onclick="pick('h100')"><span class="tm">16:50</span>H100 +依赖关系</div>
+        <div class="recent" onclick="pick('nvidia')"><span class="tm">09:31</span>NVIDIA 对象合并</div>
+      </div>
+    </aside>
+
+    <!-- ===== center ===== -->
+    <main class="center">
+      <div class="chead">
+        <div class="tt"><h2 id="ctitle">组织 / 机构</h2><span class="pill t-org" id="cpill">312 个对象</span></div>
+        <div class="sub" id="csub">在「AI 算力与芯片供应链」议题下抽取并去重的全部组织实体</div>
+        <div class="ctools">
+          <div class="viewsw">
+            <button class="on" data-view="table"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h18M3 12h18M3 19h18"/></svg>表格</button>
+            <button data-view="cards"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>卡片</button>
+            <button data-view="graph"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M7 7l4 9M17 7l-4 9"/></svg>图谱</button>
+          </div>
+          <div class="csort">排序 <select><option>置信度 高→低</option><option>最近更新</option><option>关系数</option></select></div>
+        </div>
+      </div>
+      <div id="content"></div>
+    </main>
+
+    <!-- ===== right detail ===== -->
+    <aside class="detail" id="detail">
+      <div class="dempty">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M7 7 10.5 16M17 7 13.5 16M7.5 6h9"/></svg>
+        <p>从左侧选一个对象，这里显示它的属性、关系、溯源与可执行动作</p>
+      </div>
+    </aside>
+
+  </div>
+</div>
+
+<script>
+const TYPES=[
+  {k:'org',nm:'组织 / 机构',en:'Organization',cnt:312,sub:'在「AI 算力与芯片供应链」议题下抽取并去重的全部组织实体'},
+  {k:'person',nm:'人物',en:'Person',cnt:208,sub:'与本议题相关的关键人物'},
+  {k:'tech',nm:'技术 / 概念',en:'Technology',cnt:447,sub:'技术、工艺、软件生态等概念实体'},
+  {k:'product',nm:'产品',en:'Product',cnt:196,sub:'芯片、加速卡等产品实体'},
+  {k:'event',nm:'事件',en:'Event',cnt:121,sub:'政策、建厂、发布等事件实体'},
+];
+const OBJ={
+  nvidia:{t:'org',nm:'NVIDIA',alias:['英伟达','辉达'],prop:'上市企业 · GPU 主导者 · 市值≈$3.0T',lk:6,conf:.96,upd:'06-11',
+    cid:'obj://org/nvidia · 3f9a',props:[['类型','上市企业'],['总部','Santa Clara'],['市值','≈$3.0T'],['角色','加速计算主导']],
+    links:[['供应←','台积电','tsmc'],['制造→','H100','h100'],['依赖→','CUDA 生态','cuda'],['受影响→','出口管制','expctrl'],['竞争↔','华为海思','hisilicon']]},
+  tsmc:{t:'org',nm:'台积电 TSMC',alias:['台积电','TSMC'],prop:'代工龙头 · CoWoS/3nm 产能',lk:5,conf:.94,upd:'06-11',
+    cid:'obj://org/tsmc · a17c',props:[['总部','Hsinchu'],['角色','先进制程代工'],['关键产能','CoWoS / 3nm']],
+    links:[['供应→','NVIDIA','nvidia'],['供应→','CoWoS 封装','cowos']]},
+  asml:{t:'org',nm:'ASML',alias:['阿斯麦'],prop:'EUV 光刻机独家供应',lk:2,conf:.90,upd:'06-09',
+    cid:'obj://org/asml · 4d2b',props:[['总部','Veldhoven, NL'],['角色','EUV 光刻机独家']],links:[['供应→','台积电','tsmc']]},
+  amd:{t:'org',nm:'AMD',alias:['超威半导体'],prop:'GPU/CPU · MI300 系列',lk:3,conf:.89,upd:'06-10',
+    cid:'obj://org/amd · 7b21',props:[['角色','加速卡挑战者'],['产品','MI300X']],links:[['竞争↔','NVIDIA','nvidia']]},
+  skhynix:{t:'org',nm:'SK 海力士',alias:['SK Hynix'],prop:'HBM3E 率先量产',lk:2,conf:.85,upd:'06-12',
+    cid:'obj://org/sk-hynix · 9e44',props:[['角色','HBM 主供'],['关键','HBM3E 独家早供']],links:[['供应→','HBM3E','hbm']]},
+  hisilicon:{t:'org',nm:'华为海思',alias:['HiSilicon'],prop:'芯片设计 · 受管制约束',lk:2,conf:.79,upd:'06-12',
+    cid:'obj://org/hisilicon · f5e2',props:[['母公司','华为'],['处境','受出口管制约束']],links:[['受影响→','出口管制','expctrl'],['竞争↔','NVIDIA','nvidia']]},
+  jensen:{t:'person',nm:'黄仁勋',alias:['Jensen Huang'],prop:'NVIDIA 创始人 / CEO',lk:1,conf:.98,upd:'06-10',
+    cid:'obj://person/jensen-huang · 22e0',props:[['职务','创始人/CEO'],['所属','NVIDIA']],links:[['任职→','NVIDIA','nvidia']]},
+  morris:{t:'person',nm:'张忠谋',alias:['Morris Chang'],prop:'台积电创办人',lk:1,conf:.95,upd:'06-09',
+    cid:'obj://person/morris-chang · 8c33',props:[['职务','创办人(退休)'],['所属','台积电']],links:[['任职→','台积电','tsmc']]},
+  lisa:{t:'person',nm:'苏姿丰',alias:['Lisa Su'],prop:'AMD 董事长 / CEO',lk:1,conf:.93,upd:'06-10',
+    cid:'obj://person/lisa-su · 5a90',props:[['职务','董事长/CEO'],['所属','AMD']],links:[['任职→','AMD','amd']]},
+  hbm:{t:'tech',nm:'HBM3E',alias:['高带宽内存'],prop:'存储技术 · AI 芯片关键料',lk:4,conf:.83,upd:'06-12',
+    cid:'obj://tech/hbm3e · c0d8',props:[['类型','存储技术'],['主供','SK海力士/三星/美光'],['成熟度','量产']],
+    links:[['被依赖←','H100','h100'],['被依赖←','Blackwell B200','b200'],['供应←','SK海力士','skhynix']]},
+  cowos:{t:'tech',nm:'CoWoS 封装',alias:['Chip-on-Wafer-on-Substrate'],prop:'2.5D 先进封装 · 产能瓶颈',lk:3,conf:.82,upd:'06-09',
+    cid:'obj://tech/cowos · b6f1',props:[['类型','先进封装'],['主供','台积电'],['约束','AI 芯片产能瓶颈']],
+    links:[['被供应←','台积电','tsmc'],['被依赖←','H100','h100']]},
+  cuda:{t:'tech',nm:'CUDA 生态',alias:['CUDA'],prop:'软件生态 · 护城河',lk:1,conf:.93,upd:'06-09',
+    cid:'obj://tech/cuda · 1a7d',props:[['类型','软件生态'],['归属','NVIDIA'],['角色','开发者锁定']],links:[['被依赖←','NVIDIA','nvidia']]},
+  euv:{t:'tech',nm:'EUV 光刻',alias:['极紫外光刻'],prop:'先进制程必需 · ASML 独家',lk:1,conf:.88,upd:'06-09',
+    cid:'obj://tech/euv · d3c2',props:[['类型','制造工艺'],['独家设备','ASML']],links:[['被供应←','ASML','asml']]},
+  h100:{t:'product',nm:'H100',alias:['Hopper H100'],prop:'NVIDIA · TSMC 4N · HBM3',lk:3,conf:.97,upd:'06-11',
+    cid:'obj://product/nvidia-h100 · 9b41',props:[['厂商','NVIDIA'],['制程','TSMC 4N'],['发布','2022']],
+    links:[['依赖→','HBM3E','hbm'],['依赖→','CoWoS 封装','cowos'],['被制造←','NVIDIA','nvidia']]},
+  b200:{t:'product',nm:'Blackwell B200',alias:['B200'],prop:'NVIDIA · 双 die · CoWoS-L',lk:2,conf:.86,upd:'06-09',
+    cid:'obj://product/nvidia-b200 · e3a9',props:[['厂商','NVIDIA'],['架构','Blackwell'],['发布','2024']],
+    links:[['依赖→','HBM3E','hbm'],['被制造←','NVIDIA','nvidia']]},
+  mi300:{t:'product',nm:'MI300X',alias:['Instinct MI300X'],prop:'AMD · 加速卡',lk:1,conf:.84,upd:'06-10',
+    cid:'obj://product/amd-mi300x · 6f08',props:[['厂商','AMD'],['类型','数据中心加速卡']],links:[['被制造←','AMD','amd']]},
+  expctrl:{t:'event',nm:'出口管制 2022.10',alias:['BIS 10/7 规则'],prop:'政策事件 · 重塑供应链',lk:2,conf:.91,upd:'06-10',
+    cid:'obj://event/us-export-control-2022 · 7e5f',props:[['日期','2022-10-07'],['发起','US BIS'],['影响','先进 AI 芯片对华出口']],
+    links:[['影响→','NVIDIA','nvidia'],['影响→','华为海思','hisilicon']]},
+  fab_az:{t:'event',nm:'台积电亚利桑那建厂',alias:['TSMC Arizona'],prop:'产能转移事件',lk:1,conf:.8,upd:'06-09',
+    cid:'obj://event/tsmc-arizona · 2b7e',props:[['地点','Arizona, US'],['性质','先进制程产能外移']],links:[['关联→','台积电','tsmc']]},
+};
+const REL_C={org:'t-org',person:'t-person',tech:'t-tech',product:'t-product',event:'t-event'};
+const DOT={org:'d-org',person:'d-person',tech:'d-tech',product:'d-product',event:'d-event'};
+
+let curType='org',curView='table',curObj=null,curSearch='';
+
+/* build type tree in left menu */
+function buildTree(){
+  document.getElementById('typetree').innerHTML=TYPES.map(t=>{
+    const items=Object.entries(OBJ).filter(([id,o])=>o.t===t.k);
+    return `<button class="mitem ${t.k===curType?'on open':''}" data-type="${t.k}">
+        <span class="chev"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m9 6 6 6-6 6"/></svg></span>
+        <span class="dot ${DOT[t.k]}"></span>${t.nm}<span class="cnt">${t.cnt}</span></button>
+      <div class="subitems ${t.k===curType?'open':''}" id="sub-${t.k}">
+        ${items.map(([id,o])=>`<button class="subitem" data-pick="${id}">${o.nm}</button>`).join('')}
+        <button class="subitem" style="color:var(--txt-faint)">…还有 ${t.cnt-items.length} 个</button>
+      </div>`;
+  }).join('');
+  document.querySelectorAll('.mitem[data-type]').forEach(b=>b.addEventListener('click',()=>{
+    const k=b.dataset.type;
+    document.querySelectorAll('.mitem[data-type]').forEach(x=>{x.classList.remove('on');x.classList.remove('open')});
+    document.querySelectorAll('.subitems').forEach(x=>x.classList.remove('open'));
+    b.classList.add('on','open');document.getElementById('sub-'+k).classList.add('open');
+    curType=k;curSearch='';document.getElementById('search').value='';render();
+  }));
+  document.querySelectorAll('.subitem[data-pick]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();pick(b.dataset.pick)}));
+}
+
+function render(){
+  const t=TYPES.find(x=>x.k===curType);
+  document.getElementById('ctitle').textContent=t.nm;
+  const list=Object.entries(OBJ).filter(([id,o])=>{
+    if(curSearch)return (o.nm+o.alias.join('')+o.prop).toLowerCase().includes(curSearch.toLowerCase());
+    return o.t===curType;
+  });
+  const pill=document.getElementById('cpill');
+  pill.className='pill '+(curSearch?'t-org':REL_C[curType]);
+  pill.textContent=curSearch?`搜索命中 ${list.length}`:`${t.cnt} 个对象`;
+  document.getElementById('csub').textContent=curSearch?`全库搜索「${curSearch}」`:t.sub;
+  const c=document.getElementById('content');
+  if(curView==='graph'){c.innerHTML=`<div class="graphnote"><h3>图谱视图</h3><p>表格用来「找」和「筛」，图谱用来「看关系」。点开任一对象进入关系图谱，即可顺着边游走、做合并/新增关系等动作。</p><span class="lnk">→ 完整图谱工作台见 knowledge-ontology-demo.html</span></div>`;return;}
+  if(curView==='cards'){
+    c.innerHTML=`<div class="cards">${list.map(([id,o])=>`
+      <div class="ocard ${id===curObj?'on':''}" data-pick="${id}">
+        <div class="ch"><span class="dot ${DOT[o.t]}"></span><span class="nm">${o.nm}</span></div>
+        <div class="pr">${o.prop}</div>
+        <div class="ft"><span class="lk">${o.lk} 关系</span><span>置信 ${Math.round(o.conf*100)}%</span><span>更新 ${o.upd}</span></div>
+      </div>`).join('')}</div>`;
+  }else{
+    c.innerHTML=`<table class="tbl"><thead><tr><th>对象</th><th>关键属性</th><th>关系</th><th>置信度</th><th>最近更新</th></tr></thead><tbody>
+      ${list.map(([id,o])=>`<tr class="${id===curObj?'on':''}" data-pick="${id}">
+        <td><div class="onm"><span class="dot ${DOT[o.t]}"></span>${o.nm}</div><div class="oalias">${o.alias.map(a=>'「'+a+'」').join(' ')}</div></td>
+        <td class="prop">${o.prop}</td>
+        <td class="lk">${o.lk}</td>
+        <td><span class="minicred"><span class="t"><span class="f" style="width:${Math.round(o.conf*100)}%"></span></span>${Math.round(o.conf*100)}%</span></td>
+        <td class="upd">${o.upd}</td></tr>`).join('')}
+    </tbody></table>`;
+  }
+  c.querySelectorAll('[data-pick]').forEach(el=>el.addEventListener('click',()=>pick(el.dataset.pick)));
+}
+
+function pick(id){
+  curObj=id;const o=OBJ[id];
+  document.querySelectorAll('#content [data-pick]').forEach(el=>el.classList.toggle('on',el.dataset.pick===id));
+  document.getElementById('detail').innerHTML=`
+    <div class="dhead">
+      <div class="toprow"><span class="dot ${DOT[o.t]}"></span><span class="pill ${REL_C[o.t]}">${TYPES.find(t=>t.k===o.t).nm}</span></div>
+      <h3>${o.nm}</h3>
+      <div class="cid">${o.cid}</div>
+      <div class="alias">合并自 ${o.alias.map(a=>'「'+a+'」').join(' · ')}</div>
+    </div>
+    <div class="dsec"><h4>属性<span class="c">${o.props.length}</span></h4><dl class="props">${o.props.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>
+    <div class="dsec"><h4>关系<span class="c">${o.links.length}</span></h4>${o.links.map(([rel,nm,tid])=>`<div class="linkitem" onclick="pick('${tid}')"><span class="rel">${rel}</span><span class="tg">${nm}</span></div>`).join('')}</div>
+    <div class="dsec"><h4>溯源 & 置信度</h4><div style="font-size:12px;color:var(--txt-dim);line-height:1.7">对象置信度 <b style="color:var(--amber)">${Math.round(o.conf*100)}%</b> · 来自 ${o.lk+1} 段证据 · 最近更新 ${o.upd}<br>每条属性与关系都可展开查看原文 span 与信源可信度。</div></div>
+    <div class="dsec"><h4>可执行动作</h4><div class="dact"><button>✎ 编辑属性</button><button>◷ 标注置信度</button><button>＋ 新增关系</button><button>⇲ 派 Agent 深挖</button></div></div>
+    <a class="dopen" href="knowledge-ontology-demo.html">在图谱工作台中打开 →</a>`;
+  document.getElementById('detail').scrollTop=0;
+}
+
+/* view switch */
+document.querySelectorAll('.viewsw button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.viewsw button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  curView=b.dataset.view;render();
+}));
+/* search */
+document.getElementById('search').addEventListener('input',e=>{curSearch=e.target.value.trim();render()});
+
+buildTree();render();pick('nvidia');
+</script>
+</body>
+</html>

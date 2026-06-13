@@ -1,0 +1,78 @@
+// ============================================================================
+// Knowledge Ontology v1 — P0 Data Layer
+// 3 tables: OntologyObject / OntologyLink / OntologyEdit
+// No ObjectType/LinkType meta-model tables; no embedding columns.
+// ============================================================================
+
+/// 本体对象：知识图谱中的节点（概念、实体、技术等）
+model OntologyObject {
+  id         String   @id @default(uuid())
+  topicId    String?  @map("topic_id")
+  typeKey    String   @map("type_key") @db.VarChar(64)
+  label      String   @db.VarChar(200)
+  /// 别名列表 string[]
+  aliases    Json     @default("[]")
+  /// 扩展属性 {[key: string]: unknown}
+  properties Json     @default("{}")
+  confidence Float    @default(1.0)
+  createdBy  String   @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  outLinks OntologyLink[] @relation("LinkFrom")
+  inLinks  OntologyLink[] @relation("LinkTo")
+  edits    OntologyEdit[]
+
+  @@unique([topicId, typeKey, label])
+  @@index([topicId, typeKey])
+  @@index([createdBy])
+  @@map("ontology_objects")
+}
+
+/// 本体关系：知识图谱中的有向边
+model OntologyLink {
+  id          String   @id @default(uuid())
+  topicId     String?  @map("topic_id")
+  linkTypeKey String   @map("link_type_key") @db.VarChar(64)
+  fromId      String   @map("from_id")
+  toId        String   @map("to_id")
+  from        OntologyObject @relation("LinkFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to          OntologyObject @relation("LinkTo",   fields: [toId],   references: [id], onDelete: Cascade)
+  /// 边属性 {[key: string]: unknown}
+  properties  Json     @default("{}")
+  confidence  Float    @default(1.0)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  edits OntologyEdit[]
+
+  @@unique([fromId, toId, linkTypeKey])
+  @@index([fromId])
+  @@index([toId])
+  @@index([linkTypeKey])
+  @@map("ontology_links")
+}
+
+/// 本体编辑日志：对象/关系的所有变更审计轨迹
+model OntologyEdit {
+  id         String   @id @default(uuid())
+  objectId   String?  @map("object_id")
+  linkId     String?  @map("link_id")
+  /// create | update | delete | merge | split
+  action     String   @db.VarChar(32)
+  /// human | agent | import | system
+  actorType  String   @map("actor_type") @db.VarChar(32)
+  actorId    String   @map("actor_id")
+  before     Json?
+  after      Json?
+  reason     String?  @db.Text
+  evidenceId String?  @map("evidence_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  object OntologyObject? @relation(fields: [objectId], references: [id], onDelete: SetNull)
+  link   OntologyLink?   @relation(fields: [linkId],   references: [id], onDelete: SetNull)
+
+  @@index([objectId])
+  @@index([linkId])
+  @@index([createdAt(sort: Desc)])
+  @@map("ontology_edits")
+}

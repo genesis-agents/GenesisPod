@@ -37,3 +37,12 @@ export type {
   WikiSearchHit,
   WikiSearchOutput,
 } from "./wiki-search.tool";
+
+// Ontology Action Tools (P2)
+export { OntologyUpsertObjectTool, OntologyAddLinkTool } from "./ontology";
+export type {
+  OntologyUpsertObjectInput,
+  OntologyUpsertObjectOutput,
+  OntologyAddLinkInput,
+  OntologyAddLinkOutput,
+} from "./ontology";

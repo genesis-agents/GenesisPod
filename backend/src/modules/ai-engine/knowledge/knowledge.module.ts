@@ -11,7 +11,7 @@
  * 注：SearchService（web 搜索 egress）W5 已迁 content/web-search（WebSearchModule）。
  */
 
-import { Module } from "@nestjs/common";
+import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { SecretsModule } from "../../platform/credentials/storage/secrets/secrets.module";
@@ -32,7 +32,12 @@ import { RAGPipelineService } from "../rag/pipeline";
 
 // Entity Resolution（实体消歧，复用 EmbeddingService）
 import { EntityResolutionService } from "./entity-resolution/entity-resolution.service";
-
+// Ontology（知识本体图谱，P1 engine core）
+import { OntologyService } from "./ontology/ontology.service";
+// Ontology Builder Skill（P3 engine skill）
+import { OntologyBuilderSkill } from "./ontology/skills/ontology-builder.skill";
+// SkillRegistry（engine skills/registry，@Global AiEngineModule re-exports it）
+import { SkillRegistry } from "../skills/registry/skill.registry";
 
 @Module({
   imports: [
@@ -53,6 +58,9 @@ import { EntityResolutionService } from "./entity-resolution/entity-resolution.s
     DocumentChunker,
     RAGPipelineService,
     EntityResolutionService,
+    OntologyService,
+    // P3: Ontology Builder Skill
+    OntologyBuilderSkill,
   ],
   exports: [
     EmbeddingService,
@@ -60,6 +68,23 @@ import { EntityResolutionService } from "./entity-resolution/entity-resolution.s
     DocumentChunker,
     RAGPipelineService,
     EntityResolutionService,
+    OntologyService,
+    // P3: exported so AiEngineModule or consumers can inject it if needed
+    OntologyBuilderSkill,
   ],
 })
-export class AiEngineKnowledgeModule {}
+export class AiEngineKnowledgeModule implements OnModuleInit {
+  private readonly logger = new Logger(AiEngineKnowledgeModule.name);
+
+  constructor(
+    private readonly skillRegistry: SkillRegistry,
+    private readonly ontologyBuilderSkill: OntologyBuilderSkill,
+  ) {}
+
+  onModuleInit(): void {
+    this.skillRegistry.register(this.ontologyBuilderSkill);
+    this.logger.log(
+      `Registered engine skill: ${this.ontologyBuilderSkill.id} (layer=${this.ontologyBuilderSkill.layer})`,
+    );
+  }
+}

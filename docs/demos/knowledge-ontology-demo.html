@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>知识内容本体 · Ontology Workbench Demo v0.1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f7f4ee;
+  --paper-2:#f2eee6;
+  --panel:#ffffff;
+  --panel-2:#fbf9f4;
+  --line:rgba(29,36,51,.09);
+  --line-strong:rgba(29,36,51,.2);
+  --txt:#1d2433;
+  --txt-dim:#5a6478;
+  --txt-faint:#98a0b0;
+  --amber:#b45309;
+  --amber-bright:#d97706;
+  --amber-soft:rgba(217,119,6,.09);
+  --blue:#0369a1;
+  --blue-soft:rgba(3,105,161,.07);
+  --red:#d6303a;
+  --red-soft:rgba(214,48,58,.08);
+  --green:#15803d;
+  --green-soft:rgba(21,128,61,.07);
+  --plum:#9d174d;
+  --plum-soft:rgba(157,23,77,.08);
+  --serif:'Noto Serif SC','Fraunces',serif;
+  --disp:'Fraunces','Noto Serif SC',serif;
+  --mono:'IBM Plex Mono','Noto Sans SC',monospace;
+  --sans:'Noto Sans SC',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--paper);color:var(--txt);font-family:var(--sans);
+  font-size:14px;line-height:1.6;min-height:100vh;overflow-x:hidden;
+}
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(1100px 480px at 18% -8%, rgba(217,119,6,.06), transparent 60%),
+    radial-gradient(900px 520px at 88% 0%, rgba(3,105,161,.045), transparent 55%),
+    repeating-linear-gradient(0deg, transparent 0 47px, rgba(29,36,51,.035) 47px 48px),
+    repeating-linear-gradient(90deg, transparent 0 47px, rgba(29,36,51,.035) 47px 48px);
+}
+body::after{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.45;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
+}
+.wrap{position:relative;z-index:1;max-width:1680px;margin:0 auto;padding:0 28px 80px}
+
+/* ===== header ===== */
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:38px 4px 22px;flex-wrap:wrap}
+.brand .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.32em;color:var(--amber);text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.brand .kicker::before{content:'';width:26px;height:2px;background:var(--amber-bright)}
+.brand h1{font-family:var(--serif);font-weight:900;font-size:clamp(28px,3.4vw,44px);letter-spacing:.04em;line-height:1.15}
+.brand h1 em{font-style:normal;color:var(--amber-bright)}
+.brand .sub{font-family:var(--mono);font-size:12px;color:var(--txt-dim);margin-top:8px;letter-spacing:.06em}
+.stats{display:flex;gap:0;border:1px solid var(--line-strong);background:var(--panel);box-shadow:0 2px 10px rgba(29,36,51,.05)}
+.stat{padding:14px 24px;border-right:1px solid var(--line)}
+.stat:last-child{border-right:none}
+.stat .num{font-family:var(--disp);font-weight:700;font-size:28px;line-height:1;color:var(--txt);font-variant-numeric:tabular-nums}
+.stat.warn .num{color:var(--amber-bright)}
+.stat .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--txt-faint);margin-top:6px;text-transform:uppercase}
+
+/* ===== tabbar ===== */
+.tabbar{display:flex;flex-wrap:wrap;border-bottom:2px solid var(--txt);margin-top:8px}
+.tabbtn{font-family:var(--sans);font-size:14px;font-weight:600;color:var(--txt-dim);background:none;border:none;cursor:pointer;padding:13px 22px;position:relative;display:flex;align-items:center;gap:9px;transition:color .15s}
+.tabbtn .tno{font-family:var(--mono);font-size:10px;color:var(--txt-faint);letter-spacing:.08em}
+.tabbtn:hover{color:var(--txt)}
+.tabbtn.on{color:var(--txt)}
+.tabbtn.on::after{content:'';position:absolute;left:0;right:0;bottom:-2px;height:3px;background:var(--amber-bright)}
+.panel-tab{display:none;padding-top:22px}
+.panel-tab.on{display:block;animation:tabfade .3s ease}
+@keyframes tabfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ===== shared bits ===== */
+.sechead{display:flex;align-items:baseline;gap:14px;margin:0 4px 16px;border-bottom:1px solid var(--line-strong);padding-bottom:10px;flex-wrap:wrap}
+.sechead h2{font-family:var(--serif);font-weight:900;font-size:17px;letter-spacing:.06em}
+.sechead .en{font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--txt-faint);text-transform:uppercase}
+.sechead .note{margin-left:auto;font-size:11.5px;color:var(--txt-dim)}
+.pill{font-family:var(--mono);font-size:10px;letter-spacing:.08em;padding:2px 8px;border-radius:2px;display:inline-block;text-transform:uppercase}
+.t-org{color:var(--blue);background:var(--blue-soft)}
+.t-person{color:var(--amber);background:var(--amber-soft)}
+.t-tech{color:var(--green);background:var(--green-soft)}
+.t-event{color:var(--red);background:var(--red-soft)}
+.t-product{color:var(--plum);background:var(--plum-soft)}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.d-org{background:var(--blue)}.d-person{background:var(--amber-bright)}.d-tech{background:var(--green)}.d-event{background:var(--red)}.d-product{background:var(--plum)}
+
+/* ===== TAB1 workbench layout ===== */
+.bench{display:grid;grid-template-columns:248px 1fr 384px;gap:0;border:1px solid var(--line-strong);background:var(--panel);box-shadow:0 4px 22px rgba(29,36,51,.06)}
+.rail{border-right:1px solid var(--line);padding:18px 16px;background:var(--panel-2)}
+.rail h3{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--txt-faint);text-transform:uppercase;margin-bottom:12px}
+.typebtn{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:none;cursor:pointer;padding:8px 10px;border-radius:3px;font-family:var(--sans);font-size:13px;color:var(--txt);transition:background .12s}
+.typebtn:hover{background:rgba(29,36,51,.045)}
+.typebtn.on{background:var(--paper-2);box-shadow:inset 2px 0 0 var(--amber-bright)}
+.typebtn .cnt{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--txt-faint);font-variant-numeric:tabular-nums}
+.railsep{height:1px;background:var(--line);margin:16px 0}
+.linkrow{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--txt-dim);padding:4px 10px}
+.linkrow .ln{flex:none;width:30px;height:0;border-top:2px dashed var(--txt-faint)}
+.linkrow.solid .ln{border-top-style:solid}
+
+/* graph canvas */
+.canvas{position:relative;overflow:hidden;background:
+  radial-gradient(700px 360px at 60% 38%, rgba(3,105,161,.04), transparent 60%);
+  min-height:660px}
+.canvas .toolbar{position:absolute;top:12px;left:14px;right:14px;display:flex;align-items:center;gap:10px;z-index:5}
+.search{flex:1;max-width:300px;display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line-strong);padding:7px 11px;font-family:var(--mono);font-size:11.5px;color:var(--txt-dim)}
+.search svg{flex:none}
+.tbtag{font-family:var(--mono);font-size:10px;color:var(--txt-faint);letter-spacing:.08em;margin-left:auto}
+.gnode{position:absolute;transform:translate(-50%,-50%);cursor:pointer;z-index:3;transition:filter .15s}
+.gnode .chip{display:flex;align-items:center;gap:7px;background:var(--panel);border:1.5px solid var(--line-strong);padding:7px 12px 7px 10px;border-radius:30px;box-shadow:0 2px 8px rgba(29,36,51,.08);white-space:nowrap;transition:transform .14s,box-shadow .14s,border-color .14s}
+.gnode .chip .nm{font-family:var(--serif);font-weight:700;font-size:13px;letter-spacing:.02em}
+.gnode:hover .chip{transform:translateY(-2px);box-shadow:0 6px 16px rgba(29,36,51,.14)}
+.gnode.sel .chip{border-color:var(--amber-bright);box-shadow:0 0 0 3px var(--amber-soft),0 6px 16px rgba(29,36,51,.14)}
+.gnode.dim{opacity:.28;filter:grayscale(.4)}
+.gnode .b-org{border-left:4px solid var(--blue)}
+.gnode .b-person{border-left:4px solid var(--amber-bright)}
+.gnode .b-tech{border-left:4px solid var(--green)}
+.gnode .b-event{border-left:4px solid var(--red)}
+.gnode .b-product{border-left:4px solid var(--plum)}
+.elabel{position:absolute;transform:translate(-50%,-50%);font-family:var(--mono);font-size:9.5px;color:var(--txt-faint);background:var(--panel);padding:1px 5px;border:1px solid var(--line);z-index:2;letter-spacing:.04em;pointer-events:none;white-space:nowrap}
+.edge{stroke:rgba(29,36,51,.22);stroke-width:1.4;fill:none}
+.edge.hi{stroke:var(--amber-bright);stroke-width:2}
+svg.edges{position:absolute;inset:0;width:100%;height:100%;z-index:1}
+
+/* inspector */
+.inspect{padding:0;display:flex;flex-direction:column;max-height:704px;overflow-y:auto}
+.insp-head{padding:18px 20px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:4}
+.insp-head .toprow{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+.insp-head h3{font-family:var(--serif);font-weight:900;font-size:22px;letter-spacing:.02em;line-height:1.2}
+.insp-head .cid{font-family:var(--mono);font-size:10.5px;color:var(--txt-faint);margin-top:7px;letter-spacing:.02em;word-break:break-all}
+.insp-head .alias{font-size:11.5px;color:var(--txt-dim);margin-top:8px}
+.insp-head .alias b{font-family:var(--mono);font-size:10px;color:var(--txt-faint);letter-spacing:.1em;text-transform:uppercase;font-weight:400}
+.confbar{margin-top:12px}
+.confbar .row{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--txt-faint);text-transform:uppercase;margin-bottom:4px}
+.confbar .track{height:6px;background:var(--paper-2);border:1px solid var(--line);position:relative}
+.confbar .fill{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,var(--amber),var(--amber-bright))}
+.insp-sec{padding:16px 20px;border-bottom:1px solid var(--line)}
+.insp-sec h4{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--txt-faint);text-transform:uppercase;margin-bottom:11px;display:flex;align-items:center;gap:8px}
+.insp-sec h4 .ct{margin-left:auto;color:var(--txt-faint);font-size:10px}
+.props{display:grid;grid-template-columns:auto 1fr;gap:7px 14px}
+.props dt{font-size:12px;color:var(--txt-dim)}
+.props dd{font-size:12.5px;text-align:right;font-weight:500}
+.ev{border-left:2px solid var(--line-strong);padding:2px 0 2px 12px;margin-bottom:14px}
+.ev .q{font-family:var(--serif);font-size:12.5px;color:var(--txt);line-height:1.55;font-style:italic}
+.ev .meta{display:flex;align-items:center;gap:8px;margin-top:7px;font-family:var(--mono);font-size:10px;color:var(--txt-faint);flex-wrap:wrap}
+.ev .src{color:var(--blue)}
+.credbar{display:inline-flex;align-items:center;gap:5px}
+.credbar .t{width:42px;height:4px;background:var(--paper-2);border:1px solid var(--line);position:relative}
+.credbar .f{position:absolute;inset:0 auto 0 0;background:var(--green)}
+.linkitem{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px dotted var(--line);font-size:12.5px;cursor:pointer}
+.linkitem:last-child{border-bottom:none}
+.linkitem:hover{color:var(--amber)}
+.linkitem .rel{font-family:var(--mono);font-size:10px;color:var(--txt-faint);background:var(--paper-2);padding:1px 6px;letter-spacing:.04em;flex:none}
+.linkitem .arr{color:var(--txt-faint);flex:none}
+.linkitem .tg{font-weight:500}
+.linkitem .nt{margin-left:auto;font-size:10.5px;color:var(--txt-faint);flex:none}
+.actbtns{display:flex;flex-wrap:wrap;gap:8px}
+.actbtn{font-family:var(--sans);font-size:12px;font-weight:600;color:var(--txt);background:var(--panel);border:1px solid var(--line-strong);padding:8px 13px;cursor:pointer;display:flex;align-items:center;gap:7px;transition:all .13s}
+.actbtn:hover{border-color:var(--amber-bright);background:var(--amber-soft);color:var(--amber)}
+.actbtn.danger:hover{border-color:var(--red);background:var(--red-soft);color:var(--red)}
+.actbtn .ic{font-family:var(--mono);font-size:13px;line-height:1}
+.actbtn .gate{font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;color:#fff;background:var(--amber-bright);padding:1px 5px;border-radius:2px}
+.editmini{font-family:var(--mono);font-size:10.5px;color:var(--txt-dim);padding:6px 0;border-bottom:1px dotted var(--line);display:flex;gap:8px}
+.editmini:last-child{border-bottom:none}
+.editmini .tm{color:var(--txt-faint);flex:none}
+.editmini .ac{color:var(--amber);flex:none}
+
+/* ===== TAB2 metamodel ===== */
+.mmgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px}
+.mmcard{border:1px solid var(--line-strong);background:var(--panel);box-shadow:0 2px 10px rgba(29,36,51,.05)}
+.mmcard .hd{padding:14px 16px;border-bottom:2px solid var(--txt);display:flex;align-items:center;gap:10px}
+.mmcard .hd .nm{font-family:var(--serif);font-weight:900;font-size:16px}
+.mmcard .hd .en{font-family:var(--mono);font-size:10px;color:var(--txt-faint);letter-spacing:.1em}
+.mmcard .hd .cnt{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--txt-faint)}
+.schtbl{width:100%;border-collapse:collapse;font-size:12px}
+.schtbl td{padding:7px 16px;border-bottom:1px dotted var(--line)}
+.schtbl tr:last-child td{border-bottom:none}
+.schtbl .fk{font-weight:500}
+.schtbl .ty{font-family:var(--mono);font-size:10.5px;color:var(--blue)}
+.schtbl .rq{font-family:var(--mono);font-size:9px;color:var(--red);letter-spacing:.05em}
+.mmcard .acts{padding:11px 16px;background:var(--panel-2);border-top:1px solid var(--line);font-size:11px;color:var(--txt-dim)}
+.mmcard .acts b{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;color:var(--txt-faint);text-transform:uppercase;font-weight:400;display:block;margin-bottom:5px}
+.mmcard .acts .a{display:inline-block;font-family:var(--mono);font-size:10.5px;color:var(--amber);background:var(--amber-soft);padding:2px 7px;margin:2px 4px 2px 0}
+.bigtbl{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line-strong);font-size:12.5px;box-shadow:0 2px 10px rgba(29,36,51,.05)}
+.bigtbl th{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--txt-faint);text-transform:uppercase;text-align:left;padding:11px 16px;border-bottom:2px solid var(--txt);font-weight:400}
+.bigtbl td{padding:11px 16px;border-bottom:1px solid var(--line);vertical-align:top}
+.bigtbl tr:last-child td{border-bottom:none}
+.bigtbl code{font-family:var(--mono);font-size:11px;color:var(--blue);background:var(--blue-soft);padding:1px 6px}
+.bigtbl .se{font-family:var(--mono);font-size:10px;padding:1px 7px;letter-spacing:.04em}
+.se-none{color:var(--green);background:var(--green-soft)}
+.se-idem{color:var(--blue);background:var(--blue-soft)}
+.se-dest{color:var(--red);background:var(--red-soft)}
+
+/* ===== TAB3 edit stream ===== */
+.timeline{position:relative;padding-left:30px}
+.timeline::before{content:'';position:absolute;left:8px;top:6px;bottom:6px;width:2px;background:var(--line-strong)}
+.tl-item{position:relative;margin-bottom:20px;background:var(--panel);border:1px solid var(--line-strong);box-shadow:0 2px 8px rgba(29,36,51,.04)}
+.tl-item::before{content:'';position:absolute;left:-26px;top:18px;width:11px;height:11px;border-radius:50%;background:var(--panel);border:2.5px solid var(--amber-bright)}
+.tl-item.sys::before{border-color:var(--blue)}
+.tl-item.agent::before{border-color:var(--green)}
+.tl-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tl-head .act{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.03em;color:var(--txt)}
+.tl-head .obj{font-family:var(--serif);font-weight:700;font-size:13px}
+.tl-head .tm{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--txt-faint)}
+.tl-actor{font-family:var(--mono);font-size:10px;padding:2px 8px;letter-spacing:.04em}
+.ac-human{color:var(--amber);background:var(--amber-soft)}
+.ac-sys{color:var(--blue);background:var(--blue-soft)}
+.ac-agent{color:var(--green);background:var(--green-soft)}
+.tl-body{padding:12px 16px;font-size:12.5px;color:var(--txt-dim);line-height:1.6}
+.diff{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;font-family:var(--mono);font-size:11.5px}
+.diff .was{color:var(--red);text-decoration:line-through;background:var(--red-soft);padding:1px 7px}
+.diff .now{color:var(--green);background:var(--green-soft);padding:1px 7px}
+.diff .arr{color:var(--txt-faint)}
+.tl-body .prov{margin-top:9px;font-family:var(--mono);font-size:10.5px;color:var(--txt-faint)}
+.tl-body .prov a{color:var(--blue);text-decoration:none}
+
+/* ===== TAB4 agent ===== */
+.agent-wrap{display:grid;grid-template-columns:1fr 300px;gap:0;border:1px solid var(--line-strong);background:var(--panel);box-shadow:0 4px 22px rgba(29,36,51,.06)}
+.transcript{padding:22px 24px;max-height:720px;overflow-y:auto}
+.msg{margin-bottom:18px}
+.msg .who{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--txt-faint);margin-bottom:7px;display:flex;align-items:center;gap:8px}
+.msg.user .who{color:var(--amber)}
+.msg.agent .who{color:var(--green)}
+.msg .bubble{font-size:13px;line-height:1.65;color:var(--txt)}
+.msg.user .bubble{background:var(--amber-soft);border-left:3px solid var(--amber-bright);padding:12px 15px}
+.callcard{border:1px solid var(--line-strong);background:var(--panel-2);margin:10px 0;font-family:var(--mono);font-size:11.5px}
+.callcard .ch{display:flex;align-items:center;gap:9px;padding:9px 13px;border-bottom:1px solid var(--line);background:var(--panel)}
+.callcard .ch .nm{color:var(--blue);font-weight:600}
+.callcard .ch .se{margin-left:auto}
+.callcard .cb{padding:9px 13px;color:var(--txt-dim);line-height:1.6}
+.callcard .cb .k{color:var(--txt-faint)}
+.callcard .res{padding:9px 13px;border-top:1px dotted var(--line);color:var(--green)}
+.callcard.gate{border-color:var(--amber-bright);box-shadow:0 0 0 2px var(--amber-soft)}
+.callcard.gate .ch{background:var(--amber-soft)}
+.callcard.gate .ch .nm{color:var(--amber)}
+.gate-actions{display:flex;gap:9px;padding:11px 13px;border-top:1px dotted var(--line)}
+.gate-actions .ok{font-family:var(--sans);font-size:11.5px;font-weight:600;color:#fff;background:var(--green);border:none;padding:7px 16px;cursor:default}
+.gate-actions .no{font-family:var(--sans);font-size:11.5px;font-weight:600;color:var(--txt-dim);background:var(--panel);border:1px solid var(--line-strong);padding:7px 16px;cursor:default}
+.gate-stamp{font-family:var(--mono);font-size:10px;color:var(--green);margin-left:auto;align-self:center}
+.agent-side{border-left:1px solid var(--line);background:var(--panel-2);padding:18px 18px}
+.agent-side h3{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--txt-faint);text-transform:uppercase;margin-bottom:13px}
+.guard{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px dotted var(--line);font-size:11.5px}
+.guard:last-child{border-bottom:none}
+.guard .gi{flex:none;width:7px;height:7px;border-radius:50%;margin-top:5px;background:var(--green)}
+.guard .gi.warn{background:var(--amber-bright)}
+.guard b{display:block;font-size:12px;font-weight:600;color:var(--txt)}
+.guard span{color:var(--txt-dim)}
+
+/* ===== footer ===== */
+footer{margin-top:42px;padding:20px 4px;border-top:1px solid var(--line-strong);display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px;font-family:var(--mono);font-size:10.5px;color:var(--txt-faint);letter-spacing:.04em}
+footer .legend{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+footer .legend span{display:flex;align-items:center;gap:6px;color:var(--txt-dim)}
+
+.stagger>*{opacity:0;animation:rise .5s ease forwards}
+@keyframes rise{to{opacity:1;transform:none}}
+.stagger>*{transform:translateY(10px)}
+@media(max-width:1180px){.bench{grid-template-columns:1fr}.rail,.inspect{border-right:none;border-bottom:1px solid var(--line)}.agent-wrap{grid-template-columns:1fr}.agent-side{border-left:none;border-top:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <div class="kicker">GenesisPod · 知识层 / Knowledge Ontology</div>
+      <h1>知识内容<em>本体</em>工作台</h1>
+      <div class="sub">Ontology Workbench · 目标态 demo v0.1 · 议题：AI 算力与芯片供应链</div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="num">1,284</div><div class="lbl">Objects</div></div>
+      <div class="stat"><div class="num">3,907</div><div class="lbl">Links</div></div>
+      <div class="stat"><div class="num">14</div><div class="lbl">Object Types</div></div>
+      <div class="stat warn"><div class="num">26</div><div class="lbl">Action Types</div></div>
+      <div class="stat"><div class="num">8,612</div><div class="lbl">Edits</div></div>
+    </div>
+  </header>
+
+  <div class="tabbar">
+    <button class="tabbtn on" data-tab="t1"><span class="tno">01</span>本体图谱</button>
+    <button class="tabbtn" data-tab="t2"><span class="tno">02</span>元模型 Schema</button>
+    <button class="tabbtn" data-tab="t3"><span class="tno">03</span>Edit 流 · 溯源审计</button>
+    <button class="tabbtn" data-tab="t4"><span class="tno">04</span>Agent 在本体上行动</button>
+  </div>
+
+  <!-- ================= TAB 1 ================= -->
+  <section class="panel-tab on" id="t1">
+    <div class="bench">
+
+      <!-- left rail: metamodel filter -->
+      <div class="rail">
+        <h3>Object Types</h3>
+        <button class="typebtn on" data-filter="all"><span class="dot" style="background:var(--txt)"></span>全部对象<span class="cnt">1,284</span></button>
+        <button class="typebtn" data-filter="org"><span class="dot d-org"></span>组织 / 机构<span class="cnt">312</span></button>
+        <button class="typebtn" data-filter="person"><span class="dot d-person"></span>人物<span class="cnt">208</span></button>
+        <button class="typebtn" data-filter="tech"><span class="dot d-tech"></span>技术 / 概念<span class="cnt">447</span></button>
+        <button class="typebtn" data-filter="product"><span class="dot d-product"></span>产品<span class="cnt">196</span></button>
+        <button class="typebtn" data-filter="event"><span class="dot d-event"></span>事件<span class="cnt">121</span></button>
+        <div class="railsep"></div>
+        <h3>Link Types</h3>
+        <div class="linkrow solid"><span class="ln"></span>supplies 供应</div>
+        <div class="linkrow solid"><span class="ln"></span>manufactures 制造</div>
+        <div class="linkrow"><span class="ln"></span>dependsOn 依赖</div>
+        <div class="linkrow"><span class="ln"></span>worksFor 任职</div>
+        <div class="linkrow"><span class="ln"></span>affectedBy 受影响</div>
+        <div class="linkrow"><span class="ln"></span>competesWith 竞争</div>
+        <div class="railsep"></div>
+        <h3>视图说明</h3>
+        <p style="font-size:11.5px;color:var(--txt-dim);line-height:1.6">每个节点是一个<b>有稳定身份的对象</b>（canonical id），跨所有报告/抽取共享同一份。点击节点查看属性、溯源与可执行动作。</p>
+      </div>
+
+      <!-- center: graph -->
+      <div class="canvas" id="canvas">
+        <div class="toolbar">
+          <div class="search">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            搜索对象、关系、属性…
+          </div>
+          <span class="tbtag">同义合并 · 置信度过滤 · 时间切片</span>
+        </div>
+        <svg class="edges" id="edges" viewBox="0 0 1000 660" preserveAspectRatio="none"></svg>
+        <!-- nodes injected by JS -->
+      </div>
+
+      <!-- right: inspector -->
+      <div class="inspect" id="inspector"><!-- injected --></div>
+    </div>
+  </section>
+
+  <!-- ================= TAB 2 ================= -->
+  <section class="panel-tab" id="t2">
+    <div class="sechead"><h2>对象类型与属性 Schema</h2><span class="en">Object Types · Property Schema</span><span class="note">声明式元模型 — 类型 / 属性 / 绑定的动作 的单一事实源</span></div>
+    <div class="mmgrid stagger" id="mmgrid"></div>
+
+    <div class="sechead" style="margin-top:34px"><h2>关系类型 Link Types</h2><span class="en">Typed · Directional · With Properties</span></div>
+    <table class="bigtbl">
+      <thead><tr><th style="width:150px">Link Type</th><th>方向（端点类型约束）</th><th>边属性</th><th>示例</th></tr></thead>
+      <tbody>
+        <tr><td><code>supplies</code> 供应</td><td>组织 → 组织 / 产品</td><td>关键程度 · 占比 · 可替代性</td><td>台积电 →供应→ NVIDIA</td></tr>
+        <tr><td><code>manufactures</code> 制造</td><td>组织 → 产品</td><td>制程 · 良率</td><td>NVIDIA →制造→ H100</td></tr>
+        <tr><td><code>dependsOn</code> 依赖</td><td>产品/组织 → 技术</td><td>不可或缺性</td><td>H100 →依赖→ HBM3E</td></tr>
+        <tr><td><code>worksFor</code> 任职</td><td>人物 → 组织</td><td>职务 · 起止</td><td>黄仁勋 →任职→ NVIDIA</td></tr>
+        <tr><td><code>affectedBy</code> 受影响</td><td>组织/产品 → 事件</td><td>方向 · 量级</td><td>华为海思 →受影响→ 出口管制</td></tr>
+        <tr><td><code>competesWith</code> 竞争</td><td>组织 ↔ 组织（无向）</td><td>赛道 · 强度</td><td>华为海思 ↔竞争↔ NVIDIA</td></tr>
+      </tbody>
+    </table>
+
+    <div class="sechead" style="margin-top:34px"><h2>动作类型 Action Types</h2><span class="en">Kinetic · The only sanctioned write path</span><span class="note">所有写回都经此 — 校验 / 权限 / 审计 / 人审一体</span></div>
+    <table class="bigtbl">
+      <thead><tr><th style="width:190px">Action</th><th>作用对象</th><th>产出</th><th>副作用</th><th>权限 / 人审</th></tr></thead>
+      <tbody>
+        <tr><td><code>editProperty</code> 编辑属性</td><td>任意对象</td><td>1 条 property edit</td><td><span class="se se-idem">idempotent</span></td><td>EDITOR</td></tr>
+        <tr><td><code>setConfidence</code> 标注置信度</td><td>任意对象 / 边</td><td>conf edit + 理由</td><td><span class="se se-idem">idempotent</span></td><td>ANALYST</td></tr>
+        <tr><td><code>addLink</code> 新增关系</td><td>两个对象</td><td>1 条 Link + 溯源</td><td><span class="se se-none">none</span></td><td>EDITOR</td></tr>
+        <tr><td><code>mergeObjects</code> 合并对象</td><td>≥2 个同类对象</td><td>身份合并 + 重指向</td><td><span class="se se-dest">destructive</span></td><td>ADMIN · <b style="color:var(--amber)">需人审</b></td></tr>
+        <tr><td><code>splitObject</code> 拆分对象</td><td>1 个对象</td><td>身份拆分</td><td><span class="se se-dest">destructive</span></td><td>ADMIN · <b style="color:var(--amber)">需人审</b></td></tr>
+        <tr><td><code>dispatchAgent</code> 派 Agent 深挖</td><td>任意对象</td><td>子任务 + 候选 edits</td><td><span class="se se-none">none</span></td><td>EDITOR</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ================= TAB 3 ================= -->
+  <section class="panel-tab" id="t3">
+    <div class="sechead"><h2>统一 Edit 流</h2><span class="en">Append-only · Object-centric · Provenance-linked</span><span class="note">以「对象身份」为中心 — 谁、何时、把什么从 X 改到 Y、依据是什么</span></div>
+    <div class="timeline" id="timeline"></div>
+  </section>
+
+  <!-- ================= TAB 4 ================= -->
+  <section class="panel-tab" id="t4">
+    <div class="sechead"><h2>Agent 在本体之上行动</h2><span class="en">Agent operates via Actions — never raw DB writes</span><span class="note">Agent 只能调用 Action，写回经同一套校验 / 权限 / 人审链</span></div>
+    <div class="agent-wrap">
+      <div class="transcript" id="transcript"></div>
+      <div class="agent-side">
+        <h3>运行时护栏</h3>
+        <div class="guard"><span class="gi"></span><div><b>Access Matrix</b><span>本 Agent 允许 4 个 Action，<code style="font-family:var(--mono);font-size:10px">mergeObjects</code> 不在白名单</span></div></div>
+        <div class="guard"><span class="gi"></span><div><b>Entitlement ACL</b><span>fail-closed，缺权限即拒</span></div></div>
+        <div class="guard"><span class="gi warn"></span><div><b>Human-in-the-loop</b><span>destructive 动作落 HITL 闸门，轮询等待审批</span></div></div>
+        <div class="guard"><span class="gi"></span><div><b>Budget Accountant</b><span>本次 0.42 / 2.00 USD</span></div></div>
+        <div class="guard"><span class="gi"></span><div><b>Edit 溯源</b><span>每条写回强制附 evidence span</span></div></div>
+        <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line);font-family:var(--mono);font-size:10px;color:var(--txt-faint);letter-spacing:.04em;line-height:1.7">
+          AGENT_ID&nbsp;&nbsp;supply-chain-mapper<br>
+          TOOLS&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ontology.findObject<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ontology.addLink<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ontology.setConfidence<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;human.approval
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div>GenesisPod Knowledge Ontology · 目标态原型 · 数据为示意，非真实抽取结果</div>
+    <div class="legend">
+      <span><span class="dot d-org"></span>组织</span>
+      <span><span class="dot d-person"></span>人物</span>
+      <span><span class="dot d-tech"></span>技术</span>
+      <span><span class="dot d-product"></span>产品</span>
+      <span><span class="dot d-event"></span>事件</span>
+    </div>
+  </footer>
+</div>
+
+<script>
+/* ============ data ============ */
+const NODES = {
+  nvidia:{x:520,y:312,t:'org',nm:'NVIDIA'},
+  tsmc:{x:296,y:182,t:'org',nm:'台积电 TSMC'},
+  asml:{x:128,y:340,t:'org',nm:'ASML'},
+  hisilicon:{x:300,y:520,t:'org',nm:'华为海思'},
+  jensen:{x:660,y:150,t:'person',nm:'黄仁勋'},
+  morris:{x:150,y:84,t:'person',nm:'张忠谋'},
+  h100:{x:760,y:318,t:'product',nm:'H100'},
+  b200:{x:792,y:452,t:'product',nm:'Blackwell B200'},
+  hbm:{x:572,y:512,t:'tech',nm:'HBM3E'},
+  cowos:{x:382,y:372,t:'tech',nm:'CoWoS 封装'},
+  cuda:{x:700,y:560,t:'tech',nm:'CUDA 生态'},
+  expctrl:{x:472,y:120,t:'event',nm:'出口管制 2022.10'},
+};
+const EDGES = [
+  ['tsmc','nvidia','supplies',true],['asml','tsmc','supplies',true],
+  ['jensen','nvidia','worksFor',false],['morris','tsmc','worksFor',false],
+  ['nvidia','h100','manufactures',true],['nvidia','b200','manufactures',true],
+  ['h100','hbm','dependsOn',false],['h100','cowos','dependsOn',false],
+  ['b200','hbm','dependsOn',false],['nvidia','cuda','dependsOn',false],
+  ['tsmc','cowos','supplies',true],['nvidia','expctrl','affectedBy',false],
+  ['hisilicon','expctrl','affectedBy',false],['hisilicon','nvidia','competesWith',false],
+];
+const REL={supplies:'供应',manufactures:'制造',dependsOn:'依赖',worksFor:'任职',affectedBy:'受影响',competesWith:'竞争'};
+const TYPE={org:'组织 / 企业',person:'人物',tech:'技术 / 概念',product:'产品',event:'事件'};
+
+const OBJ = {
+  nvidia:{conf:.96,cid:'obj://org/nvidia · 3f9a',
+    alias:['英伟达','NVIDIA Corp','辉达'],
+    props:[['类型','上市企业'],['总部','Santa Clara, US'],['市值','≈ $3.0T'],['角色','加速计算 / GPU 主导者'],['成立','1993']],
+    ev:[{q:'NVIDIA 在 2024 年数据中心 GPU 市场份额超过 80%，H100 与即将量产的 Blackwell 构成其护城河。',src:'SemiAnalysis 2024 年度报告',cred:.92,span:'p.14 §2.1'},
+        {q:'公司高度依赖台积电的 CoWoS 先进封装产能，封装瓶颈直接约束其出货节奏。',src:'摩根士丹利供应链纪要',cred:.78,span:'§Capacity'}],
+    links:[['supplies','tsmc','台积电','关键',true],['manufactures','h100','H100',''],['manufactures','b200','Blackwell B200',''],['dependsOn','cuda','CUDA 生态','护城河'],['affectedBy','expctrl','出口管制 2022.10','负向'],['competesWith','hisilicon','华为海思','加速卡']],
+    edits:[['06-09 14:02','抽取','创建对象 · 来自 Mission #4127'],['06-10 09:31','合并','辉达 / NVIDIA Corp → 本对象'],['06-11 16:48','置信度','0.88 → 0.96（分析师复核）']],
+  },
+  tsmc:{conf:.94,cid:'obj://org/tsmc · a17c',alias:['台积电','TSMC','台湾积体电路'],
+    props:[['类型','上市企业'],['总部','Hsinchu, TW'],['角色','先进制程代工龙头'],['关键产能','CoWoS / 3nm']],
+    ev:[{q:'台积电掌握全球最先进的 CoWoS 2.5D 封装产能，是 AI 芯片供应链的单点瓶颈。',src:'TrendForce 2024Q2',cred:.85,span:'§Advanced Packaging'}],
+    links:[['supplies','nvidia','NVIDIA','关键',true],['supplies','cowos','CoWoS 封装','自有',true],['worksFor','morris','张忠谋','创办人(反向)']],
+    edits:[['06-09 14:05','抽取','创建对象 · 来自 Mission #4127'],['06-11 10:12','属性','补充「关键产能：CoWoS / 3nm」']],
+  },
+  jensen:{conf:.98,cid:'obj://person/jensen-huang · 22e0',alias:['黄仁勋','Jensen Huang','Jen-Hsun Huang'],
+    props:[['职务','创始人 / CEO'],['所属','NVIDIA'],['领域','加速计算']],
+    ev:[{q:'黄仁勋在 GTC 2024 提出「AI 工厂」概念，将算力定位为新型工业基础设施。',src:'NVIDIA GTC 2024 主题演讲',cred:.95,span:'00:42:10'}],
+    links:[['worksFor','nvidia','NVIDIA','CEO']],
+    edits:[['06-09 14:08','抽取','创建对象'],['06-10 09:31','合并','Jen-Hsun Huang → 本对象']],
+  },
+  h100:{conf:.97,cid:'obj://product/nvidia-h100 · 9b41',alias:['H100','Hopper H100'],
+    props:[['厂商','NVIDIA'],['制程','TSMC 4N'],['发布','2022'],['关键料','HBM3 / CoWoS']],
+    ev:[{q:'H100 采用 TSMC 4N 制程与 CoWoS 封装，搭载 HBM3 显存，是当前训练市场主力。',src:'NVIDIA H100 白皮书',cred:.9,span:'p.6'}],
+    links:[['dependsOn','hbm','HBM3E','不可或缺'],['dependsOn','cowos','CoWoS 封装','不可或缺'],['manufactures','nvidia','NVIDIA','由其制造(反向)']],
+    edits:[['06-09 14:11','抽取','创建对象'],['06-11 16:50','新增关系','+ dependsOn → HBM3E（Agent，经人审）']],
+  },
+  hbm:{conf:.83,cid:'obj://tech/hbm3e · c0d8',alias:['HBM3E','高带宽内存'],
+    props:[['类型','存储技术'],['主要供应商','SK海力士 / 三星 / 美光'],['成熟度','量产']],
+    ev:[{q:'HBM3E 由 SK 海力士率先量产并独家供货 NVIDIA 早期 Blackwell。',src:'DigiTimes 2024-05',cred:.7,span:'§Memory'}],
+    links:[['dependsOn','h100','H100','被其依赖(反向)'],['dependsOn','b200','Blackwell B200','被其依赖(反向)']],
+    edits:[['06-09 14:14','抽取','创建对象'],['06-12 11:20','置信度','0.71 → 0.83（新增信源）']],
+  },
+  expctrl:{conf:.91,cid:'obj://event/us-export-control-2022 · 7e5f',alias:['出口管制 2022.10','BIS 10/7 规则'],
+    props:[['类型','政策事件'],['日期','2022-10-07'],['发起','US BIS'],['影响','先进 AI 芯片对华出口']],
+    ev:[{q:'2022 年 10 月 7 日 BIS 出口管制规则限制了高性能 AI 芯片及制造设备对华出口，重塑供应链格局。',src:'US BIS 官方公告',cred:.97,span:'Federal Register'}],
+    links:[['affectedBy','nvidia','NVIDIA','负向(反向)'],['affectedBy','hisilicon','华为海思','负向(反向)']],
+    edits:[['06-09 14:16','抽取','创建对象'],['06-10 09:33','属性','规范化日期 → 2022-10-07']],
+  },
+  asml:{conf:.9,cid:'obj://org/asml · 4d2b',alias:['ASML','阿斯麦'],props:[['类型','上市企业'],['总部','Veldhoven, NL'],['角色','EUV 光刻机独家供应']],
+    ev:[{q:'ASML 是全球唯一的 EUV 光刻机供应商，位居整条先进制程链的最上游。',src:'行业综述',cred:.88,span:'§Litho'}],
+    links:[['supplies','tsmc','台积电','EUV 光刻机',true]],edits:[['06-09 14:18','抽取','创建对象']]},
+  b200:{conf:.86,cid:'obj://product/nvidia-b200 · e3a9',alias:['Blackwell B200','B200'],props:[['厂商','NVIDIA'],['架构','Blackwell'],['发布','2024'],['关键料','HBM3E / CoWoS-L']],
+    ev:[{q:'Blackwell B200 采用双 die 设计与 CoWoS-L 封装，对 HBM3E 与封装产能需求翻倍。',src:'NVIDIA GTC 2024',cred:.9,span:'00:55:00'}],
+    links:[['dependsOn','hbm','HBM3E','不可或缺'],['manufactures','nvidia','NVIDIA','由其制造(反向)']],edits:[['06-09 14:20','抽取','创建对象']]},
+  cowos:{conf:.82,cid:'obj://tech/cowos · b6f1',alias:['CoWoS 封装','Chip-on-Wafer-on-Substrate'],props:[['类型','先进封装'],['主供','台积电'],['约束','AI 芯片产能瓶颈']],
+    ev:[{q:'CoWoS 是 2.5D 先进封装的主流方案，产能扩张速度直接决定 AI 芯片出货。',src:'TrendForce',cred:.84,span:'§Packaging'}],
+    links:[['supplies','tsmc','台积电','由其提供(反向)',true],['dependsOn','h100','H100','被其依赖(反向)']],edits:[['06-09 14:22','抽取','创建对象']]},
+  cuda:{conf:.93,cid:'obj://tech/cuda · 1a7d',alias:['CUDA','CUDA 生态'],props:[['类型','软件生态'],['归属','NVIDIA'],['角色','开发者锁定 / 护城河']],
+    ev:[{q:'CUDA 软件栈构成 NVIDIA 最深的护城河，开发者迁移成本极高。',src:'分析师纪要',cred:.8,span:'§Moat'}],
+    links:[['dependsOn','nvidia','NVIDIA','被其依赖(反向)']],edits:[['06-09 14:24','抽取','创建对象']]},
+  morris:{conf:.95,cid:'obj://person/morris-chang · 8c33',alias:['张忠谋','Morris Chang'],props:[['职务','创办人(已退休)'],['所属','台积电']],
+    ev:[{q:'张忠谋创办台积电并确立纯代工模式，奠定了今日的供应链结构。',src:'传记综述',cred:.9,span:'ch.3'}],
+    links:[['worksFor','tsmc','台积电','创办人']],edits:[['06-09 14:26','抽取','创建对象']]},
+  hisilicon:{conf:.79,cid:'obj://org/hisilicon · f5e2',alias:['华为海思','HiSilicon'],props:[['类型','芯片设计子公司'],['母公司','华为'],['处境','受出口管制约束']],
+    ev:[{q:'华为海思在出口管制后转向自主供应链，昇腾系列成为国产替代主力。',src:'产业研究',cred:.74,span:'§China'}],
+    links:[['affectedBy','expctrl','出口管制 2022.10','负向'],['competesWith','nvidia','NVIDIA','加速卡']],edits:[['06-09 14:28','抽取','创建对象'],['06-12 11:25','置信度','0.74 → 0.79']]},
+};
+
+/* ============ graph render ============ */
+const canvas=document.getElementById('canvas');
+const edgesSvg=document.getElementById('edges');
+const VB={w:1000,h:660};
+function px(v,axis){const r=canvas.getBoundingClientRect();return axis==='x'?v/VB.w*r.width:v/VB.h*r.height}
+
+function buildGraph(){
+  // edges
+  let s='';
+  EDGES.forEach(([a,b,rel,solid],i)=>{
+    const A=NODES[a],B=NODES[b];
+    s+=`<path class="edge ${solid?'':''}" id="e${i}" d="M${A.x} ${A.y} L${B.x} ${B.y}" ${solid?'':'stroke-dasharray="5 4"'}/>`;
+  });
+  edgesSvg.innerHTML=s;
+  // edge labels (absolute over canvas)
+  EDGES.forEach(([a,b,rel],i)=>{
+    const A=NODES[a],B=NODES[b];
+    const lx=(A.x+B.x)/2, ly=(A.y+B.y)/2;
+    const el=document.createElement('div');el.className='elabel';el.dataset.elabel=i;
+    el.textContent=REL[rel];el.style.left=lx/VB.w*100+'%';el.style.top=ly/VB.h*100+'%';
+    canvas.appendChild(el);
+  });
+  // nodes
+  Object.entries(NODES).forEach(([id,n])=>{
+    const d=document.createElement('div');d.className='gnode';d.dataset.id=id;d.dataset.t=n.t;
+    d.style.left=n.x/VB.w*100+'%';d.style.top=n.y/VB.h*100+'%';
+    d.innerHTML=`<div class="chip b-${n.t}"><span class="dot d-${n.t}"></span><span class="nm">${n.nm}</span></div>`;
+    d.addEventListener('click',()=>select(id));
+    canvas.appendChild(d);
+  });
+}
+
+let current=null;
+function select(id){
+  current=id;
+  document.querySelectorAll('.gnode').forEach(g=>g.classList.toggle('sel',g.dataset.id===id));
+  // highlight incident edges
+  EDGES.forEach(([a,b],i)=>{document.getElementById('e'+i).classList.toggle('hi',a===id||b===id)});
+  renderInspector(id);
+}
+
+function renderInspector(id){
+  const o=OBJ[id],n=NODES[id];
+  const ins=document.getElementById('inspector');
+  const confPct=Math.round(o.conf*100);
+  ins.innerHTML=`
+    <div class="insp-head">
+      <div class="toprow"><span class="dot d-${n.t}"></span><span class="pill t-${n.t}">${TYPE[n.t]}</span></div>
+      <h3>${n.nm}</h3>
+      <div class="cid">${o.cid}</div>
+      <div class="alias"><b>合并自</b> ${o.alias.map(a=>`「${a}」`).join(' · ')}</div>
+      <div class="confbar"><div class="row"><span>对象置信度</span><span>${confPct}%</span></div><div class="track"><div class="fill" style="width:${confPct}%"></div></div></div>
+    </div>
+    <div class="insp-sec"><h4>属性 Properties<span class="ct">${o.props.length}</span></h4>
+      <dl class="props">${o.props.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>
+    <div class="insp-sec"><h4>溯源证据 Provenance<span class="ct">${o.ev.length}</span></h4>
+      ${o.ev.map(e=>`<div class="ev"><div class="q">"${e.q}"</div><div class="meta"><span class="src">${e.src}</span><span>·</span><span>${e.span}</span><span class="credbar">可信 <span class="t"><span class="f" style="width:${Math.round(e.cred*100)}%"></span></span>${Math.round(e.cred*100)}%</span></div></div>`).join('')}</div>
+    <div class="insp-sec"><h4>关系 Links<span class="ct">${o.links.length}</span></h4>
+      ${o.links.map(([rel,tid,tnm,nt,key])=>`<div class="linkitem" onclick="select('${tid}')"><span class="rel">${REL[rel]}</span><span class="arr">→</span><span class="tg">${tnm}</span>${nt?`<span class="nt">${nt}</span>`:''}</div>`).join('')}</div>
+    <div class="insp-sec"><h4>可执行动作 Actions</h4>
+      <div class="actbtns">
+        <button class="actbtn"><span class="ic">✎</span>编辑属性</button>
+        <button class="actbtn"><span class="ic">◷</span>标注置信度</button>
+        <button class="actbtn"><span class="ic">＋</span>新增关系</button>
+        <button class="actbtn"><span class="ic">⇲</span>派 Agent 深挖</button>
+        <button class="actbtn danger"><span class="ic">⤚</span>合并对象<span class="gate">需人审</span></button>
+      </div></div>
+    <div class="insp-sec" style="border-bottom:none"><h4>对象 Edit 历史<span class="ct">${o.edits.length}</span></h4>
+      ${o.edits.map(([tm,ac,dt])=>`<div class="editmini"><span class="tm">${tm}</span><span class="ac">${ac}</span><span>${dt}</span></div>`).join('')}</div>
+  `;
+  ins.scrollTop=0;
+}
+
+/* ============ type filter ============ */
+document.querySelectorAll('.typebtn').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.typebtn').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  const f=b.dataset.filter;
+  document.querySelectorAll('.gnode').forEach(g=>g.classList.toggle('dim',f!=='all'&&g.dataset.t!==f));
+}));
+
+/* ============ tabs ============ */
+document.querySelectorAll('.tabbtn').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.tabbtn').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  document.querySelectorAll('.panel-tab').forEach(p=>p.classList.remove('on'));
+  document.getElementById(b.dataset.tab).classList.add('on');
+}));
+
+/* ============ TAB2 metamodel ============ */
+const MM=[
+  {t:'org',nm:'组织 / 机构',en:'Organization',cnt:312,fields:[['name','string','✓'],['orgType','enum 企业/政府/院校','✓'],['hq','geo',''],['marketCap','number',''],['role','string','']],acts:['editProperty','addLink','mergeObjects','dispatchAgent']},
+  {t:'person',nm:'人物',en:'Person',cnt:208,fields:[['name','string','✓'],['title','string',''],['affiliation','ref→Organization',''],['domain','string[]','']],acts:['editProperty','addLink','mergeObjects']},
+  {t:'tech',nm:'技术 / 概念',en:'Technology',cnt:447,fields:[['name','string','✓'],['maturity','enum 研发/试产/量产',''],['suppliers','ref[]→Organization',''],['category','string','']],acts:['editProperty','addLink','setConfidence']},
+  {t:'product',nm:'产品',en:'Product',cnt:196,fields:[['name','string','✓'],['vendor','ref→Organization','✓'],['releaseDate','date',''],['process','string',''],['billOfMaterials','ref[]→Technology','']],acts:['editProperty','addLink','dispatchAgent']},
+  {t:'event',nm:'事件',en:'Event',cnt:121,fields:[['title','string','✓'],['date','date','✓'],['actor','ref→Organization',''],['impactScope','string','']],acts:['editProperty','addLink','setConfidence']},
+];
+document.getElementById('mmgrid').innerHTML=MM.map((m,i)=>`
+  <div class="mmcard" style="animation-delay:${i*70}ms">
+    <div class="hd"><span class="dot d-${m.t}"></span><span class="nm">${m.nm}</span><span class="en">${m.en}</span><span class="cnt">${m.cnt} 个实例</span></div>
+    <table class="schtbl">${m.fields.map(([f,ty,rq])=>`<tr><td class="fk">${f}</td><td class="ty">${ty}</td><td style="text-align:right">${rq?'<span class="rq">必填</span>':''}</td></tr>`).join('')}</table>
+    <div class="acts"><b>绑定动作 Bound Actions</b>${m.acts.map(a=>`<span class="a">${a}</span>`).join('')}</div>
+  </div>`).join('');
+
+/* ============ TAB3 edit stream ============ */
+const TL=[
+  {k:'agent',actor:'AGENT',al:'ac-agent',act:'addLink',obj:'H100 →依赖→ HBM3E',tm:'06-11 16:50',body:'supply-chain-mapper 在补全 H100 物料关系时发现缺失的依赖边，提交新增。因 addLink 非破坏性，自动通过；但因涉及高置信对象，附带证据校验。',diff:null,prov:'依据 NVIDIA H100 白皮书 p.6 · cred 90%'},
+  {k:'human',actor:'分析师 · L.Chen',al:'ac-human',act:'setConfidence',obj:'HBM3E',tm:'06-12 11:20',body:'新增 DigiTimes 信源后人工上调对象置信度。',diff:['0.71','0.83'],prov:'新增信源 DigiTimes 2024-05 · cred 70%'},
+  {k:'human',actor:'管理员 · admin',al:'ac-human',act:'mergeObjects',obj:'辉达 + NVIDIA Corp → NVIDIA',tm:'06-10 09:31',body:'entity-resolution 给出 0.94 相似度的合并候选，因 mergeObjects 为破坏性动作，进入 HITL 闸门，由管理员审批后执行。两个旧 id 的所有入边重指向到 canonical 对象。',diff:null,prov:'entity-resolution 语义聚类 · 阈值 0.85 · 实测 0.94'},
+  {k:'sys',actor:'系统 · Mission #4127',al:'ac-sys',act:'createObjects',obj:'本批次 +37 对象 / +52 关系',tm:'06-09 14:02',body:'深度研究 Mission 完成后，抽取管线对报告全文分片抽取实体与关系，经实体解析去重后写入本体。每个对象/关系强制携带源 span。',diff:null,prov:'Mission #4127 报告 · 12 个信源 · 共 41 段证据'},
+];
+document.getElementById('timeline').innerHTML=TL.map(e=>`
+  <div class="tl-item ${e.k}">
+    <div class="tl-head"><span class="tl-actor ${e.al}">${e.actor}</span><span class="act">${e.act}</span><span class="obj">${e.obj}</span><span class="tm">${e.tm}</span></div>
+    <div class="tl-body">${e.body}
+      ${e.diff?`<div class="diff"><span class="was">${e.diff[0]}</span><span class="arr">→</span><span class="now">${e.diff[1]}</span></div>`:''}
+      <div class="prov">↳ 溯源：${e.prov}</div>
+    </div>
+  </div>`).join('');
+
+/* ============ TAB4 agent transcript ============ */
+const TR=[
+  {who:'用户目标',cls:'user',html:'补全 <b>NVIDIA</b> 的算力供应链关系，确认 H100 的关键物料依赖，并对缺失的高带宽内存依赖建立关系。'},
+  {who:'Agent · 思考',cls:'agent',html:'先定位 NVIDIA 对象与其产品，再检查 H100 的物料依赖是否完整。'},
+  {who:'Agent · Action',cls:'agent',call:{nm:'ontology.findObject',se:'se-none',body:'query: "NVIDIA"  ·  type: org',res:'→ 命中 obj://org/nvidia（conf 0.96，3 个产品边）'}},
+  {who:'Agent · Action',cls:'agent',call:{nm:'ontology.findObject',se:'se-none',body:'query: "H100"  ·  type: product',res:'→ obj://product/nvidia-h100 · 现有依赖：CoWoS 封装；缺 HBM3E'}},
+  {who:'Agent · 思考',cls:'agent',html:'H100 白皮书 p.6 明确其搭载 HBM3 显存，但本体中缺 dependsOn→HBM3E 边。提交新增关系（非破坏性，附证据 span）。'},
+  {who:'Agent · Action',cls:'agent',call:{nm:'ontology.addLink',se:'se-none',body:'from: H100 · rel: dependsOn · to: HBM3E\nproperty: { 不可或缺性: 高 }\nevidence: NVIDIA H100 白皮书 p.6',res:'→ 已写入 link://h100-dependsOn-hbm · 1 条 edit 入 Edit 流'}},
+  {who:'Agent · 思考',cls:'agent',html:'另发现 entity-resolution 提示「辉达」与「NVIDIA Corp」疑为同一对象，建议合并。但 mergeObjects 是破坏性动作，不在本 Agent 白名单 —— 转人工审批。'},
+  {who:'闸门 · Human-in-the-loop',cls:'agent',gate:{nm:'human.approval',body:'拟执行 mergeObjects：辉达 + NVIDIA Corp → NVIDIA（相似度 0.94）\n影响：重指向 2 个对象的全部入边。',ok:true,stamp:'管理员 admin 已批准 · 06-10 09:31'}},
+  {who:'Agent · 小结',cls:'agent',html:'已为 H100 补全 1 条关键依赖（HBM3E），并将 1 组重复对象合并请求提交人审并通过。所有写回均通过 Action 产生，附带溯源，记入统一 Edit 流。'},
+];
+document.getElementById('transcript').innerHTML=TR.map(m=>{
+  let inner='';
+  if(m.call){const c=m.call;inner=`<div class="callcard"><div class="ch"><span style="color:var(--txt-faint)">⚙</span><span class="nm">${c.nm}</span><span class="se se-none">none</span></div><div class="cb">${c.body.replace(/\n/g,'<br>').replace(/(\w+):/g,'<span class="k">$1:</span>')}</div><div class="res">${c.res}</div></div>`;}
+  else if(m.gate){const g=m.gate;inner=`<div class="callcard gate"><div class="ch"><span>⛔</span><span class="nm">${g.nm}</span><span class="se se-dest">destructive · 需人审</span></div><div class="cb">${g.body.replace(/\n/g,'<br>')}</div><div class="gate-actions"><button class="ok">✓ 批准</button><button class="no">✕ 拒绝</button><span class="gate-stamp">${g.stamp}</span></div></div>`;}
+  else inner=`<div class="bubble">${m.html}</div>`;
+  return `<div class="msg ${m.cls}"><div class="who">${m.cls==='user'?'◆':'●'} ${m.who}</div>${inner}</div>`;
+}).join('');
+
+/* ============ init ============ */
+buildGraph();
+select('nvidia');
+// reposition edge labels & redraw on resize handled by % positioning; svg uses viewBox so it scales
+window.addEventListener('resize',()=>{/* viewBox handles scaling; nothing needed */});
+</script>
+</body>
+</html>

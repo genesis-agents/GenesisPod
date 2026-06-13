@@ -163,6 +163,8 @@ export const RESEARCH_TEAM_CONFIG: TeamConfig = {
     "executive-summary-writing",
     "content-critique",
     "section-depth-evaluation",
+    // ★ P4 Knowledge Ontology: 研究结束后把新发现的实体/关系写入知识图谱
+    "knowledge.ontology-builder",
   ],
   availableTools: [
     BUILTIN_TOOLS.WEB_SEARCH,
@@ -181,6 +183,9 @@ export const RESEARCH_TEAM_CONFIG: TeamConfig = {
     "finance-api",
     "federal-register",
     "congress-gov",
+    // ★ P4 Knowledge Ontology: 写入知识图谱节点/关系
+    "ontology.upsertObject",
+    "ontology.addLink",
   ],
   constraintProfile: createConstraintProfile("thorough", {
     quality: {

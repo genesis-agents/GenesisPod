@@ -198,11 +198,6 @@ const nextConfig = {
       // ★ 2026-05-20: 旧顶层路由收敛到 next.config 301（替代 app/ 下页面级
       //   redirect shim — 与 admin 路由一致的标准做法）。query string 自动转发。
       {
-        source: '/knowledge-graph',
-        destination: '/library/knowledge-graph',
-        permanent: false,
-      },
-      {
         source: '/rag',
         destination: '/library/rag',
         permanent: false,

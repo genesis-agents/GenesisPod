@@ -274,6 +274,24 @@ export type {
   EntityCluster,
   EntityResolutionResult,
 } from "../knowledge/entity-resolution/entity-resolution.service";
+// ★ Knowledge Ontology v1 (P1 engine core)
+export { OntologyService } from "../knowledge/ontology/ontology.service";
+export type {
+  AuditContext as OntologyAuditContext,
+  UpsertObjectInput,
+  AddLinkInput,
+  ListObjectsFilter as OntologyListFilter,
+  SubgraphOptions,
+  OntologyObjectView,
+  OntologyLinkView,
+  SubgraphResult,
+} from "../knowledge/ontology/ontology.types";
+// ★ Knowledge Ontology v1 (P3 engine skill) — P4 callers inject via facade
+export {
+  OntologyBuilderSkill,
+  type OntologyBuilderInput,
+  type OntologyBuilderOutput,
+} from "../knowledge/ontology/skills/ontology-builder.skill";
 // TaskDecomposerService 已删 (2026-04-30) — 死代码
 export { ModelFallbackService } from "../llm/models/selection/model-fallback.service";
 
