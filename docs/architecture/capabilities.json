@@ -10,9 +10,9 @@
     "frontend/lib/design/tokens.ts"
   ],
   "totals": {
-    "all": 1911,
+    "all": 1923,
     "byLayer": {
-      "engine": 523,
+      "engine": 535,
       "frontend": 246,
       "harness": 1092,
       "platform": 50
@@ -21,7 +21,7 @@
       "engine/content": 201,
       "engine/credentials": 17,
       "engine/facade": 39,
-      "engine/knowledge": 28,
+      "engine/knowledge": 40,
       "engine/llm": 71,
       "engine/planning": 11,
       "engine/rag": 30,
@@ -2141,6 +2141,14 @@
       "import": "import { ValidationResult } from \"@/modules/ai-engine/facade\";"
     },
     {
+      "name": "AddLinkInput",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.types.ts",
+      "import": "import { AddLinkInput } from \"@/modules/ai-engine/facade\";"
+    },
+    {
       "name": "ContextEvolutionService",
       "kind": "value",
       "layer": "engine",
@@ -2253,6 +2261,70 @@
       "import": "import { LlmRerankerAdapter } from \"@/modules/ai-engine/facade\";"
     },
     {
+      "name": "OntologyAuditContext",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.types.ts",
+      "import": "import { OntologyAuditContext } from \"@/modules/ai-engine/facade\";"
+    },
+    {
+      "name": "OntologyBuilderInput",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/skills/ontology-builder.skill.ts",
+      "import": "import { OntologyBuilderInput } from \"@/modules/ai-engine/facade\";"
+    },
+    {
+      "name": "OntologyBuilderOutput",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/skills/ontology-builder.skill.ts",
+      "import": "import { OntologyBuilderOutput } from \"@/modules/ai-engine/facade\";"
+    },
+    {
+      "name": "OntologyBuilderSkill",
+      "kind": "value",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/skills/ontology-builder.skill.ts",
+      "import": "import { OntologyBuilderSkill } from \"@/modules/ai-engine/facade\";"
+    },
+    {
+      "name": "OntologyLinkView",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.types.ts",
+      "import": "import { OntologyLinkView } from \"@/modules/ai-engine/facade\";"
+    },
+    {
+      "name": "OntologyListFilter",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.types.ts",
+      "import": "import { OntologyListFilter } from \"@/modules/ai-engine/facade\";"
+    },
+    {
+      "name": "OntologyObjectView",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.types.ts",
+      "import": "import { OntologyObjectView } from \"@/modules/ai-engine/facade\";"
+    },
+    {
+      "name": "OntologyService",
+      "kind": "value",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.service.ts",
+      "import": "import { OntologyService } from \"@/modules/ai-engine/facade\";"
+    },
+    {
       "name": "RerankAdapter",
       "kind": "type",
       "layer": "engine",
@@ -2349,6 +2421,22 @@
       "import": "import { StaleSourceEntry } from \"@/modules/ai-engine/facade\";"
     },
     {
+      "name": "SubgraphOptions",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.types.ts",
+      "import": "import { SubgraphOptions } from \"@/modules/ai-engine/facade\";"
+    },
+    {
+      "name": "SubgraphResult",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.types.ts",
+      "import": "import { SubgraphResult } from \"@/modules/ai-engine/facade\";"
+    },
+    {
       "name": "SynthesisDocument",
       "kind": "type",
       "layer": "engine",
@@ -2363,6 +2451,14 @@
       "domain": "knowledge",
       "source": "backend/src/modules/ai-engine/knowledge/synthesis/cross-cutting-synthesis.service.ts",
       "import": "import { SynthesisResult } from \"@/modules/ai-engine/facade\";"
+    },
+    {
+      "name": "UpsertObjectInput",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.types.ts",
+      "import": "import { UpsertObjectInput } from \"@/modules/ai-engine/facade\";"
     },
     {
       "name": "AIError",
