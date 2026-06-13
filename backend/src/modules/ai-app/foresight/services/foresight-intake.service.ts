@@ -242,7 +242,7 @@ export class ForesightIntakeService {
       `- evidence 从报告中提炼 1-3 条要点；sources 引用报告里出现的真实来源（无则空数组）`,
       ``,
       `## 报告（截断）`,
-      bundle.body.slice(0, 14000),
+      bundle.body.slice(0, 9000),
       ``,
       `输出严格 JSON（无其他文字）：`,
       `{"cards":[{"layer":"","title":"","claim":"","conf":0.6,"sens":"mid","horizon":2028,"stage":"exploring","evidence":[""],"falsifiers":[""],"sources":[{"org":"","title":"","type":"report","url":""}]}]}`,
@@ -328,11 +328,23 @@ export class ForesightIntakeService {
     },
   ): Promise<T | null> {
     const suppress =
-      "\n\n（重要：直接输出 JSON 结果本身。禁止输出思考过程、解释或 markdown 围栏。）";
+      "\n\n（重要：直接输出 JSON 结果本身。禁止输出任何思考过程、推理步骤、解释或 markdown 围栏——第一个字符必须是 { 。）";
+    /* 重试时追加 /no_think：Qwen3 系关闭 thinking 的原生指令，其他模型视为普通文本无副作用 */
     for (let attempt = 0; attempt < 2; attempt++) {
       const response = await this.aiChat.chat({
         messages: [
-          { role: "user", content: attempt === 0 ? prompt : prompt + suppress },
+          {
+            role: "system",
+            content:
+              "你是只输出 JSON 的结构化数据接口。任何情况下都不输出思考过程。",
+          },
+          {
+            role: "user",
+            content:
+              attempt === 0
+                ? prompt + suppress
+                : `/no_think\n${prompt}${suppress}`,
+          },
         ],
         modelType: AIModelType.CHAT,
         taskProfile,
