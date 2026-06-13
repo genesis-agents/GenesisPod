@@ -228,8 +228,42 @@ export class ForesightIntakeService {
       throw new NotFoundException("mission 报告不存在或为空");
     }
 
+    /* ★ 2026-06-12 修「报告只看了开头」：洞察报告常态 10 万字，单次调用截断会
+       丢 90% 内容。改分片抽取（按章节边界切 ~9k 字/片，并发 3）+ 汇总去重，
+       全文覆盖。片数上限 16（≈14 万字），超出截尾并在日志注明。 */
+    const chunks = this.splitReport(bundle.body, 9000, 16);
+    const layerIds = new Set(layers.map((l) => l.id));
+    const candidateLists = await this.mapWithConcurrency(
+      chunks,
+      3,
+      (chunk, i) =>
+        this.extractChunk(topic.name, layers, chunk, i + 1, chunks.length).then(
+          (cards) => this.sanitizeDrafts(cards, layerIds, layers),
+        ),
+    );
+    const candidates = candidateLists.flat();
+    this.logger.log(
+      `foresight extract: topic=${topicId} mission=${sourceId} bodyLen=${bundle.body.length} chunks=${chunks.length} candidates=${candidates.length}`,
+    );
+    if (candidates.length === 0) {
+      throw new BadRequestException(
+        `全文 ${chunks.length} 个分片均未抽取到符合纪律的假设卡（falsifier 必填）—— 报告可能偏叙述性，或模型输出异常（已逐片重试）`,
+      );
+    }
+    const drafts = await this.consolidate(candidates);
+    return { drafts, missionTitle: bundle.title };
+  }
+
+  /** 单片抽取（0-4 张；空片正常返回 []） */
+  private async extractChunk(
+    topicName: string,
+    layers: TopicLayerDef[],
+    chunk: string,
+    part: number,
+    total: number,
+  ): Promise<Array<Partial<DraftCard>>> {
     const prompt = [
-      `你是战略前瞻系统的假设卡抽取器。从下面的深度洞察报告中，按「${topic.name}」主题的层级本体抽取 3-6 张可证伪的假设卡。`,
+      `你是战略前瞻系统的假设卡抽取器。下面是「${topicName}」主题深度洞察报告的第 ${part}/${total} 部分，从中抽取 0-4 张可证伪的假设卡（本片段没有可证伪判断就输出空数组，不要硬凑）。`,
       ``,
       `## 层级本体（layer 字段只能取这些 id）`,
       ...layers.map((l) => `- ${l.id}: ${l.name}`),
@@ -241,8 +275,8 @@ export class ForesightIntakeService {
       `- stage: current(已落地)|evolving(演进中)|exploring(探索验证)|research(研究前沿)`,
       `- evidence 从报告中提炼 1-3 条要点；sources 引用报告里出现的真实来源（无则空数组）`,
       ``,
-      `## 报告（截断）`,
-      bundle.body.slice(0, 9000),
+      `## 报告片段（第 ${part}/${total} 部分）`,
+      chunk,
       ``,
       `输出严格 JSON（无其他文字）：`,
       `{"cards":[{"layer":"","title":"","claim":"","conf":0.6,"sens":"mid","horizon":2028,"stage":"exploring","evidence":[""],"falsifiers":[""],"sources":[{"org":"","title":"","type":"report","url":""}]}]}`,
@@ -252,14 +286,23 @@ export class ForesightIntakeService {
       prompt,
       { creativity: "low", outputLength: "long" },
     );
+    /* 单片失败不中断全文抽取（其余片照常），日志留痕 */
     if (parsed === null) {
-      throw new BadRequestException(
-        "抽取模型返回异常（空输出或非 JSON，已自动重试 1 次）—— 已知诱因：推理型默认模型把输出预算耗在思考上。稍后再试，或更换默认模型",
+      this.logger.warn(
+        `foresight extract: chunk ${part}/${total} LLM failed after retry — skipped`,
       );
+      return [];
     }
-    const rawCount = Array.isArray(parsed.cards) ? parsed.cards.length : 0;
-    const layerIds = new Set(layers.map((l) => l.id));
-    const drafts: DraftCard[] = (parsed.cards ?? [])
+    return parsed.cards ?? [];
+  }
+
+  /** 候选卡校验/归一（falsifier 缺失直接丢弃 —— 入库纪律） */
+  private sanitizeDrafts(
+    raw: Array<Partial<DraftCard>>,
+    layerIds: Set<string>,
+    layers: TopicLayerDef[],
+  ): DraftCard[] {
+    return raw
       .filter(
         (c) =>
           typeof c.title === "string" &&
@@ -267,7 +310,6 @@ export class ForesightIntakeService {
           Array.isArray(c.falsifiers) &&
           c.falsifiers.length > 0,
       )
-      .slice(0, 8)
       .map((c) => ({
         layer: layerIds.has(c.layer ?? "") ? (c.layer as string) : layers[0].id,
         title: (c.title as string).slice(0, 200),
@@ -292,16 +334,103 @@ export class ForesightIntakeService {
           (s) => s && typeof s.org === "string" && typeof s.title === "string",
         ),
       }));
+  }
 
-    this.logger.log(
-      `foresight extract: topic=${topicId} mission=${sourceId} raw=${rawCount} drafts=${drafts.length}`,
+  /** 多片候选汇总去重：LLM 挑出 ≤12 张互不重复的最强卡；失败回退标题前缀去重 */
+  private async consolidate(candidates: DraftCard[]): Promise<DraftCard[]> {
+    if (candidates.length <= 12) return this.dedupeByTitle(candidates, 12);
+    const listing = candidates
+      .map(
+        (c, i) => `[${i}] (${c.layer}) ${c.title} — ${c.claim.slice(0, 120)}`,
+      )
+      .join("\n");
+    const parsed = await this.chatJson<{ keep?: number[] }>(
+      [
+        `以下是从同一份报告各部分抽取的候选假设卡。去重（同一判断的不同表述只留最强一张）并挑选最有判断价值的至多 12 张。`,
+        listing,
+        `输出严格 JSON：{"keep":[0,3,5]}（保留的 index 数组）`,
+      ].join("\n\n"),
+      { creativity: "deterministic", outputLength: "medium" },
     );
-    if (rawCount > 0 && drafts.length === 0) {
-      throw new BadRequestException(
-        `模型抽取了 ${rawCount} 张草稿但全部缺少 falsifier 被纪律过滤 —— 该报告偏叙述性，换一份判断性更强的报告，或手动录入`,
+    const keep = (parsed?.keep ?? []).filter(
+      (i) => Number.isInteger(i) && i >= 0 && i < candidates.length,
+    );
+    if (keep.length === 0) return this.dedupeByTitle(candidates, 12);
+    return this.dedupeByTitle(
+      [...new Set(keep)].map((i) => candidates[i]),
+      12,
+    );
+  }
+
+  private dedupeByTitle(cards: DraftCard[], cap: number): DraftCard[] {
+    const seen = new Set<string>();
+    const out: DraftCard[] = [];
+    for (const c of cards) {
+      const key = c.title.replace(/\s+/g, "").slice(0, 24);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(c);
+      if (out.length >= cap) break;
+    }
+    return out;
+  }
+
+  /** 按章节边界（# 标题行）优先切片，单片 ≤ maxChars，至多 maxChunks 片 */
+  private splitReport(
+    body: string,
+    maxChars: number,
+    maxChunks: number,
+  ): string[] {
+    const lines = body.split("\n");
+    const chunks: string[] = [];
+    let buf: string[] = [];
+    let len = 0;
+    for (const line of lines) {
+      const isHeading = /^#{1,3}\s/.test(line);
+      if (
+        len + line.length > maxChars &&
+        buf.length > 0 &&
+        (isHeading || len > maxChars * 0.8)
+      ) {
+        chunks.push(buf.join("\n"));
+        buf = [];
+        len = 0;
+        if (chunks.length >= maxChunks) break;
+      }
+      buf.push(line);
+      len += line.length + 1;
+    }
+    if (buf.length > 0 && chunks.length < maxChunks)
+      chunks.push(buf.join("\n"));
+    if (chunks.length === 0) chunks.push(body.slice(0, maxChars));
+    if (body.length > chunks.reduce((s, c) => s + c.length, 0) + 100) {
+      this.logger.warn(
+        `foresight extract: report tail beyond ${maxChunks} chunks truncated (bodyLen=${body.length})`,
       );
     }
-    return { drafts, missionTitle: bundle.title };
+    return chunks;
+  }
+
+  /** 受限并发 map（保持原顺序） */
+  private async mapWithConcurrency<T, R>(
+    items: T[],
+    limit: number,
+    fn: (item: T, index: number) => Promise<R>,
+  ): Promise<R[]> {
+    const results: R[] = new Array(items.length);
+    let cursor = 0;
+    const workers = Array.from(
+      { length: Math.min(limit, items.length) },
+      async () => {
+        for (;;) {
+          const i = cursor++;
+          if (i >= items.length) return;
+          results[i] = await fn(items[i], i);
+        }
+      },
+    );
+    await Promise.all(workers);
+    return results;
   }
 
   // ── helpers ───────────────────────────────────────────────────────────
