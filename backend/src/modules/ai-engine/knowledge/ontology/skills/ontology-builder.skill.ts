@@ -20,7 +20,7 @@
  * Layer: "understanding"  Domain: "knowledge"
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { AiChatService } from "@/modules/ai-engine/facade";
 import type { ChatMessage, TaskProfile } from "@/modules/ai-engine/facade";
@@ -157,7 +157,7 @@ export class OntologyBuilderSkill extends BaseSkill<
   protected override readonly logger = new Logger(OntologyBuilderSkill.name);
 
   constructor(
-    private readonly aiChatService: AiChatService,
+    @Optional() private readonly aiChatService: AiChatService | undefined,
     private readonly entityResolution: EntityResolutionService,
   ) {
     super();
@@ -179,6 +179,14 @@ export class OntologyBuilderSkill extends BaseSkill<
     if (!text) {
       this.logger.warn(
         `[${this.id}] No text content available — input has neither text/documentId/reportId`,
+      );
+      return { created: 0, merged: 0, linked: 0, nodes: [], edges: [] };
+    }
+
+    // 安全网：DI 解析不到 AiChatService 时优雅跳过抽取（保证 app 启动不崩）
+    if (!this.aiChatService) {
+      this.logger.warn(
+        `[${this.id}] AiChatService unavailable — skipping ontology extraction (non-fatal)`,
       );
       return { created: 0, merged: 0, linked: 0, nodes: [], edges: [] };
     }
@@ -487,7 +495,7 @@ Rules:
     const messages: ChatMessage[] = [{ role: "user", content: userPrompt }];
 
     try {
-      const result = await this.aiChatService.chat({
+      const result = await this.aiChatService!.chat({
         messages,
         systemPrompt,
         model: "",
