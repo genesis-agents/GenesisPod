@@ -60,6 +60,8 @@ export class ForesightIntakeService {
   async scanRadar(
     userId: string,
     topicId: string,
+    /** 只看最近 N 天的雷达信号（手动扫描默认全窗口 30 天；每日自动扫描传 3 减少重复输入） */
+    sinceDays?: number,
   ): Promise<{ scanned: number; matched: number; created: number }> {
     const topic = await this.requireTopic(userId, topicId);
     const cards = await this.prisma.foresightCard.findMany({
@@ -90,7 +92,19 @@ export class ForesightIntakeService {
         "雷达内容源未注册（后端未启用 RadarModule）",
       );
     }
-    const { items } = await radar.listItems(userId, { limit: 30 });
+    const { items } = await radar.listItems(userId, {
+      limit: 30,
+      ...(sinceDays
+        ? {
+            dateRange: {
+              from: new Date(
+                Date.now() - sinceDays * 24 * 3600 * 1000,
+              ).toISOString(),
+              to: new Date().toISOString(),
+            },
+          }
+        : {}),
+    });
     if (items.length === 0) {
       return { scanned: 0, matched: 0, created: 0 };
     }
