@@ -116,12 +116,7 @@ export class ForesightIntakeService {
       `grade 判定：单一来源/传闻=weak；明确事实/官方口径=strong。direction：证伪假设=down，强化约束类假设=up。无命中输出 {"matches":[]}。`,
     ].join("\n");
 
-    const response = await this.aiChat.chat({
-      messages: [{ role: "user", content: prompt }],
-      modelType: AIModelType.CHAT,
-      taskProfile: { creativity: "deterministic", outputLength: "medium" },
-    });
-    const parsed = this.parseJson<{
+    const parsed = await this.chatJson<{
       matches?: Array<{
         index: number;
         cardKey: string;
@@ -130,7 +125,12 @@ export class ForesightIntakeService {
         direction: string;
         reason: string;
       }>;
-    }>(response.content ?? "");
+    }>(prompt, { creativity: "deterministic", outputLength: "medium" });
+    if (parsed === null) {
+      throw new BadRequestException(
+        "信号匹配模型返回异常（空输出或非 JSON，已自动重试 1 次）—— 稍后再试，或在模型设置中避免推理型模型作默认",
+      );
+    }
     const matches = (parsed.matches ?? []).filter(
       (m) =>
         Number.isInteger(m.index) &&
@@ -248,14 +248,16 @@ export class ForesightIntakeService {
       `{"cards":[{"layer":"","title":"","claim":"","conf":0.6,"sens":"mid","horizon":2028,"stage":"exploring","evidence":[""],"falsifiers":[""],"sources":[{"org":"","title":"","type":"report","url":""}]}]}`,
     ].join("\n");
 
-    const response = await this.aiChat.chat({
-      messages: [{ role: "user", content: prompt }],
-      modelType: AIModelType.CHAT,
-      taskProfile: { creativity: "low", outputLength: "long" },
-    });
-    const parsed = this.parseJson<{ cards?: Array<Partial<DraftCard>> }>(
-      response.content ?? "",
+    const parsed = await this.chatJson<{ cards?: Array<Partial<DraftCard>> }>(
+      prompt,
+      { creativity: "low", outputLength: "long" },
     );
+    if (parsed === null) {
+      throw new BadRequestException(
+        "抽取模型返回异常（空输出或非 JSON，已自动重试 1 次）—— 已知诱因：推理型默认模型把输出预算耗在思考上。稍后再试，或更换默认模型",
+      );
+    }
+    const rawCount = Array.isArray(parsed.cards) ? parsed.cards.length : 0;
     const layerIds = new Set(layers.map((l) => l.id));
     const drafts: DraftCard[] = (parsed.cards ?? [])
       .filter(
@@ -292,8 +294,13 @@ export class ForesightIntakeService {
       }));
 
     this.logger.log(
-      `foresight extract: topic=${topicId} mission=${sourceId} drafts=${drafts.length}`,
+      `foresight extract: topic=${topicId} mission=${sourceId} raw=${rawCount} drafts=${drafts.length}`,
     );
+    if (rawCount > 0 && drafts.length === 0) {
+      throw new BadRequestException(
+        `模型抽取了 ${rawCount} 张草稿但全部缺少 falsifier 被纪律过滤 —— 该报告偏叙述性，换一份判断性更强的报告，或手动录入`,
+      );
+    }
     return { drafts, missionTitle: bundle.title };
   }
 
@@ -307,22 +314,58 @@ export class ForesightIntakeService {
     return topic;
   }
 
-  /** 容错解析 LLM JSON 输出（剥 markdown 围栏 / 截取首个对象） */
-  private parseJson<T>(raw: string): T {
+  /**
+   * 带重试的 JSON 对话：空输出或解析失败时自动重试 1 次（追加压制思考过程的指令）。
+   * 返回 null = 重试后仍失败（调用方给用户可理解的错误）。
+   * 背景：推理型默认模型会把输出预算耗在 CoT 导致 content 空
+   * （2026-06-07 产业链空结果事故同款签名），必须显式压制 + 重试兜底。
+   */
+  private async chatJson<T>(
+    prompt: string,
+    taskProfile: {
+      creativity: "deterministic" | "low";
+      outputLength: "medium" | "long";
+    },
+  ): Promise<T | null> {
+    const suppress =
+      "\n\n（重要：直接输出 JSON 结果本身。禁止输出思考过程、解释或 markdown 围栏。）";
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const response = await this.aiChat.chat({
+        messages: [
+          { role: "user", content: attempt === 0 ? prompt : prompt + suppress },
+        ],
+        modelType: AIModelType.CHAT,
+        taskProfile,
+      });
+      const content = response.content?.trim() ?? "";
+      if (!content) {
+        this.logger.warn(
+          `foresight intake: LLM empty content (attempt=${attempt + 1})`,
+        );
+        continue;
+      }
+      const parsed = this.parseJson<T | null>(content, null);
+      if (parsed !== null) return parsed;
+      this.logger.warn(
+        `foresight intake: LLM JSON parse failed (attempt=${attempt + 1}, len=${content.length}, head="${content.slice(0, 120)}")`,
+      );
+    }
+    return null;
+  }
+
+  /** 容错解析 LLM JSON 输出（剥 markdown 围栏 / 截取首尾对象边界），失败返回 fallback */
+  private parseJson<T>(raw: string, fallback: T): T {
     const stripped = raw
       .replace(/```json/gi, "")
       .replace(/```/g, "")
       .trim();
     const start = stripped.indexOf("{");
     const end = stripped.lastIndexOf("}");
-    if (start === -1 || end <= start) return {} as T;
+    if (start === -1 || end <= start) return fallback;
     try {
       return JSON.parse(stripped.slice(start, end + 1)) as T;
     } catch {
-      this.logger.warn(
-        `foresight intake: LLM JSON parse failed (len=${raw.length})`,
-      );
-      return {} as T;
+      return fallback;
     }
   }
 }
