@@ -25,9 +25,9 @@ flowchart TB
         H["agents · runner · teams · handoffs · memory<br/>protocols · evaluation · guardrails · tracing · lifecycle · facade"]
     end
 
-    subgraph L2["L2 · ai-engine（原子能力 / 10 聚合）"]
+    subgraph L2["L2 · ai-engine（原子能力 / 12 聚合）"]
         direction LR
-        E["llm · tools · rag · knowledge · skills<br/>planning · safety · content · credentials · facade"]
+        E["llm · tools · rag · knowledge · content · routing<br/>reliability · evaluation · skills · planning · safety · facade"]
     end
 
     subgraph L1["L1 · ai-infra（平台底座）"]
@@ -169,7 +169,7 @@ flowchart TB
 
 ---
 
-## 5. L2 · ai-engine（原子能力，10 聚合）
+## 5. L2 · ai-engine（原子能力，12 聚合）
 
 ```mermaid
 flowchart TB
@@ -182,7 +182,9 @@ flowchart TB
         PLANNING["planning<br/>intent · context · reflection · budget"]
         SAFETY["safety<br/>security · guardrails · constraint · quality · resilience"]
         CONTENT["content<br/>fetch · cleaner · markdown · citation<br/>figure · image · report-template · sources"]
-        CRED["credentials<br/>BYOK / secret resolver"]
+        ROUTING["routing<br/>请求→模型/技能/工具的无状态打分路由"]
+        RELIABILITY["reliability<br/>rate-limit · entity-health"]
+        EVAL["evaluation<br/>无状态启发式质量检查（无 LLM/agent 状态）"]
         FAC["facade<br/>engine 公共桶"]
     end
     ENGINE --> INFRA["L1 ai-infra"]
@@ -198,10 +200,13 @@ flowchart TB
 | `planning`    | intent / context / reflection / budget                                     | 任务分解（不含 agent loop）                          |
 | `safety`      | security / guardrails / constraint / quality                               | PII / moderation / injection                         |
 | `content`     | fetch / markdown / citation / figure / sources                             | 内容处理                                             |
-| `credentials` | —                                                                          | BYOK / secret resolver                               |
+| `routing`     | model / skill / tool 打分路由                                              | 请求→模型/技能/工具的无状态打分（非 llm/selection）  |
+| `reliability` | rate-limit / entity-health                                                 | 引擎级韧性                                           |
+| `evaluation`  | heuristics / checks                                                        | 无状态启发式质量检查（无 LLM、无 agent 状态）        |
 | `facade`      | exports / abstractions                                                     | engine 公共桶                                        |
 
 > MECE 原则：`tools` 全项目唯一在 engine、`SkillRegistry` 全项目唯一、engine 无 agent / mission 状态。
+> `credentials`（BYOK / secret resolver）已于 2026-05-01（fee5d688b）迁入 L1 ai-infra，见 §6。
 
 ---
 

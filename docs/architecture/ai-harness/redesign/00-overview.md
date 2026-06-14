@@ -1,3 +1,12 @@
+> ⚠️ **SUPERSEDED — 历史提案，非当前架构（2026-04 期，约 50-70 天前）。**
+> 本 `redesign/` 目录是 2026 Q2 的一次重新设计提案，**部分内容已被实际落地取代，请勿当现状阅读**：
+>
+> - **L5 Intent Gateway 已删除**（`modules/intent-gateway/` 为 0 消费方空壳，见 PR-X29）；意图识别能力实际在 `ai-engine/planning/services/intent-detection.service.ts` + `intent-router.service.ts`。
+> - **`ai-engine/runtime/` 已迁出**（PR-X4~X10）；所有 Agent 运行时能力现集中在 `modules/ai-harness/`。
+> - L2 ai-engine 现为 **12 聚合**，credentials 已归 L1。
+>
+> 架构现状以 `CLAUDE.md` 与 `docs/architecture/layered-architecture.md` 为准。本目录仅作设计决策的历史记录保留。
+
 # Topic Insights Harness 重新设计 · 总览（v2）
 
 **版本**: v2（2026-04-22 应用 10-review-and-gaps.md 的 26 条 critical 修正）
