@@ -42,6 +42,41 @@ const CRITICAL_TABLES = [
   "child_embeddings",
 ];
 
+/**
+ * Migrations that are KNOWN to "fail" under Prisma's transactional runner because
+ * they wrap `ALTER TYPE ADD VALUE` in a DO $$/EXCEPTION subtransaction. Their only
+ * effect is adding enum values, which Step 4.5 re-applies from the schema (DMMF) —
+ * so auto-resolving them as "applied" is safe.
+ *
+ * Anything NOT in this set that ends up in a failed state is an UNEXPECTED failure
+ * (a genuinely broken migration whose DDL never landed) and must fail the deploy
+ * loudly instead of being silently marked applied — see Step 2.
+ *
+ * Keep in sync with the frozen baseline in
+ * `src/__tests__/architecture/migration-hygiene/no-alter-type-in-exception.spec.ts`.
+ * That spec prevents NEW EXCEPTION-wrapped enum migrations, so this list is closed.
+ */
+const KNOWN_AUTO_RESOLVABLE_MIGRATIONS: ReadonlySet<string> = new Set([
+  "20251123_add_data_collection_tables",
+  "20251126_add_all_ai_mention_type",
+  "20260101_add_wechat_data_source",
+  "20260103_add_mission_export_source",
+  "20260113180000_ensure_research_tables",
+  "20260113_fix_enum_values",
+  "20260114000000_add_phase3_optimization",
+  "20260126_add_slides_v5_tables",
+  "20260213_add_export_source_types",
+  "20260213_add_export_topic_report_type",
+  "20260217_add_finance_secret_category",
+  "20260221_add_ai_planning_credit_type",
+  "20260227_add_explore_credit_type",
+  "20260303_add_code_model_type",
+  "20260308_add_academic_weather_secret_categories",
+  "20260313_add_image_search_secret_category",
+  "20260509a_llm_wiki_init",
+  "20260513_wiki_multi_pass_config",
+]);
+
 const ROOT_MIGRATIONS_DIR = join(process.cwd(), "prisma", "migrations");
 const SCHEMA_MIGRATIONS_DIR = join(
   process.cwd(),
@@ -210,11 +245,16 @@ async function deploy(): Promise<void> {
         await bootstrapFreshDatabase();
       }
 
-      // Step 2: Resolve any failed migrations
-      // NOTE: This auto-resolves failed migrations as "applied" to unblock deployment.
-      // Historical migrations may have used DO $$/EXCEPTION patterns that fail in Prisma
-      // transactions. Those migrations are marked as applied, and the enum values are
-      // applied separately in Step 4 below.
+      // Step 2: Resolve KNOWN-safe failed migrations; fail loudly on the rest.
+      //
+      // Only the historical DO $$/EXCEPTION enum migrations (see
+      // KNOWN_AUTO_RESOLVABLE_MIGRATIONS) may be auto-resolved as "applied": their
+      // sole effect is adding enum values, which Step 4.5 re-applies from the schema.
+      //
+      // Any OTHER failed migration means a genuinely broken migration whose DDL never
+      // landed. Previously these were silently marked applied (only a console.warn),
+      // so schema changes were lost with a green deploy. Now we abort loudly so an
+      // operator can inspect — never silently swallow an unknown failure.
       console.log("2. Checking for failed migrations...");
       if (!hasPrismaMigrationsTable && !isFreshDatabase) {
         console.log(
@@ -231,14 +271,38 @@ async function deploy(): Promise<void> {
           : [];
 
       if (failedMigrations.length > 0) {
-        console.log(`   Found ${failedMigrations.length} failed migration(s):`);
+        const unexpected = failedMigrations.filter(
+          (m) => !KNOWN_AUTO_RESOLVABLE_MIGRATIONS.has(m.migration_name),
+        );
+
+        if (unexpected.length > 0) {
+          console.error(
+            `   ERROR: ${unexpected.length} migration(s) failed and are NOT in the known-safe allowlist:`,
+          );
+          for (const m of unexpected) {
+            console.error(`   - ${m.migration_name}`);
+          }
+          console.error(
+            "\n   These migrations failed and their SQL did NOT fully apply. Auto-resolving\n" +
+              "   them as applied would lose schema changes behind a green deploy. Aborting.\n" +
+              "   Inspect the migration, apply/fix it manually, then either:\n" +
+              "     - `npx prisma migrate resolve --applied <name>` if it is truly applied, or\n" +
+              "     - `npx prisma migrate resolve --rolled-back <name>` to let it re-run, or\n" +
+              "     - add it to KNOWN_AUTO_RESOLVABLE_MIGRATIONS only if it is a compensated\n" +
+              "       DO $$/EXCEPTION enum migration.",
+          );
+          throw new Error(
+            `Unexpected failed migration(s): ${unexpected
+              .map((m) => m.migration_name)
+              .join(", ")}`,
+          );
+        }
+
+        console.log(
+          `   Found ${failedMigrations.length} known-safe failed migration(s) (compensated enums); resolving:`,
+        );
         for (const m of failedMigrations) {
-          console.log(
-            `   - WARNING: Auto-resolving as applied: ${m.migration_name}`,
-          );
-          console.log(
-            `     (migration SQL was NOT executed - check if manual intervention needed)`,
-          );
+          console.log(`   - Auto-resolving as applied: ${m.migration_name}`);
           try {
             execSync(
               `npx prisma migrate resolve --schema=prisma/schema --applied "${m.migration_name}"`,
