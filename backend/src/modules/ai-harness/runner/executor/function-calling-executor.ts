@@ -153,6 +153,23 @@ export class FunctionCallingExecutor {
   }
 
   /**
+   * Token budget guard — true once accumulated tokens reach cfg.tokenBudgetLimit.
+   * Enforces the (previously declared-but-ignored) ExecutionConfig.tokenBudgetLimit
+   * across every execution loop in this executor, mirroring the maxIterations /
+   * maxToolCalls guards. A non-positive / undefined limit means "no budget cap".
+   */
+  private isTokenBudgetExhausted(
+    cfg: ExecutionConfig,
+    metrics: ExecutionMetrics,
+  ): boolean {
+    return (
+      typeof cfg.tokenBudgetLimit === "number" &&
+      cfg.tokenBudgetLimit > 0 &&
+      metrics.tokensUsed.total >= cfg.tokenBudgetLimit
+    );
+  }
+
+  /**
    * 执行 Function Calling 循环
    */
   async *execute(
@@ -413,6 +430,16 @@ export class FunctionCallingExecutor {
           };
 
           return;
+        }
+
+        // Budget guard — stop before executing further tool calls once the
+        // token budget is exhausted. Placed AFTER the no-tool-calls natural
+        // completion path so a genuine final answer still wins.
+        if (this.isTokenBudgetExhausted(cfg, metrics)) {
+          this.logger.warn(
+            `[execute] Token budget exhausted (${metrics.tokensUsed.total}/${cfg.tokenBudgetLimit} tokens), stopping before further tool calls`,
+          );
+          break;
         }
 
         messages.push({
@@ -763,6 +790,14 @@ export class FunctionCallingExecutor {
         };
       }
 
+      if (this.isTokenBudgetExhausted(cfg, metrics)) {
+        this.logger.warn("[execute] Token budget reached");
+        yield {
+          type: "error",
+          error: "Token budget exhausted, task may be incomplete",
+        };
+      }
+
       metrics.totalDuration = Date.now() - startTime;
 
       yield {
@@ -886,6 +921,14 @@ export class FunctionCallingExecutor {
         return;
       }
 
+      // Budget guard — also enforced on the crash-recovery resume path.
+      if (this.isTokenBudgetExhausted(cfg, metrics)) {
+        this.logger.warn(
+          `[resumeFromCheckpoint] Token budget exhausted (${metrics.tokensUsed.total}/${cfg.tokenBudgetLimit} tokens), stopping before further tool calls`,
+        );
+        break;
+      }
+
       messages.push({
         role: "assistant",
         content: response.content,
@@ -967,6 +1010,14 @@ export class FunctionCallingExecutor {
           timestamp: new Date(),
         });
       }
+    }
+
+    if (this.isTokenBudgetExhausted(cfg, metrics)) {
+      this.logger.warn("[resumeFromCheckpoint] Token budget reached");
+      yield {
+        type: "error",
+        error: "Token budget exhausted, task may be incomplete",
+      };
     }
 
     metrics.totalDuration = Date.now() - startTime;
@@ -1499,6 +1550,15 @@ export class FunctionCallingExecutor {
           return;
         }
 
+        // Budget guard — stop before executing further tool calls once the
+        // token budget is exhausted (after the natural-completion path).
+        if (this.isTokenBudgetExhausted(cfg, metrics)) {
+          this.logger.warn(
+            `[executeWithDefinitions] Token budget exhausted (${metrics.tokensUsed.total}/${cfg.tokenBudgetLimit} tokens), stopping before further tool calls`,
+          );
+          break;
+        }
+
         messages.push({
           role: "assistant",
           content: response.content,
@@ -1793,6 +1853,14 @@ export class FunctionCallingExecutor {
         yield {
           type: "error",
           error: "Max tool calls reached, task may be incomplete",
+        };
+      }
+
+      if (this.isTokenBudgetExhausted(cfg, metrics)) {
+        this.logger.warn("[executeWithDefinitions] Token budget reached");
+        yield {
+          type: "error",
+          error: "Token budget exhausted, task may be incomplete",
         };
       }
 

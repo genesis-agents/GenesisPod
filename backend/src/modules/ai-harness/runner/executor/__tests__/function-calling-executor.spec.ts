@@ -398,6 +398,86 @@ describe("FunctionCallingExecutor", () => {
       expect(errorEvent?.error).toContain("Max tool calls reached");
     });
 
+    it("should stop when token budget is exhausted before iteration/tool limits", async () => {
+      // Each LLM response costs 150 total tokens and always requests a tool
+      // call, so the loop would otherwise run to maxIterations (100).
+      mockLLMAdapter.setResponses(
+        Array(10).fill({
+          content: null,
+          tool_calls: [
+            {
+              id: "call-loop",
+              type: "function",
+              function: { name: "test-tool", arguments: "{}" },
+            },
+          ],
+          usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+          finishReason: "tool_calls",
+        }),
+      );
+
+      const mockTool = new MockTool("test-tool", "Test Tool", "A test tool", {
+        success: true,
+        data: { result: "ok" },
+        metadata: {
+          executionId: "test-exec",
+          startTime: new Date(),
+          endTime: new Date(),
+          duration: 10,
+        },
+      });
+
+      mockToolRegistry.has.mockReturnValue(true);
+      mockToolRegistry.get.mockReturnValue(mockTool);
+
+      const context: ToolContext = {
+        executionId: "test-exec",
+        toolId: "function-calling",
+        userId: "user-1",
+        createdAt: new Date(),
+      };
+
+      // Budget of 200 tokens: iter 1 → 150 (continues), iter 2 → 300 (>=200,
+      // stops BEFORE executing further tool calls). Limits are far higher, so
+      // only the budget guard can end the loop here.
+      const config: Partial<ExecutionConfig> = {
+        maxIterations: 100,
+        maxToolCalls: 100,
+        tokenBudgetLimit: 200,
+      };
+
+      const events: AgentEvent[] = [];
+      for await (const event of executor.execute(
+        mockLLMAdapter,
+        "You are a helpful assistant",
+        "Test prompt",
+        ["test-tool"],
+        context,
+        config,
+      )) {
+        events.push(event);
+      }
+
+      // Budget notice emitted, and NOT the iteration/tool-call notices.
+      const errorEvent = events.find((e) => e.type === "error");
+      expect(errorEvent).toBeDefined();
+      expect(errorEvent?.error).toContain("Token budget exhausted");
+      expect(
+        events.some(
+          (e) =>
+            e.type === "error" && /Max (iterations|tool calls)/.test(e.error),
+        ),
+      ).toBe(false);
+
+      // Stopped after exactly 2 LLM calls (300 tokens), proving the budget
+      // guard halted the loop rather than the iteration/tool-call limits.
+      const completeEvent = events.find((e) => e.type === "complete");
+      expect(completeEvent).toMatchObject({
+        type: "complete",
+        result: { success: true, tokensUsed: 300 },
+      });
+    });
+
     it("should handle tool execution errors", async () => {
       // Mock tool that fails
       const mockTool = new MockTool("failing-tool", "Failing Tool", "Fails", {

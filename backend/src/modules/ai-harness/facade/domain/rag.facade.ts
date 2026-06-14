@@ -43,6 +43,7 @@ import type {
 } from "@/modules/ai-engine/rag/vector/vector.service";
 import type { ContentFetchService } from "../../../ai-engine/content/fetch/content-fetch.service";
 import type { ToolContext } from "../../../ai-engine/tools/abstractions/tool.interface";
+import { estimateTokens, compressContext } from "../utils/facade-text.utils";
 
 @Injectable()
 export class RAGFacade {
@@ -275,37 +276,13 @@ export class RAGFacade {
     let context = parts.join("\n\n---\n\n");
 
     if (request.maxTokens && request.compress) {
-      const estimatedTokens = this.estimateTokens(context);
+      const estimatedTokens = estimateTokens(context);
       if (estimatedTokens > request.maxTokens) {
-        context = this.compressContext(context, request.maxTokens);
+        context = compressContext(context, request.maxTokens);
       }
     }
 
     return context;
-  }
-
-  private estimateTokens(text: string): number {
-    const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
-    const otherChars = text.length - chineseChars;
-    return Math.ceil(chineseChars * 2 + otherChars / 4);
-  }
-
-  private compressContext(context: string, maxTokens: number): string {
-    const currentTokens = this.estimateTokens(context);
-    if (currentTokens <= maxTokens) {
-      return context;
-    }
-
-    const ratio = maxTokens / currentTokens;
-    const targetLength = Math.floor(context.length * ratio * 0.9);
-
-    const headLength = Math.floor(targetLength * 0.6);
-    const tailLength = Math.floor(targetLength * 0.3);
-
-    const head = context.substring(0, headLength);
-    const tail = context.substring(context.length - tailLength);
-
-    return `${head}\n\n[... content compressed ...]\n\n${tail}`;
   }
 
   // ==================== Memory ====================
@@ -358,7 +335,11 @@ export class RAGFacade {
    */
   async embeddingGenerateBatch(
     texts: string[],
-  ): Promise<{ texts: string[]; embeddings: number[][]; totalTokens: number } | null> {
+  ): Promise<{
+    texts: string[];
+    embeddings: number[][];
+    totalTokens: number;
+  } | null> {
     if (!this.knowledge?.embedding) return null;
     if (texts.length === 0) {
       return { texts: [], embeddings: [], totalTokens: 0 };
