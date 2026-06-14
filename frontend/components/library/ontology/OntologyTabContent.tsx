@@ -31,7 +31,10 @@ import {
   type LinkType,
   type OntologyEdit,
   type ListEntitiesParams,
+  type StartBackfillParams,
+  type BackfillStatus,
 } from '@/hooks/domain/useOntology';
+import { Switch } from '@/components/ui/primitives/switch';
 import { LoadingState, EmptyState, ErrorState } from '@/components/ui/states';
 import { Tag } from '@/components/ui/tag/Tag';
 import { AssetCard } from '@/components/ui/cards/asset-card';
@@ -1411,6 +1414,355 @@ function MergeModal({ open, onClose, onSubmit, entity }: MergeModalProps) {
   );
 }
 
+// ─── Backfill modal ───────────────────────────────────────────────────────────
+
+interface BackfillModalProps {
+  open: boolean;
+  onClose: () => void;
+  onStart: (params: StartBackfillParams) => Promise<void>;
+  topicId?: string;
+}
+
+function BackfillModal({
+  open,
+  onClose,
+  onStart,
+  topicId,
+}: BackfillModalProps) {
+  const [scope, setScope] = useState<'topic' | 'report'>('topic');
+  const [reportId, setReportId] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handlePrepare = () => {
+    setConfirmOpen(true);
+  };
+
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    try {
+      const params: StartBackfillParams = {};
+      if (scope === 'topic' && topicId) {
+        params.topicId = topicId;
+        params.sourceKind = 'topic-report';
+      } else if (scope === 'report' && reportId.trim()) {
+        params.reportId = reportId.trim();
+        params.sourceKind = 'topic-report';
+      }
+      await onStart(params);
+      setConfirmOpen(false);
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const isValid =
+    scope === 'topic' ? Boolean(topicId) : Boolean(reportId.trim());
+
+  return (
+    <>
+      <Modal
+        open={open}
+        onClose={onClose}
+        title="导入历史报告"
+        subtitle="将历史报告内容批量回填至本体"
+        size="sm"
+        closeButtonDisabled={submitting}
+        footer={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onClose}
+              disabled={submitting}
+            >
+              取消
+            </Button>
+            <Button
+              size="sm"
+              onClick={handlePrepare}
+              disabled={submitting || !isValid}
+            >
+              开始导入
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            选择回填范围，系统将异步处理并将内容沉淀至本体。回填不受自动沉淀开关限制。
+          </p>
+
+          {/* Scope selector */}
+          <div>
+            <label className="mb-2 block text-xs font-medium text-gray-600">
+              回填范围
+            </label>
+            <div className="flex gap-3">
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name="backfill-scope"
+                  value="topic"
+                  checked={scope === 'topic'}
+                  onChange={() => setScope('topic')}
+                  className="accent-violet-600"
+                />
+                <span className="text-sm text-gray-700">当前议题全部报告</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name="backfill-scope"
+                  value="report"
+                  checked={scope === 'report'}
+                  onChange={() => setScope('report')}
+                  className="accent-violet-600"
+                />
+                <span className="text-sm text-gray-700">指定报告 ID</span>
+              </label>
+            </div>
+          </div>
+
+          {scope === 'topic' && !topicId && (
+            <Tag className="bg-amber-50 text-amber-700 ring-1 ring-amber-200">
+              当前上下文无议题 ID，请切换到指定报告 ID 模式
+            </Tag>
+          )}
+
+          {scope === 'topic' && topicId && (
+            <Tag className="bg-violet-50 text-violet-700 ring-1 ring-violet-200">
+              议题 ID: {topicId}
+            </Tag>
+          )}
+
+          {scope === 'report' && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">
+                报告 ID
+              </label>
+              <input
+                type="text"
+                value={reportId}
+                onChange={(e) => setReportId(e.target.value)}
+                placeholder="输入报告 ID"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+              />
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={handleConfirm}
+        title="确认开始回填？"
+        description="系统将异步处理历史报告并将实体沉淀至本体，任务在后台执行，完成前可查看进度。"
+        type="warning"
+        confirmText="确认导入"
+        loading={submitting}
+      />
+    </>
+  );
+}
+
+// ─── Backfill progress display ────────────────────────────────────────────────
+
+interface BackfillProgressProps {
+  taskId: string;
+  onDone: () => void;
+}
+
+function BackfillProgress({ taskId, onDone }: BackfillProgressProps) {
+  const { getBackfillStatus } = useOntology();
+  const [status, setStatus] = useState<BackfillStatus | null>(null);
+  const [pollError, setPollError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const poll = () => {
+      getBackfillStatus(taskId)
+        .then((s) => {
+          if (cancelled) return;
+          setStatus(s);
+          if (s.status === 'done' || s.status === 'failed') {
+            onDone();
+          } else {
+            setTimeout(poll, 2000);
+          }
+        })
+        .catch((e: unknown) => {
+          if (cancelled) return;
+          const err = e instanceof Error ? e : new Error(String(e));
+          setPollError(err);
+        });
+    };
+
+    poll();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [taskId, getBackfillStatus, onDone]);
+
+  if (pollError) {
+    return (
+      <span className="text-xs text-red-600">
+        进度查询失败: {pollError.message}
+      </span>
+    );
+  }
+
+  if (!status) {
+    return <LoadingState size="sm" text="查询进度..." />;
+  }
+
+  return (
+    <div className="flex items-center gap-2 text-sm text-gray-700">
+      <RefreshCw className="h-3.5 w-3.5 animate-spin text-violet-500" />
+      <span>
+        回填中：{status.processed}/{status.total}
+        {status.errors > 0 && (
+          <span className="ml-1 text-red-500">({status.errors} 错误)</span>
+        )}
+      </span>
+      {(status.status === 'done' || status.status === 'failed') && (
+        <Tag
+          className={
+            status.status === 'done'
+              ? 'bg-green-50 text-green-700 ring-1 ring-green-200'
+              : 'bg-red-50 text-red-700 ring-1 ring-red-200'
+          }
+        >
+          {status.status === 'done' ? '完成' : '失败'}
+        </Tag>
+      )}
+    </div>
+  );
+}
+
+// ─── Settings / toolbar bar ───────────────────────────────────────────────────
+
+interface OntologySettingsBarProps {
+  topicId?: string;
+}
+
+function OntologySettingsBar({ topicId }: OntologySettingsBarProps) {
+  const { getAutoIngest, setAutoIngest, startBackfill } = useOntology();
+
+  // auto-ingest switch state
+  const [autoIngestEnabled, setAutoIngestEnabled] = useState(false);
+  const [switchLoading, setSwitchLoading] = useState(false);
+  const [switchInitialized, setSwitchInitialized] = useState(false);
+
+  // backfill modal + progress
+  const [backfillOpen, setBackfillOpen] = useState(false);
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+
+  // Load initial auto-ingest state
+  useEffect(() => {
+    if (!topicId) return;
+    setSwitchInitialized(false);
+    getAutoIngest(topicId)
+      .then((cfg) => {
+        setAutoIngestEnabled(cfg.enabled);
+        setSwitchInitialized(true);
+      })
+      .catch((e: unknown) => {
+        logger.error('[OntologySettingsBar] getAutoIngest failed', {
+          topicId,
+          error: String(e),
+        });
+        setSwitchInitialized(true);
+      });
+  }, [topicId, getAutoIngest]);
+
+  const handleSwitchChange = useCallback(
+    async (checked: boolean) => {
+      if (!topicId || switchLoading) return;
+      setSwitchLoading(true);
+      const prev = autoIngestEnabled;
+      setAutoIngestEnabled(checked);
+      try {
+        await setAutoIngest(topicId, checked);
+      } catch (e: unknown) {
+        // rollback on error
+        setAutoIngestEnabled(prev);
+        logger.error('[OntologySettingsBar] setAutoIngest failed', {
+          topicId,
+          error: String(e),
+        });
+      } finally {
+        setSwitchLoading(false);
+      }
+    },
+    [topicId, switchLoading, autoIngestEnabled, setAutoIngest]
+  );
+
+  const handleBackfillStart = useCallback(
+    async (params: StartBackfillParams) => {
+      const result = await startBackfill(params);
+      setActiveTaskId(result.taskId);
+    },
+    [startBackfill]
+  );
+
+  const handleProgressDone = useCallback(() => {
+    // keep taskId visible so user can see final status; clear after 5s
+    setTimeout(() => setActiveTaskId(null), 5000);
+  }, []);
+
+  return (
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+      <div className="flex flex-wrap items-center gap-6">
+        {/* Auto-ingest switch (only when topicId is present) */}
+        {topicId && (
+          <div className="flex items-center gap-2.5">
+            <Switch
+              checked={autoIngestEnabled}
+              onCheckedChange={(checked) => void handleSwitchChange(checked)}
+              disabled={switchLoading || !switchInitialized}
+              aria-label="本议题自动沉淀到本体"
+            />
+            <span className="text-sm font-medium text-gray-700">
+              本议题自动沉淀到本体
+            </span>
+            <span className="text-xs text-gray-400">
+              默认关，开启后该议题 mission 完成自动入本体
+            </span>
+          </div>
+        )}
+
+        {/* Backfill progress */}
+        {activeTaskId && (
+          <BackfillProgress taskId={activeTaskId} onDone={handleProgressDone} />
+        )}
+      </div>
+
+      {/* Import history button */}
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setBackfillOpen(true)}
+        className="flex shrink-0 items-center gap-1.5"
+      >
+        <History className="h-3.5 w-3.5" />
+        导入历史报告
+      </Button>
+
+      <BackfillModal
+        open={backfillOpen}
+        onClose={() => setBackfillOpen(false)}
+        onStart={handleBackfillStart}
+        topicId={topicId}
+      />
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 type MainTab = 'objects' | 'metamodel' | 'graph' | 'edits';
@@ -1501,6 +1853,9 @@ export default function OntologyTabContent({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-gray-50/50 px-6 py-6">
+      {/* Settings / auto-ingest toolbar */}
+      <OntologySettingsBar topicId={topicId} />
+
       {/* Top tab bar */}
       <Tabs
         items={tabItems}

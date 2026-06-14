@@ -88,6 +88,35 @@ export interface ListEditsParams {
   limit?: number;
 }
 
+// ─── Auto-ingest / backfill types ────────────────────────────────────────────
+
+export interface AutoIngestConfig {
+  enabled: boolean;
+}
+
+export type BackfillSourceKind =
+  | 'topic-report'
+  | 'team-mission'
+  | 'kb-document';
+
+export interface StartBackfillParams {
+  topicId?: string;
+  reportId?: string;
+  sourceKind?: BackfillSourceKind;
+}
+
+export interface BackfillStartResult {
+  taskId: string;
+  queued: number;
+}
+
+export interface BackfillStatus {
+  status: string;
+  processed: number;
+  total: number;
+  errors: number;
+}
+
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
 export function useOntology() {
@@ -267,6 +296,76 @@ export function useOntology() {
     []
   );
 
+  // ── auto-ingest: get ────────────────────────────────────────────────────────
+
+  const getAutoIngest = useCallback(async (topicId: string) => {
+    try {
+      return await apiClient.get<AutoIngestConfig>(
+        `/ontology/topics/${topicId}/auto-ingest`
+      );
+    } catch (err) {
+      const e = err instanceof Error ? err : new Error(String(err));
+      logger.error('[useOntology] getAutoIngest failed', {
+        topicId,
+        error: e.message,
+      });
+      throw e;
+    }
+  }, []);
+
+  // ── auto-ingest: set ────────────────────────────────────────────────────────
+
+  const setAutoIngest = useCallback(
+    async (topicId: string, enabled: boolean) => {
+      try {
+        await apiClient.post<void>(`/ontology/topics/${topicId}/auto-ingest`, {
+          enabled,
+        });
+      } catch (err) {
+        const e = err instanceof Error ? err : new Error(String(err));
+        logger.error('[useOntology] setAutoIngest failed', {
+          topicId,
+          enabled,
+          error: e.message,
+        });
+        throw e;
+      }
+    },
+    []
+  );
+
+  // ── backfill: start ─────────────────────────────────────────────────────────
+
+  const startBackfill = useCallback(async (params: StartBackfillParams) => {
+    try {
+      return await apiClient.post<BackfillStartResult>(
+        '/ontology/backfill',
+        params
+      );
+    } catch (err) {
+      const e = err instanceof Error ? err : new Error(String(err));
+      logger.error('[useOntology] startBackfill failed', { error: e.message });
+      throw e;
+    }
+  }, []);
+
+  // ── backfill: status ────────────────────────────────────────────────────────
+
+  const getBackfillStatus = useCallback(async (taskId: string) => {
+    try {
+      return await apiClient.get<BackfillStatus>(
+        `/ontology/backfill/status/${taskId}`
+      );
+    } catch (err) {
+      const e = err instanceof Error ? err : new Error(String(err));
+      logger.error('[useOntology] getBackfillStatus failed', {
+        taskId,
+        error: e.message,
+      });
+      throw e;
+    }
+  }, []);
+
   return {
     items,
     total,
@@ -281,5 +380,9 @@ export function useOntology() {
     setConfidence,
     editProperty,
     mergeObjects,
+    getAutoIngest,
+    setAutoIngest,
+    startBackfill,
+    getBackfillStatus,
   };
 }

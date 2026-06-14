@@ -10,9 +10,9 @@
     "frontend/lib/design/tokens.ts"
   ],
   "totals": {
-    "all": 1936,
+    "all": 1938,
     "byLayer": {
-      "engine": 545,
+      "engine": 547,
       "frontend": 249,
       "harness": 1092,
       "platform": 50
@@ -21,7 +21,7 @@
       "engine/content": 201,
       "engine/credentials": 17,
       "engine/facade": 39,
-      "engine/knowledge": 50,
+      "engine/knowledge": 52,
       "engine/llm": 71,
       "engine/planning": 11,
       "engine/rag": 30,
@@ -2381,12 +2381,28 @@
       "import": "import { OntologyService } from \"@/modules/ai-engine/facade\";"
     },
     {
+      "name": "OntologySetAutoIngestInput",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.types.ts",
+      "import": "import { OntologySetAutoIngestInput } from \"@/modules/ai-engine/facade\";"
+    },
+    {
       "name": "OntologySetConfidenceInput",
       "kind": "type",
       "layer": "engine",
       "domain": "knowledge",
       "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.types.ts",
       "import": "import { OntologySetConfidenceInput } from \"@/modules/ai-engine/facade\";"
+    },
+    {
+      "name": "OntologyTopicSettingView",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "knowledge",
+      "source": "backend/src/modules/ai-engine/knowledge/ontology/ontology.types.ts",
+      "import": "import { OntologyTopicSettingView } from \"@/modules/ai-engine/facade\";"
     },
     {
       "name": "RerankAdapter",

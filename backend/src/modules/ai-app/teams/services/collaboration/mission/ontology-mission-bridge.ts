@@ -5,6 +5,7 @@
  * 调用方传入自己已持有的 engine 依赖。
  *  - loadOntologyIntoPackage：加载本体子图并合并进 contextPackage（Leader 优先）
  *  - writeBackMissionToOntology：mission 完成后 fire-and-forget 回写 finalReport
+ *    （受双开关 gate 控制：全局 env 总闸 + 议题级 DB 开关）
  */
 import type { Logger } from "@nestjs/common";
 import {
@@ -57,41 +58,70 @@ export async function loadOntologyIntoPackage(
 
 /**
  * mission 完成后把 finalReport 的新事实 fire-and-forget 回写本体（不阻塞主流程）。
+ *
+ * 双开关 gate（默认全关）：
+ *   1. 全局 env 总闸：process.env.ENABLE_ONTOLOGY_AUTO_INGEST === "1"
+ *   2. 议题级 DB 开关：OntologyTopicSetting.autoIngest === true
+ * 两者均为 true 时才执行回写；否则仅打 debug 日志后跳过。
+ * 手工回填不走此函数，不受本 gate 约束。
  */
 export function writeBackMissionToOntology(
   skill: OntologyBuilderSkill,
   toolRegistry: ToolRegistry,
+  ontologyService: OntologyService,
   params: { finalReport: string; topicId?: string | null; missionId: string },
   logger: Logger,
 ): void {
-  const text = params.finalReport.slice(0, WRITEBACK_MAX_CHARS);
-  skill.setToolRegistry(toolRegistry);
-  void skill
-    .execute(
-      {
-        text,
-        topicId: params.topicId ?? undefined,
-        sourceType: "mission",
-        sourceId: params.missionId,
-      },
-      {
-        executionId: `ontology-writeback-${params.missionId}`,
-        skillId: skill.id,
-        createdAt: new Date(),
-      },
-    )
-    .then((result) => {
+  // 全局 env 总闸（快路径，同步判断，默认关）
+  if (process.env.ENABLE_ONTOLOGY_AUTO_INGEST !== "1") {
+    logger.debug(
+      `[ontology] write-back skipped: ENABLE_ONTOLOGY_AUTO_INGEST is not set (missionId=${params.missionId})`,
+    );
+    return;
+  }
+
+  // 议题级开关（异步读 DB，gate 通过后执行 skill，保持 fire-and-forget 语义）
+  void (async () => {
+    try {
+      const topicId = params.topicId ?? null;
+      const topicEnabled = topicId
+        ? await ontologyService.isAutoIngestEnabled(topicId)
+        : false;
+
+      if (!topicEnabled) {
+        logger.debug(
+          `[ontology] write-back skipped: autoIngest disabled for topicId=${topicId ?? "null"} (missionId=${params.missionId})`,
+        );
+        return;
+      }
+
+      const text = params.finalReport.slice(0, WRITEBACK_MAX_CHARS);
+      skill.setToolRegistry(toolRegistry);
+      const result = await skill.execute(
+        {
+          text,
+          topicId: topicId ?? undefined,
+          sourceType: "mission",
+          sourceId: params.missionId,
+        },
+        {
+          executionId: `ontology-writeback-${params.missionId}`,
+          skillId: skill.id,
+          createdAt: new Date(),
+        },
+      );
+
       if (result.success && result.data) {
         logger.log(
           `[ontology] write-back: created=${result.data.created} merged=${result.data.merged} linked=${result.data.linked}`,
         );
       }
-    })
-    .catch((err: unknown) => {
+    } catch (err: unknown) {
       logger.warn(
         `[ontology] write-back failed (non-fatal): ${
           err instanceof Error ? err.message : String(err)
         }`,
       );
-    });
+    }
+  })();
 }

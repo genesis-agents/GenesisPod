@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Logger,
+  NotFoundException,
   Param,
   Post,
   Query,
@@ -19,6 +20,9 @@ import { SetConfidenceDto } from "./dto/set-confidence.dto";
 import { EditPropertyDto } from "./dto/edit-property.dto";
 import { MergeObjectsDto } from "./dto/merge-objects.dto";
 import { ListEditsQueryDto } from "./dto/list-edits-query.dto";
+import { SetAutoIngestDto } from "./dto/set-auto-ingest.dto";
+import { BackfillOntologyDto } from "./dto/backfill.dto";
+import { ReportOntologyFillService } from "./report-ontology-fill.service";
 
 /**
  * Ontology Write Controller — Knowledge Ontology W-B write API.
@@ -34,7 +38,10 @@ import { ListEditsQueryDto } from "./dto/list-edits-query.dto";
 export class OntologyWriteController {
   private readonly logger = new Logger(OntologyWriteController.name);
 
-  constructor(private readonly ontologyService: OntologyService) {}
+  constructor(
+    private readonly ontologyService: OntologyService,
+    private readonly reportOntologyFillService: ReportOntologyFillService,
+  ) {}
 
   /**
    * Update the confidence score on an OntologyObject.
@@ -151,5 +158,89 @@ export class OntologyWriteController {
     });
 
     return { items };
+  }
+
+  // ─── W-E: Topic Auto-Ingest Switch ─────────────────────────────────────────
+
+  /**
+   * Get the auto-ingest switch for a topic.
+   * GET /ontology/topics/:topicId/auto-ingest
+   *
+   * Returns { enabled: boolean }. Returns false when no setting row exists.
+   */
+  @Get("topics/:topicId/auto-ingest")
+  @ApiOperation({ summary: "获取议题本体自动摄入开关状态" })
+  async getAutoIngest(@Param("topicId") topicId: string) {
+    const setting = await this.ontologyService.getTopicSetting(topicId);
+    return { enabled: setting.autoIngest };
+  }
+
+  /**
+   * Set the auto-ingest switch for a topic.
+   * POST /ontology/topics/:topicId/auto-ingest
+   *
+   * Body: { enabled: boolean }
+   * Actor is taken from req.user (JwtAuthGuard).
+   */
+  @Post("topics/:topicId/auto-ingest")
+  @ApiOperation({ summary: "设置议题本体自动摄入开关" })
+  async setAutoIngest(
+    @Param("topicId") topicId: string,
+    @Body() dto: SetAutoIngestDto,
+    @Request() req: { user: { id: string } },
+  ) {
+    this.logger.debug(
+      `[setAutoIngest] topicId=${topicId} enabled=${dto.enabled} actor=${req.user.id}`,
+    );
+
+    const setting = await this.ontologyService.setAutoIngest({
+      topicId,
+      enabled: dto.enabled,
+      updatedBy: req.user.id,
+    });
+
+    return { enabled: setting.autoIngest };
+  }
+
+  // ─── W-E: Manual Backfill ──────────────────────────────────────────────────
+
+  /**
+   * Start a fire-and-forget batch backfill job.
+   * POST /ontology/backfill
+   *
+   * Body: { topicId?, sourceId?, sourceKind? }
+   * Returns { taskId, queued } immediately; poll /backfill/status/:taskId for progress.
+   * Note: backfill is independent of the auto-ingest switch (explicit user action).
+   */
+  @Post("backfill")
+  @ApiOperation({ summary: "手工触发既有报告本体回填（fire-and-forget）" })
+  startBackfill(@Body() dto: BackfillOntologyDto) {
+    this.logger.log(
+      `[startBackfill] topicId=${dto.topicId ?? "*"} sourceId=${dto.sourceId ?? "*"} sourceKind=${dto.sourceKind ?? "all"}`,
+    );
+
+    const result = this.reportOntologyFillService.startBatchFill({
+      topicId: dto.topicId,
+      sourceId: dto.sourceId,
+      sourceKind: dto.sourceKind,
+    });
+
+    return result;
+  }
+
+  /**
+   * Poll the status of a running or completed backfill task.
+   * GET /ontology/backfill/status/:taskId
+   *
+   * Returns { status, processed, total, errors } or 404 when taskId is unknown.
+   */
+  @Get("backfill/status/:taskId")
+  @ApiOperation({ summary: "查询本体回填任务状态" })
+  getBackfillStatus(@Param("taskId") taskId: string) {
+    const state = this.reportOntologyFillService.getTaskStatus(taskId);
+    if (!state) {
+      throw new NotFoundException(`Backfill task not found: ${taskId}`);
+    }
+    return state;
   }
 }

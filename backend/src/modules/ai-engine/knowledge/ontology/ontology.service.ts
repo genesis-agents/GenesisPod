@@ -35,6 +35,8 @@ import type {
   MergeObjectsInput,
   ListEditsFilter,
   OntologyEditView,
+  OntologyTopicSettingView,
+  SetAutoIngestInput,
 } from "./ontology.types";
 
 @Injectable()
@@ -415,13 +417,17 @@ export class OntologyService {
    * Useful for rendering the full knowledge graph for a given research topic.
    */
   async querySubgraphByTopic(
-    topicId: string,
+    topicId: string | undefined,
     opts: SubgraphOptions = {},
   ): Promise<SubgraphResult> {
     const includeLinks = opts.includeLinks !== false;
     const maxNodes = opts.maxNodes ?? 200;
 
-    const nodeWhere: Prisma.OntologyObjectWhereInput = { topicId };
+    // topicId 可选：缺省时返回全局封顶子图（按 maxNodes 取最近对象 + 其边），
+    // 供本体浏览器在未选议题的全局浏览下出图。
+    const nodeWhere: Prisma.OntologyObjectWhereInput = topicId
+      ? { topicId }
+      : {};
     if (opts.typeKeys?.length) {
       nodeWhere.typeKey = { in: opts.typeKeys };
     }
@@ -1036,6 +1042,67 @@ export class OntologyService {
     return rows.map((r) => this.mapEdit(r));
   }
 
+  // ─── W-E: Topic Auto-Ingest Switch ────────────────────────────────────────
+
+  /**
+   * Return whether auto-ingest is enabled for the given topicId.
+   * Returns false when no row exists (default-off).
+   *
+   * Note: This method only checks the per-topic DB switch.
+   * The caller is responsible for checking the global env gate
+   * (process.env.ENABLE_ONTOLOGY_AUTO_INGEST === "1") before calling writeBack,
+   * keeping this engine method free of env/policy concerns.
+   */
+  async isAutoIngestEnabled(topicId: string): Promise<boolean> {
+    const row = await this.prisma.ontologyTopicSetting.findUnique({
+      where: { topicId },
+      select: { autoIngest: true },
+    });
+    return row?.autoIngest ?? false;
+  }
+
+  /**
+   * Set the auto-ingest switch for a topic (upsert semantics).
+   */
+  async setAutoIngest(
+    input: SetAutoIngestInput,
+  ): Promise<OntologyTopicSettingView> {
+    const row = await this.prisma.ontologyTopicSetting.upsert({
+      where: { topicId: input.topicId },
+      create: {
+        topicId: input.topicId,
+        autoIngest: input.enabled,
+        updatedBy: input.updatedBy ?? null,
+      },
+      update: {
+        autoIngest: input.enabled,
+        updatedBy: input.updatedBy ?? null,
+      },
+    });
+    this.logger.debug(
+      `[setAutoIngest] topicId=${input.topicId} enabled=${input.enabled} actor=${input.updatedBy ?? "system"}`,
+    );
+    return this.mapTopicSetting(row);
+  }
+
+  /**
+   * Get the topic setting row (or a default view when absent).
+   */
+  async getTopicSetting(topicId: string): Promise<OntologyTopicSettingView> {
+    const row = await this.prisma.ontologyTopicSetting.findUnique({
+      where: { topicId },
+    });
+    if (!row) {
+      return {
+        topicId,
+        autoIngest: false,
+        updatedBy: null,
+        updatedAt: new Date(0),
+      };
+    }
+    return this.mapTopicSetting(row);
+  }
+
   // ─── Private Helpers ───────────────────────────────────────────────────────
 
   /**
@@ -1191,6 +1258,20 @@ export class OntologyService {
       after: row.after,
       reason: row.reason,
       createdAt: row.createdAt,
+    };
+  }
+
+  private mapTopicSetting(row: {
+    topicId: string;
+    autoIngest: boolean;
+    updatedBy: string | null;
+    updatedAt: Date;
+  }): OntologyTopicSettingView {
+    return {
+      topicId: row.topicId,
+      autoIngest: row.autoIngest,
+      updatedBy: row.updatedBy,
+      updatedAt: row.updatedAt,
     };
   }
 }

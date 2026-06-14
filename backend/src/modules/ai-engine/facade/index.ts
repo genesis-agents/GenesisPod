@@ -295,6 +295,9 @@ export type {
   MergeObjectsInput as OntologyMergeObjectsInput,
   ListEditsFilter as OntologyListEditsFilter,
   OntologyEditView,
+  // W-E: topic auto-ingest switch
+  OntologyTopicSettingView,
+  SetAutoIngestInput as OntologySetAutoIngestInput,
 } from "../knowledge/ontology/ontology.types";
 // ★ Knowledge Ontology v1 (P3 engine skill) — P4 callers inject via facade
 export {

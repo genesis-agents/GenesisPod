@@ -95,6 +95,20 @@ model OntologyLink {
   @@map("ontology_links")
 }
 
+/// 议题级本体自动摄入开关：控制 mission 完成后是否自动回写本体
+/// topicId 使用 TEXT @id（非 uuid），与 TeamTopic.id 同类型，无 FK（跨数据库解耦）
+model OntologyTopicSetting {
+  /// 议题 ID，与 TeamTopic.id / ForesightTopic.id 对应
+  topicId    String   @id @map("topic_id")
+  /// 是否开启自动摄入（默认 false）
+  autoIngest Boolean  @default(false) @map("auto_ingest")
+  /// 最后修改人（userId），可选
+  updatedBy  String?  @map("updated_by")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("ontology_topic_settings")
+}
+
 /// 本体编辑日志：对象/关系的所有变更审计轨迹
 model OntologyEdit {
   id         String   @id @default(uuid())

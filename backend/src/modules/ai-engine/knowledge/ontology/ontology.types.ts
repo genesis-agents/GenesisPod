@@ -224,3 +224,21 @@ export interface OntologyEditView {
   reason: string | null;
   createdAt: Date;
 }
+
+// ─── W-E: Topic Auto-Ingest Switch ───────────────────────────────────────────
+
+/** View of OntologyTopicSetting */
+export interface OntologyTopicSettingView {
+  topicId: string;
+  autoIngest: boolean;
+  updatedBy: string | null;
+  updatedAt: Date;
+}
+
+/** Input for setAutoIngest */
+export interface SetAutoIngestInput {
+  topicId: string;
+  enabled: boolean;
+  /** Optional actor ID for audit */
+  updatedBy?: string;
+}

@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Controller,
   Get,
   Logger,
@@ -93,13 +92,10 @@ export class OntologyReadController {
    */
   @Get("subgraph")
   async getSubgraph(
-    @Query("topicId") topicId: string,
+    @Query("topicId") topicId?: string,
     @Query("maxNodes") rawMaxNodes?: string,
   ) {
-    if (!topicId) {
-      throw new BadRequestException("topicId is required");
-    }
-
+    // topicId 可选：缺省=全局封顶子图（本体浏览器全局浏览出图，不再 400）。
     const maxNodes =
       rawMaxNodes !== undefined ? parseInt(rawMaxNodes, 10) : undefined;
     const safeMaxNodes =

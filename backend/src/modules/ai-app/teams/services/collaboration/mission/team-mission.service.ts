@@ -3410,10 +3410,12 @@ export class TeamMissionService implements OnModuleInit {
       });
 
       // ★ P4 Knowledge Ontology: mission 完成后回写新事实（fire-and-forget，详见 bridge）
-      if (this.ontologyBuilderSkill && finalReport) {
+      // 双开关 gate：全局 env 总闸 + 议题级 DB 开关，均在 bridge 内判断
+      if (this.ontologyBuilderSkill && this.ontologyService && finalReport) {
         writeBackMissionToOntology(
           this.ontologyBuilderSkill,
           this.toolRegistry,
+          this.ontologyService,
           { finalReport, topicId: mission.topicId, missionId },
           this.logger,
         );

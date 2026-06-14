@@ -1,0 +1,320 @@
+/**
+ * ReportOntologyFillService — W-E 既有报告手工回填
+ *
+ * 读取 ai-app 层已落库的报告正文（TopicReport / TeamMission / KnowledgeBaseDocument），
+ * 以 text 方式调 engine OntologyBuilderSkill 抽取本体，写入知识图谱。
+ *
+ * 设计约束：
+ * - 在 ai-app 层读正文后以 text 传入 skill（engine skill 不反向依赖 app）。
+ * - off-load URI 由 PrismaService 透明 hydrate（select fullReport + fullReportUri 时自动拉取）。
+ * - 回填不受 ENABLE_ONTOLOGY_AUTO_INGEST 开关影响（显式用户动作）。
+ * - 幂等：upsert 安全，重复回填覆盖旧节点。
+ * - 限流：顺序 await（单并发）避免 LLM 过载。
+ * - fire-and-forget：batchFill 非阻塞，状态由内存 taskId map 追踪。
+ *
+ * Layer: ai-app / library / ontology
+ */
+
+import { Injectable, Logger, Optional } from "@nestjs/common";
+import { v4 as uuid } from "uuid";
+import { MissionStatus } from "@prisma/client";
+import { PrismaService } from "@/common/prisma/prisma.service";
+import {
+  OntologyBuilderSkill,
+  OntologyBuilderOutput,
+  ToolRegistry,
+} from "@/modules/ai-engine/facade";
+import type { SkillContext } from "@/modules/ai-engine/facade";
+import type { BackfillSourceKind } from "./dto/backfill.dto";
+
+/** Maximum text fed to the skill per call (aligns with skill internal limit). */
+const FILL_MAX_CHARS = 24_000;
+
+// ─── Task tracking ────────────────────────────────────────────────────────────
+
+export type BackfillStatus = "running" | "done" | "failed";
+
+export interface BackfillTaskState {
+  status: BackfillStatus;
+  processed: number;
+  total: number;
+  errors: string[];
+}
+
+// ─── Service ──────────────────────────────────────────────────────────────────
+
+@Injectable()
+export class ReportOntologyFillService {
+  private readonly logger = new Logger(ReportOntologyFillService.name);
+
+  /** In-memory task registry (process-scoped; sufficient for manual backfill UX). */
+  private readonly tasks = new Map<string, BackfillTaskState>();
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional()
+    private readonly ontologyBuilderSkill: OntologyBuilderSkill | undefined,
+    @Optional()
+    private readonly toolRegistry: ToolRegistry | undefined,
+  ) {}
+
+  // ─── Public API ──────────────────────────────────────────────────────────────
+
+  /**
+   * Resolve text for a single source record and run OntologyBuilderSkill.
+   * Returns null when the skill is unavailable or text cannot be resolved.
+   */
+  async fillOne(
+    sourceKind: BackfillSourceKind,
+    id: string,
+    topicId?: string,
+  ): Promise<OntologyBuilderOutput | null> {
+    if (!this.ontologyBuilderSkill) {
+      this.logger.warn(
+        "[fillOne] OntologyBuilderSkill unavailable — skipping (non-fatal)",
+      );
+      return null;
+    }
+
+    const text = await this.resolveText(sourceKind, id);
+    if (!text) {
+      this.logger.warn(
+        `[fillOne] No text resolved for ${sourceKind}:${id} — skipping`,
+      );
+      return null;
+    }
+
+    const truncated =
+      text.length > FILL_MAX_CHARS
+        ? text.slice(0, FILL_MAX_CHARS) + " […truncated]"
+        : text;
+
+    if (this.toolRegistry) {
+      this.ontologyBuilderSkill.setToolRegistry(this.toolRegistry);
+    }
+
+    const context: SkillContext = {
+      executionId: `ontology-backfill-${sourceKind}-${id}`,
+      skillId: this.ontologyBuilderSkill.id,
+      createdAt: new Date(),
+    };
+
+    const result = await this.ontologyBuilderSkill.execute(
+      {
+        text: truncated,
+        topicId,
+        sourceType: sourceKind,
+        sourceId: id,
+      },
+      context,
+    );
+
+    if (!result.success) {
+      this.logger.warn(
+        `[fillOne] skill returned error for ${sourceKind}:${id}: ${result.error?.message ?? "unknown"}`,
+      );
+      return null;
+    }
+
+    return result.data ?? null;
+  }
+
+  /**
+   * Launch a fire-and-forget batch fill job.
+   *
+   * @param opts.topicId    Scope to a single topic (topic-report / team-mission).
+   * @param opts.sourceId   Scope to a single record by ID.
+   * @param opts.sourceKind Which source type to scan; omit to run all three.
+   * @returns { taskId, queued } — taskId can be polled via getTaskStatus().
+   */
+  startBatchFill(opts: {
+    topicId?: string;
+    sourceId?: string;
+    sourceKind?: BackfillSourceKind;
+  }): { taskId: string; queued: number } {
+    const taskId = uuid();
+    const kinds: BackfillSourceKind[] = opts.sourceKind
+      ? [opts.sourceKind]
+      : ["topic-report", "team-mission", "kb-document"];
+
+    // Initialise task state — total is updated asynchronously once records are fetched
+    const state: BackfillTaskState = {
+      status: "running",
+      processed: 0,
+      total: 0,
+      errors: [],
+    };
+    this.tasks.set(taskId, state);
+
+    // Fire-and-forget
+    void this.runBatch(taskId, state, kinds, opts);
+
+    return { taskId, queued: kinds.length };
+  }
+
+  /** Return the current task state or null when unknown. */
+  getTaskStatus(taskId: string): BackfillTaskState | null {
+    return this.tasks.get(taskId) ?? null;
+  }
+
+  // ─── Private helpers ──────────────────────────────────────────────────────────
+
+  private async runBatch(
+    taskId: string,
+    state: BackfillTaskState,
+    kinds: BackfillSourceKind[],
+    opts: { topicId?: string; sourceId?: string },
+  ): Promise<void> {
+    this.logger.log(
+      `[batch:${taskId}] starting — kinds=${kinds.join(",")} topicId=${opts.topicId ?? "*"} sourceId=${opts.sourceId ?? "*"}`,
+    );
+
+    try {
+      for (const kind of kinds) {
+        await this.runKind(taskId, state, kind, opts);
+      }
+      state.status = "done";
+      this.logger.log(
+        `[batch:${taskId}] done — processed=${state.processed} errors=${state.errors.length}`,
+      );
+    } catch (err: unknown) {
+      state.status = "failed";
+      const msg = err instanceof Error ? err.message : String(err);
+      state.errors.push(`batch-fatal: ${msg}`);
+      this.logger.error(`[batch:${taskId}] fatal error: ${msg}`);
+    }
+  }
+
+  private async runKind(
+    taskId: string,
+    state: BackfillTaskState,
+    kind: BackfillSourceKind,
+    opts: { topicId?: string; sourceId?: string },
+  ): Promise<void> {
+    const rows = await this.listSourceRows(kind, opts);
+    state.total += rows.length;
+
+    this.logger.log(`[batch:${taskId}] kind=${kind} count=${rows.length}`);
+
+    for (const row of rows) {
+      try {
+        const output = await this.fillOne(kind, row.id, row.topicId);
+        if (output) {
+          this.logger.debug(
+            `[batch:${taskId}] ${kind}:${row.id} — created=${output.created} merged=${output.merged} linked=${output.linked}`,
+          );
+        }
+        state.processed++;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const entry = `${kind}:${row.id}: ${msg}`;
+        state.errors.push(entry);
+        this.logger.warn(`[batch:${taskId}] error — ${entry}`);
+        state.processed++;
+      }
+    }
+  }
+
+  /**
+   * List the (id, topicId) pairs to process for the given source kind.
+   * If opts.sourceId is provided, returns only that single record.
+   */
+  private async listSourceRows(
+    kind: BackfillSourceKind,
+    opts: { topicId?: string; sourceId?: string },
+  ): Promise<Array<{ id: string; topicId: string | undefined }>> {
+    if (kind === "topic-report") {
+      const where: Record<string, unknown> = {
+        // Only reports with at least one dimensionAnalysis (non-empty drafts)
+        dimensionAnalyses: { some: {} },
+      };
+      if (opts.topicId) where["topicId"] = opts.topicId;
+      if (opts.sourceId) where["id"] = opts.sourceId;
+
+      const rows = await this.prisma.topicReport.findMany({
+        where,
+        select: { id: true, topicId: true },
+        orderBy: { generatedAt: "desc" },
+      });
+      return rows.map((r) => ({ id: r.id, topicId: r.topicId }));
+    }
+
+    if (kind === "team-mission") {
+      const where: Record<string, unknown> = {
+        status: MissionStatus.COMPLETED,
+        finalResult: { not: null },
+      };
+      if (opts.topicId) where["topicId"] = opts.topicId;
+      if (opts.sourceId) where["id"] = opts.sourceId;
+
+      const rows = await this.prisma.teamMission.findMany({
+        where,
+        select: { id: true, topicId: true },
+        orderBy: { completedAt: "desc" },
+      });
+      return rows.map((r) => ({ id: r.id, topicId: r.topicId }));
+    }
+
+    // kb-document: no topicId column; sourceId filter only
+    if (kind === "kb-document") {
+      const where: Record<string, unknown> = {
+        rawContent: { not: "" },
+      };
+      if (opts.sourceId) where["id"] = opts.sourceId;
+
+      const rows = await this.prisma.knowledgeBaseDocument.findMany({
+        where,
+        select: { id: true },
+        orderBy: { createdAt: "desc" },
+      });
+      return rows.map((r) => ({ id: r.id, topicId: undefined }));
+    }
+
+    return [];
+  }
+
+  /**
+   * Resolve full text for a source record.
+   * PrismaService transparently hydrates off-loaded content when the row is
+   * selected with both the content field and the URI field.
+   */
+  private async resolveText(
+    kind: BackfillSourceKind,
+    id: string,
+  ): Promise<string | null> {
+    if (kind === "topic-report") {
+      const row = await this.prisma.topicReport.findUnique({
+        where: { id },
+        select: {
+          fullReport: true,
+          fullReportUri: true,
+        },
+      });
+      const text = row?.fullReport?.trim();
+      return text || null;
+    }
+
+    if (kind === "team-mission") {
+      const row = await this.prisma.teamMission.findUnique({
+        where: { id },
+        select: { finalResult: true },
+      });
+      const text = row?.finalResult?.trim();
+      return text || null;
+    }
+
+    if (kind === "kb-document") {
+      const row = await this.prisma.knowledgeBaseDocument.findUnique({
+        where: { id },
+        select: {
+          rawContent: true,
+          rawContentUri: true,
+        },
+      });
+      const text = row?.rawContent?.trim();
+      return text || null;
+    }
+
+    return null;
+  }
+}
