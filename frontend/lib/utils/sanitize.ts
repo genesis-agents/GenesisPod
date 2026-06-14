@@ -1,28 +1,24 @@
 /**
  * HTML Sanitization Utilities
  *
- * Provides secure HTML sanitization using DOMPurify to prevent XSS attacks.
+ * Uses isomorphic-dompurify so the SAME DOMPurify sanitization runs on both the
+ * server (SSR) and the client. Previously the server-side path used a hand-rolled
+ * regex fallback that missed mixed-case / obfuscated vectors (e.g. `oNlOaD=`,
+ * `<sCrIpT>`), so untrusted HTML rendered during SSR could still carry XSS.
  * Use these functions whenever rendering untrusted HTML content.
  */
 
-import DOMPurify from 'dompurify';
+import DOMPurify from 'isomorphic-dompurify';
 
 /**
  * Sanitize HTML content for safe rendering
  * Removes malicious scripts, event handlers, and dangerous elements
  */
 export function sanitizeHtml(html: string): string {
-  if (typeof window === 'undefined') {
-    // Server-side: return empty or use basic sanitization
-    return html
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/on\w+\s*=/gi, 'data-removed=');
-  }
-
   return DOMPurify.sanitize(html, {
     USE_PROFILES: { html: true },
     FORBID_TAGS: ['style'], // Forbid style tags to prevent CSS injection
-    FORBID_ATTR: ['style'], // Allow inline styles if needed, remove this line
+    FORBID_ATTR: ['style'],
   });
 }
 
@@ -31,12 +27,6 @@ export function sanitizeHtml(html: string): string {
  * Allows SVG-specific elements while preventing XSS
  */
 export function sanitizeSvg(svg: string): string {
-  if (typeof window === 'undefined') {
-    return svg
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/on\w+\s*=/gi, 'data-removed=');
-  }
-
   return DOMPurify.sanitize(svg, {
     USE_PROFILES: { svg: true, svgFilters: true },
     ADD_TAGS: ['use'], // Allow SVG use elements
@@ -48,12 +38,6 @@ export function sanitizeSvg(svg: string): string {
  * Allows style tags for slide styling while preventing XSS
  */
 export function sanitizeSlideHtml(html: string): string {
-  if (typeof window === 'undefined') {
-    return html
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/on\w+\s*=/gi, 'data-removed=');
-  }
-
   return DOMPurify.sanitize(html, {
     USE_PROFILES: { html: true },
     ADD_TAGS: ['style'], // Allow style tags for slides
