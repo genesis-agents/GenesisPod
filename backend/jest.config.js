@@ -67,11 +67,14 @@ module.exports = {
     },
     // 使用 directory 路径而非 glob —— jest 在该目录所有文件上做 aggregate 检查
     // （glob "**/*.ts" 是 per-file 检查，单个低 coverage 文件即破坏阈值，不实用）
-    "./src/modules/ai-app/agent-playground/": {
-      branches: 75,
-      functions: 85,
-      lines: 85,
-      statements: 85,
+    // 真实目录是 ai-app/playground/（旧 key 写成 agent-playground 是笔误，
+    // 导致 playground 后端长期无阈值守门、悄悄落到 global=0）。2026-06-14 修正
+    // 路径并把四项阈值统一拉到 95%（前后台看护用例攻坚目标）。
+    "./src/modules/ai-app/playground/": {
+      branches: 95,
+      functions: 95,
+      lines: 95,
+      statements: 95,
     },
     "./src/modules/ai-harness/": {
       branches: 75,

@@ -711,4 +711,581 @@ describe("MissionStore", () => {
       ).resolves.toBeUndefined();
     });
   });
+
+  // ── clearHeartbeat (resetHeartbeat hook) ─────────────────────────────────────
+  describe("clearHeartbeat", () => {
+    it("calls updateMany with heartbeatAt: null", async () => {
+      await store.clearHeartbeat("m1", "u1");
+      expect(prisma.agentPlaygroundMission.updateMany).toHaveBeenCalledWith({
+        where: { id: "m1", userId: "u1" },
+        data: { heartbeatAt: null },
+      });
+    });
+
+    it("swallows errors gracefully", async () => {
+      prisma.agentPlaygroundMission.updateMany.mockRejectedValueOnce(
+        new Error("DB error"),
+      );
+      await expect(store.clearHeartbeat("m1", "u1")).resolves.toBeUndefined();
+    });
+  });
+
+  // ── cleanupOrphanRunningMissionsAtomic (findOrphanRunning + claimOrphanFailed hooks) ──
+  describe("cleanupOrphanRunningMissionsAtomic", () => {
+    it("returns claimedWinners that were atomically claimed (count===1)", async () => {
+      // findOrphanRunning returns two orphans
+      prisma.agentPlaygroundMission.findMany.mockResolvedValueOnce([
+        { id: "m1", userId: "u1" },
+        { id: "m2", userId: "u2" },
+      ]);
+      // m1 claimed (count=1), m2 not claimed (count=0)
+      prisma.agentPlaygroundMission.updateMany
+        .mockResolvedValueOnce({ count: 1 }) // m1 claim
+        .mockResolvedValueOnce({ count: 0 }); // m2 not claimed
+
+      const result = await store.cleanupOrphanRunningMissionsAtomic(60_000);
+
+      expect(result.claimedWinners).toHaveLength(1);
+      expect(result.claimedWinners[0].id).toBe("m1");
+    });
+
+    it("returns empty claimedWinners when no orphans found", async () => {
+      prisma.agentPlaygroundMission.findMany.mockResolvedValueOnce([]);
+
+      const result = await store.cleanupOrphanRunningMissionsAtomic(60_000);
+
+      expect(result.claimedWinners).toEqual([]);
+      expect(result.orphans).toEqual([]);
+    });
+
+    it("claimOrphanFailed sets correct status=failed data", async () => {
+      prisma.agentPlaygroundMission.findMany.mockResolvedValueOnce([
+        { id: "m1", userId: "u1" },
+      ]);
+      prisma.agentPlaygroundMission.updateMany.mockResolvedValueOnce({
+        count: 1,
+      });
+
+      await store.cleanupOrphanRunningMissionsAtomic(60_000);
+
+      // The 2nd call to updateMany is for claimOrphanFailed
+      const callArgs =
+        prisma.agentPlaygroundMission.updateMany.mock.calls[0][0];
+      expect(callArgs.where).toEqual({ id: "m1", status: "running" });
+      expect(callArgs.data.status).toBe("failed");
+      expect(callArgs.data.failureCode).toBe("runtime_crashed");
+    });
+  });
+
+  // ── findOldestRunningMissionId ────────────────────────────────────────────────
+  describe("findOldestRunningMissionId", () => {
+    it("returns id when row found", async () => {
+      prisma.agentPlaygroundMission.findFirst.mockResolvedValueOnce({
+        id: "m-old",
+      });
+
+      const result = await store.findOldestRunningMissionId("u1");
+
+      expect(result).toBe("m-old");
+      expect(prisma.agentPlaygroundMission.findFirst).toHaveBeenCalledWith({
+        where: { userId: "u1", status: "running" },
+        orderBy: { startedAt: "asc" },
+        select: { id: true },
+      });
+    });
+
+    it("returns null when no running mission", async () => {
+      prisma.agentPlaygroundMission.findFirst.mockResolvedValueOnce(null);
+
+      const result = await store.findOldestRunningMissionId("u1");
+
+      expect(result).toBeNull();
+    });
+  });
+
+  // ── hasRecentEvent ────────────────────────────────────────────────────────────
+  describe("hasRecentEvent", () => {
+    it("returns true when count > 0", async () => {
+      prisma.agentPlaygroundMissionEvent.groupBy.mockResolvedValueOnce([
+        { missionId: "m1", _count: 5 },
+      ]);
+      // The actual implementation uses .count() not groupBy
+      // Need to add count mock to prisma
+      const prismaWithCount = prisma as typeof prisma & {
+        agentPlaygroundMissionEvent: { count: jest.Mock };
+      };
+      prismaWithCount.agentPlaygroundMissionEvent.count = jest
+        .fn()
+        .mockResolvedValueOnce(5);
+
+      const result = await store.hasRecentEvent("m1", 60_000);
+
+      expect(result).toBe(true);
+    });
+
+    it("returns false when count is 0", async () => {
+      const prismaWithCount = prisma as typeof prisma & {
+        agentPlaygroundMissionEvent: { count: jest.Mock };
+      };
+      prismaWithCount.agentPlaygroundMissionEvent.count = jest
+        .fn()
+        .mockResolvedValueOnce(0);
+
+      const result = await store.hasRecentEvent("m1", 60_000);
+
+      expect(result).toBe(false);
+    });
+  });
+
+  // ── delegate methods coverage ─────────────────────────────────────────────────
+  describe("additional delegate methods", () => {
+    it("updateBudgetByUser delegates to update helper", async () => {
+      prisma.agentPlaygroundMission.findFirst.mockResolvedValueOnce({
+        id: "m1",
+        status: "failed",
+        configSnapshot: null,
+      });
+      prisma.agentPlaygroundMission.updateMany.mockResolvedValueOnce({
+        count: 1,
+      });
+
+      const res = await store.updateBudgetByUser("m1", "u1", {
+        maxCredits: 200,
+      });
+      expect(res.ok).toBe(true);
+    });
+
+    it("resetFields delegates to update helper", async () => {
+      prisma.agentPlaygroundMission.updateMany.mockResolvedValueOnce({
+        count: 1,
+      });
+      await store.resetFields("m1", ["report_full"], "u1");
+      expect(prisma.agentPlaygroundMission.updateMany).toHaveBeenCalled();
+    });
+
+    it("markRerunPatch delegates to update helper", async () => {
+      prisma.agentPlaygroundMission.updateMany.mockResolvedValueOnce({
+        count: 1,
+      });
+      await store.markRerunPatch("m1", { finalScore: 80 }, "u1");
+      expect(prisma.agentPlaygroundMission.updateMany).toHaveBeenCalled();
+    });
+
+    it("markIntermediateState delegates to update helper", async () => {
+      prisma.agentPlaygroundMission.updateMany.mockResolvedValueOnce({
+        count: 1,
+      });
+      await store.markIntermediateState("m1", { lastCompletedStage: 3 }, "u1");
+      expect(prisma.agentPlaygroundMission.updateMany).toHaveBeenCalled();
+    });
+
+    it("saveReportVersion delegates to report helper", async () => {
+      // The report helper uses $transaction
+      prisma.$transaction.mockImplementationOnce(
+        async (fn: (tx: unknown) => Promise<unknown>) => {
+          const tx = {
+            missionReportVersion: {
+              aggregate: jest.fn(async () => ({ _max: { version: 0 } })),
+              create: jest.fn(async () => ({})),
+            },
+          };
+          return fn(tx);
+        },
+      );
+      const v = await store.saveReportVersion({
+        missionId: "m1",
+        triggerType: "manual",
+      });
+      expect(v).toBe(1);
+    });
+
+    it("listReportVersions delegates to report helper", async () => {
+      // Need a store with missionReportVersion in prisma
+      const missionReportVersion = {
+        findMany: jest.fn().mockResolvedValueOnce([]),
+      };
+      const prismaExt = Object.assign(makePrisma(), { missionReportVersion });
+      const storeExt = new MissionStore(prismaExt as never);
+      const result = await storeExt.listReportVersions("m1");
+      expect(result).toEqual([]);
+    });
+
+    it("getReportVersion delegates to report helper", async () => {
+      const missionReportVersion = {
+        findUnique: jest.fn().mockResolvedValueOnce(null),
+      };
+      const prismaExt = Object.assign(makePrisma(), { missionReportVersion });
+      const storeExt = new MissionStore(prismaExt as never);
+      const result = await storeExt.getReportVersion("m1", 1);
+      expect(result).toBeNull();
+    });
+
+    it("saveResearchResult delegates to report helper", async () => {
+      const agentPlaygroundResearchResult = {
+        upsert: jest.fn().mockResolvedValueOnce({}),
+      };
+      const prismaExt = Object.assign(makePrisma(), {
+        agentPlaygroundResearchResult,
+      });
+      const storeExt = new MissionStore(prismaExt as never);
+      await storeExt.saveResearchResult({
+        missionId: "m1",
+        dimension: "d",
+        findings: [],
+        summary: "s",
+        state: "completed",
+      });
+      expect(agentPlaygroundResearchResult.upsert).toHaveBeenCalled();
+    });
+
+    it("loadBaselineResearchResults delegates to report helper", async () => {
+      const agentPlaygroundResearchResult = {
+        findMany: jest.fn().mockResolvedValueOnce([]),
+      };
+      const prismaExt = Object.assign(makePrisma(), {
+        agentPlaygroundResearchResult,
+      });
+      const storeExt = new MissionStore(prismaExt as never);
+      const result = await storeExt.loadBaselineResearchResults("m1");
+      expect(result).toEqual([]);
+    });
+
+    it("saveChapterDraft delegates to report helper", async () => {
+      const agentPlaygroundChapterDraft = {
+        upsert: jest.fn().mockResolvedValueOnce({}),
+      };
+      const prismaExt = Object.assign(makePrisma(), {
+        agentPlaygroundChapterDraft,
+      });
+      const storeExt = new MissionStore(prismaExt as never);
+      await storeExt.saveChapterDraft({
+        missionId: "m1",
+        dimension: "d",
+        chapterIndex: 0,
+        heading: "h",
+        content: "c",
+        status: "writing",
+      });
+      expect(agentPlaygroundChapterDraft.upsert).toHaveBeenCalled();
+    });
+
+    it("loadQualifiedChapterDrafts delegates to report helper", async () => {
+      const agentPlaygroundChapterDraft = {
+        findMany: jest.fn().mockResolvedValueOnce([]),
+      };
+      const prismaExt = Object.assign(makePrisma(), {
+        agentPlaygroundChapterDraft,
+      });
+      const storeExt = new MissionStore(prismaExt as never);
+      const result = await storeExt.loadQualifiedChapterDrafts("m1");
+      expect(result).toEqual([]);
+    });
+
+    it("appendCostEntry delegates to costLedger", async () => {
+      // costLedger uses agentPlaygroundMissionCostLedger.create
+      prisma.agentPlaygroundMissionCostLedger = {
+        create: jest.fn().mockResolvedValueOnce({}),
+      };
+      const result = await store.appendCostEntry({
+        missionId: "m1",
+        userId: "u1",
+        promptTokens: 100,
+        completionTokens: 200,
+        costUsd: 0.5,
+      });
+      expect(typeof result).toBe("boolean");
+    });
+
+    it("sumCostByMission delegates to costLedger", async () => {
+      prisma.agentPlaygroundMissionCostLedger = {
+        aggregate: jest.fn().mockResolvedValueOnce({
+          _sum: { promptTokens: 100, completionTokens: 200, costUsd: 0.5 },
+          _count: { _all: 5 },
+        }),
+      };
+      const result = await store.sumCostByMission("m1");
+      expect(result.entryCount).toBe(5);
+    });
+
+    it("listCostByMission delegates to costLedger", async () => {
+      prisma.agentPlaygroundMissionCostLedger = {
+        findMany: jest.fn().mockResolvedValueOnce([]),
+      };
+      const result = await store.listCostByMission("m1");
+      expect(result).toEqual([]);
+    });
+
+    it("deleteTerminalByUser deletes failed/quality-failed/cancelled and returns count", async () => {
+      prisma.agentPlaygroundMission.deleteMany.mockResolvedValueOnce({
+        count: 2,
+      });
+      const count = await store.deleteTerminalByUser("u1");
+      expect(count).toBe(2);
+      expect(prisma.agentPlaygroundMission.deleteMany).toHaveBeenCalledWith({
+        where: {
+          userId: "u1",
+          status: { in: ["failed", "quality-failed", "cancelled"] },
+        },
+      });
+    });
+
+    it("deleteTerminalByUser returns 0 on error", async () => {
+      prisma.agentPlaygroundMission.deleteMany.mockRejectedValueOnce(
+        new Error("err"),
+      );
+      const count = await store.deleteTerminalByUser("u1");
+      expect(count).toBe(0);
+    });
+
+    it("getStatusById returns status when found", async () => {
+      prisma.agentPlaygroundMission.findUnique.mockResolvedValueOnce({
+        status: "running",
+      });
+      const result = await store.getStatusById("m1");
+      expect(result).toEqual({ status: "running" });
+    });
+
+    it("getStatusById returns null when not found", async () => {
+      prisma.agentPlaygroundMission.findUnique.mockResolvedValueOnce(null);
+      const result = await store.getStatusById("m1");
+      expect(result).toBeNull();
+    });
+
+    it("getMetaForNotify returns userId+topic when found", async () => {
+      prisma.agentPlaygroundMission.findUnique.mockResolvedValueOnce({
+        userId: "u1",
+        topic: "T",
+      });
+      const result = await store.getMetaForNotify("m1");
+      expect(result).toEqual({ userId: "u1", topic: "T" });
+    });
+
+    it("getMetaForNotify returns null when not found", async () => {
+      prisma.agentPlaygroundMission.findUnique.mockResolvedValueOnce(null);
+      const result = await store.getMetaForNotify("m1");
+      expect(result).toBeNull();
+    });
+
+    it("getAccessMetaById returns access meta with topicId null", async () => {
+      prisma.agentPlaygroundMission.findUnique.mockResolvedValueOnce({
+        userId: "u1",
+        visibility: "PUBLIC",
+      });
+      const result = await store.getAccessMetaById("m1");
+      expect(result).toEqual({
+        userId: "u1",
+        visibility: "PUBLIC",
+        topicId: null,
+      });
+    });
+
+    it("getAccessMetaById returns null when not found", async () => {
+      prisma.agentPlaygroundMission.findUnique.mockResolvedValueOnce(null);
+      const result = await store.getAccessMetaById("m1");
+      expect(result).toBeNull();
+    });
+
+    it("updateVisibility throws NotFoundException when not found", async () => {
+      prisma.agentPlaygroundMission.findFirst.mockResolvedValueOnce(null);
+      await expect(
+        store.updateVisibility("u1", "m1", "PUBLIC" as never),
+      ).rejects.toThrow("Mission not found");
+    });
+
+    it("updateVisibility throws ForbiddenException when not owner", async () => {
+      prisma.agentPlaygroundMission.findFirst.mockResolvedValueOnce({
+        userId: "other",
+      });
+      await expect(
+        store.updateVisibility("u1", "m1", "PUBLIC" as never),
+      ).rejects.toThrow("Not owner");
+    });
+
+    it("updateVisibility updates when owner", async () => {
+      prisma.agentPlaygroundMission.findFirst.mockResolvedValueOnce({
+        userId: "u1",
+      });
+      prisma.agentPlaygroundMission.update.mockResolvedValueOnce({
+        id: "m1",
+        visibility: "PUBLIC",
+      });
+      const result = await store.updateVisibility(
+        "u1",
+        "m1",
+        "PUBLIC" as never,
+      );
+      expect(result.visibility).toBe("PUBLIC");
+    });
+
+    it("listByMissionIds returns empty array when ids empty", async () => {
+      const result = await store.listByMissionIds("u1", []);
+      expect(result).toEqual([]);
+    });
+
+    it("markReopened delegates to lifecycle (success path)", async () => {
+      // reopenTransaction is called inside $transaction; updateMany must return count=1
+      const txMock = {
+        agentPlaygroundMission: {
+          ...prisma.agentPlaygroundMission,
+          updateMany: jest.fn().mockResolvedValueOnce({ count: 1 }),
+          findUnique: jest.fn().mockResolvedValueOnce(null),
+        },
+        agentPlaygroundMissionEvent: {
+          create: jest.fn().mockResolvedValueOnce({}),
+        },
+        $executeRaw: jest.fn(),
+      };
+      prisma.$transaction.mockImplementationOnce(
+        (cb: (tx: unknown) => Promise<unknown>) => cb(txMock),
+      );
+      await store.markReopened("m1", "u1");
+      expect(prisma.$transaction).toHaveBeenCalled();
+    });
+
+    it("listByMissionIds with non-empty ids returns mapped rows", async () => {
+      prisma.agentPlaygroundMission.findMany.mockResolvedValueOnce([
+        {
+          id: "m1",
+          topic: "T",
+          depth: "deep",
+          language: "en",
+          status: "completed",
+          startedAt: new Date(),
+          completedAt: new Date(),
+          elapsedWallTimeMs: 100,
+          finalScore: 90,
+          tokensUsed: BigInt(1000),
+          costUsd: 0.5,
+          reportTitle: "R",
+          reportSummary: "S",
+          errorMessage: null,
+          visibility: "PRIVATE",
+        },
+      ]);
+      const result = await store.listByMissionIds("u1", ["m1", "m2"]);
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("m1");
+      expect(result[0].tokensUsed).toBe(1000); // BigInt → Number
+    });
+
+    it("reconcileTerminalCost uses ledger sum when entryCount > 0", async () => {
+      // Need a store with agentPlaygroundMissionCostLedger that returns entryCount > 0
+      const costLedger = {
+        aggregate: jest.fn().mockResolvedValueOnce({
+          _sum: { promptTokens: 500, completionTokens: 1000, costUsd: 1.5 },
+          _count: { _all: 3 },
+        }),
+      };
+      const prismaExt = Object.assign(makePrisma(), {
+        agentPlaygroundMissionCostLedger: costLedger,
+      });
+      const storeExt = new MissionStore(prismaExt as never);
+      // writeCompleted calls reconcileTerminalCost then prisma.updateMany
+      prismaExt.agentPlaygroundMission.updateMany.mockResolvedValueOnce({
+        count: 1,
+      });
+
+      const won = await storeExt.applyTerminalIfRunning("m1", {
+        kind: "terminal",
+        status: "completed",
+        extra: {
+          kind: "completed",
+          userId: "u1",
+          detail: { tokensUsed: 100, costUsd: 0.1 },
+        },
+      });
+      // Won (updateMany returned count=1) and cost was overridden from ledger
+      expect(won).toBe(true);
+    });
+
+    it("getById with configSnapshot having schemaVersion projects userProfile", async () => {
+      const snap = {
+        schemaVersion: 1,
+        language: "zh-CN",
+        businessInput: {
+          description: "test",
+          depth: "deep",
+          budgetProfile: "standard",
+          styleProfile: "academic",
+          lengthProfile: "standard",
+          audienceProfile: "general-public",
+          withFigures: false,
+          auditLayers: "minimal",
+          concurrency: 2,
+          viewMode: "continuous",
+          searchTimeRange: "any",
+          knowledgeBaseIds: [],
+          inheritFromMissionId: null,
+        },
+        budget: {
+          maxCredits: 1000,
+          budgetMultiplier: 1.0,
+        },
+        runtimeLimits: {
+          wallTimeCapMs: 3600000,
+        },
+      };
+      const mockRow = {
+        id: "m1",
+        userId: "u1",
+        topic: "T",
+        depth: "deep",
+        language: "zh-CN",
+        status: "completed",
+        startedAt: new Date(),
+        completedAt: new Date(),
+        elapsedWallTimeMs: 100,
+        finalScore: 90,
+        tokensUsed: null,
+        costUsd: null,
+        reportTitle: null,
+        reportSummary: null,
+        errorMessage: null,
+        failureCode: null,
+        configSnapshot: snap,
+        maxCredits: 100,
+        themeSummary: null,
+        dimensions: null,
+        reportFull: null,
+        verdicts: null,
+        trajectoryStored: false,
+        reportArtifactVersion: null,
+        reconciliationReport: null,
+        leaderJournal: null,
+        leaderOverallScore: null,
+        leaderSigned: null,
+        leaderVerdict: null,
+        lastCompletedStage: null,
+        outlinePlan: null,
+        analystOutput: null,
+        heartbeatAt: null,
+        visibility: "PRIVATE",
+      };
+      // getById uses findFirst not findUnique
+      prisma.agentPlaygroundMission.findFirst.mockResolvedValueOnce(mockRow);
+      const result = await store.getById("m1", "u1");
+      expect(result?.userProfile).not.toBeNull();
+      expect(result?.userProfile?.depth).toBe("deep");
+    });
+
+    it("clearCheckpointJsonbKey error path logs and swallows", async () => {
+      // To hit clearCheckpointJsonbKey error path, trigger writeCompleted (which calls clearCheckpoint internally)
+      // Make $executeRaw throw
+      prisma.$executeRaw.mockRejectedValueOnce(new Error("raw exec fail"));
+      prisma.agentPlaygroundMission.updateMany.mockResolvedValueOnce({
+        count: 1,
+      });
+      // applyTerminalIfRunning completed calls writeCompleted → clearCheckpointJsonbKey
+      const won = await store.applyTerminalIfRunning("m1", {
+        kind: "terminal",
+        status: "completed",
+        extra: {
+          kind: "completed",
+          userId: "u1",
+          detail: {},
+        },
+      });
+      expect(won).toBe(true); // swallows clearCheckpoint error
+    });
+  });
 });

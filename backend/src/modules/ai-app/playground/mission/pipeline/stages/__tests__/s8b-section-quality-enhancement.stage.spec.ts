@@ -463,4 +463,86 @@ describe("runSectionQualityEnhancementStage (S8B)", () => {
       expect(deps.store.markIntermediateState).not.toHaveBeenCalled();
     });
   });
+
+  // ── Line 102-106: wall-time exceeded guard ────────────────────────────────────
+  it("wall-time exceeded → logs warn and breaks loop early", async () => {
+    // Build ctx+deps BEFORE spying on Date.now so that makeCtx's t0=Date.now()
+    // is not affected by the spy.
+    const ctx = makeCtx();
+    const deps = makeDeps();
+
+    // The deadline is set at line 99: s8bDeadline = Date.now() + 20*60*1000
+    // The loop check at line 102: if (Date.now() > s8bDeadline)
+    // Strategy: make the deadline call return T0, so deadline = T0 + WALL_TIME.
+    // Then every subsequent Date.now() call (including the loop check) returns
+    // T0 + WALL_TIME + 1, which is > deadline → guard fires.
+    const T0 = 1_000_000;
+    const S8B_WALL_TIME_MS = 20 * 60 * 1000;
+    let deadlineCallDone = false;
+    const spy = jest.spyOn(Date, "now").mockImplementation(() => {
+      if (!deadlineCallDone) {
+        deadlineCallDone = true;
+        return T0;
+      }
+      return T0 + S8B_WALL_TIME_MS + 1;
+    });
+
+    await runSectionQualityEnhancementStage(ctx, deps);
+
+    spy.mockRestore();
+
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("wall-time exceeded"),
+    );
+    // evaluateSection should NOT have been called because loop breaks immediately
+    expect(deps.sectionSelfEval.evaluateSection).not.toHaveBeenCalled();
+  });
+
+  // ── Line 123: withTimeout setTimeout fires when LLM hangs ────────────────────
+  it("withTimeout timeout fires → section failure is non-fatal, logs warn", async () => {
+    jest.useFakeTimers();
+    const ctx = makeCtx();
+    const deps = makeDeps({
+      // evaluateSection never resolves — simulates a hung LLM call
+      sectionSelfEval: {
+        evaluateSection: jest
+          .fn()
+          .mockImplementation(() => new Promise<never>(() => undefined)),
+      } as unknown as MissionDeps["sectionSelfEval"],
+    });
+
+    const stagePromise = runSectionQualityEnhancementStage(ctx, deps);
+
+    // runAllTimersAsync is Jest 29+ API that advances timers and flushes
+    // microtasks in one shot, which is needed to let the Promise.race
+    // rejection propagate after the setTimeout fires.
+    await jest.runAllTimersAsync();
+
+    await stagePromise;
+
+    jest.useRealTimers();
+
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("timeout"),
+    );
+  }, 15_000);
+
+  // ── Lines 295-298: emit section:remediation:summary rejects → catch warns ─────
+  it("emit section:remediation:summary rejects → catch logs warn, stage resolves", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps({
+      emit: jest.fn().mockImplementation((event: { type: string }) => {
+        if (event.type === "playground.section:remediation:summary") {
+          return Promise.reject(new Error("emit remediation:summary failed"));
+        }
+        return Promise.resolve();
+      }),
+    });
+    await expect(
+      runSectionQualityEnhancementStage(ctx, deps),
+    ).resolves.toBeUndefined();
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("emit section:remediation:summary failed"),
+    );
+  });
 });

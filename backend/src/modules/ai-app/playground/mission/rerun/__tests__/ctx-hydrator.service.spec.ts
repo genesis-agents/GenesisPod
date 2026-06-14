@@ -407,6 +407,64 @@ describe("CtxHydratorService.hydrate", () => {
     });
   });
 
+  describe("assertSnapshotSupported — line 76 false 分支", () => {
+    it("configSnapshot=null → hydrate 抛 (legacy mission 不支持重跑)", async () => {
+      // configSnapshot: null 触发 assertSnapshotSupported 返回 ok=false（line 76）
+      const detail = buildDetail({ configSnapshot: null as never });
+      const store = makeMockStore(detail);
+      const prisma = makeMockPrisma();
+      const hydrator = new CtxHydratorService(store, prisma);
+      // framework 在 ok=false 时应 throw BadRequest
+      await expect(hydrator.hydrate("m1", "u1")).rejects.toThrow(
+        /legacy|snapshot|不支持/i,
+      );
+    });
+
+    it("configSnapshot.schemaVersion=null → hydrate 抛 (schemaVersion == null)", async () => {
+      // schemaVersion null → snap?.schemaVersion == null → ok=false（line 76）
+      const detail = buildDetail({
+        configSnapshot: { schemaVersion: null as never } as never,
+      });
+      const store = makeMockStore(detail);
+      const prisma = makeMockPrisma();
+      const hydrator = new CtxHydratorService(store, prisma);
+      await expect(hydrator.hydrate("m1", "u1")).rejects.toThrow(
+        /legacy|snapshot|不支持/i,
+      );
+    });
+  });
+
+  describe("line 139 — reportArtifactVersion !== 2 with reportFull present (v1 report path)", () => {
+    it("reportArtifactVersion=1 + reportFull present → ctx.report 而非 ctx.reportArtifact", async () => {
+      const v1Report = { title: "V1 Report", sections: [] };
+      const detail = buildDetail({
+        reportFull: v1Report as never,
+        reportArtifactVersion: 1 as never,
+      });
+      const store = makeMockStore(detail);
+      const prisma = makeMockPrisma();
+      const hydrator = new CtxHydratorService(store, prisma);
+      const ctx = await hydrator.hydrate("m1", "u1");
+      // line 139 path: else branch assigns reportFull to ctx.report (v1 type)
+      expect(ctx.report).toBeDefined();
+      expect(ctx.reportArtifact).toBeUndefined();
+    });
+
+    it("reportArtifactVersion=0 + reportFull present → v1 report path", async () => {
+      const v1Report = { title: "Old Report" };
+      const detail = buildDetail({
+        reportFull: v1Report as never,
+        reportArtifactVersion: 0 as never,
+      });
+      const store = makeMockStore(detail);
+      const prisma = makeMockPrisma();
+      const hydrator = new CtxHydratorService(store, prisma);
+      const ctx = await hydrator.hydrate("m1", "u1");
+      expect(ctx.report).toBeDefined();
+      expect(ctx.reportArtifact).toBeUndefined();
+    });
+  });
+
   describe("stateless / 并发", () => {
     it("Promise.all 并发 hydrate 两个 mission 互不污染", async () => {
       const store = {

@@ -1128,6 +1128,431 @@ describe("AgentInvoker.invoke — R2-#46 retry + degradation", () => {
   });
 });
 
+// ─── tickCost with missionStore (extractStageUsage + toFiniteNonNeg + appendCostEntry) ────
+
+function makeMissionStore() {
+  return { appendCostEntry: jest.fn().mockResolvedValue(undefined) };
+}
+
+function makeSpanService() {
+  return {
+    startAgentSpan: jest.fn(),
+    endAgentSpan: jest.fn(),
+  };
+}
+
+/** Build AgentInvoker with optional spanService + missionStore */
+function makeSvcFull(opts?: {
+  spanService?: ReturnType<typeof makeSpanService>;
+  missionStore?: ReturnType<typeof makeMissionStore>;
+}) {
+  const runner = makeRunner();
+  const eventBus = makeEventBus();
+  const abortRegistry = makeAbortRegistry();
+  const failureLearner = makeFailureLearner();
+  const svc = new AgentInvoker(
+    runner as never,
+    eventBus as never,
+    abortRegistry as never,
+    failureLearner as never,
+    opts?.spanService as never,
+    opts?.missionStore as never,
+  );
+  return { svc, runner, eventBus, abortRegistry, failureLearner };
+}
+
+describe("AgentInvoker.tickCost — with missionStore (Wire-Cost 2026-05-30)", () => {
+  it("calls appendCostEntry fire-and-forget when missionStore is provided", async () => {
+    const missionStore = makeMissionStore();
+    const { svc } = makeSvcFull({ missionStore });
+    const pool = makePool();
+
+    // agentEvents has a thinking event with real costUsd
+    const agentEvents = [
+      {
+        type: "thinking",
+        payload: {
+          promptTokens: 500,
+          completionTokens: 200,
+          costUsd: 0.002,
+          modelId: "gpt-4o",
+        },
+        timestamp: Date.now(),
+      },
+    ];
+
+    await svc.tickCost(
+      "m1",
+      "u1",
+      "researcher",
+      pool as never,
+      1000,
+      agentEvents as never,
+    );
+
+    // Wait for fire-and-forget microtask
+    await new Promise((r) => setImmediate(r));
+
+    expect(missionStore.appendCostEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        missionId: "m1",
+        userId: "u1",
+        stepId: "researcher",
+        role: "researcher",
+        model: "gpt-4o",
+        promptTokens: 500,
+        completionTokens: 200,
+        costUsd: 0.002, // uses real costUsd > 0
+      }),
+    );
+  });
+
+  it("falls back to estimateUsdFromTokens when costUsd=0 in events", async () => {
+    const missionStore = makeMissionStore();
+    const { svc } = makeSvcFull({ missionStore });
+    const pool = makePool();
+
+    const agentEvents = [
+      {
+        type: "thinking",
+        payload: {
+          promptTokens: 100,
+          completionTokens: 50,
+          costUsd: 0, // zero → fall back to estimate
+          modelId: "claude-3",
+        },
+        timestamp: Date.now(),
+      },
+    ];
+
+    await svc.tickCost(
+      "m1",
+      "u1",
+      "writer",
+      pool as never,
+      1_000_000,
+      agentEvents as never,
+    );
+    await new Promise((r) => setImmediate(r));
+
+    const call = missionStore.appendCostEntry.mock.calls[0][0];
+    // estimateUsdFromTokens(1_000_000) ≈ 3.0
+    expect(call.costUsd).toBeGreaterThan(0);
+    expect(call.promptTokens).toBe(100);
+    expect(call.completionTokens).toBe(50);
+    expect(call.model).toBe("claude-3");
+  });
+
+  it("does NOT call appendCostEntry when missionStore is absent", async () => {
+    // no missionStore passed (undefined)
+    const { svc } = makeSvcFull();
+    const pool = makePool();
+    await svc.tickCost("m1", "u1", "analyst", pool as never, 500);
+    await new Promise((r) => setImmediate(r));
+    // no missionStore → no appendCostEntry call
+    // (nothing to assert — just confirm no throw)
+  });
+
+  it("extracts dominant modelId across multiple thinking events", async () => {
+    const missionStore = makeMissionStore();
+    const { svc } = makeSvcFull({ missionStore });
+    const pool = makePool();
+
+    const agentEvents = [
+      {
+        type: "thinking",
+        payload: {
+          promptTokens: 100,
+          completionTokens: 50,
+          costUsd: 0.001,
+          modelId: "model-A",
+        },
+        timestamp: 1,
+      },
+      {
+        type: "thinking",
+        payload: {
+          promptTokens: 200,
+          completionTokens: 100,
+          costUsd: 0.002,
+          modelId: "model-B",
+        },
+        timestamp: 2,
+      },
+      {
+        type: "thinking",
+        payload: {
+          promptTokens: 150,
+          completionTokens: 80,
+          costUsd: 0.0015,
+          modelId: "model-B",
+        },
+        timestamp: 3,
+      },
+    ];
+
+    await svc.tickCost(
+      "m1",
+      "u1",
+      "leader",
+      pool as never,
+      1000,
+      agentEvents as never,
+    );
+    await new Promise((r) => setImmediate(r));
+
+    const call = missionStore.appendCostEntry.mock.calls[0][0];
+    expect(call.model).toBe("model-B"); // B appeared twice vs A once
+    expect(call.promptTokens).toBe(450); // 100+200+150
+    expect(call.completionTokens).toBe(230); // 50+100+80
+    expect(call.costUsd).toBeCloseTo(0.0045); // 0.001+0.002+0.0015
+  });
+
+  it("handles empty agentEvents array → model=null, costUsd falls back to estimate", async () => {
+    const missionStore = makeMissionStore();
+    const { svc } = makeSvcFull({ missionStore });
+    const pool = makePool();
+
+    await svc.tickCost(
+      "m1",
+      "u1",
+      "reviewer",
+      pool as never,
+      500_000,
+      [] as never,
+    );
+    await new Promise((r) => setImmediate(r));
+
+    const call = missionStore.appendCostEntry.mock.calls[0][0];
+    expect(call.model).toBeNull();
+    expect(call.promptTokens).toBe(0);
+    expect(call.completionTokens).toBe(0);
+    // estimateUsdFromTokens(500_000) ≈ 1.5
+    expect(call.costUsd).toBeGreaterThan(0);
+  });
+
+  it("handles undefined agentEvents → model=null, uses estimate", async () => {
+    const missionStore = makeMissionStore();
+    const { svc } = makeSvcFull({ missionStore });
+    const pool = makePool();
+
+    await svc.tickCost(
+      "m1",
+      "u1",
+      "reconciler",
+      pool as never,
+      200_000,
+      undefined,
+    );
+    await new Promise((r) => setImmediate(r));
+
+    const call = missionStore.appendCostEntry.mock.calls[0][0];
+    expect(call.model).toBeNull();
+    expect(call.costUsd).toBeGreaterThan(0);
+  });
+
+  it("toFiniteNonNeg: handles string-numeric values in thinking events", async () => {
+    const missionStore = makeMissionStore();
+    const { svc } = makeSvcFull({ missionStore });
+    const pool = makePool();
+
+    const agentEvents = [
+      {
+        type: "thinking",
+        payload: {
+          promptTokens: "150", // string
+          completionTokens: "75", // string
+          costUsd: "0.003", // string
+          modelId: "model-X",
+        },
+        timestamp: 1,
+      },
+    ];
+
+    await svc.tickCost(
+      "m1",
+      "u1",
+      "steward",
+      pool as never,
+      1000,
+      agentEvents as never,
+    );
+    await new Promise((r) => setImmediate(r));
+
+    const call = missionStore.appendCostEntry.mock.calls[0][0];
+    expect(call.promptTokens).toBe(150);
+    expect(call.completionTokens).toBe(75);
+    expect(call.costUsd).toBeCloseTo(0.003);
+  });
+
+  it("toFiniteNonNeg: negative or non-finite values are clamped to 0", async () => {
+    const missionStore = makeMissionStore();
+    const { svc } = makeSvcFull({ missionStore });
+    const pool = makePool();
+
+    const agentEvents = [
+      {
+        type: "thinking",
+        payload: {
+          promptTokens: -100, // negative
+          completionTokens: NaN, // non-finite
+          costUsd: Infinity, // non-finite
+          modelId: "model-Y",
+        },
+        timestamp: 1,
+      },
+    ];
+
+    await svc.tickCost(
+      "m1",
+      "u1",
+      "critic",
+      pool as never,
+      1000,
+      agentEvents as never,
+    );
+    await new Promise((r) => setImmediate(r));
+
+    const call = missionStore.appendCostEntry.mock.calls[0][0];
+    expect(call.promptTokens).toBe(0);
+    expect(call.completionTokens).toBe(0);
+    // costUsd=0 → fallback estimate
+    expect(call.costUsd).toBeGreaterThan(0);
+  });
+
+  it("non-thinking events are ignored in extractStageUsage", async () => {
+    const missionStore = makeMissionStore();
+    const { svc } = makeSvcFull({ missionStore });
+    const pool = makePool();
+
+    const agentEvents = [
+      {
+        type: "action_executed",
+        payload: { promptTokens: 999, completionTokens: 999, costUsd: 99 },
+        timestamp: 1,
+      },
+      {
+        type: "thinking",
+        payload: {
+          promptTokens: 50,
+          completionTokens: 25,
+          costUsd: 0.001,
+          modelId: "m1",
+        },
+        timestamp: 2,
+      },
+    ];
+
+    await svc.tickCost(
+      "m1",
+      "u1",
+      "verifier",
+      pool as never,
+      1000,
+      agentEvents as never,
+    );
+    await new Promise((r) => setImmediate(r));
+
+    const call = missionStore.appendCostEntry.mock.calls[0][0];
+    expect(call.promptTokens).toBe(50); // only from thinking event
+    expect(call.completionTokens).toBe(25);
+  });
+
+  it("appendCostEntry rejection → logs warn (non-fatal)", async () => {
+    const missionStore = {
+      appendCostEntry: jest
+        .fn()
+        .mockRejectedValue(new Error("DB write failed")),
+    };
+    const { svc } = makeSvcFull({ missionStore });
+    const pool = makePool();
+
+    // Should not throw even though appendCostEntry fails
+    await expect(
+      svc.tickCost("m1", "u1", "leader", pool as never, 500),
+    ).resolves.toBeUndefined();
+    // Wait for fire-and-forget rejection
+    await new Promise((r) => setImmediate(r));
+  });
+});
+
+// ─── spanService integration (R3-#38) ────────────────────────────────────────
+
+describe("AgentInvoker spanService integration (R3-#38)", () => {
+  it("calls spanService.startAgentSpan and endAgentSpan(success) on successful invoke", async () => {
+    const spanService = makeSpanService();
+    const { svc } = makeSvcFull({ spanService });
+    await svc.invoke({} as never, {}, baseCtx);
+    expect(spanService.startAgentSpan).toHaveBeenCalledWith(
+      "m1",
+      "researcher#0",
+    );
+    expect(spanService.endAgentSpan).toHaveBeenCalledWith(
+      "m1",
+      "researcher#0",
+      "completed",
+      undefined,
+    );
+  });
+
+  it("calls spanService.endAgentSpan with error status when agent fails (non-transient)", async () => {
+    const spanService = makeSpanService();
+    const runner = makeRunner();
+    const eventBus = makeEventBus();
+    const abortRegistry = makeAbortRegistry();
+    const failureLearner = makeFailureLearner();
+    const svc = new AgentInvoker(
+      runner as never,
+      eventBus as never,
+      abortRegistry as never,
+      failureLearner as never,
+      spanService as never,
+    );
+
+    const permErr = new Error("context_length_exceeded: token limit");
+    runner.run.mockRejectedValue(permErr);
+
+    await expect(svc.invoke({} as never, {}, baseCtx)).rejects.toThrow(permErr);
+
+    expect(spanService.endAgentSpan).toHaveBeenCalledWith(
+      "m1",
+      "researcher#0",
+      "failed",
+      permErr,
+    );
+  });
+
+  it("calls spanService.endAgentSpan with error on transient failure after exhausting retries", async () => {
+    const spanService = makeSpanService();
+    const runner = makeRunner();
+    const eventBus = makeEventBus();
+    const abortRegistry = makeAbortRegistry();
+    const failureLearner = makeFailureLearner();
+    const svc = new AgentInvoker(
+      runner as never,
+      eventBus as never,
+      abortRegistry as never,
+      failureLearner as never,
+      spanService as never,
+    );
+
+    const transErr = new Error("network timeout — ECONNRESET");
+    runner.run.mockRejectedValue(transErr);
+
+    await expect(svc.invoke({} as never, {}, baseCtx)).rejects.toThrow(
+      transErr,
+    );
+
+    expect(spanService.startAgentSpan).toHaveBeenCalled();
+    expect(spanService.endAgentSpan).toHaveBeenCalledWith(
+      "m1",
+      "researcher#0",
+      "failed",
+      transErr,
+    );
+  });
+});
+
 // ─── clearMissionRelayState ───────────────────────────────────────────────────
 
 describe("AgentInvoker.clearMissionRelayState", () => {

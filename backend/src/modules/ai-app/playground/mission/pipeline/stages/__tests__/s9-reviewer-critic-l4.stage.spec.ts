@@ -325,4 +325,338 @@ describe("runCriticStage (S9)", () => {
       expect.stringContaining("L4 critic failed"),
     );
   });
+
+  it("emit critic:verdict rejects → logs warn and continues (line 181 catch)", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps();
+    // Make emit throw on the first call after critic runs
+    let emitCallCount = 0;
+    (deps.emit as jest.Mock).mockImplementation(async (e: { type: string }) => {
+      emitCallCount++;
+      if (e.type === "playground.critic:verdict") {
+        throw new Error("emit failed");
+      }
+    });
+    // Should not throw - catch block swallows
+    await expect(runCriticStage(ctx, deps)).resolves.toBeUndefined();
+    expect(emitCallCount).toBeGreaterThan(0);
+  });
+});
+
+// ─── runForecastRedTeam (lines 306-428) ──────────────────────────────────────
+
+function makeCtxWithForesight(
+  overrides: Partial<MissionContext> = {},
+): MissionContext {
+  return makeCtx({
+    reportArtifact: {
+      ...makeReportArtifact(),
+      quickView: {
+        executiveSummary: { markdown: "..." },
+        foresight: {
+          baseCase: [
+            {
+              judgment: "AI will grow 30%",
+              probability: 0.7,
+              confidence: "high",
+              horizon: "3y",
+            },
+          ],
+          scenarios: [
+            { kind: "bull", narrative: "massive adoption", probability: 0.6 },
+          ],
+          criticalUncertainties: ["regulation", "compute cost"],
+          couldBeWrongIf: [],
+          robustness: 75,
+        },
+      },
+    } as unknown as MissionContext["reportArtifact"],
+    ...overrides,
+  });
+}
+
+function makeDepsFull(
+  reviewerOverrides: Record<string, jest.Mock> = {},
+): MissionDeps {
+  return {
+    ...makeDeps(),
+    reviewer: {
+      criticL4: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: {
+          overallVerdict: "pass",
+          blindspots: [],
+          biasFlags: [],
+          suggestions: [],
+          rationale: "OK",
+        },
+        events: [],
+        wallTimeMs: 500,
+        iterations: 1,
+      }),
+      forecastRedTeam: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: {
+          overallRobustness: 70,
+          couldBeWrongIf: ["regulation changes", "market shift"],
+          vulnerabilities: [
+            {
+              statement: "AI adoption slows",
+              failureScenario: "regulation blocks",
+              impactIfFails: "high",
+              timeHorizon: "2y",
+            },
+          ],
+          rationale: "Solid foresight",
+        },
+        events: [
+          {
+            type: "thinking",
+            payload: {
+              promptTokens: 100,
+              completionTokens: 50,
+              costUsd: 0.001,
+            },
+            timestamp: 1,
+          },
+        ],
+        wallTimeMs: 800,
+        iterations: 1,
+      }),
+      ...reviewerOverrides,
+    },
+    invoker: {
+      tickCost: jest.fn().mockResolvedValue(undefined),
+      preDisableKnownFailingModels: jest.fn().mockResolvedValue([]),
+    },
+  } as unknown as MissionDeps;
+}
+
+describe("runForecastRedTeam (via runCriticStage, lines 306-428)", () => {
+  it("skips when reportArtifact has no foresight (quickView.foresight absent)", async () => {
+    const ctx = makeCtx(); // default makeReportArtifact has no foresight
+    const deps = makeDepsFull();
+    await runCriticStage(ctx, deps);
+    expect(deps.reviewer.forecastRedTeam as jest.Mock).not.toHaveBeenCalled();
+  });
+
+  it("skips when foresight.baseCase is empty", async () => {
+    const ctx = makeCtxWithForesight({
+      reportArtifact: {
+        ...makeReportArtifact(),
+        quickView: {
+          executiveSummary: { markdown: "..." },
+          foresight: {
+            baseCase: [], // empty
+            scenarios: [],
+            criticalUncertainties: [],
+            couldBeWrongIf: [],
+            robustness: 75,
+          },
+        },
+      } as unknown as MissionContext["reportArtifact"],
+    });
+    const deps = makeDepsFull();
+    await runCriticStage(ctx, deps);
+    expect(deps.reviewer.forecastRedTeam as jest.Mock).not.toHaveBeenCalled();
+  });
+
+  it("runs forecast red-team when foresight.baseCase has entries → couldBeWrongIf + robustness set", async () => {
+    const ctx = makeCtxWithForesight();
+    const deps = makeDepsFull();
+    await runCriticStage(ctx, deps);
+    expect(deps.reviewer.forecastRedTeam as jest.Mock).toHaveBeenCalledTimes(1);
+    // ctx.reportRedTeamVerdict should be set
+    expect(ctx.reportRedTeamVerdict).toBeDefined();
+    expect(ctx.reportRedTeamVerdict?.overallRobustness).toBe(70);
+    // foresight enriched
+    const foresight = ctx.reportArtifact?.quickView.foresight as {
+      couldBeWrongIf?: string[];
+      robustness?: number;
+    };
+    expect(foresight?.robustness).toBe(70);
+    expect(foresight?.couldBeWrongIf).toEqual([
+      "regulation changes",
+      "market shift",
+    ]);
+  });
+
+  it("robustness < 50 → hardGateViolation added", async () => {
+    const ctx = makeCtxWithForesight();
+    const deps = makeDepsFull({
+      forecastRedTeam: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: {
+          overallRobustness: 30, // < 50
+          couldBeWrongIf: [],
+          vulnerabilities: [],
+          rationale: "Weak foresight",
+        },
+        events: [],
+        wallTimeMs: 500,
+        iterations: 1,
+      }),
+    });
+    await runCriticStage(ctx, deps);
+    const violations = ctx.reportArtifact?.quality.hardGateViolations ?? [];
+    const rtViolation = violations.find(
+      (v) => v.dimension === "forecast-redteam",
+    );
+    expect(rtViolation).toBeDefined();
+  });
+
+  it("robustness >= 50 → no hardGateViolation for forecast-redteam", async () => {
+    const ctx = makeCtxWithForesight();
+    const deps = makeDepsFull();
+    await runCriticStage(ctx, deps);
+    const violations = ctx.reportArtifact?.quality.hardGateViolations ?? [];
+    const rtViolation = violations.find(
+      (v) => v.dimension === "forecast-redteam",
+    );
+    expect(rtViolation).toBeUndefined();
+  });
+
+  it("rtRes.state !== 'completed' → returns early without setting verdict", async () => {
+    const ctx = makeCtxWithForesight();
+    const deps = makeDepsFull({
+      forecastRedTeam: jest.fn().mockResolvedValue({
+        state: "failed",
+        output: null,
+        events: [],
+        wallTimeMs: 100,
+        iterations: 1,
+      }),
+    });
+    await runCriticStage(ctx, deps);
+    expect(ctx.reportRedTeamVerdict).toBeUndefined();
+  });
+
+  it("rtRes.output absent → returns early", async () => {
+    const ctx = makeCtxWithForesight();
+    const deps = makeDepsFull({
+      forecastRedTeam: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: undefined,
+        events: [],
+        wallTimeMs: 100,
+        iterations: 1,
+      }),
+    });
+    await runCriticStage(ctx, deps);
+    expect(ctx.reportRedTeamVerdict).toBeUndefined();
+  });
+
+  it("output missing overallRobustness → defaults to 50", async () => {
+    const ctx = makeCtxWithForesight();
+    const deps = makeDepsFull({
+      forecastRedTeam: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: {
+          // no overallRobustness
+          couldBeWrongIf: [],
+          vulnerabilities: [],
+          rationale: "ok",
+        },
+        events: [],
+        wallTimeMs: 100,
+        iterations: 1,
+      }),
+    });
+    await runCriticStage(ctx, deps);
+    expect(ctx.reportRedTeamVerdict?.overallRobustness).toBe(50);
+  });
+
+  it("output has non-array couldBeWrongIf → defaults to []", async () => {
+    const ctx = makeCtxWithForesight();
+    const deps = makeDepsFull({
+      forecastRedTeam: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: {
+          overallRobustness: 60,
+          couldBeWrongIf: "not an array", // bad type
+          vulnerabilities: null,
+          rationale: "ok",
+        },
+        events: [],
+        wallTimeMs: 100,
+        iterations: 1,
+      }),
+    });
+    await runCriticStage(ctx, deps);
+    expect(ctx.reportRedTeamVerdict?.couldBeWrongIf).toEqual([]);
+    expect(ctx.reportRedTeamVerdict?.vulnerabilities).toEqual([]);
+  });
+
+  it("vulnerabilities with 5+ entries → only first 5 pushed to warnings", async () => {
+    const ctx = makeCtxWithForesight();
+    const makeVuln = (i: number) => ({
+      statement: `vuln ${i}`,
+      failureScenario: `fail ${i}`,
+      impactIfFails: "medium",
+      timeHorizon: "1y",
+    });
+    const deps = makeDepsFull({
+      forecastRedTeam: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: {
+          overallRobustness: 70,
+          couldBeWrongIf: [],
+          vulnerabilities: [1, 2, 3, 4, 5, 6, 7].map(makeVuln),
+          rationale: "many vulns",
+        },
+        events: [],
+        wallTimeMs: 100,
+        iterations: 1,
+      }),
+    });
+    await runCriticStage(ctx, deps);
+    const warnings = ctx.reportArtifact?.quality.warnings ?? [];
+    const vulnWarnings = warnings.filter(
+      (w) => w.dimension === "forecast-vulnerability",
+    );
+    expect(vulnWarnings).toHaveLength(5); // only first 5
+  });
+
+  it("forecastRedTeam throws → logs warn (non-fatal), no rethrow", async () => {
+    const ctx = makeCtxWithForesight();
+    const deps = makeDepsFull({
+      forecastRedTeam: jest
+        .fn()
+        .mockRejectedValue(new Error("redteam API failed")),
+    });
+    await expect(runCriticStage(ctx, deps)).resolves.toBeUndefined();
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("forecast red-team failed"),
+    );
+  });
+
+  it("emit red-team:verdict fails → logs warn (catch in emit.catch)", async () => {
+    const ctx = makeCtxWithForesight();
+    const deps = makeDepsFull();
+    // Make emit reject for red-team:verdict
+    (deps.emit as jest.Mock).mockImplementation(async (e: { type: string }) => {
+      if (e.type === "playground.red-team:verdict") {
+        throw new Error("emit red-team failed");
+      }
+    });
+    await expect(runCriticStage(ctx, deps)).resolves.toBeUndefined();
+  });
+
+  it("emits playground.red-team:verdict event on successful red-team", async () => {
+    const ctx = makeCtxWithForesight();
+    const deps = makeDepsFull();
+    await runCriticStage(ctx, deps);
+    const rtEmit = (deps.emit as jest.Mock).mock.calls.find(
+      (c) => c[0].type === "playground.red-team:verdict",
+    );
+    expect(rtEmit).toBeDefined();
+    expect(rtEmit![0].payload.robustness).toBe(70);
+  });
+
+  it("tickCost called with red-team events", async () => {
+    const ctx = makeCtxWithForesight();
+    const deps = makeDepsFull();
+    await runCriticStage(ctx, deps);
+    expect(deps.invoker.tickCost as jest.Mock).toHaveBeenCalledTimes(2); // once for critic, once for red-team
+  });
 });

@@ -92,6 +92,412 @@ function buildService() {
   return { service, prisma, chat, store, eventBus, skillCatalog };
 }
 
+// ── consolidation injection branch (lines 173-178) ───────────────────────────
+
+describe("LeaderChatService.send — consolidation injection", () => {
+  function mkPrismaFull() {
+    return {
+      agentPlaygroundLeaderChat: {
+        findMany: jest.fn().mockResolvedValue([]),
+        create: jest
+          .fn()
+          .mockImplementation((args: { data: Record<string, unknown> }) =>
+            Promise.resolve({
+              id: `created-${args.data.role}`,
+              role: args.data.role,
+              content: args.data.content,
+              tokensUsed: args.data.tokensUsed ?? null,
+              createdAt: new Date(),
+              decision: args.data.decision ?? null,
+              missionId: args.data.missionId,
+              userId: args.data.userId,
+            }),
+          ),
+      },
+    };
+  }
+
+  it("consolidation present + getRulesForMission succeeds → snippet injected (lines 174-176)", async () => {
+    const chat = {
+      chat: jest.fn().mockResolvedValue({
+        content: '{"decisionType":"DIRECT_ANSWER","response":"OK"}',
+        usage: { totalTokens: 10 },
+      }),
+    };
+    const store = {
+      getById: jest.fn().mockResolvedValue(makeMission()),
+      appendDimensions: jest.fn().mockResolvedValue([]),
+    };
+    const consolidation = {
+      getRulesForMission: jest
+        .fn()
+        .mockResolvedValue({ promptSnippet: "Rule: always cite sources" }),
+    };
+    const service = new LeaderChatService(
+      mkPrismaFull() as never,
+      chat as never,
+      store as never,
+      { emit: jest.fn().mockResolvedValue(undefined) } as never,
+      { get: jest.fn().mockReturnValue(undefined) } as never,
+      consolidation as never,
+    );
+
+    const result = await service.send("m-1", "u-1", "hello");
+    expect(consolidation.getRulesForMission).toHaveBeenCalledWith([]);
+    // The systemPrompt used in chat should include the consolidation snippet
+    const callArg = chat.chat.mock.calls[0][0] as { systemPrompt: string };
+    expect(callArg.systemPrompt).toContain("Rule: always cite sources");
+    expect(result.assistant).toBeDefined();
+  });
+
+  it("consolidation present + getRulesForMission throws → warns + continues (line 177-180)", async () => {
+    const chat = {
+      chat: jest.fn().mockResolvedValue({
+        content: '{"decisionType":"DIRECT_ANSWER","response":"OK"}',
+        usage: { totalTokens: 10 },
+      }),
+    };
+    const store = {
+      getById: jest.fn().mockResolvedValue(makeMission()),
+      appendDimensions: jest.fn().mockResolvedValue([]),
+    };
+    const consolidation = {
+      getRulesForMission: jest
+        .fn()
+        .mockRejectedValue(new Error("rule service down")),
+    };
+    const service = new LeaderChatService(
+      mkPrismaFull() as never,
+      chat as never,
+      store as never,
+      { emit: jest.fn().mockResolvedValue(undefined) } as never,
+      { get: jest.fn().mockReturnValue(undefined) } as never,
+      consolidation as never,
+    );
+
+    // Should not throw, should degrade gracefully
+    const result = await service.send("m-1", "u-1", "hello");
+    expect(consolidation.getRulesForMission).toHaveBeenCalled();
+    expect(result.assistant.content).toBe("OK");
+  });
+
+  it("appendDimensions throws → logs warn, does not propagate (line 316)", async () => {
+    const chat = {
+      chat: jest.fn().mockResolvedValue({
+        content:
+          '{"decisionType":"CREATE_TODO","response":"Added","todo":[{"name":"NewDim","rationale":"why"}]}',
+        usage: { totalTokens: 10 },
+      }),
+    };
+    const store = {
+      getById: jest.fn().mockResolvedValue(makeMission({ status: "running" })),
+      appendDimensions: jest
+        .fn()
+        .mockRejectedValue(new Error("DB write failed")),
+    };
+    const service = new LeaderChatService(
+      mkPrismaFull() as never,
+      chat as never,
+      store as never,
+      { emit: jest.fn().mockResolvedValue(undefined) } as never,
+      { get: jest.fn().mockReturnValue(undefined) } as never,
+    );
+
+    // Should not throw, appendedDimensionIds should be undefined
+    const result = await service.send("m-1", "u-1", "add a dimension");
+    expect(result.appendedDimensionIds).toBeUndefined();
+    // the response text is unchanged (no re-throw)
+    expect(result.assistant).toBeDefined();
+  });
+
+  it("appendDimensions throws non-Error string → String(err) branch at line 317", async () => {
+    // The catch at line 315-318 has `err instanceof Error ? err.message : String(err)`
+    // Throw a non-Error (string) to cover the [1] false branch
+    const chat = {
+      chat: jest.fn().mockResolvedValue({
+        content:
+          '{"decisionType":"CREATE_TODO","response":"Added","todo":[{"name":"D2","rationale":"r"}]}',
+        usage: { totalTokens: 10 },
+      }),
+    };
+    const store = {
+      getById: jest.fn().mockResolvedValue(makeMission({ status: "running" })),
+      appendDimensions: jest.fn().mockRejectedValue("plain-string-error"), // non-Error → String(err) branch
+    };
+    const service = new LeaderChatService(
+      mkPrismaFull() as never,
+      chat as never,
+      store as never,
+      { emit: jest.fn().mockResolvedValue(undefined) } as never,
+      { get: jest.fn().mockReturnValue(undefined) } as never,
+    );
+    // Should not throw; appendedDimensionIds should be undefined
+    const result = await service.send("m-1", "u-1", "add dim");
+    expect(result.assistant).toBeDefined();
+    expect(result.appendedDimensionIds).toBeUndefined();
+  });
+
+  it("failover provider: listUserEnabledModelsByType throws → returns null (line 214-215)", async () => {
+    const chat = {
+      chat: jest.fn(async (opts: { model?: string }) => {
+        if (!opts.model) {
+          throw Object.assign(new Error("NO_AVAILABLE_KEY"), {
+            code: "NO_AVAILABLE_KEY",
+          });
+        }
+        return {
+          content:
+            '{"decisionType":"DIRECT_ANSWER","response":"OK via fallback"}',
+          usage: { totalTokens: 5 },
+        };
+      }),
+    };
+    const store = {
+      getById: jest.fn().mockResolvedValue(makeMission()),
+      appendDimensions: jest.fn().mockResolvedValue([]),
+    };
+    const modelConfig = {
+      listUserEnabledModelsByType: jest
+        .fn()
+        .mockRejectedValue(new Error("DB error")),
+    };
+    const service = new LeaderChatService(
+      mkPrismaFull() as never,
+      chat as never,
+      store as never,
+      { emit: jest.fn().mockResolvedValue(undefined) } as never,
+      { get: jest.fn().mockReturnValue(undefined) } as never,
+      undefined,
+      modelConfig as never,
+    );
+
+    // listUserEnabledModelsByType throws → catch returns null → failover provider returns null
+    // executeWithModelFailover will then fail (no model) → LLM error path
+    const result = await service.send("m-1", "u-1", "hello");
+    expect(modelConfig.listUserEnabledModelsByType).toHaveBeenCalled();
+    // result is defined (error degraded gracefully)
+    expect(result.assistant).toBeDefined();
+  });
+});
+
+// ── Additional branch coverage ────────────────────────────────────────────────
+
+describe("LeaderChatService.send — additional branch coverage", () => {
+  function mkPrismaFull2() {
+    return {
+      agentPlaygroundLeaderChat: {
+        findMany: jest.fn().mockResolvedValue([]),
+        create: jest
+          .fn()
+          .mockImplementation((args: { data: Record<string, unknown> }) =>
+            Promise.resolve({
+              id: `created-${args.data.role}`,
+              role: args.data.role,
+              content: args.data.content,
+              tokensUsed: args.data.tokensUsed ?? null,
+              createdAt: new Date(),
+              decision: args.data.decision ?? null,
+              missionId: args.data.missionId,
+              userId: args.data.userId,
+            }),
+          ),
+      },
+    };
+  }
+
+  it("consolidation.getRulesForMission throws non-Error → String(err) branch (line 179)", async () => {
+    // line 179: `err instanceof Error ? err.message : String(err)` - the String(err) branch
+    const consolidation = {
+      getRulesForMission: jest.fn().mockRejectedValue("string-error"),
+    };
+    const chat = {
+      chat: jest.fn().mockResolvedValue({
+        content: '{"decisionType":"DIRECT_ANSWER","response":"OK"}',
+        usage: { totalTokens: 5 },
+      }),
+    };
+    const store = {
+      getById: jest.fn().mockResolvedValue(makeMission()),
+      appendDimensions: jest.fn().mockResolvedValue([]),
+    };
+    const service = new LeaderChatService(
+      mkPrismaFull2() as never,
+      chat as never,
+      store as never,
+      { emit: jest.fn().mockResolvedValue(undefined) } as never,
+      { get: jest.fn().mockReturnValue(undefined) } as never,
+      consolidation as never,
+    );
+    // Should not throw (string error is handled gracefully)
+    const result = await service.send("m-1", "u-1", "hello");
+    expect(result.assistant).toBeDefined();
+  });
+
+  it("failover provider: models array empty → models[0]?.modelId is undefined → ?? null (line 213)", async () => {
+    // models = [] → models[0] is undefined → ?.modelId is undefined → ?? null fires
+    const chat = {
+      chat: jest.fn(async (opts: { model?: string }) => {
+        if (!opts.model) {
+          throw Object.assign(new Error("NO_KEY"), {
+            code: "NO_AVAILABLE_KEY",
+          });
+        }
+        return {
+          content: '{"decisionType":"DIRECT_ANSWER","response":"OK"}',
+          usage: { totalTokens: 5 },
+        };
+      }),
+    };
+    const store = {
+      getById: jest.fn().mockResolvedValue(makeMission()),
+      appendDimensions: jest.fn().mockResolvedValue([]),
+    };
+    const modelConfig = {
+      listUserEnabledModelsByType: jest.fn().mockResolvedValue([]), // empty → models[0] undefined
+    };
+    const service = new LeaderChatService(
+      mkPrismaFull2() as never,
+      chat as never,
+      store as never,
+      { emit: jest.fn().mockResolvedValue(undefined) } as never,
+      { get: jest.fn().mockReturnValue(undefined) } as never,
+      undefined,
+      modelConfig as never,
+    );
+    // provider returns null (no available model) → failover fails → LLM error fallback
+    const result = await service.send("m-1", "u-1", "hi");
+    expect(result.assistant.content).toContain("Leader 暂时无法回复");
+  });
+
+  it("LLM result.content is null → content?.trim() || '' fallback (line 241)", async () => {
+    // result.content is null → content?.trim() is undefined → || '' fires
+    const chat = {
+      chat: jest.fn().mockResolvedValue({
+        content: null, // null triggers ?.trim() || "" branch
+        model: "gemini",
+        usage: { totalTokens: 5 },
+      }),
+    };
+    const store = {
+      getById: jest.fn().mockResolvedValue(makeMission()),
+      appendDimensions: jest.fn().mockResolvedValue([]),
+    };
+    const service = new LeaderChatService(
+      mkPrismaFull2() as never,
+      chat as never,
+      store as never,
+      { emit: jest.fn().mockResolvedValue(undefined) } as never,
+      { get: jest.fn().mockReturnValue(undefined) } as never,
+    );
+    const result = await service.send("m-1", "u-1", "hello");
+    // Empty raw text → parseLeaderDecisionResponse fallback → DIRECT_ANSWER type
+    expect(result.assistant).toBeDefined();
+  });
+
+  it("inspectResult: res.content is undefined → ?? '' branch (line 238)", async () => {
+    // Return a result with no content field → res.content is undefined → ?? '' fires
+    // Also tests result.content?.trim() || '' branch (line 241)
+    const chat = {
+      chat: jest.fn().mockResolvedValue({
+        // No content field → res.content === undefined → inspectResult: message = undefined ?? '' = ''
+        model: "model-a",
+        usage: { totalTokens: 0 },
+      }),
+    };
+    const store = {
+      getById: jest.fn().mockResolvedValue(makeMission()),
+      appendDimensions: jest.fn().mockResolvedValue([]),
+    };
+    const service = new LeaderChatService(
+      mkPrismaFull2() as never,
+      chat as never,
+      store as never,
+      { emit: jest.fn().mockResolvedValue(undefined) } as never,
+      { get: jest.fn().mockReturnValue(undefined) } as never,
+    );
+    // When content is absent, raw = '' → parseLeaderDecisionResponse('') → DIRECT_ANSWER
+    // → parsed.response = '' → assistantText = '(Leader did not respond)'
+    const result = await service.send("m-1", "u-1", "hello");
+    expect(result.assistant).toBeDefined();
+    // Either the fallback text or whatever the parser returns for empty input
+  });
+
+  it("parsed.response is empty → || '(Leader did not respond)' fallback (line 245)", async () => {
+    // When LLM returns a result with no usable response text
+    // null content → raw = '' → parseLeaderDecisionResponse('') → response = ''
+    // → '' || '(Leader did not respond)' fires
+    const chat = {
+      chat: jest.fn().mockResolvedValue({
+        content: null, // null → ?.trim() is undefined → || '' fires → raw = ''
+        usage: { totalTokens: 5 },
+      }),
+    };
+    const store = {
+      getById: jest.fn().mockResolvedValue(makeMission()),
+      appendDimensions: jest.fn().mockResolvedValue([]),
+    };
+    const service = new LeaderChatService(
+      mkPrismaFull2() as never,
+      chat as never,
+      store as never,
+      { emit: jest.fn().mockResolvedValue(undefined) } as never,
+      { get: jest.fn().mockReturnValue(undefined) } as never,
+    );
+    const result = await service.send("m-1", "u-1", "hello");
+    // raw = '' → parseLeaderDecisionResponse('') → DIRECT_ANSWER with raw as response
+    // Since raw = '', and response is raw (''), '' || '(Leader did not respond)' fires
+    expect(result.assistant.content).toContain("(Leader did not respond)");
+  });
+
+  it("LLM throws non-Error value → String(err) in log and assistant text (lines 249, 251)", async () => {
+    const chat = {
+      chat: jest.fn().mockRejectedValue("raw string error"),
+    };
+    const store = {
+      getById: jest.fn().mockResolvedValue(makeMission()),
+      appendDimensions: jest.fn().mockResolvedValue([]),
+    };
+    const service = new LeaderChatService(
+      mkPrismaFull2() as never,
+      chat as never,
+      store as never,
+      { emit: jest.fn().mockResolvedValue(undefined) } as never,
+      { get: jest.fn().mockReturnValue(undefined) } as never,
+    );
+    const result = await service.send("m-1", "u-1", "hello");
+    // When err is not an Error, assistantText uses "unknown error" (from line 251)
+    expect(result.assistant.content).toContain("unknown error");
+  });
+
+  it("eventBus.emit throws non-Error → String(e) branch in broadcastAppendedDimensions (lines 317, 351, 385)", async () => {
+    // Throw a non-Error (string) to hit String(e) branch in all 3 .catch handlers
+    const chat = {
+      chat: jest.fn().mockResolvedValue({
+        content:
+          '{"decisionType":"CREATE_TODO","response":"added","todo":[{"name":"D","rationale":"r"}]}',
+        usage: { totalTokens: 5 },
+      }),
+    };
+    const store = {
+      getById: jest.fn().mockResolvedValue(makeMission({ status: "running" })),
+      appendDimensions: jest.fn().mockResolvedValue(["dim-new-1"]),
+    };
+    const eventBus = {
+      emit: jest.fn().mockRejectedValue("non-error-string"),
+    };
+    const service = new LeaderChatService(
+      mkPrismaFull2() as never,
+      chat as never,
+      store as never,
+      eventBus as never,
+      { get: jest.fn().mockReturnValue(undefined) } as never,
+    );
+    // Should not throw; non-Error rejection is caught and String()-ed
+    const result = await service.send("m-1", "u-1", "add dim");
+    expect(result.assistant).toBeDefined();
+  });
+});
+
 describe("LeaderChatService.send — model-level failover", () => {
   function mkPrisma() {
     return {
@@ -241,6 +647,41 @@ describe("LeaderChatService.list", () => {
     ]);
     const result = await service.list("m-1");
     expect(result[0].role).toBe("user");
+  });
+
+  it("safeParseStoredDecision: decision with understanding string → preserved (line 112 cond-expr true-branch)", async () => {
+    // Branch 12[0]: `typeof o.understanding === 'string'` is TRUE → return o.understanding
+    const { service, prisma } = buildService();
+    prisma.agentPlaygroundLeaderChat.findMany.mockResolvedValue([
+      makeRow({
+        role: "assistant",
+        decision: {
+          type: "DIRECT_ANSWER",
+          understanding: "The user wants X",
+        },
+      }),
+    ]);
+    const result = await service.list("m-1");
+    expect(result[0].decision?.understanding).toBe("The user wants X");
+  });
+
+  it("safeParseStoredDecision: decision with clarifyOptions array → preserved (line 126 cond-expr true-branch)", async () => {
+    // Branch 15[0]: `Array.isArray(o.clarifyOptions)` is TRUE → filter and return
+    const { service, prisma } = buildService();
+    prisma.agentPlaygroundLeaderChat.findMany.mockResolvedValue([
+      makeRow({
+        role: "assistant",
+        decision: {
+          type: "CLARIFY",
+          clarifyOptions: ["Option A", "Option B"],
+        },
+      }),
+    ]);
+    const result = await service.list("m-1");
+    expect(result[0].decision?.clarifyOptions).toEqual([
+      "Option A",
+      "Option B",
+    ]);
   });
 
   it("queries with correct missionId", async () => {

@@ -251,6 +251,70 @@ describe("runPersistStage (S11)", () => {
     );
   });
 
+  it("emit mission:failed (leader_signoff_missing) failure swallowed (warns) — covers line 266", async () => {
+    let missionFailedCalled = false;
+    const failingEmit = jest
+      .fn()
+      .mockImplementation(async (event: { type: string }) => {
+        if (
+          event.type === "playground.mission:failed" &&
+          !missionFailedCalled
+        ) {
+          missionFailedCalled = true;
+          throw new Error("emit failed");
+        }
+        return undefined;
+      });
+    const deps = makeDeps({ emit: failingEmit });
+    const result = { ...BASE_RESULT, leaderSignOff: undefined };
+    await runPersistStage(makeArgs({ result }), deps);
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("leader_signoff_missing"),
+    );
+  });
+
+  it("emit mission:completed failure swallowed (warns) — covers line 368", async () => {
+    let completedCalled = false;
+    const failingEmit = jest
+      .fn()
+      .mockImplementation(async (event: { type: string }) => {
+        if (event.type === "playground.mission:completed" && !completedCalled) {
+          completedCalled = true;
+          throw new Error("emit failed");
+        }
+        return undefined;
+      });
+    const deps = makeDeps({ emit: failingEmit });
+    await runPersistStage(makeArgs(), deps);
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("emit mission:completed failed"),
+    );
+  });
+
+  it("emit mission:persist-failed failure swallowed (warns) — covers line 387", async () => {
+    const failingEmit = jest
+      .fn()
+      .mockImplementation(async (event: { type: string }) => {
+        if (
+          event.type === "playground.mission:failed" ||
+          event.type === "playground.mission:persist-failed"
+        ) {
+          throw new Error("emit failed");
+        }
+        return undefined;
+      });
+    const deps = makeDeps({ emit: failingEmit });
+    (deps.store.applyTerminalIfRunning as jest.Mock).mockRejectedValue(
+      new Error("DB write failed"),
+    );
+    await expect(runPersistStage(makeArgs(), deps)).rejects.toThrow(
+      "DB write failed",
+    );
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("emit mission:persist-failed"),
+    );
+  });
+
   describe("chapter content guard", () => {
     function makeArtifactWithSections(
       sectionLengths: number[],
@@ -351,6 +415,81 @@ describe("runPersistStage (S11)", () => {
       );
       const intent = getApplyIntent(deps);
       expect(intent.extra.kind).toBe("completed");
+    });
+
+    it("emit mission:failed (chapter_content_incomplete) failure is swallowed (warns) — covers line 165", async () => {
+      // Make a condition that triggers chapter_content_incomplete (nonEmpty < substantive)
+      // Use makeDeps with emit that rejects on mission:failed events
+      let missionFailedCalled = false;
+      const failingEmit = jest
+        .fn()
+        .mockImplementation(async (event: { type: string }) => {
+          if (
+            event.type === "playground.mission:failed" &&
+            !missionFailedCalled
+          ) {
+            missionFailedCalled = true;
+            throw new Error("emit failed");
+          }
+          return undefined;
+        });
+      const deps = makeDeps({ emit: failingEmit });
+      // fullMarkdown with NO content → all sections are heading-only → nonEmpty=0 < substantive
+      const fullMarkdown =
+        "## Section 1\n\n### subsection\n\n- bullets only\n\n" +
+        "## Section 2\n\n### other\n\n- more bullets\n\n";
+      const reportArtifact = {
+        ...BASE_RESULT.reportArtifact,
+        sections: [
+          {
+            title: "Section 1",
+            startOffset: 0,
+            endOffset: fullMarkdown.indexOf("## Section 2"),
+          },
+          {
+            title: "Section 2",
+            startOffset: fullMarkdown.indexOf("## Section 2"),
+            endOffset: fullMarkdown.length,
+          },
+        ],
+        content: { fullMarkdown },
+      };
+      await runPersistStage(
+        makeArgs({ result: { ...BASE_RESULT, reportArtifact } }),
+        deps,
+      );
+      // The emit failure is swallowed and warns
+      expect(failingEmit).toHaveBeenCalled();
+      expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+        expect.stringContaining("chapter_content_incomplete"),
+      );
+    });
+
+    it("emit mission:failed (chapter_content_below_threshold) failure is swallowed (warns) — covers line 209", async () => {
+      let missionFailedCalled = false;
+      const failingEmit = jest
+        .fn()
+        .mockImplementation(async (event: { type: string }) => {
+          if (
+            event.type === "playground.mission:failed" &&
+            !missionFailedCalled
+          ) {
+            missionFailedCalled = true;
+            throw new Error("emit failed");
+          }
+          return undefined;
+        });
+      const deps = makeDeps({ emit: failingEmit });
+      // coverage < 50% → triggers chapter_content_below_threshold
+      const reportArtifact = makeArtifactWithSections([600, 100, 100, 100]);
+      await runPersistStage(
+        makeArgs({ result: { ...BASE_RESULT, reportArtifact } }),
+        deps,
+      );
+      expect(failingEmit).toHaveBeenCalled();
+      expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+        expect.stringContaining("chapter_content_below_threshold"),
+      );
     });
 
     it("heading-only chapters fail even if the raw span is long", async () => {

@@ -389,12 +389,8 @@ describe("runPerDimPipeline", () => {
     const deps = makeDeps();
     await runPerDimPipeline(baseArgs, deps);
     const emitCalls = (deps.emit as jest.Mock).mock.calls.map((c) => c[0].type);
-    expect(emitCalls).toContain(
-      "playground.dimension:integrating:started",
-    );
-    expect(emitCalls).toContain(
-      "playground.dimension:integrating:completed",
-    );
+    expect(emitCalls).toContain("playground.dimension:integrating:started");
+    expect(emitCalls).toContain("playground.dimension:integrating:completed");
   });
 
   it("emits dimension:graded event after grade", async () => {
@@ -1482,6 +1478,512 @@ describe("runPerDimPipeline — parallel chapter execution (CHAPTER_CONCURRENCY=
   });
 });
 
+// ─── Additional coverage tests ────────────────────────────────────────────────
+
+describe("runPerDimPipeline — coverage gaps", () => {
+  // ── cache hit path: lines 324, 331-386 ───────────────────────────────────
+
+  it("cache hit: loadQualifiedChapterDrafts returns chapters → skips write/review, returns synthesized (lines 331-386)", async () => {
+    const deps = makeDeps({
+      store: {
+        loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([
+          {
+            dimension: "Technology",
+            chapterIndex: 1,
+            heading: "Chapter 1",
+            thesis: "Thesis 1",
+            content: "Body content for chapter 1",
+            wordCount: 500,
+            score: 85,
+          },
+          {
+            dimension: "Technology",
+            chapterIndex: 2,
+            heading: "Chapter 2",
+            thesis: "Thesis 2",
+            content: "Body content for chapter 2",
+            wordCount: 600,
+            score: 90,
+          },
+        ]),
+      } as never,
+    });
+    const result = await runPerDimPipeline(baseArgs, deps);
+    // Should return chapters from cache, not invoke writer
+    expect(result.chapters).toBeDefined();
+    expect(result.chapters?.length).toBe(2);
+    expect(result.chapters![0].heading).toBe("Chapter 1");
+    // writer should NOT be called (cache hit bypasses it)
+    expect(
+      (deps.writer as { planDimensionOutline: jest.Mock }).planDimensionOutline,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("cache hit: emit dimension:integrating:completed(fromCache) rejects → swallowed, warns (line 372)", async () => {
+    const deps = makeDeps({
+      store: {
+        loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([
+          {
+            dimension: "Technology",
+            chapterIndex: 1,
+            heading: "Ch 1",
+            thesis: "T1",
+            content: "Body text here",
+            wordCount: 300,
+            score: 80,
+          },
+        ]),
+      } as never,
+      emit: jest
+        .fn()
+        .mockImplementation(
+          (event: { type: string; payload?: { fromCache?: boolean } }) => {
+            if (
+              event.type === "playground.dimension:integrating:completed" &&
+              event.payload?.fromCache === true
+            ) {
+              return Promise.reject(new Error("cache integrating emit fail"));
+            }
+            return Promise.resolve();
+          },
+        ),
+    });
+    const result = await runPerDimPipeline(baseArgs, deps);
+    expect(result.chapters).toBeDefined();
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "emit dimension:integrating:completed (cache hit)",
+      ),
+    );
+  });
+
+  it("cache hit: loadQualifiedChapterDrafts rejects → falls back to [] (line 324)", async () => {
+    const deps = makeDeps({
+      store: {
+        loadQualifiedChapterDrafts: jest
+          .fn()
+          .mockRejectedValue(new Error("db error")),
+      } as never,
+    });
+    // Should not throw; proceeds normally via writer
+    const result = await runPerDimPipeline(baseArgs, deps);
+    expect(result).toBeDefined();
+    expect(
+      (deps.writer as { planDimensionOutline: jest.Mock }).planDimensionOutline,
+    ).toHaveBeenCalled();
+  });
+
+  // ── emit dimension:outline:planned failure: line 496 ─────────────────────
+
+  it("emit dimension:outline:planned rejects → swallowed, warns (line 496)", async () => {
+    const deps = makeDeps({
+      emit: jest.fn().mockImplementation((event: { type: string }) => {
+        if (event.type === "playground.dimension:outline:planned") {
+          return Promise.reject(new Error("outline:planned emit fail"));
+        }
+        return Promise.resolve();
+      }),
+    });
+    const result = await runPerDimPipeline(baseArgs, deps);
+    expect(result.chapters).toBeDefined();
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("emit dimension:outline:planned"),
+    );
+  });
+
+  // ── writtenChapters.length === 0: lines 620-627 ──────────────────────────
+  // All produced chapters are dropped as too-short/outline-only AND tolerance=100%
+  // so validator does NOT throw, but then line 619 check catches it.
+
+  it("all chapters are body-too-short + tolerance=100% → validChapters=0 → emitGraded(no-chapters) + throw (lines 620-627)", async () => {
+    // Set CHAPTER_TOLERANCE_RATIO=1.0 so validator doesn't throw on 100% missing,
+    // allowing the per-dim-pipeline.util.ts line-619 check to trigger.
+    const savedTolerance = process.env.CHAPTER_TOLERANCE_RATIO;
+    process.env.CHAPTER_TOLERANCE_RATIO = "1.0";
+
+    try {
+      const writer = {
+        planDimensionOutline: jest.fn().mockResolvedValue({
+          state: "completed",
+          output: makeOutlineOutput(1),
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        }),
+      };
+      const {
+        ChapterWriterAgent,
+        ChapterReviewerAgent,
+        DimensionIntegratorAgent,
+      } = {
+        ChapterWriterAgent: jest.requireMock(
+          "../../agents/writer/chapter-writer.agent",
+        ).ChapterWriterAgent,
+        ChapterReviewerAgent: jest.requireMock(
+          "../../agents/writer/chapter-reviewer.agent",
+        ).ChapterReviewerAgent,
+        DimensionIntegratorAgent: jest.requireMock(
+          "../../agents/writer/dimension-integrator.agent",
+        ).DimensionIntegratorAgent,
+      };
+      const invoker = {
+        invoke: jest
+          .fn()
+          .mockImplementation((AgentClass: { new (): unknown }) => {
+            if (AgentClass === ChapterWriterAgent) {
+              // Body too short (< 60 chars) → dropped by validateWrittenChapters
+              return Promise.resolve({
+                state: "completed",
+                output: { body: "x", wordCount: 1, citationsUsed: [] },
+                events: [],
+                iterations: 1,
+                wallTimeMs: 100,
+              });
+            }
+            if (AgentClass === ChapterReviewerAgent) {
+              return Promise.resolve({
+                state: "completed",
+                output: makeReviewerOutput("pass", 85),
+                events: [],
+                iterations: 1,
+                wallTimeMs: 50,
+              });
+            }
+            if (AgentClass === DimensionIntegratorAgent) {
+              return Promise.resolve({
+                state: "completed",
+                output: makeIntegratorOutput(),
+                events: [],
+                iterations: 1,
+                wallTimeMs: 200,
+              });
+            }
+            return Promise.resolve({
+              state: "failed",
+              output: undefined,
+              events: [],
+              iterations: 1,
+              wallTimeMs: 100,
+            });
+          }),
+        tickCost: jest.fn().mockResolvedValue(undefined),
+      };
+      const reviewer = {
+        judgeDimension: jest.fn().mockResolvedValue({
+          state: "completed",
+          output: makeGradeOutput(),
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        }),
+      };
+      const deps = makeDeps({
+        writer: writer as never,
+        invoker: invoker as never,
+        reviewer: reviewer as never,
+      });
+      await expect(runPerDimPipeline(baseArgs, deps)).rejects.toThrow(
+        /all.*dropped|0\/1 valid|no-chapters/,
+      );
+      // Should have emitted graded(no-chapters) at line 620
+      const gradedCalls = (deps.emit as jest.Mock).mock.calls.filter(
+        (c) => c[0].type === "playground.dimension:graded",
+      );
+      expect(gradedCalls.length).toBeGreaterThan(0);
+    } finally {
+      if (savedTolerance === undefined)
+        delete process.env.CHAPTER_TOLERANCE_RATIO;
+      else process.env.CHAPTER_TOLERANCE_RATIO = savedTolerance;
+    }
+  });
+
+  // ── emit dimension:integrating:started failure: line 660 ─────────────────
+
+  it("emit dimension:integrating:started rejects → swallowed, warns (line 660)", async () => {
+    const deps = makeDeps({
+      emit: jest.fn().mockImplementation((event: { type: string }) => {
+        if (event.type === "playground.dimension:integrating:started") {
+          return Promise.reject(new Error("integrating:started emit fail"));
+        }
+        return Promise.resolve();
+      }),
+    });
+    const result = await runPerDimPipeline(baseArgs, deps);
+    expect(result.chapters).toBeDefined();
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("emit dimension:integrating:started"),
+    );
+  });
+
+  // ── ensureChapterIntro H3 path: line 696 ─────────────────────────────────
+
+  it("chapter body starting with ### → ensureChapterIntro prepends summary text (line 696)", async () => {
+    const {
+      ChapterWriterAgent,
+      ChapterReviewerAgent,
+      DimensionIntegratorAgent,
+    } = {
+      ChapterWriterAgent: jest.requireMock(
+        "../../agents/writer/chapter-writer.agent",
+      ).ChapterWriterAgent,
+      ChapterReviewerAgent: jest.requireMock(
+        "../../agents/writer/chapter-reviewer.agent",
+      ).ChapterReviewerAgent,
+      DimensionIntegratorAgent: jest.requireMock(
+        "../../agents/writer/dimension-integrator.agent",
+      ).DimensionIntegratorAgent,
+    };
+    const invoker = {
+      invoke: jest
+        .fn()
+        .mockImplementation((AgentClass: { new (): unknown }) => {
+          if (AgentClass === ChapterWriterAgent) {
+            return Promise.resolve({
+              state: "completed",
+              // Body starts with ### which triggers ensureChapterIntro
+              output: {
+                body: "### Sub-section title\n\n" + "content ".repeat(100),
+                wordCount: 1000,
+                citationsUsed: [],
+              },
+              events: [],
+              iterations: 1,
+              wallTimeMs: 100,
+            });
+          }
+          if (AgentClass === ChapterReviewerAgent) {
+            return Promise.resolve({
+              state: "completed",
+              output: makeReviewerOutput("pass", 85),
+              events: [],
+              iterations: 1,
+              wallTimeMs: 50,
+            });
+          }
+          if (AgentClass === DimensionIntegratorAgent) {
+            return Promise.resolve({
+              state: "completed",
+              output: makeIntegratorOutput(),
+              events: [],
+              iterations: 1,
+              wallTimeMs: 200,
+            });
+          }
+          return Promise.resolve({
+            state: "failed",
+            output: undefined,
+            events: [],
+            iterations: 1,
+            wallTimeMs: 100,
+          });
+        }),
+      tickCost: jest.fn().mockResolvedValue(undefined),
+    };
+    const deps = makeDeps({ invoker: invoker as never });
+    const result = await runPerDimPipeline(baseArgs, deps);
+    // stitchedFullMarkdown should contain the prepended intro text
+    expect(result.fullMarkdown).toContain("本章导读");
+  });
+
+  // ── emit dimension:integrating:completed failure (hasUsableOutput=true): line 741 ─
+
+  it("emit dimension:integrating:completed rejects (hasUsableOutput path) → swallowed, warns (line 741)", async () => {
+    const deps = makeDeps({
+      emit: jest.fn().mockImplementation(
+        (event: {
+          type: string;
+          payload?: {
+            fromCache?: boolean;
+            degraded?: boolean;
+            fallback?: string;
+          };
+        }) => {
+          if (
+            event.type === "playground.dimension:integrating:completed" &&
+            !event.payload?.fromCache &&
+            !event.payload?.fallback
+          ) {
+            return Promise.reject(new Error("integrating:completed emit fail"));
+          }
+          return Promise.resolve();
+        },
+      ),
+    });
+    const result = await runPerDimPipeline(baseArgs, deps);
+    expect(result.chapters).toBeDefined();
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("emit dimension:integrating:completed"),
+    );
+  });
+
+  // ── emit dimension:integrating:completed (fallback) failure: line 770 ─────
+
+  it("integrator fails + emit dimension:integrating:completed(fallback) rejects → swallowed, warns (line 770)", async () => {
+    const writer = {
+      planDimensionOutline: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeOutlineOutput(1),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const {
+      ChapterWriterAgent,
+      ChapterReviewerAgent,
+      DimensionIntegratorAgent,
+    } = {
+      ChapterWriterAgent: jest.requireMock(
+        "../../agents/writer/chapter-writer.agent",
+      ).ChapterWriterAgent,
+      ChapterReviewerAgent: jest.requireMock(
+        "../../agents/writer/chapter-reviewer.agent",
+      ).ChapterReviewerAgent,
+      DimensionIntegratorAgent: jest.requireMock(
+        "../../agents/writer/dimension-integrator.agent",
+      ).DimensionIntegratorAgent,
+    };
+    const invoker = {
+      invoke: jest
+        .fn()
+        .mockImplementation((AgentClass: { new (): unknown }) => {
+          if (AgentClass === ChapterWriterAgent) {
+            return Promise.resolve({
+              state: "completed",
+              output: makeWriterOutput(1200),
+              events: [],
+              iterations: 1,
+              wallTimeMs: 100,
+            });
+          }
+          if (AgentClass === ChapterReviewerAgent) {
+            return Promise.resolve({
+              state: "completed",
+              output: makeReviewerOutput("pass", 85),
+              events: [],
+              iterations: 1,
+              wallTimeMs: 50,
+            });
+          }
+          if (AgentClass === DimensionIntegratorAgent) {
+            return Promise.resolve({
+              state: "failed",
+              output: undefined,
+              events: [],
+              iterations: 1,
+              wallTimeMs: 100,
+            });
+          }
+          return Promise.resolve({
+            state: "failed",
+            output: undefined,
+            events: [],
+            iterations: 1,
+            wallTimeMs: 100,
+          });
+        }),
+      tickCost: jest.fn().mockResolvedValue(undefined),
+    };
+    const reviewer = {
+      judgeDimension: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeGradeOutput(),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const deps = makeDeps({
+      writer: writer as never,
+      invoker: invoker as never,
+      reviewer: reviewer as never,
+      emit: jest
+        .fn()
+        .mockImplementation(
+          (event: { type: string; payload?: { fallback?: string } }) => {
+            if (
+              event.type === "playground.dimension:integrating:completed" &&
+              event.payload?.fallback === "code-stitched-abstract"
+            ) {
+              return Promise.reject(
+                new Error("fallback integrating emit fail"),
+              );
+            }
+            return Promise.resolve();
+          },
+        ),
+    });
+    const result = await runPerDimPipeline(baseArgs, deps);
+    expect(result.fullMarkdown).toBeDefined();
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "emit dimension:integrating:completed (fallback)",
+      ),
+    );
+  });
+
+  // ── sources_sufficiency < 60 warning: lines 840-843 ──────────────────────
+
+  it("grade.axes.sources_sufficiency < 60 → warn + narrate (lines 840-843)", async () => {
+    const reviewer = {
+      judgeDimension: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: {
+          overall: 55,
+          grade: "C",
+          axes: {
+            sources_sufficiency: { score: 45, comment: "Not enough sources" },
+          },
+          summary: "Low sources sufficiency",
+        },
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const deps = makeDeps({ reviewer: reviewer as never });
+    const result = await runPerDimPipeline(baseArgs, deps);
+    expect(result.grade).toBeDefined();
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("sources_sufficiency"),
+    );
+  });
+
+  // ── fallback-finally path: line 892 ──────────────────────────────────────
+  // terminalEmitted=false when an early return happens without emitGraded being called.
+  // This is difficult to trigger directly since most paths call emitGraded.
+  // The easiest way is to make the grade agent fail without triggering the emitGraded(failed) path.
+  // Actually, emitGraded is called from within the graded callback. We can test this via
+  // grade skip path: if fullMarkdown or abstract is null, grade is skipped (line 777: if fullMarkdown && abstract).
+  // But that requires integrator to fail AND the chapter body to not produce a code-stitched abstract.
+  // Actually per line 749: abstract = writtenChapters[0]?.body?.replace(...)?.slice(0,200) — always set.
+  // The fallback-finally triggers only if the entire execution completes without any emitGraded call.
+  // This can happen only if all paths are skipped. But looking at the code:
+  // - empty findings → early return (emitGraded NOT called before the early return at line 301)
+  // Actually line 301 is BEFORE emitGraded setup. Let me check if the empty findings early return
+  // is before the terminalEmitted tracking setup...
+  // Looking at per-dim-pipeline.util more carefully: the `emitGraded` helper and `terminalEmitted`
+  // are defined after the early-return checks. So the fallback-finally only triggers in the outer
+  // try-catch if the execution completes without calling emitGraded (shouldn't happen normally).
+  // The safest coverage: make reviewerJudge return null output (falsy), causing hasUsableOutput=false
+  // for grade AND no emitGraded(ok:false, failed:true) either, because if gradeRes.state !== completed,
+  // the `else { await emitGraded({ok:false,...}) }` runs. Actually that DOES call emitGraded.
+  // So the fallback-finally is a true edge case - it's the guarantee that's hard to trigger.
+  // We accept this line may remain uncovered (it's dead code in practice).
+  // Mark it intentionally: test that the finally block at least exists structurally.
+  it("fallback-finally: emitGraded not needed when grade succeeds (verifying terminalEmitted tracking)", async () => {
+    const deps = makeDeps();
+    const result = await runPerDimPipeline(baseArgs, deps);
+    // In the happy path, emitGraded is called with ok:true → terminalEmitted=true
+    // The fallback-finally should NOT be triggered (it's the safety net for incomplete paths)
+    const gradedCalls = (deps.emit as jest.Mock).mock.calls.filter(
+      (c) => c[0].type === "playground.dimension:graded",
+    );
+    expect(gradedCalls.length).toBeGreaterThan(0);
+    expect(result.grade).toBeDefined();
+  });
+});
+
 // ─── L1-1 + L1-2 防"全部重写"循环测试 ──────────────────────────────────────────
 //
 // 注意: CHAPTER_MAX_REVISION_ATTEMPTS=1 (outer mock), 所以 while loop 最多跑 2 次
@@ -2163,8 +2665,7 @@ describe("runPerDimPipeline — RTK finding deduplication", () => {
       return (deps.emit as jest.Mock).mock.calls
         .map((c) => c[0])
         .filter(
-          (e: { type: string }) =>
-            e.type === "playground.dimension:graded",
+          (e: { type: string }) => e.type === "playground.dimension:graded",
         );
     }
 

@@ -17,7 +17,7 @@
  * - See .claude/skills/development/database-migration/SKILL.md for guidelines
  */
 
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { execSync } from "child_process";
 import {
   cpSync,
@@ -297,145 +297,59 @@ async function deploy(): Promise<void> {
       });
       console.log("   Client generated\n");
 
-      // Step 4.5: Ensure enum values exist
-      // WHY THIS EXISTS: Historical migration files used DO $$/EXCEPTION wrappers around
-      // ALTER TYPE ADD VALUE. This pattern creates a PostgreSQL subtransaction (via EXCEPTION),
-      // and ALTER TYPE ADD VALUE cannot execute inside a subtransaction. So those migrations
-      // failed, were auto-resolved as "applied" by Step 2, but the enum values were never
-      // actually added. This step compensates by adding them outside any transaction.
-      //
-      // FUTURE MIGRATIONS should use direct: ALTER TYPE "X" ADD VALUE IF NOT EXISTS 'Y';
-      // (no DO/EXCEPTION wrapper) — which works correctly in Prisma's transaction.
-      // Once all historical migrations are superseded, this section can be removed.
-      console.log(
-        "4.5. Ensuring enum values (legacy migration compensation)...",
+      // Step 4.5: Ensure all schema enum values exist (schema-derived).
+      // WHY: historical migrations wrapped `ALTER TYPE ADD VALUE` in DO $$/EXCEPTION,
+      // which fails inside a subtransaction; those migrations were auto-resolved as
+      // applied (Step 2) but the enum values were never added. A hand-maintained
+      // compensation list drifted — 11 EXCEPTION-wrapped enums were left uncovered
+      // (e.g. MentionType.ALL_AI), risking runtime "invalid input value for enum".
+      // Instead, derive EVERY enum + value from the Prisma schema (DMMF) and add any
+      // missing one. Idempotent and self-maintaining: new enums/values are covered
+      // automatically, so this never drifts again.
+      console.log("4.5. Ensuring enum values from schema (DMMF-derived)...");
+
+      // Existing (type, label) pairs — one query, then only add what is missing.
+      const existingEnumPairs = await prisma.$queryRaw<
+        Array<{ typname: string; enumlabel: string }>
+      >`
+        SELECT t.typname, e.enumlabel
+        FROM pg_enum e
+        JOIN pg_type t ON t.oid = e.enumtypid
+      `;
+      const existingEnumSet = new Set(
+        existingEnumPairs.map((r) => `${r.typname} ${r.enumlabel}`),
       );
 
-      const addEnumIfNotExists = async (
-        checkQuery: Promise<{ exists: boolean }[]>,
-        addQuery: () => Promise<number>,
-        label: string,
-      ) => {
-        try {
-          const result = await checkQuery;
-          if (!result[0]?.exists) {
-            await addQuery();
-            console.log(`   Added ${label}`);
-          } else {
-            console.log(`   OK ${label}`);
+      let enumValuesAdded = 0;
+      for (const enumDef of Prisma.dmmf.datamodel.enums) {
+        const typeName = enumDef.dbName ?? enumDef.name;
+        for (const value of enumDef.values) {
+          if (existingEnumSet.has(`${typeName} ${value.name}`)) {
+            continue;
           }
-        } catch (error: unknown) {
-          const message =
-            error instanceof Error ? error.message : String(error);
-          if (message.includes("already exists")) {
-            console.log(`   OK ${label}`);
-          } else {
-            console.warn(`   Warning: Could not add ${label}: ${message}`);
+          try {
+            // ALTER TYPE ADD VALUE cannot run inside a (sub)transaction;
+            // $executeRawUnsafe runs it in autocommit. IF NOT EXISTS guards races.
+            await prisma.$executeRawUnsafe(
+              `ALTER TYPE "${typeName}" ADD VALUE IF NOT EXISTS '${value.name.replace(/'/g, "''")}'`,
+            );
+            enumValuesAdded++;
+            console.log(`   Added ${typeName}.${value.name}`);
+          } catch (error: unknown) {
+            const message =
+              error instanceof Error ? error.message : String(error);
+            if (message.includes("already exists")) {
+              continue;
+            }
+            console.warn(
+              `   Warning: could not add ${typeName}.${value.name}: ${message}`,
+            );
           }
         }
-      };
-
-      // ResearchMessageType enum values
-      await addEnumIfNotExists(
-        prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'DIMENSION_STARTED' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'ResearchMessageType')) as exists`,
-        () =>
-          prisma.$executeRaw`ALTER TYPE "ResearchMessageType" ADD VALUE IF NOT EXISTS 'DIMENSION_STARTED'`,
-        "ResearchMessageType.DIMENSION_STARTED",
-      );
-      await addEnumIfNotExists(
-        prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'DIMENSION_PROGRESS' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'ResearchMessageType')) as exists`,
-        () =>
-          prisma.$executeRaw`ALTER TYPE "ResearchMessageType" ADD VALUE IF NOT EXISTS 'DIMENSION_PROGRESS'`,
-        "ResearchMessageType.DIMENSION_PROGRESS",
-      );
-      await addEnumIfNotExists(
-        prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'DIMENSION_COMPLETED' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'ResearchMessageType')) as exists`,
-        () =>
-          prisma.$executeRaw`ALTER TYPE "ResearchMessageType" ADD VALUE IF NOT EXISTS 'DIMENSION_COMPLETED'`,
-        "ResearchMessageType.DIMENSION_COMPLETED",
-      );
-
-      // ResearchMissionStatus enum values
-      await addEnumIfNotExists(
-        prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'PLAN_READY' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'ResearchMissionStatus')) as exists`,
-        () =>
-          prisma.$executeRaw`ALTER TYPE "ResearchMissionStatus" ADD VALUE IF NOT EXISTS 'PLAN_READY'`,
-        "ResearchMissionStatus.PLAN_READY",
-      );
-
-      // SecretCategory enum values
-      await addEnumIfNotExists(
-        prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'POLICY' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'SecretCategory')) as exists`,
-        () =>
-          prisma.$executeRaw`ALTER TYPE "SecretCategory" ADD VALUE IF NOT EXISTS 'POLICY'`,
-        "SecretCategory.POLICY",
-      );
-      await addEnumIfNotExists(
-        prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'DEV_TOOLS' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'SecretCategory')) as exists`,
-        () =>
-          prisma.$executeRaw`ALTER TYPE "SecretCategory" ADD VALUE IF NOT EXISTS 'DEV_TOOLS'`,
-        "SecretCategory.DEV_TOOLS",
-      );
-      await addEnumIfNotExists(
-        prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'MCP' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'SecretCategory')) as exists`,
-        () =>
-          prisma.$executeRaw`ALTER TYPE "SecretCategory" ADD VALUE IF NOT EXISTS 'MCP'`,
-        "SecretCategory.MCP",
-      );
-
-      // DeepResearchStatus enum values
-      await addEnumIfNotExists(
-        prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'IDEATION' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'DeepResearchStatus')) as exists`,
-        () =>
-          prisma.$executeRaw`ALTER TYPE "DeepResearchStatus" ADD VALUE IF NOT EXISTS 'IDEATION'`,
-        "DeepResearchStatus.IDEATION",
-      );
-      await addEnumIfNotExists(
-        prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'FINDINGS' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'DeepResearchStatus')) as exists`,
-        () =>
-          prisma.$executeRaw`ALTER TYPE "DeepResearchStatus" ADD VALUE IF NOT EXISTS 'FINDINGS'`,
-        "DeepResearchStatus.FINDINGS",
-      );
-      await addEnumIfNotExists(
-        prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'PLAN_READY' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'DeepResearchStatus')) as exists`,
-        () =>
-          prisma.$executeRaw`ALTER TYPE "DeepResearchStatus" ADD VALUE IF NOT EXISTS 'PLAN_READY'`,
-        "DeepResearchStatus.PLAN_READY",
-      );
-      await addEnumIfNotExists(
-        prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'CANCELLED' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'DeepResearchStatus')) as exists`,
-        () =>
-          prisma.$executeRaw`ALTER TYPE "DeepResearchStatus" ADD VALUE IF NOT EXISTS 'CANCELLED'`,
-        "DeepResearchStatus.CANCELLED",
-      );
-
-      // CreditTransactionType enum values
-      const creditEnumValues = [
-        "AI_WRITING",
-        "AI_IMAGE",
-        "AI_SOCIAL",
-        "AI_RESEARCH",
-        "AI_INSIGHTS",
-        "AI_PLANNING",
-        "NOTEBOOK_RESEARCH",
-        "LIBRARY",
-        "NOTES",
-        "COLLECTIONS",
-        "DONATION_REWARD",
-        "DONATION_USAGE_REWARD",
-      ];
-      for (const value of creditEnumValues) {
-        await addEnumIfNotExists(
-          prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = ${value} AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'CreditTransactionType')) as exists`,
-          () =>
-            prisma.$executeRawUnsafe(
-              `ALTER TYPE "CreditTransactionType" ADD VALUE IF NOT EXISTS '${value}'`,
-            ),
-          `CreditTransactionType.${value}`,
-        );
       }
-      console.log("");
-
+      console.log(
+        `   Enum check complete (${enumValuesAdded} added, ${existingEnumSet.size} already present)\n`,
+      );
       // Step 4.6: Data migrations (idempotent)
       console.log("4.6. Running data migrations...");
 

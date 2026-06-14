@@ -403,6 +403,106 @@ describe("runLeaderForewordAndSignoffStage (S10)", () => {
     expect(forewordCall.qualitySnapshot.criticVerdict).toBe("concerns");
   });
 
+  it("markIntermediateState failure → swallowed (warns) — covers line 112", async () => {
+    const deps = makeDeps({
+      store: {
+        markIntermediateState: jest
+          .fn()
+          .mockRejectedValue(new Error("DB write failed")),
+      },
+    });
+    const ctx = makeCtx();
+    await runLeaderForewordAndSignoffStage(ctx, deps);
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("markIntermediateState"),
+    );
+    // Stage should still complete
+    expect(ctx.leaderSignOff?.signed).toBe(true);
+  });
+
+  it("emit leader:signed failure → swallowed (warns) — covers line 127", async () => {
+    let signedEmitted = false;
+    const failingEmit = jest
+      .fn()
+      .mockImplementation(async (event: { type: string }) => {
+        if (event.type === "playground.leader:signed" && !signedEmitted) {
+          signedEmitted = true;
+          throw new Error("signed emit failed");
+        }
+        return undefined;
+      });
+    const deps = makeDeps({ emit: failingEmit });
+    const ctx = makeCtx();
+    await runLeaderForewordAndSignoffStage(ctx, deps);
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("S10 emit leader:signed failed"),
+    );
+  });
+
+  it("emit leader:foreword failure → swallowed (warns) — covers line 288", async () => {
+    let forewordEmitted = false;
+    const failingEmit = jest
+      .fn()
+      .mockImplementation(async (event: { type: string }) => {
+        if (event.type === "playground.leader:foreword" && !forewordEmitted) {
+          forewordEmitted = true;
+          throw new Error("foreword emit failed");
+        }
+        return undefined;
+      });
+    const deps = makeDeps({ emit: failingEmit });
+    const ctx = makeCtx();
+    await runLeaderForewordAndSignoffStage(ctx, deps);
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("S10 emit leader:foreword failed"),
+    );
+    // Stage should still complete despite emit failure
+    expect(ctx.leaderSignOff?.signed).toBe(true);
+  });
+
+  it("s4PatchFailures non-empty + leaderSignOff signed=true → forced to signed=false (covers lines 335-352)", async () => {
+    const ctx = makeCtx();
+    (ctx as unknown as Record<string, unknown>).s4PatchFailures = [
+      {
+        dimensionName: "Market",
+        error: "Researcher failed to collect enough data",
+      },
+      { dimensionName: "Tech", error: "LLM timeout" },
+    ];
+    const deps = makeDeps();
+    await runLeaderForewordAndSignoffStage(ctx, deps);
+    // Should be forced to signed=false due to patch failures
+    expect(ctx.leaderSignOff?.signed).toBe(false);
+    expect(ctx.leaderSignOff?.leaderVerdict).toBe("failed");
+    expect(ctx.leaderSignOff?.accountabilityNote).toContain(
+      "S4-Patch-Failed-Hard-Block",
+    );
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("S10 强制拒签"),
+    );
+  });
+
+  it("s4PatchFailures non-empty + leaderSignOff signed=false → no double override (patch block not applied)", async () => {
+    const ctx = makeCtx();
+    (ctx.leader.signOff as jest.Mock).mockResolvedValue({
+      signed: false,
+      leaderVerdict: "failed",
+      leaderOverallScore: 40,
+      accountabilityNote: "Original refusal",
+    });
+    (ctx as unknown as Record<string, unknown>).s4PatchFailures = [
+      { dimensionName: "Market", error: "Researcher failed" },
+    ];
+    const deps = makeDeps();
+    await runLeaderForewordAndSignoffStage(ctx, deps);
+    // Was already signed=false, so patch block (patchFailures.length > 0 && leaderSignOff.signed)
+    // checks leaderSignOff.signed which is false → patch block NOT applied
+    // accountabilityNote stays as original
+    expect(ctx.leaderSignOff?.accountabilityNote).not.toContain(
+      "S4-Patch-Failed-Hard-Block",
+    );
+  });
+
   describe("字数 hard floor post-validation (tier-aware signoffPolicyFor)", () => {
     it("standard (8K target × 0.4 ratio) + 3200 words → signed stays true", async () => {
       const ctx = makeCtx();
