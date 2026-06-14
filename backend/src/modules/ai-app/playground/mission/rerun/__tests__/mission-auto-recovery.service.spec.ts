@@ -88,4 +88,23 @@ describe("MissionAutoRecoveryService", () => {
     expect(ok).toBe(false);
     expect(emit).not.toHaveBeenCalled();
   });
+
+  it("line 84 分支：canResume 抛错 → catch(() => null) → decision=null → 返回 false（fail-closed）", async () => {
+    // canResume 直接 throw（不是 false，而是 promise rejection）
+    canResume.mockRejectedValue(new Error("checkpoint DB unavailable"));
+    const ok = await mk().attemptAfterStaleKill("m-1", "u-1");
+    // decision = null（catch 返回 null），!decision?.canResume → true → return false
+    expect(ok).toBe(false);
+    expect(rerunFullMission).not.toHaveBeenCalled();
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it("line 108 分支：eventBus.emit 抛错 → catch 吞掉（非致命），仍返回 true", async () => {
+    // emit 抛错，但不影响最终结果
+    emit.mockRejectedValueOnce(new Error("event bus timeout"));
+    const ok = await mk().attemptAfterStaleKill("m-1", "u-1");
+    // rerunFullMission 成功（line 94），emit throws（line 100-113 catch 吞掉）→ 仍 true
+    expect(ok).toBe(true);
+    expect(rerunFullMission).toHaveBeenCalledWith("m-1", "u-1", "incremental");
+  });
 });

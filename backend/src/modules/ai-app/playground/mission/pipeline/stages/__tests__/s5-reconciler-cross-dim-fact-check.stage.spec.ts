@@ -222,4 +222,116 @@ describe("runReconcilerStage (S5)", () => {
     await runReconcilerStage(ctx, deps);
     expect(deps.invoker.tickCost).toHaveBeenCalled();
   });
+
+  // ── single dimension: skip path (lines 51-66) ──
+  it("single dimension → emits reconciliation:skipped and returns early", async () => {
+    const ctx = makeCtx({
+      plan: {
+        ...PLAN,
+        dimensions: [{ id: "d1", name: "Market", rationale: "r" }],
+      },
+    });
+    const deps = makeDeps();
+    await runReconcilerStage(ctx, deps);
+
+    // lifecycle and reconcile should NOT be called (early return)
+    expect(deps.lifecycle).not.toHaveBeenCalled();
+    expect(deps.reconciler.reconcile).not.toHaveBeenCalled();
+
+    // emits reconciliation:skipped
+    const skippedCall = (deps.emit as jest.Mock).mock.calls.find(
+      (c) => c[0].type === "playground.reconciliation:skipped",
+    );
+    expect(skippedCall).toBeDefined();
+    expect(skippedCall[0].payload.reason).toBe("single_dimension");
+
+    // ctx.reconciliationReport is null (not set by skip path)
+    expect(ctx.reconciliationReport).toBeNull();
+  });
+
+  it("single dimension + emit reconciliation:skipped fails → swallowed, warns", async () => {
+    const ctx = makeCtx({
+      plan: {
+        ...PLAN,
+        dimensions: [{ id: "d1", name: "Market", rationale: "r" }],
+      },
+    });
+    const deps = makeDeps({
+      emit: jest.fn().mockImplementation((event: { type: string }) => {
+        if (event.type === "playground.reconciliation:skipped") {
+          return Promise.reject(new Error("emit skipped fail"));
+        }
+        return Promise.resolve();
+      }),
+    });
+    await runReconcilerStage(ctx, deps);
+
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("emit reconciliation:skipped failed"),
+    );
+  });
+
+  // ── markIntermediateState failure (line 136) ──
+  it("markIntermediateState failure → swallowed, warns", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps({
+      store: {
+        markIntermediateState: jest
+          .fn()
+          .mockRejectedValue(new Error("store fail")),
+      },
+    });
+    await runReconcilerStage(ctx, deps);
+
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("S5 markIntermediateState failed"),
+    );
+    // stage completes normally
+    expect(ctx.reconciliationReport).toBeDefined();
+  });
+
+  // ── emit reconciliation:completed failure (line 160) ──
+  it("emit reconciliation:completed failure → swallowed, warns", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps({
+      emit: jest.fn().mockImplementation((event: { type: string }) => {
+        if (event.type === "playground.reconciliation:completed") {
+          return Promise.reject(new Error("emit completed fail"));
+        }
+        return Promise.resolve();
+      }),
+    });
+    await runReconcilerStage(ctx, deps);
+
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("emit reconciliation:completed failed"),
+    );
+  });
+
+  // ── emit dimension:degraded failure (line 210) ──
+  it("reconciler throws + emit dimension:degraded failure → both swallowed, double warn", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps({
+      emit: jest.fn().mockImplementation((event: { type: string }) => {
+        if (event.type === "playground.dimension:degraded") {
+          return Promise.reject(new Error("emit degraded fail"));
+        }
+        return Promise.resolve();
+      }),
+    });
+    (deps.reconciler.reconcile as jest.Mock).mockRejectedValue(
+      new Error("reconciler boom"),
+    );
+    await runReconcilerStage(ctx, deps);
+
+    const warnCalls = (deps.log.warn as jest.Mock).mock.calls.map(
+      (c) => c[0] as string,
+    );
+    expect(warnCalls.some((m) => m.includes("reconciler stage failed"))).toBe(
+      true,
+    );
+    expect(warnCalls.some((m) => m.includes("emit dimension:degraded"))).toBe(
+      true,
+    );
+  });
 });

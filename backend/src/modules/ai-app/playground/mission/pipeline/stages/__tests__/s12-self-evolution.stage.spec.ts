@@ -250,4 +250,164 @@ describe("runSelfEvolutionStage (S12)", () => {
       postmortemCall.recommendations.some((r: string) => r.includes("墙时")),
     ).toBe(true);
   });
+
+  it("abortSignal already aborted before start → S12 skipped (covers line 93-94)", async () => {
+    const deps = makeDeps();
+    const abortController = new AbortController();
+    abortController.abort();
+    await runSelfEvolutionStage(
+      { ...BASE_INPUT, abortSignal: abortController.signal },
+      deps,
+    );
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("S12 skipped"),
+    );
+    // mission:evolved should NOT be emitted when aborted early
+    const evolvedCall = (deps.emit as jest.Mock).mock.calls.find(
+      (c) => c[0].type === "playground.mission:evolved",
+    );
+    expect(evolvedCall).toBeUndefined();
+  });
+
+  it("abortSignal aborted between evolved emit and failureLearner → stops before failureLearner (covers 179-182)", async () => {
+    const deps = makeDeps({
+      failureLearner: {
+        recordFailure: jest.fn().mockResolvedValue(undefined),
+      } as unknown as MissionDeps["failureLearner"],
+    });
+    const abortController = new AbortController();
+    // Abort after emit is called
+    (deps.emit as jest.Mock).mockImplementation(
+      async (event: { type: string }) => {
+        if (event.type === "playground.mission:evolved") {
+          abortController.abort();
+        }
+        return undefined;
+      },
+    );
+    await runSelfEvolutionStage(
+      {
+        ...BASE_INPUT,
+        leaderSignOff: { signed: false }, // Would trigger failureLearner
+        abortSignal: abortController.signal,
+      },
+      deps,
+    );
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("S12 aborted before failure-learner"),
+    );
+    // failureLearner should NOT be called because abort happened first
+    expect(deps.failureLearner.recordFailure).not.toHaveBeenCalled();
+  });
+
+  it("abortSignal aborted before postmortem write → stops before recordMissionPostmortem (covers 221-222)", async () => {
+    const deps = makeDeps();
+    const abortController = new AbortController();
+    let _failureLearnerCalled = false;
+    (deps.failureLearner.recordFailure as jest.Mock).mockImplementation(
+      async () => {
+        abortController.abort();
+        _failureLearnerCalled = true;
+        return undefined;
+      },
+    );
+    await runSelfEvolutionStage(
+      {
+        ...BASE_INPUT,
+        leaderSignOff: { signed: false },
+        abortSignal: abortController.signal,
+      },
+      deps,
+    );
+    // If aborted after failureLearner, postmortem should not be written
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("S12 aborted before postmortem write"),
+    );
+    expect(deps.store.recordMissionPostmortem).not.toHaveBeenCalled();
+  });
+
+  it("leaderSigned=false + failureLearner.recordFailure fails → caught (covers line 213)", async () => {
+    const deps = makeDeps();
+    (deps.failureLearner.recordFailure as jest.Mock).mockRejectedValue(
+      new Error("failure learner DB error"),
+    );
+    await expect(
+      runSelfEvolutionStage(
+        { ...BASE_INPUT, leaderSignOff: { signed: false } },
+        deps,
+      ),
+    ).resolves.toBeUndefined();
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("failureLearner.recordFailure"),
+    );
+  });
+
+  it("mission:evolved emit fails → caught (.catch), stage continues to postmortem (covers abort check 188-189)", async () => {
+    const deps = makeDeps();
+    (deps.emit as jest.Mock).mockImplementation(
+      async (event: { type: string }) => {
+        if (event.type === "playground.mission:evolved") {
+          throw new Error("evolved emit failed");
+        }
+        return undefined;
+      },
+    );
+    // Without abortSignal, abort checks return false, so continues
+    await runSelfEvolutionStage(BASE_INPUT, deps);
+    // recordMissionPostmortem should still be called
+    expect(deps.store.recordMissionPostmortem).toHaveBeenCalled();
+  });
+
+  it("S12 calls postmortemClassifier.classify with correct missionStatus", async () => {
+    const deps = makeDeps();
+    await runSelfEvolutionStage(BASE_INPUT, deps);
+    expect(deps.postmortemClassifier.classify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "completed",
+        metrics: expect.objectContaining({ totalTokens: 10000 }),
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("leaderSigned=false → postmortemClassifier sees missionStatus=failed", async () => {
+    const deps = makeDeps();
+    await runSelfEvolutionStage(
+      { ...BASE_INPUT, leaderSignOff: { signed: false } },
+      deps,
+    );
+    expect(deps.postmortemClassifier.classify).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "failed" }),
+      expect.anything(),
+    );
+  });
+
+  it("bufferedEvents passed to postmortemClassifier.classify", async () => {
+    const deps = makeDeps();
+    const bufferedEvents = [
+      { type: "playground.mission:started", ts: Date.now(), payload: {} },
+    ];
+    await runSelfEvolutionStage({ ...BASE_INPUT, bufferedEvents }, deps);
+    expect(deps.postmortemClassifier.classify).toHaveBeenCalledWith(
+      expect.objectContaining({ events: bufferedEvents }),
+      expect.anything(),
+    );
+  });
+
+  it("no plan/researcherResults → avgResearcherIterations=0, retryTotal=0", async () => {
+    const deps = makeDeps();
+    await runSelfEvolutionStage(
+      {
+        ...BASE_INPUT,
+        plan: undefined,
+        researcherResults: undefined,
+      },
+      deps,
+    );
+    const evolvedCall = (deps.emit as jest.Mock).mock.calls.find(
+      (c) => c[0].type === "playground.mission:evolved",
+    );
+    expect(evolvedCall[0].payload.avgResearcherIterations).toBe(0);
+    expect(evolvedCall[0].payload.retryTotal).toBe(0);
+  });
 });

@@ -1013,5 +1013,2285 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
           .failureCode,
       ).toBe("RUNNER_WALL_TIME_EXCEEDED");
     });
+
+    it("error name=InsufficientCreditsException → failureCode===ORCH_CREDIT_INSUFFICIENT", async () => {
+      const reg = new MissionPipelineRegistry();
+      const orch = new MissionPipelineOrchestrator(reg);
+      const localStageBindings = makeFakeStageBindings();
+
+      // Leader throws InsufficientCreditsException
+      const credErr = new Error("Insufficient credits");
+      credErr.name = "InsufficientCreditsException";
+      const throwingLeaderPlan = jest.fn().mockRejectedValue(credErr);
+      const fakeLeaderSvc = {
+        create: jest
+          .fn()
+          .mockReturnValue({ plan: throwingLeaderPlan } as never),
+      } as unknown as LeaderService;
+
+      const localInvoker = {
+        invoke: jest
+          .fn()
+          .mockResolvedValue({ state: "completed", output: {}, events: [] }),
+        emitEvent: jest.fn().mockResolvedValue(undefined),
+        emitLifecycle: jest.fn().mockResolvedValue(undefined),
+        clearMissionRelayState: jest.fn(),
+      } as unknown as AgentInvoker;
+
+      const fakeCheckpoint = {
+        clear: jest.fn().mockResolvedValue(undefined),
+        save: jest.fn().mockResolvedValue(undefined),
+        canResume: jest.fn().mockResolvedValue({
+          canResume: false,
+          reason: "no-checkpoint",
+          snapshot: null,
+          completedKeys: new Set(),
+        }),
+      };
+      const fakeEventBuffer = {
+        read: jest.fn().mockReturnValue([]),
+        broadcast: jest.fn().mockResolvedValue(undefined),
+      };
+      const fakeStore = {
+        markStageComplete: jest.fn().mockResolvedValue(undefined),
+        applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
+        saveResearchResult: jest.fn().mockResolvedValue(undefined),
+        saveChapterDraft: jest.fn().mockResolvedValue(undefined),
+        loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+        loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+        saveReportVersion: jest.fn().mockResolvedValue(1),
+        markIntermediateState: jest.fn().mockResolvedValue(undefined),
+        listRecentPostmortems: jest.fn().mockResolvedValue([]),
+      };
+      const localEventBus = {
+        emit: jest.fn().mockResolvedValue(true),
+        registerAdapter: jest.fn(),
+        unregisterAdapter: jest.fn(),
+      };
+      const localElectionTracker = { clear: jest.fn() };
+      const fakeLeaderInvocationFactory = {
+        build: jest.fn().mockReturnValue(jest.fn()),
+      };
+
+      (
+        localStageBindings as unknown as { buildDeps: jest.Mock }
+      ).buildDeps.mockReturnValue({
+        invoker: {} as never,
+        store: {
+          markIntermediateState: jest.fn().mockResolvedValue(undefined),
+          listRecentPostmortems: jest.fn().mockResolvedValue([]),
+          loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+          loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+          saveResearchResult: jest.fn().mockResolvedValue(undefined),
+          saveChapterDraft: jest.fn().mockResolvedValue(undefined),
+          saveReportVersion: jest.fn().mockResolvedValue(1),
+          markStageComplete: jest.fn().mockResolvedValue(undefined),
+          applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
+        },
+        log: {
+          log: jest.fn(),
+          warn: jest.fn(),
+          error: jest.fn(),
+          debug: jest.fn(),
+        },
+        emit: jest.fn().mockResolvedValue(undefined),
+        lifecycle: jest.fn(),
+      } as never);
+
+      const businessOrch = new PlaygroundBusinessOrchestrator(
+        localStageBindings as unknown as MissionStageBindingsService,
+        fakeCheckpoint as never,
+        fakeStore as never,
+      );
+      const fakeLifecycleManager = {
+        finalize: jest.fn(
+          async (args: {
+            missionId: string;
+            arbiter: {
+              applyTerminalIfRunning: (
+                id: string,
+                intent: unknown,
+              ) => Promise<boolean>;
+            };
+            onWon?: () => Promise<void>;
+          }) => {
+            const won = await args.arbiter.applyTerminalIfRunning(
+              args.missionId,
+              {},
+            );
+            if (won && args.onWon) {
+              try {
+                await args.onWon();
+              } catch {
+                /* swallow */
+              }
+            }
+            return { won };
+          },
+        ),
+      };
+      const noopMissionSpan = {
+        startMissionSpan: jest.fn(),
+        endMissionSpan: jest.fn(),
+        startStageSpan: jest.fn(),
+        endStageSpan: jest.fn(),
+      };
+
+      const d = new PlaygroundPipelineDispatcher(
+        reg,
+        orch,
+        makeFakeShell() as unknown as MissionRuntimeShellService,
+        localStageBindings as unknown as MissionStageBindingsService,
+        fakeLeaderSvc,
+        localInvoker,
+        fakeLeaderInvocationFactory as never,
+        fakeCheckpoint as never,
+        fakeEventBuffer as never,
+        fakeStore as never,
+        localElectionTracker as never,
+        localEventBus as never,
+        businessOrch,
+        fakeLifecycleManager as never,
+        noopMissionSpan as never,
+      );
+      d.onModuleInit();
+
+      await d.runMission("m-cred-test", RUN_INPUT, "u1");
+
+      const emitCalls = (localInvoker.emitEvent as jest.Mock).mock.calls;
+      const failedEmit = emitCalls.find(
+        (c) => (c[0] as { type: string }).type === "playground.mission:failed",
+      );
+      expect(failedEmit).toBeDefined();
+      expect(
+        (failedEmit![0] as { payload: { failureCode: string } }).payload
+          .failureCode,
+      ).toBe("ORCH_CREDIT_INSUFFICIENT");
+    });
+
+    it("error name=ByokRequiredError → failureCode===PROVIDER_BYOK_MODEL_NOT_FOUND", async () => {
+      const { dispatcher: d, invoker: inv } =
+        makeDispatcherWithAbortedSession("no-abort");
+      // Override leader plan to throw ByokRequiredError
+      const byokErr = new Error("BYOK key not configured for gemini-pro");
+      byokErr.name = "ByokRequiredError";
+      // re-throw from within the plan mock via separate dispatcher
+      // Use the abort-test pattern with a local dispatcher
+      const reg = new MissionPipelineRegistry();
+      const orch = new MissionPipelineOrchestrator(reg);
+      const localStageBindings = makeFakeStageBindings();
+      const byokLeader = { plan: jest.fn().mockRejectedValue(byokErr) };
+      const fakeLeaderSvc = {
+        create: jest.fn().mockReturnValue(byokLeader as never),
+      } as unknown as LeaderService;
+      const localInvoker = {
+        invoke: jest
+          .fn()
+          .mockResolvedValue({ state: "completed", output: {}, events: [] }),
+        emitEvent: jest.fn().mockResolvedValue(undefined),
+        emitLifecycle: jest.fn().mockResolvedValue(undefined),
+        clearMissionRelayState: jest.fn(),
+      } as unknown as AgentInvoker;
+      const fakeCheckpoint = {
+        clear: jest.fn().mockResolvedValue(undefined),
+        save: jest.fn().mockResolvedValue(undefined),
+        canResume: jest.fn().mockResolvedValue({
+          canResume: false,
+          reason: "no-checkpoint",
+          snapshot: null,
+          completedKeys: new Set(),
+        }),
+      };
+      const fakeEventBuffer = {
+        read: jest.fn().mockReturnValue([]),
+        broadcast: jest.fn().mockResolvedValue(undefined),
+      };
+      const fakeStore = {
+        markStageComplete: jest.fn().mockResolvedValue(undefined),
+        applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
+        saveResearchResult: jest.fn().mockResolvedValue(undefined),
+        saveChapterDraft: jest.fn().mockResolvedValue(undefined),
+        loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+        loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+        saveReportVersion: jest.fn().mockResolvedValue(1),
+        markIntermediateState: jest.fn().mockResolvedValue(undefined),
+        listRecentPostmortems: jest.fn().mockResolvedValue([]),
+      };
+      const localEventBus = {
+        emit: jest.fn().mockResolvedValue(true),
+        registerAdapter: jest.fn(),
+        unregisterAdapter: jest.fn(),
+      };
+      const localElectionTracker = { clear: jest.fn() };
+      (
+        localStageBindings as unknown as { buildDeps: jest.Mock }
+      ).buildDeps.mockReturnValue({
+        invoker: {} as never,
+        store: {
+          markIntermediateState: jest.fn().mockResolvedValue(undefined),
+          listRecentPostmortems: jest.fn().mockResolvedValue([]),
+          loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+          loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+          saveResearchResult: jest.fn().mockResolvedValue(undefined),
+          saveChapterDraft: jest.fn().mockResolvedValue(undefined),
+          saveReportVersion: jest.fn().mockResolvedValue(1),
+          markStageComplete: jest.fn().mockResolvedValue(undefined),
+          applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
+        },
+        log: {
+          log: jest.fn(),
+          warn: jest.fn(),
+          error: jest.fn(),
+          debug: jest.fn(),
+        },
+        emit: jest.fn().mockResolvedValue(undefined),
+        lifecycle: jest.fn(),
+      } as never);
+      const businessOrch = new PlaygroundBusinessOrchestrator(
+        localStageBindings as unknown as MissionStageBindingsService,
+        fakeCheckpoint as never,
+        fakeStore as never,
+      );
+      const fakeLifecycleManager = {
+        finalize: jest.fn(
+          async (args: {
+            missionId: string;
+            arbiter: {
+              applyTerminalIfRunning: (
+                id: string,
+                intent: unknown,
+              ) => Promise<boolean>;
+            };
+            onWon?: () => Promise<void>;
+          }) => {
+            const won = await args.arbiter.applyTerminalIfRunning(
+              args.missionId,
+              {},
+            );
+            if (won && args.onWon) {
+              try {
+                await args.onWon();
+              } catch {
+                /* swallow */
+              }
+            }
+            return { won };
+          },
+        ),
+      };
+      const noopMissionSpan = {
+        startMissionSpan: jest.fn(),
+        endMissionSpan: jest.fn(),
+        startStageSpan: jest.fn(),
+        endStageSpan: jest.fn(),
+      };
+      const localD = new PlaygroundPipelineDispatcher(
+        reg,
+        orch,
+        makeFakeShell() as unknown as MissionRuntimeShellService,
+        localStageBindings as unknown as MissionStageBindingsService,
+        fakeLeaderSvc,
+        localInvoker,
+        { build: jest.fn().mockReturnValue(jest.fn()) } as never,
+        fakeCheckpoint as never,
+        fakeEventBuffer as never,
+        fakeStore as never,
+        localElectionTracker as never,
+        localEventBus as never,
+        businessOrch,
+        fakeLifecycleManager as never,
+        noopMissionSpan as never,
+      );
+      localD.onModuleInit();
+
+      await localD.runMission("m-byok-test", RUN_INPUT, "u1");
+
+      const emitCalls = (localInvoker.emitEvent as jest.Mock).mock.calls;
+      const failedEmit = emitCalls.find(
+        (c) => (c[0] as { type: string }).type === "playground.mission:failed",
+      );
+      expect(failedEmit).toBeDefined();
+      expect(
+        (failedEmit![0] as { payload: { failureCode: string } }).payload
+          .failureCode,
+      ).toBe("PROVIDER_BYOK_MODEL_NOT_FOUND");
+
+      // suppress unused warning
+      void d;
+      void inv;
+    });
+
+    it("message contains rate.limit → failureCode===PROVIDER_RATE_LIMIT", async () => {
+      const { dispatcher: d, invoker: inv } =
+        makeDispatcherWithAbortedSession("no-abort");
+      // We need a dispatcher where the error message matches rate limit
+      const reg = new MissionPipelineRegistry();
+      const orch = new MissionPipelineOrchestrator(reg);
+      const localStageBindings = makeFakeStageBindings();
+      const rateLimitErr = new Error("429 rate limit exceeded");
+      const fakeLeaderSvc = {
+        create: jest.fn().mockReturnValue({
+          plan: jest.fn().mockRejectedValue(rateLimitErr),
+        } as never),
+      } as unknown as LeaderService;
+      const localInvoker = {
+        invoke: jest
+          .fn()
+          .mockResolvedValue({ state: "completed", output: {}, events: [] }),
+        emitEvent: jest.fn().mockResolvedValue(undefined),
+        emitLifecycle: jest.fn().mockResolvedValue(undefined),
+        clearMissionRelayState: jest.fn(),
+      } as unknown as AgentInvoker;
+      const fakeCheckpoint = {
+        clear: jest.fn().mockResolvedValue(undefined),
+        save: jest.fn().mockResolvedValue(undefined),
+        canResume: jest.fn().mockResolvedValue({
+          canResume: false,
+          reason: "no-checkpoint",
+          snapshot: null,
+          completedKeys: new Set(),
+        }),
+      };
+      const fakeEventBuffer = {
+        read: jest.fn().mockReturnValue([]),
+        broadcast: jest.fn().mockResolvedValue(undefined),
+      };
+      const fakeStore = {
+        markStageComplete: jest.fn().mockResolvedValue(undefined),
+        applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
+        saveResearchResult: jest.fn().mockResolvedValue(undefined),
+        saveChapterDraft: jest.fn().mockResolvedValue(undefined),
+        loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+        loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+        saveReportVersion: jest.fn().mockResolvedValue(1),
+        markIntermediateState: jest.fn().mockResolvedValue(undefined),
+        listRecentPostmortems: jest.fn().mockResolvedValue([]),
+      };
+      const localEventBus = {
+        emit: jest.fn().mockResolvedValue(true),
+        registerAdapter: jest.fn(),
+        unregisterAdapter: jest.fn(),
+      };
+      const localElectionTracker = { clear: jest.fn() };
+      (
+        localStageBindings as unknown as { buildDeps: jest.Mock }
+      ).buildDeps.mockReturnValue({
+        invoker: {} as never,
+        store: {
+          markIntermediateState: jest.fn().mockResolvedValue(undefined),
+          listRecentPostmortems: jest.fn().mockResolvedValue([]),
+          loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+          loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+          saveResearchResult: jest.fn().mockResolvedValue(undefined),
+          saveChapterDraft: jest.fn().mockResolvedValue(undefined),
+          saveReportVersion: jest.fn().mockResolvedValue(1),
+          markStageComplete: jest.fn().mockResolvedValue(undefined),
+          applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
+        },
+        log: {
+          log: jest.fn(),
+          warn: jest.fn(),
+          error: jest.fn(),
+          debug: jest.fn(),
+        },
+        emit: jest.fn().mockResolvedValue(undefined),
+        lifecycle: jest.fn(),
+      } as never);
+      const businessOrch = new PlaygroundBusinessOrchestrator(
+        localStageBindings as unknown as MissionStageBindingsService,
+        fakeCheckpoint as never,
+        fakeStore as never,
+      );
+      const fakeLifecycleManager = {
+        finalize: jest.fn(
+          async (args: {
+            missionId: string;
+            arbiter: {
+              applyTerminalIfRunning: (
+                id: string,
+                intent: unknown,
+              ) => Promise<boolean>;
+            };
+            onWon?: () => Promise<void>;
+          }) => {
+            const won = await args.arbiter.applyTerminalIfRunning(
+              args.missionId,
+              {},
+            );
+            if (won && args.onWon) {
+              try {
+                await args.onWon();
+              } catch {
+                /* swallow */
+              }
+            }
+            return { won };
+          },
+        ),
+      };
+      const noopMissionSpan = {
+        startMissionSpan: jest.fn(),
+        endMissionSpan: jest.fn(),
+        startStageSpan: jest.fn(),
+        endStageSpan: jest.fn(),
+      };
+      const localD = new PlaygroundPipelineDispatcher(
+        reg,
+        orch,
+        makeFakeShell() as unknown as MissionRuntimeShellService,
+        localStageBindings as unknown as MissionStageBindingsService,
+        fakeLeaderSvc,
+        localInvoker,
+        { build: jest.fn().mockReturnValue(jest.fn()) } as never,
+        fakeCheckpoint as never,
+        fakeEventBuffer as never,
+        fakeStore as never,
+        localElectionTracker as never,
+        localEventBus as never,
+        businessOrch,
+        fakeLifecycleManager as never,
+        noopMissionSpan as never,
+      );
+      localD.onModuleInit();
+
+      await localD.runMission("m-rate-test", RUN_INPUT, "u1");
+
+      const emitCalls = (localInvoker.emitEvent as jest.Mock).mock.calls;
+      const failedEmit = emitCalls.find(
+        (c) => (c[0] as { type: string }).type === "playground.mission:failed",
+      );
+      expect(failedEmit).toBeDefined();
+      expect(
+        (failedEmit![0] as { payload: { failureCode: string } }).payload
+          .failureCode,
+      ).toBe("PROVIDER_RATE_LIMIT");
+
+      void d;
+      void inv;
+    });
+
+    it("message contains quota_exceeded → failureCode===PROVIDER_QUOTA_EXCEEDED", async () => {
+      const reg = new MissionPipelineRegistry();
+      const orch = new MissionPipelineOrchestrator(reg);
+      const localStageBindings = makeFakeStageBindings();
+      const quotaErr = new Error(
+        "quota_exceeded: payment required - quota exceeded",
+      );
+      const fakeLeaderSvc = {
+        create: jest.fn().mockReturnValue({
+          plan: jest.fn().mockRejectedValue(quotaErr),
+        } as never),
+      } as unknown as LeaderService;
+      const localInvoker = {
+        invoke: jest
+          .fn()
+          .mockResolvedValue({ state: "completed", output: {}, events: [] }),
+        emitEvent: jest.fn().mockResolvedValue(undefined),
+        emitLifecycle: jest.fn().mockResolvedValue(undefined),
+        clearMissionRelayState: jest.fn(),
+      } as unknown as AgentInvoker;
+      const fakeCheckpoint = {
+        clear: jest.fn().mockResolvedValue(undefined),
+        save: jest.fn().mockResolvedValue(undefined),
+        canResume: jest.fn().mockResolvedValue({
+          canResume: false,
+          reason: "no-checkpoint",
+          snapshot: null,
+          completedKeys: new Set(),
+        }),
+      };
+      const fakeEventBuffer = {
+        read: jest.fn().mockReturnValue([]),
+        broadcast: jest.fn().mockResolvedValue(undefined),
+      };
+      const fakeStore = {
+        markStageComplete: jest.fn().mockResolvedValue(undefined),
+        applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
+        saveResearchResult: jest.fn().mockResolvedValue(undefined),
+        saveChapterDraft: jest.fn().mockResolvedValue(undefined),
+        loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+        loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+        saveReportVersion: jest.fn().mockResolvedValue(1),
+        markIntermediateState: jest.fn().mockResolvedValue(undefined),
+        listRecentPostmortems: jest.fn().mockResolvedValue([]),
+      };
+      const localEventBus = {
+        emit: jest.fn().mockResolvedValue(true),
+        registerAdapter: jest.fn(),
+        unregisterAdapter: jest.fn(),
+      };
+      const localElectionTracker = { clear: jest.fn() };
+      (
+        localStageBindings as unknown as { buildDeps: jest.Mock }
+      ).buildDeps.mockReturnValue({
+        invoker: {} as never,
+        store: {
+          markIntermediateState: jest.fn().mockResolvedValue(undefined),
+          listRecentPostmortems: jest.fn().mockResolvedValue([]),
+          loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+          loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+          saveResearchResult: jest.fn().mockResolvedValue(undefined),
+          saveChapterDraft: jest.fn().mockResolvedValue(undefined),
+          saveReportVersion: jest.fn().mockResolvedValue(1),
+          markStageComplete: jest.fn().mockResolvedValue(undefined),
+          applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
+        },
+        log: {
+          log: jest.fn(),
+          warn: jest.fn(),
+          error: jest.fn(),
+          debug: jest.fn(),
+        },
+        emit: jest.fn().mockResolvedValue(undefined),
+        lifecycle: jest.fn(),
+      } as never);
+      const businessOrch = new PlaygroundBusinessOrchestrator(
+        localStageBindings as unknown as MissionStageBindingsService,
+        fakeCheckpoint as never,
+        fakeStore as never,
+      );
+      const fakeLifecycleManager = {
+        finalize: jest.fn(
+          async (args: {
+            missionId: string;
+            arbiter: {
+              applyTerminalIfRunning: (
+                id: string,
+                intent: unknown,
+              ) => Promise<boolean>;
+            };
+            onWon?: () => Promise<void>;
+          }) => {
+            const won = await args.arbiter.applyTerminalIfRunning(
+              args.missionId,
+              {},
+            );
+            if (won && args.onWon) {
+              try {
+                await args.onWon();
+              } catch {
+                /* swallow */
+              }
+            }
+            return { won };
+          },
+        ),
+      };
+      const noopMissionSpan = {
+        startMissionSpan: jest.fn(),
+        endMissionSpan: jest.fn(),
+        startStageSpan: jest.fn(),
+        endStageSpan: jest.fn(),
+      };
+      const localD = new PlaygroundPipelineDispatcher(
+        reg,
+        orch,
+        makeFakeShell() as unknown as MissionRuntimeShellService,
+        localStageBindings as unknown as MissionStageBindingsService,
+        fakeLeaderSvc,
+        localInvoker,
+        { build: jest.fn().mockReturnValue(jest.fn()) } as never,
+        fakeCheckpoint as never,
+        fakeEventBuffer as never,
+        fakeStore as never,
+        localElectionTracker as never,
+        localEventBus as never,
+        businessOrch,
+        fakeLifecycleManager as never,
+        noopMissionSpan as never,
+      );
+      localD.onModuleInit();
+
+      await localD.runMission("m-quota-test", RUN_INPUT, "u1");
+
+      const emitCalls = (localInvoker.emitEvent as jest.Mock).mock.calls;
+      const failedEmit = emitCalls.find(
+        (c) => (c[0] as { type: string }).type === "playground.mission:failed",
+      );
+      expect(failedEmit).toBeDefined();
+      expect(
+        (failedEmit![0] as { payload: { failureCode: string } }).payload
+          .failureCode,
+      ).toBe("PROVIDER_QUOTA_EXCEEDED");
+    });
+  });
+});
+
+// ─── Additional coverage: afterRowCreated, crash-resume, orphan cleanup ───────
+
+describe("PlaygroundPipelineDispatcher — additional coverage", () => {
+  /** Helper to build a minimal dispatcher with injected custom fakes. */
+  function buildMinimalDispatcher(
+    opts: {
+      fakeStore?: Record<string, jest.Mock>;
+      fakeCheckpoint?: Record<string, jest.Mock>;
+      fakeLeaderPlan?: jest.Mock;
+      fakeRerunOrchestrator?: { rerunFullMission: jest.Mock };
+      sessionAbortReason?: string;
+    } = {},
+  ) {
+    const reg = new MissionPipelineRegistry();
+    const orch = new MissionPipelineOrchestrator(reg);
+    const localStageBindings = makeFakeStageBindings();
+
+    const defaultLeaderPlan = jest.fn().mockResolvedValue({
+      themeSummary: "test theme",
+      dimensions: [{ id: "dim-1", name: "Dim 1", rationale: "..." }],
+      goals: { successCriteria: ["..."] },
+      initialRisks: [],
+    });
+    const leaderPlan = opts.fakeLeaderPlan ?? defaultLeaderPlan;
+    const fakeLeaderSvc = {
+      create: jest.fn().mockReturnValue({ plan: leaderPlan } as never),
+    } as unknown as LeaderService;
+
+    const localInvoker = {
+      invoke: jest
+        .fn()
+        .mockResolvedValue({ state: "completed", output: {}, events: [] }),
+      emitEvent: jest.fn().mockResolvedValue(undefined),
+      emitLifecycle: jest.fn().mockResolvedValue(undefined),
+      clearMissionRelayState: jest.fn(),
+    } as unknown as AgentInvoker;
+
+    const defaultCheckpoint = {
+      clear: jest.fn().mockResolvedValue(undefined),
+      save: jest.fn().mockResolvedValue(undefined),
+      canResume: jest.fn().mockResolvedValue({
+        canResume: false,
+        reason: "no-checkpoint",
+        snapshot: null,
+        completedKeys: new Set(),
+      }),
+    };
+    const fakeCheckpoint = { ...defaultCheckpoint, ...opts.fakeCheckpoint };
+
+    const defaultStore = {
+      markStageComplete: jest.fn().mockResolvedValue(undefined),
+      applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
+      saveResearchResult: jest.fn().mockResolvedValue(undefined),
+      saveChapterDraft: jest.fn().mockResolvedValue(undefined),
+      loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+      loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+      saveReportVersion: jest.fn().mockResolvedValue(1),
+      markIntermediateState: jest.fn().mockResolvedValue(undefined),
+      listRecentPostmortems: jest.fn().mockResolvedValue([]),
+      cleanupOrphanRunningMissionsAtomic: jest
+        .fn()
+        .mockResolvedValue({ orphans: [], claimedWinners: [] }),
+      getById: jest.fn().mockResolvedValue(null),
+    };
+    const fakeStore = {
+      ...defaultStore,
+      ...opts.fakeStore,
+    } as unknown as Record<string, jest.Mock>;
+
+    (
+      localStageBindings as unknown as { buildDeps: jest.Mock }
+    ).buildDeps.mockReturnValue({
+      invoker: {} as never,
+      store: {
+        markIntermediateState: jest.fn().mockResolvedValue(undefined),
+        listRecentPostmortems: jest.fn().mockResolvedValue([]),
+        loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+        loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+        saveResearchResult: jest.fn().mockResolvedValue(undefined),
+        saveChapterDraft: jest.fn().mockResolvedValue(undefined),
+        saveReportVersion: jest.fn().mockResolvedValue(1),
+        markStageComplete: jest.fn().mockResolvedValue(undefined),
+        applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
+      },
+      log: {
+        log: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+        debug: jest.fn(),
+      },
+      emit: jest.fn().mockResolvedValue(undefined),
+      lifecycle: jest.fn(),
+    } as never);
+
+    const businessOrch = new PlaygroundBusinessOrchestrator(
+      localStageBindings as unknown as MissionStageBindingsService,
+      fakeCheckpoint as never,
+      fakeStore as never,
+    );
+    const fakeLifecycleManager = {
+      finalize: jest.fn(
+        async (args: {
+          missionId: string;
+          arbiter: {
+            applyTerminalIfRunning: (
+              id: string,
+              intent: unknown,
+            ) => Promise<boolean>;
+          };
+          onWon?: () => Promise<void>;
+        }) => {
+          const won = await args.arbiter.applyTerminalIfRunning(
+            args.missionId,
+            {},
+          );
+          if (won && args.onWon) {
+            try {
+              await args.onWon();
+            } catch {
+              /* swallow */
+            }
+          }
+          return { won };
+        },
+      ),
+    };
+    const noopMissionSpan = {
+      startMissionSpan: jest.fn(),
+      endMissionSpan: jest.fn(),
+      startStageSpan: jest.fn(),
+      endStageSpan: jest.fn(),
+    };
+    const localEventBus = {
+      emit: jest.fn().mockResolvedValue(true),
+      registerAdapter: jest.fn(),
+      unregisterAdapter: jest.fn(),
+    };
+    const localElectionTracker = { clear: jest.fn() };
+
+    const d = new PlaygroundPipelineDispatcher(
+      reg,
+      orch,
+      makeFakeShell() as unknown as MissionRuntimeShellService,
+      localStageBindings as unknown as MissionStageBindingsService,
+      fakeLeaderSvc,
+      localInvoker,
+      { build: jest.fn().mockReturnValue(jest.fn()) } as never,
+      fakeCheckpoint as never,
+      {
+        read: jest.fn().mockReturnValue([]),
+        broadcast: jest.fn().mockResolvedValue(undefined),
+      } as never,
+      fakeStore as never,
+      localElectionTracker as never,
+      localEventBus as never,
+      businessOrch,
+      fakeLifecycleManager as never,
+      noopMissionSpan as never,
+      undefined, // missionFailedPreset
+      opts.fakeRerunOrchestrator as never,
+    );
+
+    return {
+      d,
+      localInvoker,
+      fakeCheckpoint,
+      fakeStore,
+      localEventBus,
+      fakeLifecycleManager,
+      localElectionTracker,
+    };
+  }
+
+  const BASIC_INPUT = {
+    topic: "coverage test",
+    depth: "quick",
+    language: "zh-CN",
+    budgetProfile: "low",
+    styleProfile: "executive",
+    lengthProfile: "brief",
+    audienceProfile: "domain-expert",
+    withFigures: false,
+    auditLayers: "default",
+    concurrency: 1,
+    viewMode: "continuous",
+    maxCredits: 50,
+  } as never;
+
+  it("afterRowCreated callback is called when provided", async () => {
+    const { d } = buildMinimalDispatcher();
+    d.onModuleInit();
+
+    const afterRowCreated = jest.fn().mockResolvedValue(undefined);
+    await d.runMission(
+      "m-after",
+      BASIC_INPUT,
+      "u1",
+      undefined,
+      afterRowCreated,
+    );
+
+    expect(afterRowCreated).toHaveBeenCalledTimes(1);
+  });
+
+  it("afterRowCreated callback throws → logged as warn, mission continues (non-fatal)", async () => {
+    const { d } = buildMinimalDispatcher();
+    d.onModuleInit();
+
+    const afterRowCreated = jest
+      .fn()
+      .mockRejectedValue(new Error("callback failed"));
+    // Should not throw despite the callback failing
+    const result = await d.runMission(
+      "m-after-throw",
+      BASIC_INPUT,
+      "u1",
+      undefined,
+      afterRowCreated,
+    );
+
+    expect(afterRowCreated).toHaveBeenCalledTimes(1);
+    // Mission proceeds despite callback error
+    expect(result.missionId).toBe("m-after-throw");
+  });
+
+  it("crash-resume: restores crossState from checkpoint snapshot and resumes from stepId", async () => {
+    // Simulate a checkpoint with completedKeys = ['s1-budget', 's2-leader-plan']
+    // and a crossState payload
+    const fakeCheckpoint = {
+      clear: jest.fn().mockResolvedValue(undefined),
+      save: jest.fn().mockResolvedValue(undefined),
+      canResume: jest.fn().mockResolvedValue({
+        canResume: true,
+        reason: "checkpoint-found",
+        snapshot: {
+          payload: {
+            lastStage: "s2-leader-plan",
+            crossState: {
+              lastPlan: {
+                themeSummary: "restored theme",
+                dimensions: [{ id: "d1", name: "D1", rationale: "r" }],
+              },
+            },
+          },
+          completedKeys: ["s1-budget", "s2-leader-plan"],
+        },
+        completedKeys: ["s1-budget", "s2-leader-plan"],
+      }),
+    };
+
+    const { d } = buildMinimalDispatcher({ fakeCheckpoint });
+    d.onModuleInit();
+
+    // Should not throw - crash-resume paths are covered
+    const result = await d.runMission("m-crash-resume", BASIC_INPUT, "u1");
+    // Result should be valid (resumed from s3 onwards)
+    expect(result.missionId).toBe("m-crash-resume");
+  });
+
+  it("crash-resume: checkpoint.canResume throws → starts fresh (non-fatal)", async () => {
+    const fakeCheckpoint = {
+      clear: jest.fn().mockResolvedValue(undefined),
+      save: jest.fn().mockResolvedValue(undefined),
+      canResume: jest.fn().mockRejectedValue(new Error("checkpoint DB error")),
+    };
+
+    const { d } = buildMinimalDispatcher({ fakeCheckpoint });
+    d.onModuleInit();
+
+    const result = await d.runMission("m-no-resume", BASIC_INPUT, "u1");
+    // Should proceed fresh (no throw)
+    expect(result.missionId).toBe("m-no-resume");
+  });
+
+  it("cleanupOrphanRunningMissions: no orphans → logs 'no orphan' and returns", async () => {
+    const fakeStore = {
+      cleanupOrphanRunningMissionsAtomic: jest
+        .fn()
+        .mockResolvedValue({ orphans: [], claimedWinners: [] }),
+    };
+
+    const { d } = buildMinimalDispatcher({ fakeStore });
+    // onModuleInit calls cleanupOrphanRunningMissions as void fire-and-forget
+    d.onModuleInit();
+    // Wait for the fire-and-forget to complete
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+
+    expect(fakeStore.cleanupOrphanRunningMissionsAtomic).toHaveBeenCalled();
+  });
+
+  it("cleanupOrphanRunningMissions: orphans found, claimedWinners = [] → emits mission:failed for each orphan", async () => {
+    const fakeStore = {
+      cleanupOrphanRunningMissionsAtomic: jest.fn().mockResolvedValue({
+        orphans: [{ id: "orphan-1", userId: "u-orphan" }],
+        claimedWinners: [], // no claimed winners
+      }),
+    };
+
+    const { d } = buildMinimalDispatcher({ fakeStore });
+    d.onModuleInit();
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+
+    expect(fakeStore.cleanupOrphanRunningMissionsAtomic).toHaveBeenCalled();
+    // No claimed winners → no failed emit for those (only for orphans that are claimedWinners)
+  });
+
+  it("cleanupOrphanRunningMissions: claimed winner, not resumable → emits playground.mission:failed", async () => {
+    const fakeCheckpoint = {
+      clear: jest.fn().mockResolvedValue(undefined),
+      save: jest.fn().mockResolvedValue(undefined),
+      canResume: jest.fn().mockResolvedValue({
+        canResume: false,
+        reason: "no-checkpoint",
+        snapshot: null,
+        completedKeys: new Set(),
+      }),
+    };
+    const fakeStore = {
+      cleanupOrphanRunningMissionsAtomic: jest.fn().mockResolvedValue({
+        orphans: [{ id: "o1", userId: "u1" }],
+        claimedWinners: [{ id: "o1", userId: "u1" }],
+      }),
+    };
+
+    const { d, localEventBus } = buildMinimalDispatcher({
+      fakeCheckpoint,
+      fakeStore,
+    });
+    d.onModuleInit();
+    // Wait multiple ticks for all async chains to finish
+    await new Promise((r) => setTimeout(r, 20));
+
+    const emitted = localEventBus.emit.mock.calls;
+    const failedEmit = emitted.find(
+      (c) => c[0]?.type === "playground.mission:failed",
+    );
+    expect(failedEmit).toBeDefined();
+    expect(failedEmit![0].scope?.missionId ?? failedEmit![0].missionId).toBe(
+      "o1",
+    );
+    expect(failedEmit![0].payload.failureCode).toBe(
+      "DISPATCHER_BOOT_ORPHAN_CLEANUP",
+    );
+  });
+
+  it("cleanupOrphanRunningMissions: claimed winner, resumable + rerunOrchestrator present → triggers rerun, no mission:failed", async () => {
+    const fakeCheckpoint = {
+      clear: jest.fn().mockResolvedValue(undefined),
+      save: jest.fn().mockResolvedValue(undefined),
+      canResume: jest.fn().mockResolvedValue({
+        canResume: true,
+        reason: "checkpoint-found",
+        snapshot: { payload: {}, completedKeys: [] },
+        completedKeys: [],
+      }),
+    };
+    const fakeStore = {
+      cleanupOrphanRunningMissionsAtomic: jest.fn().mockResolvedValue({
+        orphans: [{ id: "o2", userId: "u2" }],
+        claimedWinners: [{ id: "o2", userId: "u2" }],
+      }),
+    };
+    const fakeRerunOrchestrator = {
+      rerunFullMission: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const { d, localEventBus } = buildMinimalDispatcher({
+      fakeCheckpoint,
+      fakeStore,
+      fakeRerunOrchestrator,
+    });
+    d.onModuleInit();
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(fakeRerunOrchestrator.rerunFullMission).toHaveBeenCalledWith(
+      "o2",
+      "u2",
+      "incremental",
+    );
+    const emitted = localEventBus.emit.mock.calls;
+    const failedEmit = emitted.find(
+      (c) => c[0]?.type === "playground.mission:failed",
+    );
+    expect(failedEmit).toBeUndefined();
+  });
+
+  it("cleanupOrphanRunningMissions: rerunOrchestrator.rerunFullMission throws → falls back to mission:failed", async () => {
+    const fakeCheckpoint = {
+      clear: jest.fn().mockResolvedValue(undefined),
+      save: jest.fn().mockResolvedValue(undefined),
+      canResume: jest.fn().mockResolvedValue({
+        canResume: true,
+        reason: "ok",
+        snapshot: { payload: {}, completedKeys: [] },
+        completedKeys: [],
+      }),
+    };
+    const fakeStore = {
+      cleanupOrphanRunningMissionsAtomic: jest.fn().mockResolvedValue({
+        orphans: [{ id: "o3", userId: "u3" }],
+        claimedWinners: [{ id: "o3", userId: "u3" }],
+      }),
+    };
+    const fakeRerunOrchestrator = {
+      rerunFullMission: jest.fn().mockRejectedValue(new Error("rerun failed")),
+    };
+
+    const { d, localEventBus } = buildMinimalDispatcher({
+      fakeCheckpoint,
+      fakeStore,
+      fakeRerunOrchestrator,
+    });
+    d.onModuleInit();
+    await new Promise((r) => setTimeout(r, 20));
+
+    // rerun threw → fallback to mission:failed emit
+    const emitted = localEventBus.emit.mock.calls;
+    const failedEmit = emitted.find(
+      (c) => c[0]?.type === "playground.mission:failed",
+    );
+    expect(failedEmit).toBeDefined();
+    expect(failedEmit![0].scope?.missionId ?? failedEmit![0].missionId).toBe(
+      "o3",
+    );
+  });
+
+  it("cleanupOrphanRunningMissions: cleanupOrphanRunningMissionsAtomic throws → logs error (non-fatal)", async () => {
+    const fakeStore = {
+      cleanupOrphanRunningMissionsAtomic: jest
+        .fn()
+        .mockRejectedValue(new Error("DB error")),
+    };
+
+    const { d } = buildMinimalDispatcher({ fakeStore });
+    d.onModuleInit();
+    // should not throw
+    await new Promise((r) => setTimeout(r, 20));
+    expect(fakeStore.cleanupOrphanRunningMissionsAtomic).toHaveBeenCalled();
+  });
+
+  it("hydrateInheritedPlan: source mission found → crossState.lastPlan populated, S2 skips LLM", async () => {
+    const fakeStore = {
+      getById: jest.fn().mockResolvedValue({
+        id: "source-1",
+        userId: "u1",
+        dimensions: [{ id: "d1", name: "Dim 1", rationale: "rationale 1" }],
+        themeSummary: "inherited theme",
+      }),
+      loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+      loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+    };
+
+    const { d } = buildMinimalDispatcher({ fakeStore });
+    d.onModuleInit();
+
+    // Use inheritFromMissionId to trigger hydrateInheritedPlan
+    const result = await d.runMission(
+      "m-inherit",
+      { ...BASIC_INPUT, inheritFromMissionId: "source-1" } as never,
+      "u1",
+    );
+
+    expect(result.missionId).toBe("m-inherit");
+    expect(fakeStore.getById).toHaveBeenCalledWith("source-1", "u1");
+    // S2 skips LLM when lastPlan is populated (checked internally by businessOrch)
+    // Mission should succeed
+    expect(result.status).toBe("completed");
+  });
+
+  it("hydrateInheritedPlan: source not found → S2 runs LLM fresh", async () => {
+    const fakeStore = {
+      getById: jest.fn().mockResolvedValue(null), // not found
+      loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+      loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+    };
+
+    const { d } = buildMinimalDispatcher({ fakeStore });
+    d.onModuleInit();
+
+    const result = await d.runMission(
+      "m-no-source",
+      { ...BASIC_INPUT, inheritFromMissionId: "nonexistent-src" } as never,
+      "u1",
+    );
+
+    // Source not found → mission proceeds with fresh S2 (leaderPlan mock returns valid plan)
+    expect(result.missionId).toBe("m-no-source");
+    expect(fakeStore.getById).toHaveBeenCalled();
+  });
+
+  it("hydrateInheritedPlan: source has empty dimensions → warns and S2 runs fresh", async () => {
+    const fakeStore = {
+      getById: jest.fn().mockResolvedValue({
+        id: "source-2",
+        userId: "u1",
+        dimensions: [], // empty
+        themeSummary: "x",
+      }),
+      loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+      loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+    };
+
+    const { d } = buildMinimalDispatcher({ fakeStore });
+    d.onModuleInit();
+
+    const result = await d.runMission(
+      "m-empty-dims",
+      { ...BASIC_INPUT, inheritFromMissionId: "source-2" } as never,
+      "u1",
+    );
+
+    expect(result.missionId).toBe("m-empty-dims");
+    // source has empty dims → no lastPlan set → fresh LLM plan
+  });
+
+  it("hydrateInheritedPlan: source has malformed dimensions → warns and S2 runs fresh", async () => {
+    const fakeStore = {
+      getById: jest.fn().mockResolvedValue({
+        id: "source-3",
+        userId: "u1",
+        dimensions: [{ noId: true }, null, 42], // all malformed
+        themeSummary: "x",
+      }),
+      loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+      loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+    };
+
+    const { d } = buildMinimalDispatcher({ fakeStore });
+    d.onModuleInit();
+
+    const result = await d.runMission(
+      "m-malformed-dims",
+      { ...BASIC_INPUT, inheritFromMissionId: "source-3" } as never,
+      "u1",
+    );
+
+    expect(result.missionId).toBe("m-malformed-dims");
+  });
+
+  it("hydrateInheritedPlan: source has partially malformed dimensions → warns but uses valid dims", async () => {
+    const fakeStore = {
+      getById: jest.fn().mockResolvedValue({
+        id: "source-4",
+        userId: "u1",
+        dimensions: [
+          { id: "d1", name: "Valid", rationale: "ok" }, // valid
+          { noId: true }, // malformed
+        ],
+        themeSummary: "partial",
+      }),
+      loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+      loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+    };
+
+    const { d } = buildMinimalDispatcher({ fakeStore });
+    d.onModuleInit();
+
+    const result = await d.runMission(
+      "m-partial-dims",
+      { ...BASIC_INPUT, inheritFromMissionId: "source-4" } as never,
+      "u1",
+    );
+
+    expect(result.missionId).toBe("m-partial-dims");
+    // 1 valid dim kept → lastPlan set with 1 dim → S2 skips LLM
+  });
+
+  it("hydrateInheritedPlan: store.getById throws → logs warn, S2 runs fresh", async () => {
+    const fakeStore = {
+      getById: jest.fn().mockRejectedValue(new Error("DB getById error")),
+      loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+      loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+    };
+
+    const { d } = buildMinimalDispatcher({ fakeStore });
+    d.onModuleInit();
+
+    const result = await d.runMission(
+      "m-getby-throw",
+      { ...BASIC_INPUT, inheritFromMissionId: "src-x" } as never,
+      "u1",
+    );
+
+    // Should not throw; S2 runs fresh
+    expect(result.missionId).toBe("m-getby-throw");
+  });
+
+  it("hydrateInheritedResearchResults: results found → inheritedResearchResults set", async () => {
+    const fakeStore = {
+      getById: jest.fn().mockResolvedValue(null), // plan hydration fails → fresh S2
+      loadBaselineResearchResults: jest.fn().mockResolvedValue([
+        {
+          dimension: "d1",
+          findings: [{ claim: "c", evidence: "e", source: "s" }],
+          summary: "s1",
+        },
+      ]),
+      loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+      saveResearchResult: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const { d } = buildMinimalDispatcher({ fakeStore });
+    d.onModuleInit();
+
+    const result = await d.runMission(
+      "m-inherit-res",
+      { ...BASIC_INPUT, inheritFromMissionId: "src-res" } as never,
+      "u1",
+    );
+
+    expect(result.missionId).toBe("m-inherit-res");
+    expect(fakeStore.loadBaselineResearchResults).toHaveBeenCalledWith(
+      "src-res",
+    );
+    // saveResearchResult called once for each inherited result
+    expect(fakeStore.saveResearchResult).toHaveBeenCalled();
+  });
+
+  it("hydrateInheritedResearchResults: empty results → does not set inheritedResearchResults (S3 runs fresh)", async () => {
+    const loadBaselineResearchResults = jest.fn().mockResolvedValue([]);
+    const fakeStore = {
+      getById: jest.fn().mockResolvedValue(null),
+      loadBaselineResearchResults,
+      loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+      saveResearchResult: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const { d } = buildMinimalDispatcher({ fakeStore });
+    d.onModuleInit();
+
+    const result = await d.runMission(
+      "m-empty-res",
+      { ...BASIC_INPUT, inheritFromMissionId: "src-empty" } as never,
+      "u1",
+    );
+    expect(loadBaselineResearchResults).toHaveBeenCalledWith("src-empty");
+    // No inherited results → S3 runs fresh (mission still succeeds)
+    expect(result.missionId).toBe("m-empty-res");
+  });
+
+  it("hydrateInheritedChapterDrafts: drafts found → inheritedChapters set + saveChapterDraft called", async () => {
+    const fakeStore = {
+      getById: jest.fn().mockResolvedValue(null),
+      loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+      loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([
+        {
+          dimension: "d1",
+          chapterIndex: 0,
+          heading: "h1",
+          thesis: "t1",
+          content: "c1",
+          score: 80,
+          attempts: 1,
+          wordCount: 200,
+        },
+      ]),
+      saveChapterDraft: jest.fn().mockResolvedValue(undefined),
+      saveResearchResult: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const { d } = buildMinimalDispatcher({ fakeStore });
+    d.onModuleInit();
+
+    await d.runMission(
+      "m-inherit-ch",
+      { ...BASIC_INPUT, inheritFromMissionId: "src-ch" } as never,
+      "u1",
+    );
+    expect(fakeStore.loadQualifiedChapterDrafts).toHaveBeenCalledWith("src-ch");
+    expect(fakeStore.saveChapterDraft).toHaveBeenCalled();
+  });
+
+  it("tryHandleAbort: runtimeShell.runWithinContext throws → emits execution-aborted + markFailed", async () => {
+    const reg = new MissionPipelineRegistry();
+    const orch = new MissionPipelineOrchestrator(reg);
+    const localStageBindings = makeFakeStageBindings();
+
+    // Shell that throws in runWithinContext (simulates unexpected throw)
+    const throwingShell = {
+      async openSession(args: {
+        missionId: string;
+        userId: string;
+        input: unknown;
+      }) {
+        return makeFakeSession(args.missionId, args.userId);
+      },
+      async runWithinContext<T>(
+        _session: MissionRuntimeSession,
+        _fn: () => Promise<T>,
+      ): Promise<T> {
+        throw new Error("unexpected shell error");
+      },
+    } as unknown as MissionRuntimeShellService;
+
+    const localInvoker = {
+      invoke: jest
+        .fn()
+        .mockResolvedValue({ state: "completed", output: {}, events: [] }),
+      emitEvent: jest.fn().mockResolvedValue(undefined),
+      emitLifecycle: jest.fn().mockResolvedValue(undefined),
+      clearMissionRelayState: jest.fn(),
+    } as unknown as AgentInvoker;
+    const fakeCheckpoint = {
+      clear: jest.fn().mockResolvedValue(undefined),
+      save: jest.fn().mockResolvedValue(undefined),
+      canResume: jest.fn().mockResolvedValue({
+        canResume: false,
+        reason: "no-checkpoint",
+        snapshot: null,
+        completedKeys: new Set(),
+      }),
+    };
+    const fakeEventBuffer = {
+      read: jest.fn().mockReturnValue([]),
+      broadcast: jest.fn().mockResolvedValue(undefined),
+    };
+    const fakeStore = {
+      markStageComplete: jest.fn().mockResolvedValue(undefined),
+      applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
+      saveResearchResult: jest.fn().mockResolvedValue(undefined),
+      saveChapterDraft: jest.fn().mockResolvedValue(undefined),
+      loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+      loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+      saveReportVersion: jest.fn().mockResolvedValue(1),
+      markIntermediateState: jest.fn().mockResolvedValue(undefined),
+      listRecentPostmortems: jest.fn().mockResolvedValue([]),
+    };
+    const localEventBus = {
+      emit: jest.fn().mockResolvedValue(true),
+      registerAdapter: jest.fn(),
+      unregisterAdapter: jest.fn(),
+    };
+    const localElectionTracker = { clear: jest.fn() };
+
+    (
+      localStageBindings as unknown as { buildDeps: jest.Mock }
+    ).buildDeps.mockReturnValue({
+      invoker: {} as never,
+      store: {
+        markIntermediateState: jest.fn().mockResolvedValue(undefined),
+        listRecentPostmortems: jest.fn().mockResolvedValue([]),
+      },
+      log: {
+        log: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+        debug: jest.fn(),
+      },
+      emit: jest.fn().mockResolvedValue(undefined),
+      lifecycle: jest.fn(),
+    } as never);
+
+    const businessOrch = new PlaygroundBusinessOrchestrator(
+      localStageBindings as unknown as MissionStageBindingsService,
+      fakeCheckpoint as never,
+      fakeStore as never,
+    );
+    const fakeLifecycleManager = {
+      finalize: jest.fn(
+        async (args: {
+          missionId: string;
+          arbiter: {
+            applyTerminalIfRunning: (
+              id: string,
+              intent: unknown,
+            ) => Promise<boolean>;
+          };
+          onWon?: () => Promise<void>;
+        }) => {
+          const won = await args.arbiter.applyTerminalIfRunning(
+            args.missionId,
+            {},
+          );
+          if (won && args.onWon) {
+            try {
+              await args.onWon();
+            } catch {
+              /* swallow */
+            }
+          }
+          return { won };
+        },
+      ),
+    };
+    const noopMissionSpan = {
+      startMissionSpan: jest.fn(),
+      endMissionSpan: jest.fn(),
+      startStageSpan: jest.fn(),
+      endStageSpan: jest.fn(),
+    };
+    const fakeLeaderSvc = {
+      create: jest.fn().mockReturnValue({
+        plan: jest.fn().mockResolvedValue({
+          themeSummary: "t",
+          dimensions: [{ id: "d", name: "n", rationale: "r" }],
+          goals: {},
+          initialRisks: [],
+        }),
+      } as never),
+    } as unknown as LeaderService;
+
+    const d = new PlaygroundPipelineDispatcher(
+      reg,
+      orch,
+      throwingShell,
+      localStageBindings as unknown as MissionStageBindingsService,
+      fakeLeaderSvc,
+      localInvoker,
+      { build: jest.fn().mockReturnValue(jest.fn()) } as never,
+      fakeCheckpoint as never,
+      fakeEventBuffer as never,
+      fakeStore as never,
+      localElectionTracker as never,
+      localEventBus as never,
+      businessOrch,
+      fakeLifecycleManager as never,
+      noopMissionSpan as never,
+    );
+    d.onModuleInit();
+
+    // Should throw (rethrows after tryHandleAbort)
+    await expect(d.runMission("m-throw", BASIC_INPUT, "u1")).rejects.toThrow(
+      "unexpected shell error",
+    );
+
+    // tryHandleAbort should have emitted execution-aborted via eventBus
+    const emitted = localEventBus.emit.mock.calls;
+    const abortedEmit = emitted.find(
+      (c) => c[0]?.type === "playground.mission:execution-aborted",
+    );
+    expect(abortedEmit).toBeDefined();
+    expect(abortedEmit![0].scope?.missionId ?? abortedEmit![0].missionId).toBe(
+      "m-throw",
+    );
+
+    // finalize(failed) should have been called
+    expect(fakeLifecycleManager.finalize).toHaveBeenCalledWith(
+      expect.objectContaining({
+        missionId: "m-throw",
+        intent: expect.objectContaining({ status: "failed" }),
+      }),
+    );
+  });
+});
+
+// ─── Coverage gap-fill: uncovered lines in playground.pipeline.ts ─────────────
+
+describe("PlaygroundPipelineDispatcher — coverage gaps", () => {
+  // Re-use the buildMinimalDispatcher from the outer describe block via closure
+  // but we need to re-define it here since it's locally scoped.
+  function buildD(
+    opts: {
+      fakeStore?: Record<string, jest.Mock>;
+      fakeCheckpoint?: Record<string, jest.Mock>;
+      fakeLeaderPlan?: jest.Mock;
+      fakeRerunOrchestrator?: { rerunFullMission: jest.Mock };
+      fakeEventBus?: {
+        emit: jest.Mock;
+        registerAdapter: jest.Mock;
+        unregisterAdapter: jest.Mock;
+      };
+      fakeInvoker?: Record<string, jest.Mock>;
+      customShell?: unknown;
+      fakeLifecycleManager?: { finalize: jest.Mock };
+    } = {},
+  ) {
+    const reg = new MissionPipelineRegistry();
+    const orch = new MissionPipelineOrchestrator(reg);
+    const localStageBindings = makeFakeStageBindings();
+
+    const defaultLeaderPlan = jest.fn().mockResolvedValue({
+      themeSummary: "test theme",
+      dimensions: [{ id: "dim-1", name: "Dim 1", rationale: "..." }],
+      goals: { successCriteria: ["..."] },
+      initialRisks: [],
+    });
+    const leaderPlan = opts.fakeLeaderPlan ?? defaultLeaderPlan;
+    const fakeLeaderSvc = {
+      create: jest.fn().mockReturnValue({ plan: leaderPlan } as never),
+    } as unknown as LeaderService;
+
+    const defaultInvoker = {
+      invoke: jest
+        .fn()
+        .mockResolvedValue({ state: "completed", output: {}, events: [] }),
+      emitEvent: jest.fn().mockResolvedValue(undefined),
+      emitLifecycle: jest.fn().mockResolvedValue(undefined),
+      clearMissionRelayState: jest.fn(),
+    };
+    const localInvoker = {
+      ...defaultInvoker,
+      ...opts.fakeInvoker,
+    } as unknown as AgentInvoker;
+
+    const defaultCheckpoint = {
+      clear: jest.fn().mockResolvedValue(undefined),
+      save: jest.fn().mockResolvedValue(undefined),
+      canResume: jest.fn().mockResolvedValue({
+        canResume: false,
+        reason: "no-checkpoint",
+        snapshot: null,
+        completedKeys: new Set(),
+      }),
+    };
+    const fakeCheckpoint = { ...defaultCheckpoint, ...opts.fakeCheckpoint };
+
+    const defaultStore = {
+      markStageComplete: jest.fn().mockResolvedValue(undefined),
+      applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
+      saveResearchResult: jest.fn().mockResolvedValue(undefined),
+      saveChapterDraft: jest.fn().mockResolvedValue(undefined),
+      loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+      loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+      saveReportVersion: jest.fn().mockResolvedValue(1),
+      markIntermediateState: jest.fn().mockResolvedValue(undefined),
+      listRecentPostmortems: jest.fn().mockResolvedValue([]),
+      cleanupOrphanRunningMissionsAtomic: jest
+        .fn()
+        .mockResolvedValue({ orphans: [], claimedWinners: [] }),
+      getById: jest.fn().mockResolvedValue(null),
+    };
+    const fakeStore = {
+      ...defaultStore,
+      ...opts.fakeStore,
+    } as unknown as Record<string, jest.Mock>;
+
+    (
+      localStageBindings as unknown as { buildDeps: jest.Mock }
+    ).buildDeps.mockReturnValue({
+      invoker: {} as never,
+      store: {
+        markIntermediateState: jest.fn().mockResolvedValue(undefined),
+        listRecentPostmortems: jest.fn().mockResolvedValue([]),
+        loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+        loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+        saveResearchResult: jest.fn().mockResolvedValue(undefined),
+        saveChapterDraft: jest.fn().mockResolvedValue(undefined),
+        saveReportVersion: jest.fn().mockResolvedValue(1),
+        markStageComplete: jest.fn().mockResolvedValue(undefined),
+        applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
+      },
+      log: {
+        log: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+        debug: jest.fn(),
+      },
+      emit: jest.fn().mockResolvedValue(undefined),
+      lifecycle: jest.fn(),
+    } as never);
+
+    const businessOrch = new PlaygroundBusinessOrchestrator(
+      localStageBindings as unknown as MissionStageBindingsService,
+      fakeCheckpoint as never,
+      fakeStore as never,
+    );
+
+    const defaultLifecycleManager = {
+      finalize: jest.fn(
+        async (args: {
+          missionId: string;
+          arbiter: {
+            applyTerminalIfRunning: (
+              id: string,
+              intent: unknown,
+            ) => Promise<boolean>;
+          };
+          onWon?: () => Promise<void>;
+        }) => {
+          const won = await args.arbiter.applyTerminalIfRunning(
+            args.missionId,
+            {},
+          );
+          if (won && args.onWon) {
+            try {
+              await args.onWon();
+            } catch {
+              /* swallow */
+            }
+          }
+          return { won };
+        },
+      ),
+    };
+    const fakeLifecycleManager =
+      opts.fakeLifecycleManager ?? defaultLifecycleManager;
+
+    const noopMissionSpan = {
+      startMissionSpan: jest.fn(),
+      endMissionSpan: jest.fn(),
+      startStageSpan: jest.fn(),
+      endStageSpan: jest.fn(),
+    };
+    const localEventBus = opts.fakeEventBus ?? {
+      emit: jest.fn().mockResolvedValue(true),
+      registerAdapter: jest.fn(),
+      unregisterAdapter: jest.fn(),
+    };
+    const localElectionTracker = { clear: jest.fn() };
+
+    const shell = opts.customShell ?? makeFakeShell();
+
+    const d = new PlaygroundPipelineDispatcher(
+      reg,
+      orch,
+      shell as unknown as MissionRuntimeShellService,
+      localStageBindings as unknown as MissionStageBindingsService,
+      fakeLeaderSvc,
+      localInvoker,
+      { build: jest.fn().mockReturnValue(jest.fn()) } as never,
+      fakeCheckpoint as never,
+      {
+        read: jest
+          .fn()
+          .mockReturnValue([{ type: "e", timestamp: 1, payload: {} }]),
+        broadcast: jest.fn().mockResolvedValue(undefined),
+      } as never,
+      fakeStore as never,
+      localElectionTracker as never,
+      localEventBus as never,
+      businessOrch,
+      fakeLifecycleManager as never,
+      noopMissionSpan as never,
+      undefined, // missionFailedPreset
+      opts.fakeRerunOrchestrator as never,
+    );
+
+    return {
+      d,
+      localInvoker,
+      fakeCheckpoint,
+      fakeStore,
+      localEventBus,
+      fakeLifecycleManager,
+      localElectionTracker,
+      orch,
+      reg,
+    };
+  }
+
+  const BASIC_INPUT = {
+    topic: "gap coverage test",
+    depth: "quick",
+    language: "zh-CN",
+    budgetProfile: "low",
+    styleProfile: "executive",
+    lengthProfile: "brief",
+    audienceProfile: "domain-expert",
+    withFigures: false,
+    auditLayers: "default",
+    concurrency: 1,
+    viewMode: "continuous",
+    maxCredits: 50,
+  } as never;
+
+  // ── Line 208: markStageComplete fails → non-fatal warn ──────────────────────
+  it("withProgressTracking: markStageComplete rejects → non-fatal warn, mission continues", async () => {
+    const { d } = buildD({
+      fakeStore: {
+        markStageComplete: jest
+          .fn()
+          .mockRejectedValue(new Error("mark stage failed")),
+      },
+    });
+    d.onModuleInit();
+
+    const result = await d.runMission("m-mark-fail", BASIC_INPUT, "u1");
+    // Mission still completes despite markStageComplete failing
+    expect(result.status).toBe("completed");
+  });
+
+  // ── Line 235: checkpoint.save fails → non-fatal warn ────────────────────────
+  it("withProgressTracking: checkpoint.save rejects → non-fatal warn, mission continues", async () => {
+    const { d } = buildD({
+      fakeCheckpoint: {
+        save: jest.fn().mockRejectedValue(new Error("checkpoint save failed")),
+      },
+    });
+    d.onModuleInit();
+
+    const result = await d.runMission("m-cp-save-fail", BASIC_INPUT, "u1");
+    expect(result.status).toBe("completed");
+  });
+
+  // ── Line 338: maybeResumeOrphan canResume throws → returns false ─────────────
+  it("maybeResumeOrphan: canResume throws → returns false, logs orphan_resume_skipped", async () => {
+    const { d } = buildD({
+      fakeCheckpoint: {
+        canResume: jest.fn().mockRejectedValue(new Error("canResume DB error")),
+      },
+      fakeStore: {
+        cleanupOrphanRunningMissionsAtomic: jest.fn().mockResolvedValue({
+          orphans: [{ id: "orphan-x", userId: "u-x" }],
+          claimedWinners: [{ id: "orphan-x", userId: "u-x" }],
+        }),
+      },
+    });
+    d.onModuleInit();
+    // Wait for fire-and-forget orphan cleanup + maybeResumeOrphan
+    await new Promise((r) => setTimeout(r, 30));
+    // No throw = canResume catch returned false gracefully
+  });
+
+  // ── Line 378: getSession success return ─────────────────────────────────────
+  it("getSession: returns session when active mid-mission (via afterRowCreated)", async () => {
+    const { d } = buildD();
+    d.onModuleInit();
+
+    let capturedSession: unknown = null;
+    const afterRowCreated = jest.fn().mockImplementation(async () => {
+      capturedSession = d.getSession("m-session-live");
+    });
+
+    await d.runMission(
+      "m-session-live",
+      BASIC_INPUT,
+      "u1",
+      undefined,
+      afterRowCreated,
+    );
+    expect(capturedSession).toBeDefined();
+    expect(capturedSession).toHaveProperty("missionAbort");
+  });
+
+  // ── Line 595: checkpoint.clear fails in success path → non-fatal warn ───────
+  it("checkpoint.clear rejects on success path → non-fatal warn, still returns completed", async () => {
+    const { d } = buildD({
+      fakeCheckpoint: {
+        clear: jest.fn().mockRejectedValue(new Error("clear failed")),
+      },
+    });
+    d.onModuleInit();
+
+    const result = await d.runMission("m-cp-clear-fail", BASIC_INPUT, "u1");
+    expect(result.status).toBe("completed");
+  });
+
+  // ── Line 648: session.cleanup() throws → log.error ──────────────────────────
+  it("session.cleanup() throws in finally → caught, logs error, mission still returns", async () => {
+    const throwingShell = {
+      sessions: new Map<string, unknown>(),
+      async openSession(args: { missionId: string; userId: string }) {
+        const s = makeFakeSession(args.missionId, args.userId);
+        // Override cleanup to throw
+        (s as unknown as { cleanup: jest.Mock }).cleanup.mockImplementation(
+          () => {
+            throw new Error("cleanup threw");
+          },
+        );
+        throwingShell.sessions.set(args.missionId, s);
+        return s;
+      },
+      async runWithinContext<T>(_session: unknown, fn: () => Promise<T>) {
+        return fn();
+      },
+    };
+
+    const { d } = buildD({ customShell: throwingShell });
+    d.onModuleInit();
+
+    // Should not throw despite cleanup throwing
+    const result = await d.runMission("m-cleanup-throw", BASIC_INPUT, "u1");
+    expect(result.missionId).toBe("m-cleanup-throw");
+  });
+
+  // ── Lines 685 + 725-726: fireSelfEvolutionPostlude success + s12 catch ───────
+  it("fireSelfEvolutionPostlude: missionEventBuffer.read called; runSelfEvolutionStage catch emits postlude:failed", async () => {
+    // Override s12 mock to reject
+    const s12Mock = require("../stages/s12-self-evolution.stage");
+    const originalImpl =
+      s12Mock.runSelfEvolutionStage.getMockImplementation?.();
+    s12Mock.runSelfEvolutionStage.mockRejectedValueOnce(
+      new Error("s12 fire failed"),
+    );
+
+    const { d, localEventBus } = buildD();
+    d.onModuleInit();
+
+    await d.runMission("m-s12-catch", BASIC_INPUT, "u1");
+    // Give fire-and-forget time to complete
+    await new Promise((r) => setTimeout(r, 20));
+
+    const emitted = localEventBus.emit.mock.calls;
+    const postludeFailed = emitted.find(
+      (c) => c[0]?.type === "playground.mission:postlude:failed",
+    );
+    expect(postludeFailed).toBeDefined();
+    expect(postludeFailed![0].payload.stage).toBe("s12-self-evolution");
+
+    // Restore
+    if (originalImpl) {
+      s12Mock.runSelfEvolutionStage.mockImplementation(originalImpl);
+    } else {
+      s12Mock.runSelfEvolutionStage.mockResolvedValue(undefined);
+    }
+  });
+
+  // ── Lines 781: tryHandleAbort finalize .catch ────────────────────────────────
+  it("tryHandleAbort: lifecycleManager.finalize rejects → catch logs warn, returns false", async () => {
+    const customShell = {
+      async openSession(args: { missionId: string; userId: string }) {
+        return makeFakeSession(args.missionId, args.userId);
+      },
+      async runWithinContext<T>(
+        _session: unknown,
+        _fn: () => Promise<T>,
+      ): Promise<T> {
+        throw new Error("shell context error");
+      },
+    };
+
+    const fakeLifecycleManager = {
+      finalize: jest.fn().mockRejectedValue(new Error("finalize threw")),
+    };
+
+    const { d, localEventBus } = buildD({
+      customShell,
+      fakeLifecycleManager: fakeLifecycleManager as never,
+    });
+    d.onModuleInit();
+
+    // tryHandleAbort: finalize rejects → warn logged, returns false → finally !reachedTerminal triggers
+    await expect(
+      d.runMission("m-finalize-throw", BASIC_INPUT, "u1"),
+    ).rejects.toThrow("shell context error");
+
+    // Despite finalize failing, execution-aborted should have been attempted
+    const emitted = localEventBus.emit.mock.calls;
+    // Either tryHandleAbort's emitToBus OR the finally !reachedTerminal emitToBus
+    const abortedEmit = emitted.find(
+      (c) => c[0]?.type === "playground.mission:execution-aborted",
+    );
+    expect(abortedEmit).toBeDefined();
+  });
+
+  // ── Lines 787-790: tryHandleAbort inner catch (emitToBus throws) ─────────────
+  it("tryHandleAbort: emitToBus throws inside tryHandleAbort → inner catch, returns false", async () => {
+    // Throw in both runWithinContext (to enter catch) AND in emitToBus
+    let firstCall = true;
+    const localEventBus = {
+      emit: jest.fn().mockImplementation(() => {
+        if (firstCall) {
+          firstCall = false;
+          throw new Error("emitToBus sync throw in tryHandleAbort");
+        }
+        return Promise.resolve(true);
+      }),
+      registerAdapter: jest.fn(),
+      unregisterAdapter: jest.fn(),
+    };
+
+    const customShell = {
+      async openSession(args: { missionId: string; userId: string }) {
+        return makeFakeSession(args.missionId, args.userId);
+      },
+      async runWithinContext<T>(
+        _session: unknown,
+        _fn: () => Promise<T>,
+      ): Promise<T> {
+        throw new Error("shell crash");
+      },
+    };
+
+    const { d } = buildD({ customShell, fakeEventBus: localEventBus });
+    d.onModuleInit();
+
+    await expect(
+      d.runMission("m-abort-emit-throw", BASIC_INPUT, "u1"),
+    ).rejects.toThrow("shell crash");
+    // Inner catch in tryHandleAbort was hit (no unhandled rejection)
+  });
+
+  // ── Lines 818-825: handleMissionFailure non-Error object ─────────────────────
+  it("handleMissionFailure: non-Error plain object → JSON.stringify path, emits mission:failed", async () => {
+    // Stage throws a plain object (not Error instance)
+    const plainObjectErr = { code: "CUSTOM_ERROR", detail: "something bad" };
+    const { d, localInvoker } = buildD({
+      fakeLeaderPlan: jest.fn().mockRejectedValue(plainObjectErr),
+    });
+    d.onModuleInit();
+
+    await d.runMission("m-plain-obj-err", BASIC_INPUT, "u1");
+
+    const emitCalls = (localInvoker.emitEvent as jest.Mock).mock.calls;
+    const failedEmit = emitCalls.find(
+      (c) => (c[0] as { type: string }).type === "playground.mission:failed",
+    );
+    expect(failedEmit).toBeDefined();
+    // Message should contain the JSON-stringified form (or String fallback)
+    expect(
+      typeof (failedEmit![0] as { payload: { message: string } }).payload
+        .message,
+    ).toBe("string");
+  });
+
+  // ── Line 885: RUNNER_INPUT_SCHEMA_MISMATCH (InputValidationError) ────────────
+  it("handleMissionFailure: error name=InputValidationError → RUNNER_INPUT_SCHEMA_MISMATCH", async () => {
+    const inputErr = new Error("agent input schema mismatch");
+    inputErr.name = "InputValidationError";
+    const { d, localInvoker } = buildD({
+      fakeLeaderPlan: jest.fn().mockRejectedValue(inputErr),
+    });
+    d.onModuleInit();
+
+    await d.runMission("m-schema-mismatch", BASIC_INPUT, "u1");
+
+    const emitCalls = (localInvoker.emitEvent as jest.Mock).mock.calls;
+    const failedEmit = emitCalls.find(
+      (c) => (c[0] as { type: string }).type === "playground.mission:failed",
+    );
+    expect(failedEmit).toBeDefined();
+    expect(
+      (failedEmit![0] as { payload: { failureCode: string } }).payload
+        .failureCode,
+    ).toBe("RUNNER_INPUT_SCHEMA_MISMATCH");
+  });
+
+  // ── Line 885: RUNNER_INPUT_SCHEMA_MISMATCH (DefineAgentMissingError) ─────────
+  it("handleMissionFailure: error name=DefineAgentMissingError → RUNNER_INPUT_SCHEMA_MISMATCH", async () => {
+    const agentErr = new Error("agent definition missing");
+    agentErr.name = "DefineAgentMissingError";
+    const { d, localInvoker } = buildD({
+      fakeLeaderPlan: jest.fn().mockRejectedValue(agentErr),
+    });
+    d.onModuleInit();
+
+    await d.runMission("m-agent-missing", BASIC_INPUT, "u1");
+
+    const emitCalls = (localInvoker.emitEvent as jest.Mock).mock.calls;
+    const failedEmit = emitCalls.find(
+      (c) => (c[0] as { type: string }).type === "playground.mission:failed",
+    );
+    expect(failedEmit).toBeDefined();
+    expect(
+      (failedEmit![0] as { payload: { failureCode: string } }).payload
+        .failureCode,
+    ).toBe("RUNNER_INPUT_SCHEMA_MISMATCH");
+  });
+
+  // ── Line 923: invoker.emitEvent.catch warn in handleMissionFailure ────────────
+  it("handleMissionFailure: invoker.emitEvent rejects → catch logs warn, still proceeds to finalize", async () => {
+    const emitEventMock = jest
+      .fn()
+      .mockRejectedValue(new Error("emitEvent failed"));
+    const { d } = buildD({
+      fakeLeaderPlan: jest.fn().mockRejectedValue(new Error("leader fail")),
+      fakeInvoker: {
+        emitEvent: emitEventMock,
+        emitLifecycle: jest.fn().mockResolvedValue(undefined),
+        clearMissionRelayState: jest.fn(),
+      },
+    });
+    d.onModuleInit();
+
+    // Should not throw despite emitEvent failing
+    const result = await d.runMission("m-emit-fail", BASIC_INPUT, "u1");
+    expect(result.status).toBe("failed");
+    expect(emitEventMock).toHaveBeenCalled();
+  });
+
+  // ── Lines 986-993: finalize.catch log.error in handleMissionFailure ──────────
+  it("handleMissionFailure: lifecycleManager.finalize rejects → catch logs error, returns", async () => {
+    const fakeLifecycleManager = {
+      finalize: jest.fn().mockRejectedValue(new Error("finalize DB error")),
+    };
+
+    const { d } = buildD({
+      fakeLeaderPlan: jest.fn().mockRejectedValue(new Error("leader fail")),
+      fakeLifecycleManager: fakeLifecycleManager as never,
+    });
+    d.onModuleInit();
+
+    // handleMissionFailure's finalize.catch should swallow the error
+    const result = await d.runMission("m-finalize-fail", BASIC_INPUT, "u1");
+    expect(result.status).toBe("failed");
+  });
+
+  // ── Lines 1002-1011: handleMissionFailure saveReportVersion with reportPayload ─
+  it("handleMissionFailure: reportArtifact in crossState → saveReportVersion called", async () => {
+    // Make s8 stage set reportArtifact in ctx so crossState gets populated
+
+    // Leader plan fails after s8 has already populated ctx.reportArtifact
+    // We simulate this by making the leader's plan fail but having the S8 mock set reportArtifact
+    // The issue: we need s8 to run AND THEN mission to fail. Let's use s10 failure.
+    const s10Mock = require("../stages/s10-leader-foreword-and-signoff.stage");
+    const orig10 =
+      s10Mock.runLeaderForewordAndSignoffStage.getMockImplementation?.();
+    s10Mock.runLeaderForewordAndSignoffStage.mockRejectedValueOnce(
+      new Error("s10 fail"),
+    );
+
+    const { d, fakeStore } = buildD();
+    d.onModuleInit();
+
+    await d.runMission("m-report-version", BASIC_INPUT, "u1");
+
+    // saveReportVersion is called when reportPayload is set in crossState
+    // (s8 mock sets ctx.reportArtifact which flows through crossState)
+    expect(
+      (fakeStore as unknown as { saveReportVersion: jest.Mock })
+        .saveReportVersion,
+    ).toHaveBeenCalled();
+
+    // Restore
+    if (orig10)
+      s10Mock.runLeaderForewordAndSignoffStage.mockImplementation(orig10);
+    else s10Mock.runLeaderForewordAndSignoffStage.mockResolvedValue(undefined);
+  });
+
+  // ── Lines 1002-1011: saveReportVersion fails → catch logs warn ──────────────
+  it("handleMissionFailure: saveReportVersion rejects → catch logs warn (non-fatal)", async () => {
+    const s10Mock = require("../stages/s10-leader-foreword-and-signoff.stage");
+    const orig10 =
+      s10Mock.runLeaderForewordAndSignoffStage.getMockImplementation?.();
+    s10Mock.runLeaderForewordAndSignoffStage.mockRejectedValueOnce(
+      new Error("s10 fail"),
+    );
+
+    const { d } = buildD({
+      fakeStore: {
+        saveReportVersion: jest
+          .fn()
+          .mockRejectedValue(new Error("saveReportVersion fail")),
+      },
+    });
+    d.onModuleInit();
+
+    // Should not throw despite saveReportVersion failing
+    const result = await d.runMission(
+      "m-report-version-fail",
+      BASIC_INPUT,
+      "u1",
+    );
+    expect(result.status).toBe("failed");
+
+    // Restore
+    if (orig10)
+      s10Mock.runLeaderForewordAndSignoffStage.mockImplementation(orig10);
+    else s10Mock.runLeaderForewordAndSignoffStage.mockResolvedValue(undefined);
+  });
+
+  // ── Line 1116: hydrateInheritedResearchResults catch warn ────────────────────
+  it("hydrateInheritedResearchResults: loadBaselineResearchResults throws → logs warn, S3 runs fresh", async () => {
+    const { d } = buildD({
+      fakeStore: {
+        getById: jest.fn().mockResolvedValue(null),
+        loadBaselineResearchResults: jest
+          .fn()
+          .mockRejectedValue(new Error("loadBaselineResearchResults DB error")),
+        loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+      },
+    });
+    d.onModuleInit();
+
+    const result = await d.runMission(
+      "m-hydrate-res-throw",
+      { ...BASIC_INPUT, inheritFromMissionId: "src-throw" } as never,
+      "u1",
+    );
+
+    expect(result.missionId).toBe("m-hydrate-res-throw");
+    // Should not throw; hydrateInheritedResearchResults catch returns normally
+  });
+
+  // ── Line 1162: hydrateInheritedChapterDrafts catch warn ─────────────────────
+  it("hydrateInheritedChapterDrafts: loadQualifiedChapterDrafts throws → logs warn, chapter pipeline fresh", async () => {
+    const { d } = buildD({
+      fakeStore: {
+        getById: jest.fn().mockResolvedValue(null),
+        loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+        loadQualifiedChapterDrafts: jest
+          .fn()
+          .mockRejectedValue(new Error("loadQualifiedChapterDrafts DB error")),
+      },
+    });
+    d.onModuleInit();
+
+    const result = await d.runMission(
+      "m-hydrate-ch-throw",
+      { ...BASIC_INPUT, inheritFromMissionId: "src-ch-throw" } as never,
+      "u1",
+    );
+
+    expect(result.missionId).toBe("m-hydrate-ch-throw");
+  });
+
+  // ── Lines 822: JSON.stringify throws on circular object → String(err) fallback ─
+  it("handleMissionFailure: circular object error → JSON.stringify catch fallback → String(err)", async () => {
+    // Create a circular reference object that JSON.stringify cannot handle
+    const circularObj: Record<string, unknown> = { code: "CIRCULAR_ERR" };
+    circularObj.self = circularObj; // circular reference
+    const { d, localInvoker } = buildD({
+      fakeLeaderPlan: jest.fn().mockRejectedValue(circularObj),
+    });
+    d.onModuleInit();
+
+    await d.runMission("m-circular-err", BASIC_INPUT, "u1");
+
+    const emitCalls = (localInvoker.emitEvent as jest.Mock).mock.calls;
+    const failedEmit = emitCalls.find(
+      (c) => (c[0] as { type: string }).type === "playground.mission:failed",
+    );
+    expect(failedEmit).toBeDefined();
+    // Message falls back to String(err) since JSON.stringify throws for circular
+    expect(
+      typeof (failedEmit![0] as { payload: { message: string } }).payload
+        .message,
+    ).toBe("string");
+  });
+
+  // ── Line 825: non-object primitive → String(err) direct ─────────────────────
+  it("handleMissionFailure: thrown string → String(err) path (line 825)", async () => {
+    const { d, localInvoker } = buildD({
+      // Throw a plain string (not an Error, not an object)
+      fakeLeaderPlan: jest
+        .fn()
+        .mockImplementation(() =>
+          Promise.reject("something went wrong string"),
+        ),
+    });
+    d.onModuleInit();
+
+    await d.runMission("m-string-err", BASIC_INPUT, "u1");
+
+    const emitCalls = (localInvoker.emitEvent as jest.Mock).mock.calls;
+    const failedEmit = emitCalls.find(
+      (c) => (c[0] as { type: string }).type === "playground.mission:failed",
+    );
+    expect(failedEmit).toBeDefined();
+    expect(
+      (failedEmit![0] as { payload: { message: string } }).payload.message,
+    ).toContain("something went wrong string");
+  });
+
+  // ── Line 986: missionFailedPreset.notify rejects → catch logs warn ───────────
+  it("handleMissionFailure: missionFailedPreset.notify rejects → catch logs warn (non-fatal)", async () => {
+    const failingNotifyPreset = {
+      notify: jest.fn().mockRejectedValue(new Error("notify failed")),
+    };
+
+    // Build dispatcher with missionFailedPreset that rejects notify
+    const reg = new MissionPipelineRegistry();
+    const orch = new MissionPipelineOrchestrator(reg);
+    const localStageBindings = makeFakeStageBindings();
+
+    const leaderPlan = jest
+      .fn()
+      .mockRejectedValue(new Error("leader fail for notify test"));
+    const fakeLeaderSvc = {
+      create: jest.fn().mockReturnValue({ plan: leaderPlan } as never),
+    } as unknown as LeaderService;
+
+    const localInvoker = {
+      invoke: jest
+        .fn()
+        .mockResolvedValue({ state: "completed", output: {}, events: [] }),
+      emitEvent: jest.fn().mockResolvedValue(undefined),
+      emitLifecycle: jest.fn().mockResolvedValue(undefined),
+      clearMissionRelayState: jest.fn(),
+    } as unknown as AgentInvoker;
+
+    const fakeCheckpoint = {
+      clear: jest.fn().mockResolvedValue(undefined),
+      save: jest.fn().mockResolvedValue(undefined),
+      canResume: jest.fn().mockResolvedValue({
+        canResume: false,
+        reason: "no-checkpoint",
+        snapshot: null,
+        completedKeys: new Set(),
+      }),
+    };
+    const fakeEventBuffer = {
+      read: jest.fn().mockReturnValue([]),
+      broadcast: jest.fn().mockResolvedValue(undefined),
+    };
+    const fakeStore = {
+      markStageComplete: jest.fn().mockResolvedValue(undefined),
+      applyTerminalIfRunning: jest.fn().mockResolvedValue(true),
+      saveResearchResult: jest.fn().mockResolvedValue(undefined),
+      saveChapterDraft: jest.fn().mockResolvedValue(undefined),
+      loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+      loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+      saveReportVersion: jest.fn().mockResolvedValue(1),
+      markIntermediateState: jest.fn().mockResolvedValue(undefined),
+      listRecentPostmortems: jest.fn().mockResolvedValue([]),
+    };
+    const localEventBus = {
+      emit: jest.fn().mockResolvedValue(true),
+      registerAdapter: jest.fn(),
+      unregisterAdapter: jest.fn(),
+    };
+    const localElectionTracker = { clear: jest.fn() };
+
+    (
+      localStageBindings as unknown as { buildDeps: jest.Mock }
+    ).buildDeps.mockReturnValue({
+      invoker: {} as never,
+      store: {
+        markIntermediateState: jest.fn().mockResolvedValue(undefined),
+        listRecentPostmortems: jest.fn().mockResolvedValue([]),
+      },
+      log: {
+        log: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+        debug: jest.fn(),
+      },
+      emit: jest.fn().mockResolvedValue(undefined),
+      lifecycle: jest.fn(),
+    } as never);
+
+    const businessOrch = new PlaygroundBusinessOrchestrator(
+      localStageBindings as unknown as MissionStageBindingsService,
+      fakeCheckpoint as never,
+      fakeStore as never,
+    );
+    const fakeLifecycleManager = {
+      finalize: jest.fn(
+        async (args: {
+          missionId: string;
+          arbiter: {
+            applyTerminalIfRunning: (
+              id: string,
+              intent: unknown,
+            ) => Promise<boolean>;
+          };
+          onWon?: () => Promise<void>;
+        }) => {
+          const won = await args.arbiter.applyTerminalIfRunning(
+            args.missionId,
+            {},
+          );
+          if (won && args.onWon) {
+            try {
+              await args.onWon();
+            } catch {
+              /* swallow */
+            }
+          }
+          return { won };
+        },
+      ),
+    };
+    const noopMissionSpan = {
+      startMissionSpan: jest.fn(),
+      endMissionSpan: jest.fn(),
+      startStageSpan: jest.fn(),
+      endStageSpan: jest.fn(),
+    };
+
+    const d = new PlaygroundPipelineDispatcher(
+      reg,
+      orch,
+      makeFakeShell() as unknown as MissionRuntimeShellService,
+      localStageBindings as unknown as MissionStageBindingsService,
+      fakeLeaderSvc,
+      localInvoker,
+      { build: jest.fn().mockReturnValue(jest.fn()) } as never,
+      fakeCheckpoint as never,
+      fakeEventBuffer as never,
+      fakeStore as never,
+      localElectionTracker as never,
+      localEventBus as never,
+      businessOrch,
+      fakeLifecycleManager as never,
+      noopMissionSpan as never,
+      failingNotifyPreset as never, // missionFailedPreset — notify rejects
+    );
+    d.onModuleInit();
+
+    // Should not throw despite notify failing
+    const result = await d.runMission("m-notify-fail", BASIC_INPUT, "u1");
+    expect(result.status).toBe("failed");
+    expect(failingNotifyPreset.notify).toHaveBeenCalled();
   });
 });

@@ -71,12 +71,8 @@ describe("runBudgetEstimateStage (S1)", () => {
     const deps = makeDeps();
     await runBudgetEstimateStage(ctx, deps);
     const emitCalls = (deps.emit as jest.Mock).mock.calls.map((c) => c[0].type);
-    expect(emitCalls).not.toContain(
-      "playground.mission:budget-warning-soft",
-    );
-    expect(emitCalls).not.toContain(
-      "playground.mission:budget-warning-hard",
-    );
+    expect(emitCalls).not.toContain("playground.mission:budget-warning-soft");
+    expect(emitCalls).not.toContain("playground.mission:budget-warning-hard");
   });
 
   it("soft warning: affordable=false + suggestion=warn → emits budget-warning-soft and continues", async () => {
@@ -207,5 +203,71 @@ describe("runBudgetEstimateStage (S1)", () => {
       (c) => c[0].type === "playground.mission:budget-warning-soft",
     );
     expect(warnCall[0].payload.shortfall).toBe(500);
+  });
+
+  // ── Line 38: emit mission:started fails → catch warns, continues ────────────
+  it("emit mission:started rejects → catch logs warn, stage continues", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps({
+      emit: jest.fn().mockImplementation((event: { type: string }) => {
+        if (event.type === "playground.mission:started") {
+          return Promise.reject(new Error("emit mission:started failed"));
+        }
+        return Promise.resolve();
+      }),
+    });
+    await expect(runBudgetEstimateStage(ctx, deps)).resolves.toBeUndefined();
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("emit mission:started failed"),
+    );
+  });
+
+  // ── Line 90: emit budget-warning-soft/hard rejects → catch warns ─────────────
+  it("emit budget-warning-soft rejects → catch logs warn, stage continues (soft path)", async () => {
+    const ctx = makeCtx();
+    (ctx.billing.estimateAffordable as jest.Mock).mockResolvedValue({
+      affordable: false,
+      estimatedCredits: 2000,
+      currentBalance: 1500,
+      shortfall: 500,
+      suggestion: "warn",
+    });
+    const deps = makeDeps({
+      emit: jest.fn().mockImplementation((event: { type: string }) => {
+        if (event.type === "playground.mission:budget-warning-soft") {
+          return Promise.reject(new Error("emit budget-warning-soft failed"));
+        }
+        return Promise.resolve();
+      }),
+    });
+    await expect(runBudgetEstimateStage(ctx, deps)).resolves.toBeUndefined();
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("emit"),
+    );
+  });
+
+  it("emit budget-warning-hard rejects → catch logs warn, stage then throws (abort path)", async () => {
+    const ctx = makeCtx();
+    (ctx.billing.estimateAffordable as jest.Mock).mockResolvedValue({
+      affordable: false,
+      estimatedCredits: 5000,
+      currentBalance: 100,
+      shortfall: 4900,
+      suggestion: "abort",
+    });
+    const deps = makeDeps({
+      emit: jest.fn().mockImplementation((event: { type: string }) => {
+        if (event.type === "playground.mission:budget-warning-hard") {
+          return Promise.reject(new Error("emit budget-warning-hard failed"));
+        }
+        return Promise.resolve();
+      }),
+    });
+    await expect(runBudgetEstimateStage(ctx, deps)).rejects.toThrow(
+      "余额不足以启动 mission",
+    );
+    expect(deps.log.warn as jest.Mock).toHaveBeenCalledWith(
+      expect.stringContaining("emit"),
+    );
   });
 });

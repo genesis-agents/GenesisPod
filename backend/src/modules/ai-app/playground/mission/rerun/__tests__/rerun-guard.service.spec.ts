@@ -481,4 +481,40 @@ describe("RerunGuardService", () => {
       expect(lifecycleManager.finalize).not.toHaveBeenCalled();
     });
   });
+
+  // ─────────────────────────────────────────────────────────────
+  // line 79 分支：Number(BigInt) 非 finite → 返回 null
+  // ─────────────────────────────────────────────────────────────
+  describe("latestBusinessEventTsReader — non-finite ts guard (line 79)", () => {
+    it("BigInt 溢出为 Infinity 时 latestBusinessTs 返回 null，不判 inFlight", async () => {
+      // Number(BigInt(2^1024)) === Infinity — 覆盖 line 79 的 false 分支
+      const overflowBigInt = BigInt(2) ** BigInt(1024);
+      const missions = [
+        {
+          id: "m1",
+          userId: "u1",
+          status: "running",
+          // 心跳足够新 (5s ago)，若 tsMs 是有限值本会判 inFlight
+          heartbeatAt: new Date(NOW - 5_000),
+        },
+      ];
+      // 用自定义 prisma mock：$queryRawUnsafe 返回溢出 BigInt
+      const prisma = {
+        $queryRawUnsafe: jest.fn(async () => [{ ts: overflowBigInt }]),
+        agentPlaygroundMissionEvent: {
+          create: jest.fn(async () => ({})),
+        },
+      };
+      const store = mkStore({ missions });
+      const guard = makeGuard(prisma, store);
+
+      const result = await guard.checkInFlight("m1", "u1");
+
+      // latestBusinessEventAgeMs 应为 null（ts 非 finite → latestBusinessEventTsReader 返回 null）
+      expect(result.latestBusinessEventAgeMs).toBeNull();
+      // 心跳 5s ago，但事件 null → zombieDetected=true（而非 inFlight=true）
+      // 这验证了 line 79 分支让 ts 降为 null 生效
+      expect(result.inFlight).toBe(false);
+    });
+  });
 });

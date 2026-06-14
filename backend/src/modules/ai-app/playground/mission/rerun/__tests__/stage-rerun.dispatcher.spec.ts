@@ -1011,5 +1011,150 @@ describe("StageRerunDispatcher (PR-R5 cascade infra)", () => {
       expect(result.errorMessage).toContain("missionId=m-1");
       expect(result.errorMessage).toContain("userId=u-1");
     });
+
+    // ── emit failure branches (non-fatal .catch() log paths) ────────────────────
+    it("s11-persist: emit playground.agent:narrative (persisting) 抛错 → 非致命，handler 仍完成", async () => {
+      const { dispatcher, lifecycleManager } = makeDispatcher();
+      // emit call order:
+      //   1. framework: playground.rerun:stage-started (ok)
+      //   2. handler: playground.agent:narrative (persisting) ← target failure
+      const emit = jest
+        .fn()
+        .mockResolvedValueOnce(undefined) // stage-started ok
+        .mockRejectedValueOnce(new Error("emit persisting fail")) // persisting narrative fail
+        .mockResolvedValue(undefined) as EmitFn; // rest ok
+      const result = await dispatcher.runFromStageWithCascade({
+        ctx: makeCtx(),
+        fromStepId: "s11-persist",
+        emit,
+      });
+      // handler 仍应完成（emit failure 被 .catch 吞掉）
+      expect(result.completed).toEqual(["s11-persist"]);
+      expect(lifecycleManager.finalize).toHaveBeenCalled();
+    });
+
+    it("s11-persist: emit playground.mission:completed 抛错 → 非致命，结果仍 completed", async () => {
+      const { dispatcher, lifecycleManager } = makeDispatcher();
+      // emit call order through cascade:
+      //   1. framework: playground.rerun:stage-started
+      //   2. handler: playground.agent:narrative (persisting)
+      //   3. handler: playground.mission:completed ← target failure
+      const emit = jest
+        .fn()
+        .mockResolvedValueOnce(undefined) // stage-started ok
+        .mockResolvedValueOnce(undefined) // persisting narrative ok
+        .mockRejectedValueOnce(new Error("emit completed fail")) as EmitFn; // mission:completed fail
+      const result = await dispatcher.runFromStageWithCascade({
+        ctx: makeCtx(),
+        fromStepId: "s11-persist",
+        emit,
+      });
+      expect(result.completed).toEqual(["s11-persist"]);
+      expect(lifecycleManager.finalize).toHaveBeenCalled();
+    });
+  });
+
+  describe("s9b-objective-eval handler emit failures (non-fatal .catch() branches)", () => {
+    it("emit playground.agent:narrative (judging) 抛错 → 非致命，handler 仍完成 markRerunPatch", async () => {
+      const { dispatcher, store } = makeDispatcher();
+      // 第一次 emit (judging) 抛错，其余正常
+      const emit = jest
+        .fn()
+        .mockRejectedValueOnce(new Error("emit judging fail"))
+        .mockResolvedValue(undefined) as EmitFn;
+      await dispatcher.dispatch({
+        ctx: makeCtx(),
+        input: {
+          missionId: "m-1",
+          userId: "u-1",
+          todoId: "x:s9b-objective-evaluation",
+          origin: "manual",
+          scope: "system",
+        },
+        emit,
+      });
+      // markRerunPatch 仍被调（emit failure 只是 .catch() 日志）
+      expect(store.markRerunPatch).toHaveBeenCalled();
+    });
+
+    it("emit playground.agent:narrative (success) 抛错 → 非致命，markRerunPatch 已完成", async () => {
+      const { dispatcher, store } = makeDispatcher();
+      // 第一次 emit ok, 第二次 emit (success) 抛错
+      const emit = jest
+        .fn()
+        .mockResolvedValueOnce(undefined) // judging ok
+        .mockRejectedValueOnce(new Error("emit success fail")) as EmitFn; // success fail
+      await dispatcher.dispatch({
+        ctx: makeCtx(),
+        input: {
+          missionId: "m-1",
+          userId: "u-1",
+          todoId: "x:s9b-objective-evaluation",
+          origin: "manual",
+          scope: "system",
+        },
+        emit,
+      });
+      expect(store.markRerunPatch).toHaveBeenCalled();
+    });
+
+    it("s9b: 已有 objective_evaluation warning → 更新（而非 push）", async () => {
+      // covers warningIdx >= 0 branch (line 456)
+      const { dispatcher, store } = makeDispatcher();
+      const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
+      const ctx = makeCtx();
+      // 给 reportArtifact 预置一条 objective_evaluation warning
+      ctx.reportArtifact!.quality.warnings = [
+        {
+          dimension: "objective_evaluation" as const,
+          message: "旧评分：70/100",
+        },
+      ];
+      await dispatcher.dispatch({
+        ctx,
+        input: {
+          missionId: "m-1",
+          userId: "u-1",
+          todoId: "x:s9b-objective-evaluation",
+          origin: "manual",
+          scope: "system",
+        },
+        emit,
+      });
+      // 更新后仍只有一条（不是 push 成两条）
+      expect(ctx.reportArtifact!.quality.warnings).toHaveLength(1);
+      expect(ctx.reportArtifact!.quality.warnings[0].message).toContain("88");
+      expect(store.markRerunPatch).toHaveBeenCalled();
+    });
+  });
+
+  describe("cleanupStubs — session.cleanup() 抛错 → warn 吞掉（非致命）", () => {
+    it("session.cleanup() 抛错时 cascade 仍正常完成（finally 路径安全）", async () => {
+      const { dispatcher, runtimeBuilder } = makeDispatcher();
+      // 让 session.cleanup 抛错
+      const sessionMock = {
+        missionId: "m-1",
+        userId: "u-1",
+        billing: {},
+        pool: {},
+        leader: {},
+        budgetMultiplier: 1,
+        missionAbort: { signal: { aborted: false } },
+        cleanup: jest.fn().mockImplementation(() => {
+          throw new Error("cleanup failed");
+        }),
+      };
+      runtimeBuilder.startSession.mockReturnValue(sessionMock);
+      const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
+      // 如果 cleanupStubs 不吞掉 cleanup 错误就会 throw
+      const result = await dispatcher.runFromStageWithCascade({
+        ctx: makeCtx(),
+        fromStepId: "s11-persist",
+        emit,
+      });
+      // cleanup 抛错但 cascade 结果仍有效
+      expect(result.completed).toEqual(["s11-persist"]);
+      expect(sessionMock.cleanup).toHaveBeenCalled();
+    });
   });
 });
