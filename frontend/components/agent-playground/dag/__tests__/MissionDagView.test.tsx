@@ -123,6 +123,8 @@ afterEach(() => {
 
 function makeSampleGraph(): MissionDagGraph {
   return {
+    missionId: 'mission-1',
+    mission: { status: 'running', topic: 'Test Mission', finalScore: null },
     nodes: [
       {
         id: 's2-leader-plan',
@@ -130,6 +132,7 @@ function makeSampleGraph(): MissionDagGraph {
         label: 'Leader Plan',
         status: 'done',
         rerunable: false,
+        layout: 'spine',
       },
       {
         id: 's3-researcher-collect',
@@ -137,6 +140,7 @@ function makeSampleGraph(): MissionDagGraph {
         label: 'Researcher',
         status: 'done',
         rerunable: false,
+        layout: 'spine',
       },
       {
         id: 'dim-market',
@@ -146,6 +150,7 @@ function makeSampleGraph(): MissionDagGraph {
         rerunable: true,
         dimensionRef: 'market',
         parentStepId: 's3-researcher-collect',
+        layout: 'fan',
       },
       {
         id: 'dim-tech',
@@ -155,18 +160,20 @@ function makeSampleGraph(): MissionDagGraph {
         rerunable: true,
         dimensionRef: 'tech',
         parentStepId: 's3-researcher-collect',
+        layout: 'fan',
       },
       {
         id: 's5-reconciler',
         kind: 'macro',
         label: 'Reconciler',
-        status: 'pending',
+        status: 'idle',
         rerunable: false,
+        layout: 'spine',
       },
     ],
     edges: [
-      { from: 's2-leader-plan', to: 's3-researcher-collect', kind: 'normal' },
-      { from: 's3-researcher-collect', to: 's5-reconciler', kind: 'normal' },
+      { from: 's2-leader-plan', to: 's3-researcher-collect', kind: 'flow' },
+      { from: 's3-researcher-collect', to: 's5-reconciler', kind: 'flow' },
     ],
   };
 }
@@ -339,10 +346,10 @@ describe('MissionDagView - cascade bar', () => {
   it('shows cascade bar when rerun button clicked and cascade fetched', async () => {
     const graph = makeSampleGraph();
     const preview: MissionDagCascadePreview = {
+      origin: 'dim-market',
       rerunable: true,
       willRerun: ['dim-market', 's5-reconciler'],
       kept: ['s2-leader-plan'],
-      reason: null,
     };
     mockFetchDag.mockResolvedValue(graph);
     mockFetchCascade.mockResolvedValue(preview);
@@ -364,6 +371,7 @@ describe('MissionDagView - cascade bar', () => {
   it('shows not-rerunable reason in cascade bar', async () => {
     const graph = makeSampleGraph();
     const preview: MissionDagCascadePreview = {
+      origin: 'dim-market',
       rerunable: false,
       willRerun: [],
       kept: [],
@@ -388,10 +396,10 @@ describe('MissionDagView - cascade bar', () => {
   it('shows not-rerunable default message when reason is null', async () => {
     const graph = makeSampleGraph();
     const preview: MissionDagCascadePreview = {
+      origin: 'dim-market',
       rerunable: false,
       willRerun: [],
       kept: [],
-      reason: null,
     };
     mockFetchDag.mockResolvedValue(graph);
     mockFetchCascade.mockResolvedValue(preview);
@@ -411,10 +419,10 @@ describe('MissionDagView - cascade bar', () => {
   it('cancels cascade bar when 取消 clicked', async () => {
     const graph = makeSampleGraph();
     const preview: MissionDagCascadePreview = {
+      origin: 'dim-market',
       rerunable: true,
       willRerun: ['dim-market'],
       kept: [],
-      reason: null,
     };
     mockFetchDag.mockResolvedValue(graph);
     mockFetchCascade.mockResolvedValue(preview);
@@ -436,10 +444,10 @@ describe('MissionDagView - cascade bar', () => {
   it('calls localRerunTodo when 确认重跑 clicked', async () => {
     const graph = makeSampleGraph();
     const preview: MissionDagCascadePreview = {
+      origin: 'dim-market',
       rerunable: true,
       willRerun: ['dim-market'],
       kept: ['s2-leader-plan'],
-      reason: null,
     };
     mockFetchDag.mockResolvedValue(graph);
     mockFetchCascade.mockResolvedValue(preview);
@@ -478,16 +486,18 @@ describe('MissionDagView - cascade bar', () => {
     };
     // Add sub label to a node
     const graphWithSub: MissionDagGraph = {
+      missionId: 'mission-1',
+      mission: { status: 'running', topic: 'Test Mission', finalScore: null },
       nodes: makeSampleGraph().nodes.map((n) =>
         n.id === 'dim-market' ? { ...n, sub: '市场研究子任务' } : n
       ),
       edges: makeSampleGraph().edges,
     };
     const preview: MissionDagCascadePreview = {
+      origin: 'dim-market',
       rerunable: true,
       willRerun: ['dim-market'],
       kept: [],
-      reason: null,
     };
     mockFetchDag.mockResolvedValue(graphWithSub);
     mockFetchCascade.mockResolvedValue(preview);
@@ -674,6 +684,7 @@ describe('MissionDagView - node interaction', () => {
   it('dims other nodes when cascade preview is active', async () => {
     const graph = makeSampleGraph();
     const preview: MissionDagCascadePreview = {
+      origin: 'dim-market',
       rerunable: true,
       willRerun: ['dim-market'],
       kept: [
@@ -682,7 +693,6 @@ describe('MissionDagView - node interaction', () => {
         's5-reconciler',
         'dim-tech',
       ],
-      reason: null,
     };
     mockFetchDag.mockResolvedValue(graph);
     mockFetchCascade.mockResolvedValue(preview);

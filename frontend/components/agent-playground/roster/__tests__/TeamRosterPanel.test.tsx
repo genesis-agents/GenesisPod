@@ -1244,7 +1244,7 @@ describe('buildAgentInspectorPayload', () => {
     const result = buildAgentInspectorPayload('researcher', agents);
     expect(result.name).toBe('Dimension Researcher');
     expect(result.recentThought).toBe('Recent thought');
-    expect(result.instanceCounts.running).toBe(1);
+    expect(result.instanceCounts!.running).toBe(1);
   });
 
   it('builds payload with mixed phases', () => {
@@ -1269,9 +1269,9 @@ describe('buildAgentInspectorPayload', () => {
       }),
     ];
     const result = buildAgentInspectorPayload('researcher', agents);
-    expect(result.instanceCounts.completed).toBe(1);
-    expect(result.instanceCounts.failed).toBe(1);
-    expect(result.instanceCounts.running).toBe(1);
+    expect(result.instanceCounts!.completed).toBe(1);
+    expect(result.instanceCounts!.failed).toBe(1);
+    expect(result.instanceCounts!.running).toBe(1);
   });
 
   it('extracts recentThought from last agent trace', () => {
@@ -1309,13 +1309,13 @@ describe('buildAgentInspectorPayload', () => {
 
   it('includes verifiers for analyst', () => {
     const result = buildAgentInspectorPayload('analyst', []);
-    const verifierConfig = result.config.find((c) => c.label === 'Verifier');
+    const verifierConfig = result.config!.find((c) => c.label === 'Verifier');
     expect(verifierConfig?.chips).toContain('self');
   });
 
   it('builds reviewer payload with JudgeConsensus loop', () => {
     const result = buildAgentInspectorPayload('reviewer', []);
-    const loopConfig = result.config.find((c) => c.label === 'Loop');
+    const loopConfig = result.config!.find((c) => c.label === 'Loop');
     expect(loopConfig?.value).toBe('JudgeConsensus');
   });
 
@@ -1341,6 +1341,6 @@ describe('buildAgentInspectorPayload', () => {
       }),
     ];
     const result = buildAgentInspectorPayload('researcher', agents);
-    expect(result.instanceCounts.iterations).toBe(7);
+    expect(result.instanceCounts!.iterations).toBe(7);
   });
 });

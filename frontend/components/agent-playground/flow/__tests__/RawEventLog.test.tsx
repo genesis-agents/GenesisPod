@@ -837,10 +837,9 @@ describe('RawEventLog', () => {
   it('renders event with null payload (covers ?? {} branch at line 93)', () => {
     // payload is null → falls back to {}
     const event: PlaygroundEvent = {
-      id: 'e1',
-      ts: 1,
       type: 'playground.budget:exhausted',
       payload: null as unknown as Record<string, unknown>,
+      timestamp: 1,
     };
     render(<RawEventLog events={[event]} />);
     expect(screen.getByText('Budget exhausted')).toBeInTheDocument();

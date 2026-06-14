@@ -835,9 +835,16 @@ describe('ComputeUsagePanel', () => {
         {
           id: 'todo-1',
           origin: 'reviewer-revise',
-          description: 'Revise section 2',
+          createdBy: 'reviewer',
+          createdAt: 0,
+          reasonText: 'Revise section 2',
+          scope: 'review',
+          title: 'Revise section 2',
+          assignee: { role: 'reviewer' },
           status: 'done',
-        } as MissionTodo,
+          artifacts: [],
+          narrativeLog: [],
+        },
       ];
       render(
         <ComputeUsagePanel
@@ -855,9 +862,16 @@ describe('ComputeUsagePanel', () => {
         {
           id: 'todo-2',
           origin: 'self-heal-retry',
-          description: 'Self heal',
+          createdBy: 'system',
+          createdAt: 0,
+          reasonText: 'Self heal',
+          scope: 'dimension',
+          title: 'Self heal',
+          assignee: { role: 'researcher' },
           status: 'done',
-        } as MissionTodo,
+          artifacts: [],
+          narrativeLog: [],
+        },
       ];
       render(
         <ComputeUsagePanel
@@ -874,10 +888,17 @@ describe('ComputeUsagePanel', () => {
       const todos: MissionTodo[] = [
         {
           id: 'todo-3',
-          origin: 'leader-assess-failed',
-          description: 'Leader replay',
+          origin: 'leader-assess-abort',
+          createdBy: 'leader',
+          createdAt: 0,
+          reasonText: 'Leader replay',
+          scope: 'mission',
+          title: 'Leader replay',
+          assignee: { role: 'leader' },
           status: 'done',
-        } as MissionTodo,
+          artifacts: [],
+          narrativeLog: [],
+        },
       ];
       render(
         <ComputeUsagePanel

@@ -549,10 +549,9 @@ describe('ArtifactReader - revising banner', () => {
         '市场分析',
         {
           dimension: '市场分析',
-          status: 'running',
           chapters: [
-            { index: 0, heading: '市场概述', status: 'revising' },
-            { index: 1, heading: '市场规模', status: 'writing' },
+            { index: 0, heading: '市场概述', status: 'revising', attempts: 0 },
+            { index: 1, heading: '市场规模', status: 'writing', attempts: 0 },
           ],
         },
       ],
@@ -570,10 +569,9 @@ describe('ArtifactReader - revising banner', () => {
         '维度',
         {
           dimension: '维度',
-          status: 'running',
           chapters: [
-            { index: 0, heading: '章节1', status: 'revising' },
-            { index: 1, heading: '章节2', status: 'writing' },
+            { index: 0, heading: '章节1', status: 'revising', attempts: 0 },
+            { index: 1, heading: '章节2', status: 'writing', attempts: 0 },
           ],
         },
       ],
@@ -592,8 +590,9 @@ describe('ArtifactReader - revising banner', () => {
         '维度',
         {
           dimension: '维度',
-          status: 'running',
-          chapters: [{ index: 0, heading: '章节1', status: 'revising' }],
+          chapters: [
+            { index: 0, heading: '章节1', status: 'revising', attempts: 0 },
+          ],
         },
       ],
     ]);
@@ -611,11 +610,10 @@ describe('ArtifactReader - revising banner', () => {
         '维度',
         {
           dimension: '维度',
-          status: 'running',
           chapters: [
-            { index: 0, heading: '写作章节', status: 'writing' },
-            { index: 1, heading: '评审章节', status: 'reviewing' },
-            { index: 2, heading: '修订章节', status: 'revising' },
+            { index: 0, heading: '写作章节', status: 'writing', attempts: 0 },
+            { index: 1, heading: '评审章节', status: 'reviewing', attempts: 0 },
+            { index: 2, heading: '修订章节', status: 'revising', attempts: 0 },
           ],
         },
       ],
@@ -636,11 +634,11 @@ describe('ArtifactReader - revising banner', () => {
         '维度',
         {
           dimension: '维度',
-          status: 'running',
           chapters: Array.from({ length: 8 }, (_, i) => ({
             index: i,
             heading: `章节${i + 1}`,
             status: 'revising' as const,
+            attempts: 0,
           })),
         },
       ],
@@ -658,8 +656,9 @@ describe('ArtifactReader - revising banner', () => {
         '维度',
         {
           dimension: '维度',
-          status: 'done',
-          chapters: [{ index: 0, heading: '章节1', status: 'passed' }],
+          chapters: [
+            { index: 0, heading: '章节1', status: 'passed', attempts: 0 },
+          ],
         },
       ],
     ]);

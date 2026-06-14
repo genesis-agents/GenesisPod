@@ -909,7 +909,13 @@ describe('ArtifactMarkdown processText (citation rendering via custom img test c
     const citationNoOptionals: ArtifactCitation = {
       index: 5,
       uuid: '', // falsy → fallback to `cite-5`
-      // all optional fields omitted → undefined → ?? null
+      // required fields with empty/zero values to simulate "missing" optional data
+      title: '',
+      url: '',
+      domain: '',
+      accessedAt: '',
+      sourceType: 'other',
+      credibilityScore: 0,
       occurrences: [],
     };
     render(

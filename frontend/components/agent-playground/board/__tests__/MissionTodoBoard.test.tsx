@@ -382,10 +382,9 @@ describe('MissionTodoBoard - status column', () => {
         'mkt-pipeline',
         {
           dimension: '市场分析',
-          status: 'running',
           chapters: [
-            { index: 0, heading: '第一章', status: 'writing' },
-            { index: 1, heading: '第二章', status: 'pending' },
+            { index: 0, heading: '第一章', status: 'writing', attempts: 0 },
+            { index: 1, heading: '第二章', status: 'pending', attempts: 0 },
           ],
         },
       ],
@@ -460,10 +459,9 @@ describe('MissionTodoBoard - deriveDimSubStatus coverage', () => {
         'market-dim',
         {
           dimension: '市场',
-          status: 'running',
           chapters: [
-            { index: 0, heading: 'ch1', status: 'failed' },
-            { index: 1, heading: 'ch2', status: 'failed' },
+            { index: 0, heading: 'ch1', status: 'failed', attempts: 0 },
+            { index: 1, heading: 'ch2', status: 'failed', attempts: 0 },
           ],
         },
       ],
@@ -483,10 +481,9 @@ describe('MissionTodoBoard - deriveDimSubStatus coverage', () => {
         'dim-1',
         {
           dimension: '分析',
-          status: 'running',
           chapters: [
-            { index: 0, heading: 'ch1', status: 'revising' },
-            { index: 1, heading: 'ch2', status: 'passed' },
+            { index: 0, heading: 'ch1', status: 'revising', attempts: 0 },
+            { index: 1, heading: 'ch2', status: 'passed', attempts: 0 },
           ],
         },
       ],
@@ -506,10 +503,9 @@ describe('MissionTodoBoard - deriveDimSubStatus coverage', () => {
         'dim-1',
         {
           dimension: '分析',
-          status: 'running',
           chapters: [
-            { index: 0, heading: 'ch1', status: 'reviewing' },
-            { index: 1, heading: 'ch2', status: 'pending' },
+            { index: 0, heading: 'ch1', status: 'reviewing', attempts: 0 },
+            { index: 1, heading: 'ch2', status: 'pending', attempts: 0 },
           ],
         },
       ],
@@ -529,8 +525,9 @@ describe('MissionTodoBoard - deriveDimSubStatus coverage', () => {
         'dim-1',
         {
           dimension: '分析',
-          status: 'running',
-          chapters: [{ index: 0, heading: 'ch1', status: 'passed' }],
+          chapters: [
+            { index: 0, heading: 'ch1', status: 'passed', attempts: 0 },
+          ],
         },
       ],
     ]);
@@ -549,9 +546,16 @@ describe('MissionTodoBoard - deriveDimSubStatus coverage', () => {
         'dim-1',
         {
           dimension: '分析',
-          status: 'done',
-          chapters: [{ index: 0, heading: 'ch1', status: 'passed' }],
-          grade: { overall: 88, grade: 'excellent', failed: false },
+          chapters: [
+            { index: 0, heading: 'ch1', status: 'passed', attempts: 0 },
+          ],
+          grade: {
+            overall: 88,
+            grade: 'excellent',
+            failed: false,
+            axes: {},
+            summary: '',
+          },
         },
       ],
     ]);
@@ -570,9 +574,16 @@ describe('MissionTodoBoard - deriveDimSubStatus coverage', () => {
         'dim-1',
         {
           dimension: '分析',
-          status: 'done',
-          chapters: [{ index: 0, heading: 'ch1', status: 'passed' }],
-          grade: { overall: 70, grade: 'good', failed: false },
+          chapters: [
+            { index: 0, heading: 'ch1', status: 'passed', attempts: 0 },
+          ],
+          grade: {
+            overall: 70,
+            grade: 'good',
+            failed: false,
+            axes: {},
+            summary: '',
+          },
           integrationDegraded: true,
         },
       ],
@@ -592,13 +603,16 @@ describe('MissionTodoBoard - deriveDimSubStatus coverage', () => {
         'dim-1',
         {
           dimension: '分析',
-          status: 'done',
-          chapters: [{ index: 0, heading: 'ch1', status: 'passed' }],
+          chapters: [
+            { index: 0, heading: 'ch1', status: 'passed', attempts: 0 },
+          ],
           grade: {
             overall: 0,
             grade: 'poor',
             failed: true,
             phase: 'no-findings',
+            axes: {},
+            summary: '',
           },
         },
       ],
@@ -618,10 +632,9 @@ describe('MissionTodoBoard - deriveDimSubStatus coverage', () => {
         'dim-1',
         {
           dimension: '分析',
-          status: 'running',
           chapters: [
-            { index: 0, heading: 'ch1', status: 'passed' },
-            { index: 1, heading: 'ch2', status: 'pending' },
+            { index: 0, heading: 'ch1', status: 'passed', attempts: 0 },
+            { index: 1, heading: 'ch2', status: 'pending', attempts: 0 },
           ],
         },
       ],

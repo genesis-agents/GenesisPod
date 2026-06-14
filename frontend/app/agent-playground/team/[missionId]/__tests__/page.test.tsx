@@ -95,20 +95,20 @@ const defaultMissionView = {
     depth: 'standard',
     language: 'zh-CN',
     startedAt: '2026-01-01T00:00:00Z',
-    finishedAt: null,
+    finishedAt: null as string | null | undefined,
     maxCredits: 2000,
     resumable: false,
-    failureMessage: null,
-    finalScore: null,
-    themeSummary: null,
-    dimensions: null,
-    userProfile: null,
-    reconciliationReport: null,
+    failureMessage: null as string | null | undefined,
+    finalScore: null as number | null | undefined,
+    themeSummary: null as string | null | undefined,
+    dimensions: null as unknown,
+    userProfile: null as unknown,
+    reconciliationReport: null as unknown,
   },
   cost: { tokensUsed: 1500, costUsd: 0.05, trajectoryStored: null },
   verdicts: [],
-  todoBoard: { kind: 'TodoBoard', items: [] },
-  reportArtifact: null,
+  todoBoard: { kind: 'TodoBoard', items: [] as unknown[] },
+  reportArtifact: null as unknown,
   agents: [],
   stages: [],
   dimensionPipelines: new Map(),
@@ -2353,7 +2353,9 @@ describe('MissionDetailPage', () => {
     it('uses versionOverride when it is a valid ReportArtifact', async () => {
       const { isReportArtifact } =
         await import('@/lib/features/agent-playground/report-artifact.types');
-      (isReportArtifact as ReturnType<typeof vi.fn>).mockImplementation(
+      (
+        isReportArtifact as unknown as ReturnType<typeof vi.fn>
+      ).mockImplementation(
         (v) => v && typeof v === 'object' && 'content' in (v as object)
       );
       (listReportVersions as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
@@ -2399,7 +2401,9 @@ describe('MissionDetailPage', () => {
     it('uses canonical view reportArtifact when available', async () => {
       const mod =
         await import('@/lib/features/agent-playground/report-artifact.types');
-      (mod.isReportArtifact as ReturnType<typeof vi.fn>).mockImplementation(
+      (
+        mod.isReportArtifact as unknown as ReturnType<typeof vi.fn>
+      ).mockImplementation(
         (v: unknown) =>
           v != null && typeof v === 'object' && 'content' in (v as object)
       );
@@ -2993,7 +2997,7 @@ describe('MissionDetailPage', () => {
           mission: {
             ...defaultMissionView.mission,
             status: 'failed',
-            failedAt: new Date().toISOString(),
+            finishedAt: new Date().toISOString(),
           },
           todoBoard: {
             kind: 'todo-board',
@@ -3067,7 +3071,7 @@ describe('MissionDetailPage', () => {
           mission: {
             ...defaultMissionView.mission,
             status: 'quality-failed',
-            failedMessage: 'Leader 拒签',
+            failureMessage: 'Leader 拒签',
             finishedAt: new Date().toISOString(),
           },
         },
@@ -3099,7 +3103,7 @@ describe('MissionDetailPage', () => {
           mission: {
             ...defaultMissionView.mission,
             status: 'quality-failed',
-            failedMessage: 'Leader 拒签',
+            failureMessage: 'Leader 拒签',
             finishedAt: new Date().toISOString(),
           },
         },
@@ -4175,7 +4179,9 @@ describe('MissionDetailPage', () => {
       // arm 0 = condition TRUE. Need: canonicalArtifact = null, reportFullRef = view.finalReport, isReportArtifact = true
       const { isReportArtifact } =
         await import('@/lib/features/agent-playground/report-artifact.types');
-      (isReportArtifact as ReturnType<typeof vi.fn>).mockImplementation(
+      (
+        isReportArtifact as unknown as ReturnType<typeof vi.fn>
+      ).mockImplementation(
         (v: unknown) =>
           v != null && typeof v === 'object' && 'content' in (v as object)
       );

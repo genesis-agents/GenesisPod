@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 const useMissionStreamMock = vi.fn(() => ({ events: [], connected: true }));
 vi.mock('../useMissionStream', () => ({
-  useMissionStream: (...args: unknown[]) => useMissionStreamMock(...args),
+  useMissionStream: (...args: Parameters<typeof useMissionStreamMock>) =>
+    useMissionStreamMock(...args),
 }));
 vi.mock('@/services/agent-playground/api', () => ({
   replayMission: vi.fn(),

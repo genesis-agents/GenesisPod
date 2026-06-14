@@ -197,8 +197,8 @@ describe('MissionFlowView', () => {
   it('shows running agents in mission pulse', () => {
     const view = makeMissionView({ status: 'running' });
     view.agents = [
-      { id: 'leader', role: 'leader', phase: 'running', trace: [] },
-      { id: 'researcher#1', role: 'researcher', phase: 'running', trace: [] },
+      { id: 'leader', role: 'leader', phase: 'running' },
+      { id: 'researcher#1', role: 'researcher', phase: 'running' },
     ] as MissionDetailView['agents'];
     render(<MissionFlowView view={view} events={[]} />);
     expect(screen.getByText('2 个 Agent 正在工作')).toBeInTheDocument();
@@ -207,8 +207,8 @@ describe('MissionFlowView', () => {
   it('shows agent count when view has agents', () => {
     const view = makeMissionView({ status: 'running' });
     view.agents = [
-      { id: 'leader', role: 'leader', phase: 'completed', trace: [] },
-      { id: 'researcher#1', role: 'researcher', phase: 'running', trace: [] },
+      { id: 'leader', role: 'leader', phase: 'completed' },
+      { id: 'researcher#1', role: 'researcher', phase: 'running' },
     ] as MissionDetailView['agents'];
     render(<MissionFlowView view={view} events={[]} />);
     expect(screen.getByText(/共 2 个 Agent/)).toBeInTheDocument();
@@ -218,8 +218,8 @@ describe('MissionFlowView', () => {
   it('shows failed agent count when agents failed', () => {
     const view = makeMissionView({ status: 'running' });
     view.agents = [
-      { id: 'researcher#1', role: 'researcher', phase: 'failed', trace: [] },
-      { id: 'researcher#2', role: 'researcher', phase: 'running', trace: [] },
+      { id: 'researcher#1', role: 'researcher', phase: 'failed' },
+      { id: 'researcher#2', role: 'researcher', phase: 'running' },
     ] as MissionDetailView['agents'];
     render(<MissionFlowView view={view} events={[]} />);
     expect(screen.getByText(/失败 1/)).toBeInTheDocument();
@@ -228,10 +228,10 @@ describe('MissionFlowView', () => {
   it('shows +N overflow when more than 3 running agents', () => {
     const view = makeMissionView({ status: 'running' });
     view.agents = [
-      { id: 'r1', role: 'researcher', phase: 'running', trace: [] },
-      { id: 'r2', role: 'researcher', phase: 'running', trace: [] },
-      { id: 'r3', role: 'researcher', phase: 'running', trace: [] },
-      { id: 'r4', role: 'researcher', phase: 'running', trace: [] },
+      { id: 'r1', role: 'researcher', phase: 'running' },
+      { id: 'r2', role: 'researcher', phase: 'running' },
+      { id: 'r3', role: 'researcher', phase: 'running' },
+      { id: 'r4', role: 'researcher', phase: 'running' },
     ] as MissionDetailView['agents'];
     render(<MissionFlowView view={view} events={[]} />);
     expect(screen.getByText('+1')).toBeInTheDocument();
@@ -567,11 +567,13 @@ describe('MissionFlowView', () => {
   });
 
   it('renders with stepperStages override', () => {
+    const NullIcon = React.forwardRef<SVGSVGElement>(() => null);
+    NullIcon.displayName = 'NullIcon';
     const customStages: StageStepperItem[] = [
       {
         id: 'custom-1',
         short: 'Custom Stage',
-        Icon: () => null,
+        Icon: NullIcon as StageStepperItem['Icon'],
         status: 'done',
         title: 'Custom Stage',
       },

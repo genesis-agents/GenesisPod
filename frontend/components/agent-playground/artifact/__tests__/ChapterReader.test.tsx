@@ -28,8 +28,9 @@ function makeDimPipeline(
 ): DimensionPipelineState {
   return {
     dimension: '市场分析',
-    status: 'running',
-    chapters: [{ index: 0, heading: '市场分析', status: 'passed' }],
+    chapters: [
+      { index: 0, heading: '市场分析', status: 'passed', attempts: 0 },
+    ],
     ...overrides,
   };
 }
@@ -89,7 +90,9 @@ describe('ChapterReader - chapter list view', () => {
         '市场分析',
         makeDimPipeline({
           dimension: '市场分析',
-          chapters: [{ index: 0, heading: '市场分析', status: 'writing' }],
+          chapters: [
+            { index: 0, heading: '市场分析', status: 'writing', attempts: 0 },
+          ],
         }),
       ],
     ]);
@@ -105,7 +108,9 @@ describe('ChapterReader - chapter list view', () => {
       [
         '市场分析',
         makeDimPipeline({
-          chapters: [{ index: 0, heading: '市场分析', status: 'writing' }],
+          chapters: [
+            { index: 0, heading: '市场分析', status: 'writing', attempts: 0 },
+          ],
         }),
       ],
     ]);
@@ -121,7 +126,9 @@ describe('ChapterReader - chapter list view', () => {
       [
         '市场分析',
         makeDimPipeline({
-          chapters: [{ index: 0, heading: '市场分析', status: 'reviewing' }],
+          chapters: [
+            { index: 0, heading: '市场分析', status: 'reviewing', attempts: 0 },
+          ],
         }),
       ],
     ]);
@@ -137,7 +144,9 @@ describe('ChapterReader - chapter list view', () => {
       [
         '市场分析',
         makeDimPipeline({
-          chapters: [{ index: 0, heading: '市场分析', status: 'revising' }],
+          chapters: [
+            { index: 0, heading: '市场分析', status: 'revising', attempts: 0 },
+          ],
         }),
       ],
     ]);
@@ -153,7 +162,9 @@ describe('ChapterReader - chapter list view', () => {
       [
         '市场分析',
         makeDimPipeline({
-          chapters: [{ index: 0, heading: '市场分析', status: 'failed' }],
+          chapters: [
+            { index: 0, heading: '市场分析', status: 'failed', attempts: 0 },
+          ],
         }),
       ],
     ]);
@@ -170,7 +181,12 @@ describe('ChapterReader - chapter list view', () => {
         '市场分析',
         makeDimPipeline({
           chapters: [
-            { index: 0, heading: '市场分析', status: 'failed-finalized' },
+            {
+              index: 0,
+              heading: '市场分析',
+              status: 'failed-finalized',
+              attempts: 0,
+            },
           ],
         }),
       ],
@@ -578,8 +594,9 @@ describe('ChapterReader - lookupChapterLiveStatus', () => {
         'dim-market',
         {
           dimension: 'dim-market',
-          status: 'running',
-          chapters: [{ index: 0, heading: '市场分析', status: 'writing' }],
+          chapters: [
+            { index: 0, heading: '市场分析', status: 'writing', attempts: 0 },
+          ],
         },
       ],
     ]);
@@ -605,9 +622,13 @@ describe('ChapterReader - lookupChapterLiveStatus', () => {
         '市场',
         {
           dimension: '市场',
-          status: 'running',
           chapters: [
-            { index: 0, heading: '市场分析详细报告', status: 'revising' },
+            {
+              index: 0,
+              heading: '市场分析详细报告',
+              status: 'revising',
+              attempts: 0,
+            },
           ],
         },
       ],
@@ -634,10 +655,9 @@ describe('ChapterReader - lookupChapterLiveStatus', () => {
         '分析',
         {
           dimension: '分析',
-          status: 'running',
           chapters: [
-            { index: 0, heading: '分析', status: 'pending' },
-            { index: 1, heading: '其他章节', status: 'writing' },
+            { index: 0, heading: '分析', status: 'pending', attempts: 0 },
+            { index: 1, heading: '其他章节', status: 'writing', attempts: 0 },
           ],
         },
       ],
@@ -665,8 +685,9 @@ describe('ChapterReader - lookupChapterLiveStatus', () => {
         '分析',
         {
           dimension: '分析',
-          status: 'done',
-          chapters: [{ index: 0, heading: '分析', status: 'pending' }],
+          chapters: [
+            { index: 0, heading: '分析', status: 'pending', attempts: 0 },
+          ],
         },
       ],
     ]);
@@ -692,9 +713,13 @@ describe('ChapterReader - lookupChapterLiveStatus', () => {
         'completely-different-dim',
         {
           dimension: 'completely-different-dim',
-          status: 'running',
           chapters: [
-            { index: 0, heading: '具体章节标题', status: 'reviewing' },
+            {
+              index: 0,
+              heading: '具体章节标题',
+              status: 'reviewing',
+              attempts: 0,
+            },
           ],
         },
       ],
@@ -721,10 +746,14 @@ describe('ChapterReader - lookupChapterLiveStatus', () => {
         '市场',
         {
           dimension: '市场',
-          status: 'running',
           chapters: [
             // No chapter heading matches "市场分析"
-            { index: 0, heading: '完全不同的标题', status: 'writing' },
+            {
+              index: 0,
+              heading: '完全不同的标题',
+              status: 'writing',
+              attempts: 0,
+            },
           ],
         },
       ],

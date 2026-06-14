@@ -2,7 +2,7 @@ import { render, screen, act, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ContinuousReader } from '../ContinuousReader';
 import { makeArtifact, makeCitation } from './fixtures';
-import type { ArtifactCitation } from '@/lib/features/agent-playground/artifact.types';
+import type { ArtifactCitation } from '@/lib/features/agent-playground/report-artifact.types';
 
 // Mock heavy sub-components
 vi.mock('../ArtifactMarkdown', () => ({

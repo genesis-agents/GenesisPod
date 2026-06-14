@@ -11,9 +11,15 @@ import { TodoDetailDrawer } from '../TodoDetailDrawer';
 import type { MissionTodo } from '@/lib/features/agent-playground/mission-todo.types';
 import type {
   AgentLiveState,
+  AgentRole,
   AgentTraceItem,
   DimensionPipelineState,
 } from '@/lib/features/agent-playground/mission-presentation.types';
+import type {
+  ParsedFinding,
+  ParsedToolUsage,
+  ParsedSource,
+} from '@/lib/features/agent-playground/drawer-derive';
 
 // ──────── Module mocks ────────────────────────────────────────────────────────
 
@@ -63,15 +69,15 @@ vi.mock('@/lib/features/agent-playground/stage-id-mapping', () => ({
 }));
 
 const mockDeriveDrawerSections = vi.fn((_agent: unknown) => ({
-  toolUsage: [],
-  findings: [],
-  sources: [],
+  toolUsage: [] as ParsedToolUsage[],
+  findings: [] as ParsedFinding[],
+  sources: [] as ParsedSource[],
+  searchCalls: [],
   totalTokens: 0,
 }));
 
 vi.mock('@/lib/features/agent-playground/drawer-derive-shapes', () => ({
-  deriveDrawerSections: (...args: unknown[]) =>
-    mockDeriveDrawerSections(...args),
+  deriveDrawerSections: (agent: unknown) => mockDeriveDrawerSections(agent),
 }));
 
 vi.mock('@/hooks/features/useStageProcessTrace', () => ({
@@ -259,9 +265,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   // Reset the sections mock to empty defaults before each test
   mockDeriveDrawerSections.mockImplementation((_agent: unknown) => ({
-    toolUsage: [],
-    findings: [],
-    sources: [],
+    toolUsage: [] as ParsedToolUsage[],
+    findings: [] as ParsedFinding[],
+    sources: [] as ParsedSource[],
+    searchCalls: [],
     totalTokens: 0,
   }));
 });
@@ -816,7 +823,7 @@ describe('TodoDetailDrawer - system stage todo', () => {
     });
     const agent = makeAgent({
       agentId: 'reconciler',
-      role: 'reconciler',
+      role: 'reconciler' as AgentRole,
       phase: 'completed',
     });
     render(<TodoDetailDrawer todo={todo} agents={[agent]} onClose={vi.fn()} />);
@@ -926,9 +933,7 @@ describe('TodoDetailDrawer - dimension details panel', () => {
 describe('TodoDetailDrawer - timeline: narrative entries', () => {
   it('renders narrative log entry as timeline item', () => {
     const todo = makeTodo({
-      narrativeLog: [
-        { ts: 1700000000000, text: '开始采集数据', kind: 'progress' },
-      ],
+      narrativeLog: [{ ts: 1700000000000, text: '开始采集数据' }],
     });
     render(<TodoDetailDrawer todo={todo} agents={[]} onClose={vi.fn()} />);
     expect(screen.getByText('完整时间线')).toBeInTheDocument();
@@ -938,8 +943,8 @@ describe('TodoDetailDrawer - timeline: narrative entries', () => {
   it('renders multiple narrative log entries', () => {
     const todo = makeTodo({
       narrativeLog: [
-        { ts: 1700000000000, text: '阶段一完成', kind: 'progress' },
-        { ts: 1700000001000, text: '阶段二开始', kind: 'progress' },
+        { ts: 1700000000000, text: '阶段一完成' },
+        { ts: 1700000001000, text: '阶段二开始' },
       ],
     });
     render(<TodoDetailDrawer todo={todo} agents={[]} onClose={vi.fn()} />);
@@ -2077,7 +2082,6 @@ describe('TodoDetailDrawer - dimension pipeline rendering', () => {
     grade?: DimensionPipelineState['grade']
   ): DimensionPipelineState => ({
     dimension: '市场分析',
-    status: 'done',
     chapters,
     grade,
   });
@@ -2299,6 +2303,7 @@ describe('TodoDetailDrawer - dimension pipeline rendering', () => {
             failed: false,
             skipped: false,
             axes: {},
+            summary: '',
           }
         ),
       ],
@@ -2330,7 +2335,14 @@ describe('TodoDetailDrawer - dimension pipeline rendering', () => {
               attempts: 1,
             },
           ],
-          { overall: 75, grade: 'B', failed: false, skipped: false, axes: {} }
+          {
+            overall: 75,
+            grade: 'B',
+            failed: false,
+            skipped: false,
+            axes: {},
+            summary: '',
+          }
         ),
       ],
     ]);
@@ -2360,7 +2372,14 @@ describe('TodoDetailDrawer - dimension pipeline rendering', () => {
               attempts: 1,
             },
           ],
-          { overall: 65, grade: 'C', failed: false, skipped: false, axes: {} }
+          {
+            overall: 65,
+            grade: 'C',
+            failed: false,
+            skipped: false,
+            axes: {},
+            summary: '',
+          }
         ),
       ],
     ]);
@@ -2390,7 +2409,14 @@ describe('TodoDetailDrawer - dimension pipeline rendering', () => {
               attempts: 1,
             },
           ],
-          { overall: 55, grade: 'D', failed: false, skipped: false, axes: {} }
+          {
+            overall: 55,
+            grade: 'D',
+            failed: false,
+            skipped: false,
+            axes: {},
+            summary: '',
+          }
         ),
       ],
     ]);
@@ -2420,7 +2446,14 @@ describe('TodoDetailDrawer - dimension pipeline rendering', () => {
               attempts: 1,
             },
           ],
-          { overall: 0, grade: '', failed: false, skipped: true, axes: {} }
+          {
+            overall: 0,
+            grade: '',
+            failed: false,
+            skipped: true,
+            axes: {},
+            summary: '',
+          }
         ),
       ],
     ]);
@@ -2450,7 +2483,14 @@ describe('TodoDetailDrawer - dimension pipeline rendering', () => {
               attempts: 1,
             },
           ],
-          { overall: 60, grade: 'C', failed: true, skipped: false, axes: {} }
+          {
+            overall: 60,
+            grade: 'C',
+            failed: true,
+            skipped: false,
+            axes: {},
+            summary: '',
+          }
         ),
       ],
     ]);
@@ -2532,7 +2572,6 @@ describe('TodoDetailDrawer - dimension pipeline rendering', () => {
         'market',
         {
           dimension: '市场分析',
-          status: 'done',
           chapters: [
             {
               index: 0,
@@ -2565,15 +2604,16 @@ describe('TodoDetailDrawer - dimension pipeline rendering', () => {
 describe('TodoDetailDrawer - sections from deriveDrawerSections', () => {
   it('renders findings section', () => {
     mockDeriveDrawerSections.mockReturnValue({
-      toolUsage: [],
+      toolUsage: [] as ParsedToolUsage[],
       findings: [
         {
           claim: '关键发现内容',
           evidence: '具体证据',
           source: 'https://source.com',
         },
-      ],
-      sources: [],
+      ] as ParsedFinding[],
+      sources: [] as ParsedSource[],
+      searchCalls: [],
       totalTokens: 0,
     });
     const agent = makeAgent({
@@ -2590,15 +2630,16 @@ describe('TodoDetailDrawer - sections from deriveDrawerSections', () => {
 
   it('renders findings with source URL', () => {
     mockDeriveDrawerSections.mockReturnValue({
-      toolUsage: [],
+      toolUsage: [] as ParsedToolUsage[],
       findings: [
         {
           claim: '发现',
           evidence: '证据',
           source: 'https://www.example.com/path',
         },
-      ],
-      sources: [],
+      ] as ParsedFinding[],
+      sources: [] as ParsedSource[],
+      searchCalls: [],
       totalTokens: 0,
     });
     const agent = makeAgent({
@@ -2615,9 +2656,12 @@ describe('TodoDetailDrawer - sections from deriveDrawerSections', () => {
 
   it('renders findings with non-URL source as fallback', () => {
     mockDeriveDrawerSections.mockReturnValue({
-      toolUsage: [],
-      findings: [{ claim: '发现', evidence: '证据', source: 'not-a-url' }],
-      sources: [],
+      toolUsage: [] as ParsedToolUsage[],
+      findings: [
+        { claim: '发现', evidence: '证据', source: 'not-a-url' },
+      ] as ParsedFinding[],
+      sources: [] as ParsedSource[],
+      searchCalls: [],
       totalTokens: 0,
     });
     const agent = makeAgent({
@@ -2633,9 +2677,12 @@ describe('TodoDetailDrawer - sections from deriveDrawerSections', () => {
 
   it('renders toolUsage section', () => {
     mockDeriveDrawerSections.mockReturnValue({
-      toolUsage: [{ toolId: 'web-search', callCount: 3 }],
-      findings: [],
-      sources: [],
+      toolUsage: [
+        { toolId: 'web-search', callCount: 3, samples: [], totalResults: 0 },
+      ] as ParsedToolUsage[],
+      findings: [] as ParsedFinding[],
+      sources: [] as ParsedSource[],
+      searchCalls: [],
       totalTokens: 0,
     });
     const agent = makeAgent({
@@ -2652,9 +2699,12 @@ describe('TodoDetailDrawer - sections from deriveDrawerSections', () => {
 
   it('hides finalize from toolUsage section', () => {
     mockDeriveDrawerSections.mockReturnValue({
-      toolUsage: [{ toolId: 'finalize', callCount: 1 }],
-      findings: [],
-      sources: [],
+      toolUsage: [
+        { toolId: 'finalize', callCount: 1, samples: [], totalResults: 0 },
+      ] as ParsedToolUsage[],
+      findings: [] as ParsedFinding[],
+      sources: [] as ParsedSource[],
+      searchCalls: [],
       totalTokens: 0,
     });
     const agent = makeAgent({
@@ -2670,9 +2720,12 @@ describe('TodoDetailDrawer - sections from deriveDrawerSections', () => {
 
   it('renders sources section', () => {
     mockDeriveDrawerSections.mockReturnValue({
-      toolUsage: [],
-      findings: [],
-      sources: [{ url: 'https://ref.com', title: '参考来源', hits: 2 }],
+      toolUsage: [] as ParsedToolUsage[],
+      findings: [] as ParsedFinding[],
+      sources: [
+        { url: 'https://ref.com', title: '参考来源', hits: 2 },
+      ] as ParsedSource[],
+      searchCalls: [],
       totalTokens: 0,
     });
     const agent = makeAgent({
@@ -2723,7 +2776,9 @@ describe('TodoDetailDrawer - s1-budget system stage', () => {
       scope: 'system',
       systemStageId: 's1-budget',
       origin: 'system-stage',
-      artifacts: [{ label: '预算分配', value: '50000 tokens' }],
+      artifacts: [
+        { kind: 'finding-count', label: '预算分配', value: '50000 tokens' },
+      ],
     });
     render(<TodoDetailDrawer todo={todo} agents={[]} onClose={vi.fn()} />);
     expect(screen.getByText('预算分配结果')).toBeInTheDocument();
@@ -2865,7 +2920,6 @@ describe('TodoDetailDrawer - dimGradeLabel unknown grade fallback', () => {
         'market',
         {
           dimension: '市场分析',
-          status: 'done',
           chapters: [
             {
               index: 0,
@@ -2881,6 +2935,7 @@ describe('TodoDetailDrawer - dimGradeLabel unknown grade fallback', () => {
             failed: false,
             skipped: false,
             axes: {},
+            summary: '',
           },
         },
       ],
@@ -2904,7 +2959,6 @@ describe('TodoDetailDrawer - dimGradeLabel unknown grade fallback', () => {
         'market',
         {
           dimension: '市场分析',
-          status: 'done',
           chapters: [
             {
               index: 0,
@@ -2920,6 +2974,7 @@ describe('TodoDetailDrawer - dimGradeLabel unknown grade fallback', () => {
             failed: false,
             skipped: false,
             axes: {},
+            summary: '',
           },
         },
       ],
@@ -2943,9 +2998,12 @@ describe('TodoDetailDrawer - dimGradeLabel unknown grade fallback', () => {
 describe('TodoDetailDrawer - stats Tokens and toolCalls', () => {
   it('shows token count < 1000 directly', () => {
     mockDeriveDrawerSections.mockReturnValue({
-      toolUsage: [{ toolId: 'web-search', callCount: 2 }],
-      findings: [],
-      sources: [],
+      toolUsage: [
+        { toolId: 'web-search', callCount: 2, samples: [], totalResults: 0 },
+      ] as ParsedToolUsage[],
+      findings: [] as ParsedFinding[],
+      sources: [] as ParsedSource[],
+      searchCalls: [],
       totalTokens: 500,
     });
     const todo = makeTodo();
@@ -2958,9 +3016,10 @@ describe('TodoDetailDrawer - stats Tokens and toolCalls', () => {
 
   it('shows token count ≥ 1000 as k format', () => {
     mockDeriveDrawerSections.mockReturnValue({
-      toolUsage: [],
-      findings: [],
-      sources: [],
+      toolUsage: [] as ParsedToolUsage[],
+      findings: [] as ParsedFinding[],
+      sources: [] as ParsedSource[],
+      searchCalls: [],
       totalTokens: 2500,
     });
     const todo = makeTodo();
@@ -3000,11 +3059,12 @@ describe('TodoDetailDrawer - safeDomain invalid URL catch', () => {
   it('handles invalid URL in finding source gracefully', () => {
     // "plain text source" has a space → new URL() throws → catch returns f.source
     mockDeriveDrawerSections.mockReturnValue({
-      toolUsage: [],
+      toolUsage: [] as ParsedToolUsage[],
       findings: [
         { claim: '发现', evidence: '证据', source: 'plain text source' },
-      ],
-      sources: [],
+      ] as ParsedFinding[],
+      sources: [] as ParsedSource[],
+      searchCalls: [],
       totalTokens: 0,
     });
     const agent = makeAgent({
@@ -3299,7 +3359,6 @@ describe('TodoDetailDrawer - dimension grade axes breakdown', () => {
         'market',
         {
           dimension: '市场分析',
-          status: 'done',
           chapters: [
             {
               index: 0,
@@ -3316,11 +3375,12 @@ describe('TodoDetailDrawer - dimension grade axes breakdown', () => {
             skipped: false,
             axes: {
               breadth: { score: 90, comment: '覆盖面广' },
-              depth: { score: 85 },
-              evidence: { score: 70 },
-              coherence: { score: 55 },
-              freshness: { score: 80 },
+              depth: { score: 85, comment: '' },
+              evidence: { score: 70, comment: '' },
+              coherence: { score: 55, comment: '' },
+              freshness: { score: 80, comment: '' },
             },
+            summary: '',
           },
         },
       ],
@@ -3353,7 +3413,6 @@ describe('TodoDetailDrawer - dimension grade axes breakdown', () => {
         'market',
         {
           dimension: '市场分析',
-          status: 'done',
           chapters: [
             {
               index: 0,
@@ -3370,9 +3429,10 @@ describe('TodoDetailDrawer - dimension grade axes breakdown', () => {
             skipped: false,
             axes: {
               // only 2 axes provided; breadth/depth/evidence/coherence/freshness map checks all
-              breadth: { score: 88 },
+              breadth: { score: 88, comment: '' },
               // depth, evidence, coherence, freshness omitted → return null for each
             },
+            summary: '',
           },
         },
       ],
@@ -3401,7 +3461,13 @@ describe('TodoDetailDrawer - s1-budget artifact value null branch', () => {
       scope: 'system',
       systemStageId: 's1-budget',
       origin: 'system-stage',
-      artifacts: [{ label: '未知值', value: null as unknown as string }],
+      artifacts: [
+        {
+          kind: 'finding-count',
+          label: '未知值',
+          value: null as unknown as string,
+        },
+      ],
     });
     render(<TodoDetailDrawer todo={todo} agents={[]} onClose={vi.fn()} />);
     // value=null → renders '—'
@@ -3477,9 +3543,12 @@ describe('TodoDetailDrawer - tool-call input URL detection (callUrl branch)', ()
 describe('TodoDetailDrawer - sources section hits label', () => {
   it('renders sources with 0 hits label', () => {
     mockDeriveDrawerSections.mockReturnValue({
-      toolUsage: [],
-      findings: [],
-      sources: [{ url: 'https://ref.com', title: '来源标题', hits: 0 }],
+      toolUsage: [] as ParsedToolUsage[],
+      findings: [] as ParsedFinding[],
+      sources: [
+        { url: 'https://ref.com', title: '来源标题', hits: 0 },
+      ] as ParsedSource[],
+      searchCalls: [],
       totalTokens: 0,
     });
     const agent = makeAgent({
@@ -3812,7 +3881,6 @@ describe('TodoDetailDrawer - dimGradeLabel alternative grade tokens', () => {
         'market',
         {
           dimension: '市场分析',
-          status: 'done',
           chapters: [
             {
               index: 0,
@@ -3822,7 +3890,14 @@ describe('TodoDetailDrawer - dimGradeLabel alternative grade tokens', () => {
               attempts: 1,
             },
           ],
-          grade: { overall, grade, failed: false, skipped: false, axes: {} },
+          grade: {
+            overall,
+            grade,
+            failed: false,
+            skipped: false,
+            axes: {},
+            summary: '',
+          },
         },
       ],
     ]);
@@ -4366,12 +4441,12 @@ describe('TodoDetailDrawer - findAgentForSystemStage multiple matches sort', () 
     });
     const agentShort = makeAgent({
       agentId: 'critic',
-      role: 'critic',
+      role: 'critic' as AgentRole,
       trace: [{ kind: 'thought', ts: 1700000000000, text: 'short' }],
     });
     const agentLong = makeAgent({
       agentId: 'critic',
-      role: 'critic',
+      role: 'critic' as AgentRole,
       trace: [
         { kind: 'thought', ts: 1700000000000, text: 'long trace 1' },
         { kind: 'thought', ts: 1700000001000, text: 'long trace 2' },
@@ -4532,7 +4607,6 @@ describe('TodoDetailDrawer - dimension grade summary field', () => {
         'market',
         {
           dimension: '市场分析',
-          status: 'done',
           chapters: [
             {
               index: 0,
@@ -4547,7 +4621,7 @@ describe('TodoDetailDrawer - dimension grade summary field', () => {
             grade: 'excellent',
             failed: false,
             skipped: false,
-            axes: { breadth: { score: 90 } },
+            axes: { breadth: { score: 90, comment: '' } },
             summary: '整体质量优秀，各维度均衡发展',
           },
         },
@@ -4581,7 +4655,6 @@ describe('TodoDetailDrawer - chapter pipeline when pipelineKey equals dimensionR
         'market',
         {
           dimension: '市场分析',
-          status: 'done',
           chapters: [
             {
               index: 0,
@@ -4621,7 +4694,6 @@ describe('TodoDetailDrawer - chapter pipeline when pipelineKey equals dimensionR
         'market',
         {
           dimension: '市场分析',
-          status: 'done',
           chapters: [], // empty chapters
         },
       ],
@@ -4652,7 +4724,6 @@ describe('TodoDetailDrawer - chapter wordCount = 0 not rendered', () => {
         'market',
         {
           dimension: '市场分析',
-          status: 'done',
           chapters: [
             {
               index: 0,
@@ -4865,11 +4936,11 @@ describe('TodoDetailDrawer - findAgentForSystemStage sort with undefined trace',
     });
     const agentWithTrace = makeAgent({
       agentId: 'critic',
-      role: 'critic',
+      role: 'critic' as AgentRole,
       trace: [{ kind: 'thought', ts: 1700000000000, text: 'critic trace' }],
     });
     const agentNoTrace = {
-      ...makeAgent({ agentId: 'critic', role: 'critic' }),
+      ...makeAgent({ agentId: 'critic', role: 'critic' as AgentRole }),
       trace: undefined as unknown as AgentTraceItem[],
     };
     // agentWithTrace first → sort comparator gets (agentWithTrace, agentNoTrace)

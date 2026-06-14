@@ -13,6 +13,8 @@ import type {
   MissionGraph,
   Analyses,
   NodeEnrichment,
+  EntityType,
+  RelationType,
 } from '@/services/agent-playground/graph-types';
 
 // Stub browser APIs
@@ -620,10 +622,13 @@ describe('MissionGraphTab', () => {
 
     it('opens side drawer when node is selected', async () => {
       mockEnrichGraphNode.mockResolvedValue({
+        nodeId: 'n1',
+        label: 'Node 1',
+        type: 'TECHNOLOGY',
         description: 'Entity description',
         facts: [{ label: 'Founded', value: '2010' }],
         sources: [{ url: 'https://example.com', title: 'Source 1' }],
-      } as NodeEnrichment);
+      } satisfies NodeEnrichment);
 
       render(<MissionGraphTab missionId="mission-1" />);
       await waitFor(() => screen.getByTestId('graph-node-n1'));
@@ -636,10 +641,13 @@ describe('MissionGraphTab', () => {
 
     it('shows node label in drawer', async () => {
       mockEnrichGraphNode.mockResolvedValue({
+        nodeId: 'n1',
+        label: 'Node 1',
+        type: 'TECHNOLOGY',
         description: 'Node 1 description',
         facts: [],
         sources: [],
-      } as NodeEnrichment);
+      } satisfies NodeEnrichment);
 
       render(<MissionGraphTab missionId="mission-1" />);
       await waitFor(() => screen.getByTestId('graph-node-n1'));
@@ -655,10 +663,13 @@ describe('MissionGraphTab', () => {
 
     it('shows enrichment description', async () => {
       mockEnrichGraphNode.mockResolvedValue({
+        nodeId: 'n1',
+        label: 'Node 1',
+        type: 'TECHNOLOGY',
         description: 'Rich description',
         facts: [],
         sources: [],
-      } as NodeEnrichment);
+      } satisfies NodeEnrichment);
 
       render(<MissionGraphTab missionId="mission-1" />);
       await waitFor(() => screen.getByTestId('graph-node-n1'));
@@ -671,10 +682,13 @@ describe('MissionGraphTab', () => {
 
     it('shows enrichment facts', async () => {
       mockEnrichGraphNode.mockResolvedValue({
+        nodeId: 'n1',
+        label: 'Node 1',
+        type: 'TECHNOLOGY',
         description: '',
         facts: [{ label: 'HQ', value: 'San Francisco' }],
         sources: [],
-      } as NodeEnrichment);
+      } satisfies NodeEnrichment);
 
       render(<MissionGraphTab missionId="mission-1" />);
       await waitFor(() => screen.getByTestId('graph-node-n1'));
@@ -688,10 +702,13 @@ describe('MissionGraphTab', () => {
 
     it('shows enrichment sources with url', async () => {
       mockEnrichGraphNode.mockResolvedValue({
+        nodeId: 'n1',
+        label: 'Node 1',
+        type: 'TECHNOLOGY',
         description: '',
         facts: [],
         sources: [{ url: 'https://example.com', title: 'Example Source' }],
-      } as NodeEnrichment);
+      } satisfies NodeEnrichment);
 
       render(<MissionGraphTab missionId="mission-1" />);
       await waitFor(() => screen.getByTestId('graph-node-n1'));
@@ -704,10 +721,13 @@ describe('MissionGraphTab', () => {
 
     it('shows source url as link text when no title', async () => {
       mockEnrichGraphNode.mockResolvedValue({
+        nodeId: 'n1',
+        label: 'Node 1',
+        type: 'TECHNOLOGY',
         description: '',
         facts: [],
         sources: [{ url: 'https://example.com', title: '' }],
-      } as NodeEnrichment);
+      } satisfies NodeEnrichment);
 
       render(<MissionGraphTab missionId="mission-1" />);
       await waitFor(() => screen.getByTestId('graph-node-n1'));
@@ -720,10 +740,13 @@ describe('MissionGraphTab', () => {
 
     it('shows no-info message when enrich has empty data', async () => {
       mockEnrichGraphNode.mockResolvedValue({
+        nodeId: 'n1',
+        label: 'Node 1',
+        type: 'TECHNOLOGY',
         description: '',
         facts: [],
         sources: [],
-      } as NodeEnrichment);
+      } satisfies NodeEnrichment);
 
       render(<MissionGraphTab missionId="mission-1" />);
       await waitFor(() => screen.getByTestId('graph-node-n1'));
@@ -762,10 +785,13 @@ describe('MissionGraphTab', () => {
 
     it('uses cached enrichment on second click', async () => {
       mockEnrichGraphNode.mockResolvedValue({
+        nodeId: 'n1',
+        label: 'Node 1',
+        type: 'TECHNOLOGY',
         description: 'Cached description',
         facts: [],
         sources: [],
-      } as NodeEnrichment);
+      } satisfies NodeEnrichment);
 
       render(<MissionGraphTab missionId="mission-1" />);
       await waitFor(() => screen.getByTestId('graph-node-n1'));
@@ -786,10 +812,13 @@ describe('MissionGraphTab', () => {
 
     it('clicking deselect clears node selection', async () => {
       mockEnrichGraphNode.mockResolvedValue({
+        nodeId: 'n1',
+        label: 'Node 1',
+        type: 'TECHNOLOGY',
         description: 'Desc',
         facts: [],
         sources: [],
-      } as NodeEnrichment);
+      } satisfies NodeEnrichment);
 
       render(<MissionGraphTab missionId="mission-1" />);
       await waitFor(() => screen.getByTestId('graph-node-n1'));
@@ -803,10 +832,13 @@ describe('MissionGraphTab', () => {
 
     it('shows entity type label for TECHNOLOGY', async () => {
       mockEnrichGraphNode.mockResolvedValue({
+        nodeId: 'n1',
+        label: 'Node 1',
+        type: 'TECHNOLOGY',
         description: 'D',
         facts: [],
         sources: [],
-      } as NodeEnrichment);
+      } satisfies NodeEnrichment);
       render(<MissionGraphTab missionId="mission-1" />);
       await waitFor(() => screen.getByTestId('graph-node-n1'));
       fireEvent.click(screen.getByTestId('graph-node-n1'));
@@ -833,13 +865,18 @@ describe('MissionGraphTab', () => {
       it(`shows label for ${type}`, async () => {
         vi.resetAllMocks();
         const artifact = makeArtifact('READY');
-        artifact.graph.nodes = [{ id: 'x1', label: 'X Node', type }];
+        artifact.graph!.nodes = [
+          { id: 'x1', label: 'X Node', type: type as EntityType },
+        ];
         mockGetMissionGraph.mockResolvedValue(artifact);
         mockEnrichGraphNode.mockResolvedValue({
+          nodeId: 'x1',
+          label: 'X Node',
+          type,
           description: '',
           facts: [],
           sources: [],
-        } as NodeEnrichment);
+        } satisfies NodeEnrichment);
 
         render(<MissionGraphTab missionId="mission-1" />);
         await waitFor(() => screen.getByTestId('graph-node-x1'));
@@ -854,15 +891,22 @@ describe('MissionGraphTab', () => {
 
     it('uses raw type for unknown entity types', async () => {
       const artifact = makeArtifact('READY');
-      artifact.graph.nodes = [
-        { id: 'u1', label: 'Unknown Node', type: 'CUSTOM_TYPE' },
+      artifact.graph!.nodes = [
+        {
+          id: 'u1',
+          label: 'Unknown Node',
+          type: 'CUSTOM_TYPE' as unknown as EntityType,
+        },
       ];
       mockGetMissionGraph.mockResolvedValue(artifact);
       mockEnrichGraphNode.mockResolvedValue({
+        nodeId: 'u1',
+        label: 'Unknown Node',
+        type: 'CUSTOM_TYPE',
         description: '',
         facts: [],
         sources: [],
-      } as NodeEnrichment);
+      } satisfies NodeEnrichment);
 
       render(<MissionGraphTab missionId="mission-1" />);
       await waitFor(() => screen.getByTestId('graph-node-u1'));
@@ -876,11 +920,11 @@ describe('MissionGraphTab', () => {
   describe('edges with weight', () => {
     it('handles edges without weight', async () => {
       const artifact = makeArtifact('READY');
-      artifact.graph.edges = [
+      artifact.graph!.edges = [
         {
           source: 'n1',
           target: 'n2',
-          type: 'RELATED',
+          type: 'RELATED_TO' satisfies RelationType,
           weight: undefined as unknown as number,
         },
       ];

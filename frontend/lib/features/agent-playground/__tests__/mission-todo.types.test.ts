@@ -11,7 +11,7 @@ function todo(partial: Partial<MissionTodo>): MissionTodo {
     reasonText: '',
     scope: 'system',
     title: '',
-    assignee: 'leader' as MissionTodo['assignee'],
+    assignee: { role: 'leader' } as MissionTodo['assignee'],
     status: 'pending',
     artifacts: [],
     narrativeLog: [],

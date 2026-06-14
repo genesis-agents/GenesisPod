@@ -45,27 +45,42 @@ describe('katexAwareSchema', () => {
   });
 
   it('wildcard attributes include className', () => {
-    const attrs = katexAwareSchema.attributes as Record<string, string[]>;
+    const attrs = katexAwareSchema.attributes as unknown as Record<
+      string,
+      string[]
+    >;
     expect(attrs['*']).toContain('className');
   });
 
   it('wildcard attributes include aria-hidden', () => {
-    const attrs = katexAwareSchema.attributes as Record<string, string[]>;
+    const attrs = katexAwareSchema.attributes as unknown as Record<
+      string,
+      string[]
+    >;
     expect(attrs['*']).toContain('aria-hidden');
   });
 
   it('svg element has style in attributes', () => {
-    const attrs = katexAwareSchema.attributes as Record<string, string[]>;
+    const attrs = katexAwareSchema.attributes as unknown as Record<
+      string,
+      string[]
+    >;
     expect(attrs['svg']).toContain('style');
   });
 
   it('path element has d in attributes', () => {
-    const attrs = katexAwareSchema.attributes as Record<string, string[]>;
+    const attrs = katexAwareSchema.attributes as unknown as Record<
+      string,
+      string[]
+    >;
     expect(attrs['path']).toContain('d');
   });
 
   it('math element has style in attributes', () => {
-    const attrs = katexAwareSchema.attributes as Record<string, string[]>;
+    const attrs = katexAwareSchema.attributes as unknown as Record<
+      string,
+      string[]
+    >;
     expect(attrs['math']).toContain('style');
   });
 
