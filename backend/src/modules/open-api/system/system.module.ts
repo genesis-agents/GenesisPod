@@ -4,6 +4,7 @@ import { AuthModule } from "../../platform/auth/auth.module";
 // MetricsController（/metrics Prometheus 端点）：MetricsService 由 @Global MonitoringModule
 // 提供，无需 import；@SkipTransform 随 controller 保留，Prometheus 抓取行为不变。
 import { MetricsController } from "./metrics/metrics.controller";
+import { MetricsAuthGuard } from "./metrics/metrics-auth.guard";
 
 /**
  * Open-API System Module（平台基建 / 握手面 · 零业务）
@@ -18,5 +19,6 @@ import { MetricsController } from "./metrics/metrics.controller";
 @Module({
   imports: [AuthModule], // exports AuthService / GoogleAuthGuard 供 controller 注入
   controllers: [AuthController, MetricsController],
+  providers: [MetricsAuthGuard],
 })
 export class OpenApiSystemModule {}

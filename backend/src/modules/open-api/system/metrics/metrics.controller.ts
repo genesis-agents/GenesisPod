@@ -4,12 +4,16 @@
  * 暴露 /metrics 端点用于 Prometheus 抓取
  */
 
-import { Controller, Get, Header } from "@nestjs/common";
+import { Controller, Get, Header, UseGuards } from "@nestjs/common";
 import { MetricsService } from "@/modules/platform/monitoring/metrics/metrics.service";
 import { Public } from "@/common/decorators/public.decorator";
 import { SkipTransform } from "@/common/interceptors/decorators/skip-transform.decorator";
+import { MetricsAuthGuard } from "./metrics-auth.guard";
 
+// @Public() skips the global JwtAuthGuard (scrapers can't send a JWT);
+// MetricsAuthGuard enforces an optional METRICS_TOKEN instead.
 @Public()
+@UseGuards(MetricsAuthGuard)
 @Controller("metrics")
 export class MetricsController {
   constructor(private readonly metricsService: MetricsService) {}
