@@ -619,6 +619,11 @@ export class ForesightIntakeService {
         ],
         modelType: AIModelType.CHAT,
         taskProfile,
+        // ★ responseFormat:"json" 让 wantsJson=true，接入全站统一的推理模型兜底机制
+        //   （openai-caller 在 content 空但 reasoning_content 含 JSON 时抢救 / 降级 /
+        //   token-bump）。漏传时推理模型（如 deepseek-v4-flash）把结果写进
+        //   reasoning_content、content 留空 → 直接抛"token 全用于内部思考"。
+        responseFormat: "json",
         // 内部系统调用：抽取的是系统已生成的可信报告语料（非用户输入）。
         // 输入护栏(prompt-injection/llm-moderation)对报告内容高误报会整块丢弃，
         // 与 insight 各内部调用一致，跳过整体护栏。
