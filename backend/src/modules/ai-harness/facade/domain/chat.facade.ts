@@ -60,6 +60,12 @@ import type {
   StructuredChatResponse,
 } from "../types/facade.types";
 import type { ConstraintConfig, ConstraintResult } from "../types/facade.types";
+import {
+  extractJson,
+  estimateTokens,
+  compressContext,
+  validateJsonSchema,
+} from "../utils/facade-text.utils";
 
 /** Skills 系统提示词 Token 预算 */
 const SKILLS_PROMPT_TOKEN_BUDGET = 4000;
@@ -910,7 +916,7 @@ export class ChatFacade {
       }
 
       try {
-        const cleaned = this.extractJson(response.content);
+        const cleaned = extractJson(response.content);
         const parsed = JSON.parse(cleaned) as T;
 
         return {
@@ -944,36 +950,6 @@ export class ChatFacade {
       tokensUsed: totalTokens,
       retriedParse: true,
     };
-  }
-
-  private extractJson(content: string): string {
-    let cleaned = content.trim();
-
-    const jsonBlockMatch = cleaned.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
-    if (jsonBlockMatch) {
-      cleaned = jsonBlockMatch[1].trim();
-    }
-
-    const firstBrace = cleaned.indexOf("{");
-    const firstBracket = cleaned.indexOf("[");
-    const start = Math.min(
-      firstBrace >= 0 ? firstBrace : Infinity,
-      firstBracket >= 0 ? firstBracket : Infinity,
-    );
-
-    if (start !== Infinity && start > 0) {
-      cleaned = cleaned.substring(start);
-    }
-
-    const lastBrace = cleaned.lastIndexOf("}");
-    const lastBracket = cleaned.lastIndexOf("]");
-    const end = Math.max(lastBrace, lastBracket);
-
-    if (end >= 0 && end < cleaned.length - 1) {
-      cleaned = cleaned.substring(0, end + 1);
-    }
-
-    return cleaned;
   }
 
   // ==================== Billing ====================
@@ -1120,7 +1096,7 @@ export class ChatFacade {
     }> = [];
 
     if (request.constraints.maxTokens) {
-      const estimatedTokens = this.estimateTokens(request.content);
+      const estimatedTokens = estimateTokens(request.content);
       if (estimatedTokens > request.constraints.maxTokens) {
         violations.push({
           type: "token_limit",
@@ -1159,7 +1135,7 @@ export class ChatFacade {
     if (request.constraints.jsonSchema) {
       try {
         const parsed = JSON.parse(request.content);
-        const schemaValid = this.validateJsonSchema(
+        const schemaValid = validateJsonSchema(
           parsed,
           request.constraints.jsonSchema,
         );
@@ -1179,7 +1155,7 @@ export class ChatFacade {
 
     let adjustedContent: string | undefined;
     if (violations.some((v) => v.type === "token_limit")) {
-      adjustedContent = this.compressContext(
+      adjustedContent = compressContext(
         request.content,
         request.constraints.maxTokens || 4000,
       );
@@ -1190,61 +1166,6 @@ export class ChatFacade {
       violations: violations.length > 0 ? violations : undefined,
       adjustedContent,
     };
-  }
-
-  private estimateTokens(text: string): number {
-    const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
-    const otherChars = text.length - chineseChars;
-    return Math.ceil(chineseChars * 2 + otherChars / 4);
-  }
-
-  private compressContext(context: string, maxTokens: number): string {
-    const currentTokens = this.estimateTokens(context);
-    if (currentTokens <= maxTokens) {
-      return context;
-    }
-
-    const ratio = maxTokens / currentTokens;
-    const targetLength = Math.floor(context.length * ratio * 0.9);
-
-    const headLength = Math.floor(targetLength * 0.6);
-    const tailLength = Math.floor(targetLength * 0.3);
-
-    const head = context.substring(0, headLength);
-    const tail = context.substring(context.length - tailLength);
-
-    return `${head}\n\n[... content compressed ...]\n\n${tail}`;
-  }
-
-  private validateJsonSchema(data: unknown, schema: object): boolean {
-    const schemaObj = schema as {
-      type?: string;
-      required?: string[];
-      properties?: Record<string, { type?: string }>;
-    };
-
-    if (schemaObj.type === "object" && typeof data !== "object") {
-      return false;
-    }
-    if (schemaObj.type === "array" && !Array.isArray(data)) {
-      return false;
-    }
-
-    if (
-      schemaObj.required &&
-      typeof data === "object" &&
-      data !== null &&
-      !Array.isArray(data)
-    ) {
-      const obj = data as Record<string, unknown>;
-      for (const field of schemaObj.required) {
-        if (!(field in obj)) {
-          return false;
-        }
-      }
-    }
-
-    return true;
   }
 
   // ==================== Helpers ====================

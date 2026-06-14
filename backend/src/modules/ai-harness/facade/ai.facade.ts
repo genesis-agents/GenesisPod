@@ -201,6 +201,12 @@ import { RAGFacade } from "./domain/rag.facade";
 import { AgentFacade } from "./domain/agent.facade";
 import { TeamFacade } from "./domain/team.facade";
 import { ToolFacade } from "./domain/tool.facade";
+import {
+  extractJson,
+  estimateTokens,
+  compressContext,
+  validateJsonSchema,
+} from "./utils/facade-text.utils";
 
 /** Skills 系统提示词 Token 预算（对应 TaskProfile outputLength="medium" 的 4000 tokens） */
 const SKILLS_PROMPT_TOKEN_BUDGET = 4000;
@@ -838,7 +844,7 @@ export class AIFacade {
 
       // 尝试解析 JSON
       try {
-        const cleaned = this.extractJson(response.content);
+        const cleaned = extractJson(response.content);
         const parsed = JSON.parse(cleaned) as T;
 
         return {
@@ -880,38 +886,6 @@ export class AIFacade {
    * 从 LLM 响应中提取 JSON 内容
    * 处理常见的 markdown 代码块包裹
    */
-  private extractJson(content: string): string {
-    let cleaned = content.trim();
-
-    // 移除 markdown 代码块
-    const jsonBlockMatch = cleaned.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
-    if (jsonBlockMatch) {
-      cleaned = jsonBlockMatch[1].trim();
-    }
-
-    // 移除开头的非 JSON 文本（找到第一个 { 或 [）
-    const firstBrace = cleaned.indexOf("{");
-    const firstBracket = cleaned.indexOf("[");
-    const start = Math.min(
-      firstBrace >= 0 ? firstBrace : Infinity,
-      firstBracket >= 0 ? firstBracket : Infinity,
-    );
-
-    if (start !== Infinity && start > 0) {
-      cleaned = cleaned.substring(start);
-    }
-
-    // 移除末尾的非 JSON 文本
-    const lastBrace = cleaned.lastIndexOf("}");
-    const lastBracket = cleaned.lastIndexOf("]");
-    const end = Math.max(lastBrace, lastBracket);
-
-    if (end >= 0 && end < cleaned.length - 1) {
-      cleaned = cleaned.substring(0, end + 1);
-    }
-
-    return cleaned;
-  }
 
   private resolveBillingFromContext(): CreditBillingInfo | undefined {
     const ctx = BillingContext.get();
@@ -1904,46 +1878,13 @@ export class AIFacade {
 
     // Token 限制处理
     if (request.maxTokens && request.compress) {
-      const estimatedTokens = this.estimateTokens(context);
+      const estimatedTokens = estimateTokens(context);
       if (estimatedTokens > request.maxTokens) {
-        context = this.compressContext(context, request.maxTokens);
+        context = compressContext(context, request.maxTokens);
       }
     }
 
     return context;
-  }
-
-  /**
-   * 估算 token 数量
-   */
-  private estimateTokens(text: string): number {
-    // 中文每字约 2 token，英文每 4 字符约 1 token
-    const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
-    const otherChars = text.length - chineseChars;
-    return Math.ceil(chineseChars * 2 + otherChars / 4);
-  }
-
-  /**
-   * 压缩上下文到指定 token 数
-   */
-  private compressContext(context: string, maxTokens: number): string {
-    const currentTokens = this.estimateTokens(context);
-    if (currentTokens <= maxTokens) {
-      return context;
-    }
-
-    // 计算需要保留的比例
-    const ratio = maxTokens / currentTokens;
-    const targetLength = Math.floor(context.length * ratio * 0.9); // 留 10% 余量
-
-    // 优先保留开头和结尾
-    const headLength = Math.floor(targetLength * 0.6);
-    const tailLength = Math.floor(targetLength * 0.3);
-
-    const head = context.substring(0, headLength);
-    const tail = context.substring(context.length - tailLength);
-
-    return `${head}\n\n[... content compressed ...]\n\n${tail}`;
   }
 
   /**
@@ -1995,7 +1936,7 @@ export class AIFacade {
 
     // 1. 检查 token 限制
     if (request.constraints.maxTokens) {
-      const estimatedTokens = this.estimateTokens(request.content);
+      const estimatedTokens = estimateTokens(request.content);
       if (estimatedTokens > request.constraints.maxTokens) {
         violations.push({
           type: "token_limit",
@@ -2037,7 +1978,7 @@ export class AIFacade {
     if (request.constraints.jsonSchema) {
       try {
         const parsed = JSON.parse(request.content);
-        const schemaValid = this.validateJsonSchema(
+        const schemaValid = validateJsonSchema(
           parsed,
           request.constraints.jsonSchema,
         );
@@ -2058,7 +1999,7 @@ export class AIFacade {
     // 如果有违规，尝试生成调整后的内容
     let adjustedContent: string | undefined;
     if (violations.some((v) => v.type === "token_limit")) {
-      adjustedContent = this.compressContext(
+      adjustedContent = compressContext(
         request.content,
         request.constraints.maxTokens || 4000,
       );
@@ -2069,37 +2010,6 @@ export class AIFacade {
       violations: violations.length > 0 ? violations : undefined,
       adjustedContent,
     };
-  }
-
-  /**
-   * 简单的 JSON Schema 验证
-   */
-  private validateJsonSchema(data: unknown, schema: object): boolean {
-    // 基础实现：检查必需字段和类型
-    const schemaObj = schema as {
-      type?: string;
-      required?: string[];
-      properties?: Record<string, { type?: string }>;
-    };
-
-    if (schemaObj.type === "object" && typeof data !== "object") {
-      return false;
-    }
-
-    if (schemaObj.type === "array" && !Array.isArray(data)) {
-      return false;
-    }
-
-    if (schemaObj.required && typeof data === "object" && data !== null) {
-      const dataObj = data as Record<string, unknown>;
-      for (const field of schemaObj.required) {
-        if (!(field in dataObj)) {
-          return false;
-        }
-      }
-    }
-
-    return true;
   }
 
   // ==================== 记忆能力 ====================
