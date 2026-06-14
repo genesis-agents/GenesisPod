@@ -27,6 +27,20 @@ import { safeProxyGet } from "./safe-proxy-fetch";
  * 3. Jina Reader API（备选）
  * 4. Puppeteer 无头浏览器（最后手段）
  * 5. 优雅降级（提示用户手动访问）
+ *
+ * ── 为什么类级 @Public()（有意，非遗漏；诊断 B0#2 决议）──
+ * `/proxy/image` 的响应被 <img src> 直接消费（FigureRenderer / ResourceThumbnail），
+ * `/proxy/pdf` 被 <iframe>/PDFViewer 的 src 消费。浏览器对 <img>/<iframe> 的资源请求
+ * **无法附带 Authorization: Bearer 头**，因此加 JwtAuthGuard 会直接打断所有图片缩略图与
+ * PDF 内嵌渲染。故本控制器有意公开。
+ *
+ * ── 公开端点的 SSRF 防护 ──
+ * 所有**用户可控目标**的出站抓取统一走 `safeProxyGet`（见 safe-proxy-fetch.ts），它对
+ * **每一跳**调用 canonical `assertUrlSafe`（DNS 解析后校验内网/保留地址，防 DNS rebinding
+ * 与重定向链），不依赖本文件早期的 isBlockedAddress 字面量检查。
+ * 唯一的裸 axios.get 是 Jina Reader（固定可信主机 r.jina.ai，用户 URL 作为路径由 Jina
+ * 服务端抓取，连接目标恒为 r.jina.ai，不构成本服务的 SSRF 面）。
+ * 新增**用户可控目标**抓取路径必须经 safeProxyGet。
  */
 @Public()
 @ApiTags("Proxy")
