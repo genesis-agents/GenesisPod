@@ -20,7 +20,7 @@
  * Layer: "understanding"  Domain: "knowledge"
  */
 
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { AiChatService } from "@/modules/ai-engine/facade";
 import type { ChatMessage, TaskProfile } from "@/modules/ai-engine/facade";
@@ -166,10 +166,19 @@ export class OntologyBuilderSkill extends BaseSkill<
   // it as protected — the actual instance comes from BaseSkill.
   protected override readonly logger = new Logger(OntologyBuilderSkill.name);
 
+  // @Inject(类) 显式钉死注入 token —— 参数写 `T | undefined` 时 TS
+  // emitDecoratorMetadata 会把 design:paramtypes 退化成 Object，Nest 解析不到，
+  // @Optional() 便永远注入 undefined（doExecute 第一关 if(!aiChatService) 直接 skip，
+  // 抽取全程空转的真因）。保留联合类型（参数位置必选，可空给安全网）+ 显式 @Inject 覆盖
+  // 被擦的 token；forwardRef(LLM) 循环初始化下保留 @Optional 作启动安全网。
   constructor(
-    @Optional() private readonly aiChatService: AiChatService | undefined,
+    @Optional()
+    @Inject(AiChatService)
+    private readonly aiChatService: AiChatService | undefined,
     private readonly entityResolution: EntityResolutionService,
-    @Optional() private readonly ontologyService: OntologyService | undefined,
+    @Optional()
+    @Inject(OntologyService)
+    private readonly ontologyService: OntologyService | undefined,
   ) {
     super();
     // Wire AiChatService as the LLM adapter expected by BaseSkill.callLLM
