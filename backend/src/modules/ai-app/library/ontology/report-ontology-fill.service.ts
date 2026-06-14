@@ -122,12 +122,14 @@ export class ReportOntologyFillService {
   /**
    * Launch a fire-and-forget batch fill job.
    *
-   * @param opts.topicId    Scope to a single topic (topic-report / team-mission).
-   * @param opts.sourceId   Scope to a single record by ID.
+   * @param opts.userId     Required — scopes all source kinds to the authenticated user.
+   * @param opts.topicId    Optional further scope to a single topic (topic-report / team-mission).
+   * @param opts.sourceId   Optional scope to a single record by ID.
    * @param opts.sourceKind Which source type to scan; omit to run all three.
    * @returns { taskId, queued } — taskId can be polled via getTaskStatus().
    */
   startBatchFill(opts: {
+    userId: string;
     topicId?: string;
     sourceId?: string;
     sourceKind?: BackfillSourceKind;
@@ -163,10 +165,10 @@ export class ReportOntologyFillService {
     taskId: string,
     state: BackfillTaskState,
     kinds: BackfillSourceKind[],
-    opts: { topicId?: string; sourceId?: string },
+    opts: { userId: string; topicId?: string; sourceId?: string },
   ): Promise<void> {
     this.logger.log(
-      `[batch:${taskId}] starting — kinds=${kinds.join(",")} topicId=${opts.topicId ?? "*"} sourceId=${opts.sourceId ?? "*"}`,
+      `[batch:${taskId}] starting — kinds=${kinds.join(",")} userId=${opts.userId} topicId=${opts.topicId ?? "*"} sourceId=${opts.sourceId ?? "*"}`,
     );
 
     try {
@@ -189,7 +191,7 @@ export class ReportOntologyFillService {
     taskId: string,
     state: BackfillTaskState,
     kind: BackfillSourceKind,
-    opts: { topicId?: string; sourceId?: string },
+    opts: { userId: string; topicId?: string; sourceId?: string },
   ): Promise<void> {
     const rows = await this.listSourceRows(kind, opts);
     state.total += rows.length;
@@ -217,16 +219,19 @@ export class ReportOntologyFillService {
 
   /**
    * List the (id, topicId) pairs to process for the given source kind.
+   * Always scoped to opts.userId for security — never returns cross-user records.
    * If opts.sourceId is provided, returns only that single record.
    */
   private async listSourceRows(
     kind: BackfillSourceKind,
-    opts: { topicId?: string; sourceId?: string },
+    opts: { userId: string; topicId?: string; sourceId?: string },
   ): Promise<Array<{ id: string; topicId: string | undefined }>> {
     if (kind === "topic-report") {
       const where: Record<string, unknown> = {
         // Only reports with at least one dimensionAnalysis (non-empty drafts)
         dimensionAnalyses: { some: {} },
+        // Scope to the authenticated user via the parent ResearchTopic
+        topic: { userId: opts.userId },
       };
       if (opts.topicId) where["topicId"] = opts.topicId;
       if (opts.sourceId) where["id"] = opts.sourceId;
@@ -243,6 +248,8 @@ export class ReportOntologyFillService {
       const where: Record<string, unknown> = {
         status: MissionStatus.COMPLETED,
         finalResult: { not: null },
+        // Scope to the authenticated user via createdById
+        createdById: opts.userId,
       };
       if (opts.topicId) where["topicId"] = opts.topicId;
       if (opts.sourceId) where["id"] = opts.sourceId;
@@ -255,10 +262,12 @@ export class ReportOntologyFillService {
       return rows.map((r) => ({ id: r.id, topicId: r.topicId }));
     }
 
-    // kb-document: no topicId column; sourceId filter only
+    // kb-document: scoped to user via knowledgeBase.userId relation
     if (kind === "kb-document") {
       const where: Record<string, unknown> = {
         rawContent: { not: "" },
+        // Scope to the authenticated user via the parent KnowledgeBase
+        knowledgeBase: { userId: opts.userId },
       };
       if (opts.sourceId) where["id"] = opts.sourceId;
 

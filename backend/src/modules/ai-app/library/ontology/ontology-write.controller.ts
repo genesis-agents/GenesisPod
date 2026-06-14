@@ -214,12 +214,16 @@ export class OntologyWriteController {
    */
   @Post("backfill")
   @ApiOperation({ summary: "手工触发既有报告本体回填（fire-and-forget）" })
-  startBackfill(@Body() dto: BackfillOntologyDto) {
+  startBackfill(
+    @Body() dto: BackfillOntologyDto,
+    @Request() req: { user: { id: string } },
+  ) {
     this.logger.log(
-      `[startBackfill] topicId=${dto.topicId ?? "*"} sourceId=${dto.sourceId ?? "*"} sourceKind=${dto.sourceKind ?? "all"}`,
+      `[startBackfill] userId=${req.user.id} topicId=${dto.topicId ?? "*"} sourceId=${dto.sourceId ?? "*"} sourceKind=${dto.sourceKind ?? "all"}`,
     );
 
     const result = this.reportOntologyFillService.startBatchFill({
+      userId: req.user.id,
       topicId: dto.topicId,
       sourceId: dto.sourceId,
       sourceKind: dto.sourceKind,

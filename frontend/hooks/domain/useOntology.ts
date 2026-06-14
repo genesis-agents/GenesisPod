@@ -101,7 +101,6 @@ export type BackfillSourceKind =
 
 export interface StartBackfillParams {
   topicId?: string;
-  reportId?: string;
   sourceKind?: BackfillSourceKind;
 }
 
@@ -114,7 +113,7 @@ export interface BackfillStatus {
   status: string;
   processed: number;
   total: number;
-  errors: number;
+  errors: string[];
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────

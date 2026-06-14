@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Compass,
@@ -32,7 +33,6 @@ import {
   type ForesightTopic,
 } from '@/services/foresight/api';
 import { pendingByCard } from './foresight-meta';
-import { GraphCanvas } from './GraphCanvas';
 import { CardDetailPanel } from './CardDetailPanel';
 import { WorkbenchTab } from './WorkbenchTab';
 import { ReviewTab } from './ReviewTab';
@@ -44,6 +44,12 @@ import {
   CreateTopicDialog,
   ImportInsightDialog,
 } from './ForesightDialogs';
+
+// GraphCanvas measures DOM on mount — SSR causes hydration mismatch. Load client-only.
+const GraphCanvas = dynamic(
+  () => import('./GraphCanvas').then((m) => m.GraphCanvas),
+  { ssr: false }
+);
 
 /**
  * AI 前瞻主视图 —— 多主题判断资产。
