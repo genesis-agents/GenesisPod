@@ -491,6 +491,10 @@ export class ForesightIntakeService {
         ],
         modelType: AIModelType.CHAT,
         taskProfile,
+        // 内部系统调用：抽取的是系统已生成的可信报告语料（非用户输入）。
+        // 输入护栏(prompt-injection/llm-moderation)对报告内容高误报会整块丢弃，
+        // 与 insight 各内部调用一致，跳过整体护栏。
+        skipGuardrails: true,
       });
       const content = response.content?.trim() ?? "";
       if (!content) {

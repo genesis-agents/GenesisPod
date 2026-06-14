@@ -8,6 +8,14 @@ import { HttpException } from "@nestjs/common";
 import axios from "axios";
 
 jest.mock("axios");
+
+// SSRF guard does real DNS; mock it so proxy fetch/fallback flows are driven by
+// the mocked axios (real SSRF logic is covered by ssrf-guard.spec + safe-proxy-fetch.spec).
+jest.mock("../../../../ai-engine/safety/security/ssrf/ssrf-guard", () => ({
+  assertUrlSafe: jest.fn(async (u) => new URL(u)),
+  safeFetch: jest.fn(),
+  isBlockedIp: jest.fn(() => false),
+}));
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 describe("ProxyController - Reader Mode Fallback Chain", () => {

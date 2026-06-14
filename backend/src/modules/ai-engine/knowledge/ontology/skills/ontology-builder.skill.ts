@@ -225,11 +225,17 @@ export class OntologyBuilderSkill extends BaseSkill<
     }
 
     // ── 5. Entity resolution (canonical dedup) ───────────────────────────────
-    const allNames = entities.flatMap((e) => [e.label, ...(e.aliases ?? [])]);
+    // 关系端点 label 也纳入解析输入：让 "OpenAI" 与 "OpenAI Inc." 归并到同一 canonical，
+    // 否则关系里的名字与实体 label 不一致时查不到 node id → 系统性丢边。
+    const allNames = [
+      ...entities.flatMap((e) => [e.label, ...(e.aliases ?? [])]),
+      ...relations.flatMap((r) => [r.fromLabel, r.toLabel]),
+    ].filter(Boolean);
     const resolution = await this.entityResolution.resolve(allNames);
 
     // ── 6. Upsert each canonical entity via tool ──────────────────────────────
     const labelToNodeId = new Map<string, string>();
+    const norm = (s: string): string => s.toLowerCase().trim();
     const nodes: OntologyObjectView[] = [];
     let created = 0;
     let merged = 0;
@@ -256,12 +262,18 @@ export class OntologyBuilderSkill extends BaseSkill<
         // Distinguish create vs update via whether the node was just written.
         // OntologyService returns the same node shape for both; we track by
         // checking if this canonical was already seen this run.
-        if (labelToNodeId.has(canonical)) {
+        if (labelToNodeId.has(norm(canonical))) {
           merged++;
         } else {
           created++;
         }
-        labelToNodeId.set(canonical, node.id);
+        // 多键注册（小写归一）：canonical + 原始 label + 别名 → node.id，
+        // 让关系端点用其中任一名字都能命中，杜绝"有节点没边"。
+        labelToNodeId.set(norm(canonical), node.id);
+        labelToNodeId.set(norm(entity.label), node.id);
+        for (const alias of entity.aliases ?? []) {
+          if (alias) labelToNodeId.set(norm(alias), node.id);
+        }
         nodes.push(node);
       } catch (err) {
         this.logger.warn(
@@ -274,12 +286,15 @@ export class OntologyBuilderSkill extends BaseSkill<
     const edges: OntologyLinkView[] = [];
 
     for (const rel of relations) {
-      const fromCanonical =
-        resolution.canonicalOf[rel.fromLabel] ?? rel.fromLabel;
-      const toCanonical = resolution.canonicalOf[rel.toLabel] ?? rel.toLabel;
-
-      const fromId = labelToNodeId.get(fromCanonical);
-      const toId = labelToNodeId.get(toCanonical);
+      // 多路解析端点：直接命中(归一) → 经 canonicalOf 归并 → 都失败才跳过。
+      const resolveId = (label: string): string | undefined => {
+        const direct = labelToNodeId.get(norm(label));
+        if (direct) return direct;
+        const canon = resolution.canonicalOf[label];
+        return canon ? labelToNodeId.get(norm(canon)) : undefined;
+      };
+      const fromId = resolveId(rel.fromLabel);
+      const toId = resolveId(rel.toLabel);
 
       if (!fromId || !toId) {
         this.logger.warn(
