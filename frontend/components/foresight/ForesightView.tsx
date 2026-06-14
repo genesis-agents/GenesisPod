@@ -11,6 +11,7 @@ import {
   Link2,
   ListChecks,
   Plus,
+  Search,
   Table2,
 } from 'lucide-react';
 import { Tabs } from '@/components/ui/tabs/Tabs';
@@ -68,6 +69,7 @@ export function ForesightView() {
   const [injecting, setInjecting] = useState<string | null>(null);
   const [resolving, setResolving] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
+  const [topicQuery, setTopicQuery] = useState('');
   const [createCardOpen, setCreateCardOpen] = useState(false);
   const [createEdgeOpen, setCreateEdgeOpen] = useState(false);
   const [createTopicOpen, setCreateTopicOpen] = useState(false);
@@ -344,36 +346,67 @@ export function ForesightView() {
               {error}
             </p>
           )}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {topics.map((t) => (
-              <AssetCard
-                key={t.id}
-                title={t.name}
-                description={
-                  t.description ??
-                  '点击进入工作台：假设图谱 / 信号检验 / 复核 / 决策结论'
-                }
-                icon={<Compass className="h-6 w-6 text-white" />}
-                gradient="from-amber-500 to-orange-600"
-                stats={[
-                  {
-                    key: 'cards',
-                    icon: <Table2 className="h-3.5 w-3.5" />,
-                    text: `${t.cardCount ?? 0} 假设`,
-                  },
-                  {
-                    key: 'layers',
-                    icon: <LayersIcon className="h-3.5 w-3.5" />,
-                    text: `${t.layers.length} 层级`,
-                  },
-                ]}
-                isOwner
-                onEdit={() => void handleRenameTopic(t)}
-                onDelete={() => void handleDeleteTopic(t)}
-                onClick={() => setTopicId(t.id)}
-              />
-            ))}
+          <div className="relative mb-4 max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={topicQuery}
+              onChange={(e) => setTopicQuery(e.target.value)}
+              placeholder="搜索洞察主题…"
+              className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-700 outline-none transition-colors placeholder:text-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+            />
           </div>
+          {(() => {
+            const q = topicQuery.trim().toLowerCase();
+            const visibleTopics = q
+              ? topics.filter(
+                  (t) =>
+                    t.name.toLowerCase().includes(q) ||
+                    (t.description ?? '').toLowerCase().includes(q)
+                )
+              : topics;
+            if (visibleTopics.length === 0) {
+              return (
+                <EmptyState
+                  size="sm"
+                  title="没有匹配的主题"
+                  description={`没有找到包含「${topicQuery.trim()}」的洞察主题，换个关键词试试。`}
+                />
+              );
+            }
+            return (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {visibleTopics.map((t) => (
+                  <AssetCard
+                    key={t.id}
+                    title={t.name}
+                    description={
+                      t.description ??
+                      '点击进入工作台：假设图谱 / 信号检验 / 复核 / 决策结论'
+                    }
+                    icon={<Compass className="h-6 w-6 text-white" />}
+                    gradient="from-amber-500 to-orange-600"
+                    stats={[
+                      {
+                        key: 'cards',
+                        icon: <Table2 className="h-3.5 w-3.5" />,
+                        text: `${t.cardCount ?? 0} 假设`,
+                      },
+                      {
+                        key: 'layers',
+                        icon: <LayersIcon className="h-3.5 w-3.5" />,
+                        text: `${t.layers.length} 层级`,
+                      },
+                    ]}
+                    isOwner
+                    onEdit={() => void handleRenameTopic(t)}
+                    onDelete={() => void handleDeleteTopic(t)}
+                    onClick={() => setTopicId(t.id)}
+                  />
+                ))}
+              </div>
+            );
+          })()}
         </div>
         <CreateTopicDialog
           open={createTopicOpen}

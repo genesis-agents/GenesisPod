@@ -36,38 +36,38 @@ interface GraphCanvasProps {
   onSelect: (id: string | null) => void;
 }
 
-/** 代际阶段 → 深色画布上的强调色（左色条 / 圆点 / 标签）。 */
+/** 代际阶段 → 浅色画布上的强调色（左色条 / 圆点 / 标签）。 */
 const STAGE_ACCENT: Record<string, { color: string; label: string }> = {
-  current: { color: '#34d399', label: '当前落地' },
-  evolving: { color: '#38bdf8', label: '演进中' },
-  exploring: { color: '#fbbf24', label: '探索验证' },
-  research: { color: '#a78bfa', label: '研究前沿' },
+  current: { color: '#10b981', label: '当前落地' },
+  evolving: { color: '#0ea5e9', label: '演进中' },
+  exploring: { color: '#f59e0b', label: '探索验证' },
+  research: { color: '#8b5cf6', label: '研究前沿' },
 };
-const FALLBACK_ACCENT = { color: '#94a3b8', label: '—' };
+const FALLBACK_ACCENT = { color: '#64748b', label: '—' };
 
 const SENS_TAG: Record<string, { label: string; color: string }> = {
-  high: { label: '高敏', color: '#fb7185' },
-  mid: { label: '中敏', color: '#fbbf24' },
+  high: { label: '高敏', color: '#e11d48' },
+  mid: { label: '中敏', color: '#d97706' },
   low: { label: '低敏', color: '#64748b' },
 };
 
 /** 置信度环颜色按健康度分档：高=绿，中=琥珀，低=红。 */
 function confTier(conf: number): string {
-  if (conf >= 0.7) return '#34d399';
-  if (conf >= 0.45) return '#fbbf24';
-  return '#fb7185';
+  if (conf >= 0.7) return '#059669';
+  if (conf >= 0.45) return '#d97706';
+  return '#e11d48';
 }
 
-/** 层级深度配色（泳道左轨的视觉节奏）。 */
+/** 层级深度配色（泳道左轨的视觉节奏，浅底深色更易读）。 */
 const LANE_HUE = [
-  '#38bdf8',
-  '#22d3ee',
-  '#34d399',
-  '#a3e635',
-  '#fbbf24',
-  '#fb7185',
-  '#f472b6',
-  '#a78bfa',
+  '#0284c7',
+  '#0891b2',
+  '#059669',
+  '#65a30d',
+  '#d97706',
+  '#e11d48',
+  '#db2777',
+  '#7c3aed',
 ];
 
 /** 置信度圆环仪表。 */
@@ -83,7 +83,7 @@ function ConfRing({ conf }: { conf: number }) {
           cy="16"
           r={r}
           fill="none"
-          stroke="rgba(148,163,184,0.18)"
+          stroke="rgba(148,163,184,0.32)"
           strokeWidth="3"
         />
         <circle
@@ -259,7 +259,7 @@ export function GraphCanvas({
         };
       if (highlight.up.edgeIds.has(id))
         return {
-          stroke: '#22d3ee',
+          stroke: '#0891b2',
           width: base + 0.8,
           opacity: 0.95,
           dash,
@@ -267,9 +267,9 @@ export function GraphCanvas({
           glow: true,
         };
       return {
-        stroke: '#334155',
+        stroke: '#94a3b8',
         width: base,
-        opacity: 0.07,
+        opacity: 0.16,
         dash,
         marker: 'ah-dim',
         glow: false,
@@ -277,7 +277,7 @@ export function GraphCanvas({
     }
     if (hoverEdgeIds.has(id))
       return {
-        stroke: '#cbd5e1',
+        stroke: '#475569',
         width: base + 0.5,
         opacity: 0.85,
         dash,
@@ -288,15 +288,15 @@ export function GraphCanvas({
       return {
         stroke: '#b45309',
         width: base,
-        opacity: 0.5,
+        opacity: 0.55,
         dash,
         marker: 'ah-constrain',
         glow: false,
       };
     return {
-      stroke: '#475569',
+      stroke: '#94a3b8',
       width: base,
-      opacity: 0.4,
+      opacity: 0.6,
       marker: 'ah-dim',
       glow: false,
     };
@@ -330,19 +330,19 @@ export function GraphCanvas({
   return (
     <div
       ref={containerRef}
-      className="relative overflow-hidden rounded-2xl ring-1 ring-slate-800"
+      className="relative overflow-hidden rounded-2xl ring-1 ring-slate-200"
       style={{
-        backgroundColor: '#020617',
+        backgroundColor: '#f8fafc',
         backgroundImage:
-          'radial-gradient(1100px 460px at 18% -12%, rgba(56,189,248,0.10), transparent 60%),' +
-          'radial-gradient(900px 480px at 92% -8%, rgba(167,139,250,0.08), transparent 55%),' +
-          'linear-gradient(rgba(148,163,184,0.045) 1px, transparent 1px),' +
-          'linear-gradient(90deg, rgba(148,163,184,0.045) 1px, transparent 1px)',
+          'radial-gradient(1100px 460px at 18% -12%, rgba(14,165,233,0.06), transparent 60%),' +
+          'radial-gradient(900px 480px at 92% -8%, rgba(139,92,246,0.05), transparent 55%),' +
+          'linear-gradient(rgba(100,116,139,0.06) 1px, transparent 1px),' +
+          'linear-gradient(90deg, rgba(100,116,139,0.06) 1px, transparent 1px)',
         backgroundSize: 'auto, auto, 30px 30px, 30px 30px',
       }}
     >
       {/* 图例 */}
-      <div className="font-mono pointer-events-none absolute right-4 top-4 z-30 flex flex-col gap-2 rounded-xl border border-slate-700/60 bg-slate-900/80 px-3.5 py-2.5 text-[10px] text-slate-300 shadow-xl backdrop-blur">
+      <div className="font-mono pointer-events-none absolute right-4 top-4 z-30 flex flex-col gap-2 rounded-xl border border-slate-200 bg-white/90 px-3.5 py-2.5 text-[10px] text-slate-600 shadow-lg backdrop-blur">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
           {Object.entries(STAGE_ACCENT).map(([k, v]) => (
             <span key={k} className="inline-flex items-center gap-1.5">
@@ -354,9 +354,9 @@ export function GraphCanvas({
             </span>
           ))}
         </div>
-        <div className="flex items-center gap-x-3 border-t border-slate-700/60 pt-1.5 text-slate-400">
+        <div className="flex items-center gap-x-3 border-t border-slate-200 pt-1.5 text-slate-500">
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-px w-5" style={{ background: '#64748b' }} />
+            <span className="h-px w-5" style={{ background: '#94a3b8' }} />
             影响传导
           </span>
           <span className="inline-flex items-center gap-1.5">
@@ -366,7 +366,7 @@ export function GraphCanvas({
             />
             约束反压
           </span>
-          <span className="text-slate-500">线宽=传导强度</span>
+          <span className="text-slate-400">线宽=传导强度</span>
         </div>
       </div>
 
@@ -379,10 +379,10 @@ export function GraphCanvas({
         <defs>
           {(
             [
-              ['ah-dim', '#475569'],
-              ['ah-bright', '#cbd5e1'],
+              ['ah-dim', '#94a3b8'],
+              ['ah-bright', '#475569'],
               ['ah-amber', '#f59e0b'],
-              ['ah-cyan', '#22d3ee'],
+              ['ah-cyan', '#0891b2'],
               ['ah-constrain', '#b45309'],
             ] as const
           ).map(([id, color]) => (
@@ -435,11 +435,11 @@ export function GraphCanvas({
           return (
             <span
               key={`lbl-${p.id}`}
-              className="font-mono pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-md border border-slate-600/70 bg-slate-900/90 px-1.5 py-0.5 text-[10px] text-slate-200 shadow-lg backdrop-blur"
+              className="font-mono pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-md border border-slate-200 bg-white/95 px-1.5 py-0.5 text-[10px] text-slate-700 shadow-md backdrop-blur"
               style={{ left: p.mid.x, top: p.mid.y }}
             >
               {e?.metric}
-              <span className="ml-1 text-slate-500">
+              <span className="ml-1 text-slate-400">
                 w{e?.weight.toFixed(1)}
               </span>
             </span>
@@ -455,7 +455,7 @@ export function GraphCanvas({
           return (
             <div
               key={layer.id}
-              className="relative flex gap-5 border-b border-slate-800/70 py-7 pl-28 last:border-b-0"
+              className="relative flex gap-5 border-b border-slate-200 py-7 pl-28 last:border-b-0"
             >
               {/* 左轨 */}
               <div className="absolute bottom-7 left-0 top-7 flex w-24 flex-col justify-center gap-1 pr-4 text-right">
@@ -469,11 +469,11 @@ export function GraphCanvas({
                 >
                   {layer.id}
                 </span>
-                <span className="text-xs font-semibold text-slate-200">
+                <span className="text-xs font-semibold text-slate-700">
                   {layer.name}
                 </span>
                 {layer.en && (
-                  <span className="font-mono text-[9px] uppercase tracking-widest text-slate-500">
+                  <span className="font-mono text-[9px] uppercase tracking-widest text-slate-400">
                     {layer.en}
                   </span>
                 )}
@@ -499,24 +499,24 @@ export function GraphCanvas({
                         setHoveredId((h) => (h === card.id ? null : h))
                       }
                       className={cn(
-                        'group relative w-56 cursor-pointer overflow-hidden rounded-xl border bg-slate-900/70 p-3 pl-4 backdrop-blur-sm transition-all duration-200',
-                        'hover:-translate-y-0.5 hover:bg-slate-900/90',
+                        'group relative w-56 cursor-pointer overflow-hidden rounded-xl border bg-white p-3 pl-4 transition-all duration-200',
+                        'hover:-translate-y-0.5 hover:bg-slate-50',
                         state === 'src' && 'border-rose-500/70',
                         state === 'dirty' && 'border-amber-500/70',
-                        state === 'up' && 'border-cyan-500/60',
-                        state === 'down' && 'border-amber-400/60',
-                        state === 'none' && 'border-slate-700/60',
-                        isSel && 'border-slate-100',
+                        state === 'up' && 'border-cyan-500/70',
+                        state === 'down' && 'border-amber-400/70',
+                        state === 'none' && 'border-slate-200',
+                        isSel && 'border-slate-900',
                         dimNode(card.id) && 'opacity-30'
                       )}
                       style={{
                         boxShadow: isSel
-                          ? '0 0 0 1px rgba(241,245,249,.6), 0 10px 30px rgba(0,0,0,.5)'
+                          ? '0 0 0 1px rgba(15,23,42,.55), 0 10px 24px rgba(15,23,42,.14)'
                           : state === 'src'
-                            ? '0 0 22px rgba(244,63,94,.35)'
+                            ? '0 0 18px rgba(244,63,94,.28)'
                             : state === 'dirty'
-                              ? '0 0 20px rgba(245,158,11,.28)'
-                              : '0 6px 18px rgba(0,0,0,.35)',
+                              ? '0 0 18px rgba(245,158,11,.25)'
+                              : '0 4px 12px rgba(15,23,42,.08)',
                       }}
                     >
                       {/* 阶段左色条 */}
@@ -541,7 +541,7 @@ export function GraphCanvas({
 
                       <div className="mb-1 flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <span className="font-mono text-[10px] text-slate-500">
+                          <span className="font-mono text-[10px] text-slate-400">
                             {card.cardKey}
                           </span>
                           <div className="mt-0.5 flex items-center gap-1.5">
@@ -556,7 +556,7 @@ export function GraphCanvas({
                               {accent.label}
                             </span>
                             {card.scenarios && card.scenarios.length > 0 && (
-                              <span className="rounded border border-violet-500/60 px-1 text-[9px] text-violet-300">
+                              <span className="rounded border border-violet-500/60 px-1 text-[9px] text-violet-600">
                                 分叉
                               </span>
                             )}
@@ -565,14 +565,14 @@ export function GraphCanvas({
                         <ConfRing conf={card.conf} />
                       </div>
 
-                      <h3 className="text-[13px] font-semibold leading-snug text-slate-100">
+                      <h3 className="text-[13px] font-semibold leading-snug text-slate-900">
                         {card.title}
                       </h3>
-                      <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-slate-400">
+                      <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-slate-500">
                         {card.claim}
                       </p>
 
-                      <div className="font-mono mt-2.5 flex items-center justify-between text-[10px] text-slate-500">
+                      <div className="font-mono mt-2.5 flex items-center justify-between text-[10px] text-slate-400">
                         <span style={{ color: sens.color }}>{sens.label}</span>
                         <span>信源 ×{card.sources.length}</span>
                         <span>H·{card.horizon}</span>

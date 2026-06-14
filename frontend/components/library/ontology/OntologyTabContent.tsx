@@ -1635,10 +1635,10 @@ function OntologySettingsBar({ topicId }: OntologySettingsBarProps) {
     setTimeout(() => setActiveTaskId(null), 5000);
   }, []);
 
-  // When no topicId: render only a thin inline row (no big white card)
+  // When no topicId: render only the inline button group (parent row positions it)
   if (!topicId) {
     return (
-      <div className="mb-3 flex items-center justify-end gap-3">
+      <div className="flex shrink-0 items-center gap-3">
         {activeTaskId && (
           <BackfillProgress taskId={activeTaskId} onDone={handleProgressDone} />
         )}
@@ -1796,17 +1796,20 @@ export default function OntologyTabContent({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-gray-50/50 px-6 py-6">
-      {/* Settings / auto-ingest toolbar */}
-      <OntologySettingsBar topicId={topicId} />
+      {/* Auto-ingest toolbar — only meaningful within a topic scope */}
+      {topicId && <OntologySettingsBar topicId={topicId} />}
 
-      {/* Top tab bar */}
-      <Tabs
-        items={tabItems}
-        value={mainTab}
-        onChange={(key) => setMainTab(key as MainTab)}
-        variant="underline"
-        className="mb-4"
-      />
+      {/* Top tab bar — import button sits inline on the right when no topic scope */}
+      <div className="mb-4 flex items-center justify-between gap-3 border-b border-gray-200">
+        <Tabs
+          items={tabItems}
+          value={mainTab}
+          onChange={(key) => setMainTab(key as MainTab)}
+          variant="underline"
+          className="flex-1 border-b-0"
+        />
+        {!topicId && <OntologySettingsBar topicId={topicId} />}
+      </div>
 
       {/* Tab content */}
       <div className="min-h-0 flex-1 overflow-y-auto">
