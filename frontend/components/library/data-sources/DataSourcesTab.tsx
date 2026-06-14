@@ -243,9 +243,9 @@ export default function DataSourcesTab({
             isConnected: isActive,
             lastSyncAt: connection?.lastSyncAt,
             account: connection?.email,
-            lastError: needsReauth
-              ? connection?.lastError || t('dataSources.errors.authExpired')
-              : undefined,
+            // needsReauth 已由卡片底部「重新授权」按钮 + 状态点表达，
+            // 不再把后端原始 OAuth 错误码（如 invalid_grant）暴露给用户。
+            lastError: undefined,
             needsReauth,
           };
         } else {
@@ -447,7 +447,7 @@ export default function DataSourcesTab({
     ).length;
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         {/* Hub overview bar */}
         <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-gradient-to-r from-violet-50/40 via-white to-purple-50/40 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
@@ -496,7 +496,7 @@ export default function DataSourcesTab({
             title="我的内容"
             description="在 Genesis 内创建或收藏的资源"
           />
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <ContentSummaryCard
               icon={Bookmark}
               iconBg="bg-orange-50 text-orange-600"
@@ -532,7 +532,7 @@ export default function DataSourcesTab({
             description="授权第三方平台，自动同步内容到知识库"
             count={connectedCount}
           />
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <ConnectorCard
               icon={HardDrive}
               iconBg="bg-emerald-50 text-emerald-600"
@@ -666,7 +666,7 @@ export default function DataSourcesTab({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* 顶部子 tab chips（横向，学 Agent 市场分类条；取代左侧竖向导航占位，内容拉满整宽） */}
       <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-4">
         {navGroups.map((group, gi) => (

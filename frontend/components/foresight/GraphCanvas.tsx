@@ -269,7 +269,7 @@ export function GraphCanvas({
       return {
         stroke: '#94a3b8',
         width: base,
-        opacity: 0.16,
+        opacity: 0.32,
         dash,
         marker: 'ah-dim',
         glow: false,
@@ -288,16 +288,16 @@ export function GraphCanvas({
       return {
         stroke: '#b45309',
         width: base,
-        opacity: 0.55,
+        opacity: 0.8,
         dash,
         marker: 'ah-constrain',
         glow: false,
       };
     return {
-      stroke: '#94a3b8',
+      stroke: '#64748b',
       width: base,
-      opacity: 0.6,
-      marker: 'ah-dim',
+      opacity: 0.9,
+      marker: 'ah-flow',
       glow: false,
     };
   }
@@ -380,6 +380,7 @@ export function GraphCanvas({
           {(
             [
               ['ah-dim', '#94a3b8'],
+              ['ah-flow', '#64748b'],
               ['ah-bright', '#475569'],
               ['ah-amber', '#f59e0b'],
               ['ah-cyan', '#0891b2'],
@@ -446,8 +447,8 @@ export function GraphCanvas({
           );
         })}
 
-      {/* 泳道 + 节点 */}
-      <div className="relative z-10 py-2">
+      {/* 泳道 + 节点（pt-14 为右上角浮动图例预留安全区，避免遮挡首行卡片） */}
+      <div className="relative z-10 pb-2 pt-14">
         {layers.map((layer, li) => {
           const layerCards = cards.filter((c) => c.layer === layer.id);
           if (layerCards.length === 0) return null;

@@ -1440,8 +1440,15 @@ function LibraryPageContent() {
             </div>
           )}
 
-        {/* Main content area — wiki detail owns its own padding via subheader */}
-        <div className={inWikiDetail ? '' : 'px-8 py-6'}>
+        {/* Main content area — wiki detail & 知识本体 own their own padding
+            （知识本体根节点自带 px-8 py-4，外层再加 py-6 会叠出顶部空白带）。 */}
+        <div
+          className={
+            inWikiDetail || activeTab === 'knowledge-ontology'
+              ? ''
+              : 'px-8 py-6'
+          }
+        >
           {/* ★ v1.5.3 Wiki Tab (主形态) — Library 默认 tab */}
           {activeTab === 'wiki' && <WikiTab userHash={getUserHash()} />}
 

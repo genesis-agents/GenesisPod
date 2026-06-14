@@ -1795,7 +1795,7 @@ export default function OntologyTabContent({
   ];
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-gray-50/50 px-6 py-6">
+    <div className="flex h-full min-h-0 flex-col bg-gray-50/50 px-8 py-4">
       {/* Auto-ingest toolbar — only meaningful within a topic scope */}
       {topicId && <OntologySettingsBar topicId={topicId} />}
 
