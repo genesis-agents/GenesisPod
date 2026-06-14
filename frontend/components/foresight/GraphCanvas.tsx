@@ -341,34 +341,41 @@ export function GraphCanvas({
         backgroundSize: 'auto, auto, 30px 30px, 30px 30px',
       }}
     >
-      {/* 图例 */}
-      <div className="font-mono pointer-events-none absolute right-4 top-4 z-30 flex flex-col gap-2 rounded-xl border border-slate-200 bg-white/90 px-3.5 py-2.5 text-[10px] text-slate-600 shadow-lg backdrop-blur">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          {Object.entries(STAGE_ACCENT).map(([k, v]) => (
-            <span key={k} className="inline-flex items-center gap-1.5">
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{ background: v.color }}
-              />
-              {v.label}
-            </span>
-          ))}
-        </div>
-        <div className="flex items-center gap-x-3 border-t border-slate-200 pt-1.5 text-slate-500">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-px w-5" style={{ background: '#94a3b8' }} />
-            影响传导
-          </span>
-          <span className="inline-flex items-center gap-1.5">
+      {/* 图例 —— 单行平铺，不换行不重叠（顶部内容已用 pt 预留安全区） */}
+      <div className="font-mono pointer-events-none absolute right-4 top-3 z-30 flex max-w-[calc(100%-2rem)] flex-nowrap items-center gap-x-2.5 overflow-hidden whitespace-nowrap rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 text-[10px] text-slate-600 shadow-lg backdrop-blur">
+        {Object.entries(STAGE_ACCENT).map(([k, v]) => (
+          <span key={k} className="inline-flex items-center gap-1">
             <span
-              className="h-0 w-5 border-t border-dashed"
-              style={{ borderColor: '#b45309' }}
+              className="h-2 w-2 shrink-0 rounded-full"
+              style={{ background: v.color }}
             />
-            约束反压
+            {v.label}
           </span>
-          <span className="text-slate-400">线宽=传导强度</span>
-        </div>
+        ))}
+        <span className="h-3 w-px shrink-0 bg-slate-200" />
+        <span className="inline-flex items-center gap-1 text-slate-500">
+          <span
+            className="h-px w-4 shrink-0"
+            style={{ background: '#64748b' }}
+          />
+          影响传导
+        </span>
+        <span className="inline-flex items-center gap-1 text-slate-500">
+          <span
+            className="h-0 w-4 shrink-0 border-t border-dashed"
+            style={{ borderColor: '#b45309' }}
+          />
+          约束反压
+        </span>
       </div>
+
+      {/* 无影响边时的显式提示：连线来自「影响边」，没有边即没有线（非渲染 bug） */}
+      {edges.length === 0 && cards.length > 0 && (
+        <div className="pointer-events-none absolute left-4 top-3 z-30 max-w-[min(28rem,calc(100%-12rem))] rounded-xl border border-amber-200 bg-amber-50/95 px-3 py-1.5 text-[11px] leading-snug text-amber-700 shadow-sm">
+          本主题暂无影响边 ——
+          卡片间的连线由「影响边」生成，点右上角「新建影响边」连接两张卡片即可出现。
+        </div>
+      )}
 
       {/* 边层 */}
       <svg
@@ -447,8 +454,8 @@ export function GraphCanvas({
           );
         })}
 
-      {/* 泳道 + 节点（pt-14 为右上角浮动图例预留安全区，避免遮挡首行卡片） */}
-      <div className="relative z-10 pb-2 pt-14">
+      {/* 泳道 + 节点（pt-10 为顶部单行图例/提示预留安全区，避免遮挡首行卡片） */}
+      <div className="relative z-10 pb-2 pt-10">
         {layers.map((layer, li) => {
           const layerCards = cards.filter((c) => c.layer === layer.id);
           if (layerCards.length === 0) return null;
