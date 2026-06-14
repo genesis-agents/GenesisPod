@@ -100,7 +100,9 @@ jobs:
         run: npm install sharp --no-save || true
 
       - name: Run tests
-        run: npm run test:quick
+        # Full suite (no skips) so security specs — jwt/guardrails/mcp-server —
+        # actually run on every PR. test:quick stays as the fast local script.
+        run: npm run test:ci
         working-directory: ./backend
         env:
           JWT_SECRET: test_secret
