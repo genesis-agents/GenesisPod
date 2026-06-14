@@ -21,6 +21,7 @@
  */
 
 import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
+import { ModuleRef } from "@nestjs/core";
 import { AIModelType } from "@prisma/client";
 import { AiChatService } from "@/modules/ai-engine/facade";
 import type { ChatMessage, TaskProfile } from "@/modules/ai-engine/facade";
@@ -171,6 +172,10 @@ export class OntologyBuilderSkill extends BaseSkill<
   // @Optional() 便永远注入 undefined（doExecute 第一关 if(!aiChatService) 直接 skip，
   // 抽取全程空转的真因）。保留联合类型（参数位置必选，可空给安全网）+ 显式 @Inject 覆盖
   // 被擦的 token；forwardRef(LLM) 循环初始化下保留 @Optional 作启动安全网。
+  // 构造期注入仅作 best-effort：AiChatService 经 forwardRef(LLM) 进来，本 skill
+  // 构造时该循环依赖尚未就绪 → 即便 @Inject token 正确也解析成 undefined。
+  // 真正可靠的是 resolveAiChat()/resolveOntology() 在调用期（全图初始化完）用
+  // ModuleRef 懒取兜底。
   constructor(
     @Optional()
     @Inject(AiChatService)
@@ -179,12 +184,40 @@ export class OntologyBuilderSkill extends BaseSkill<
     @Optional()
     @Inject(OntologyService)
     private readonly ontologyService: OntologyService | undefined,
+    private readonly moduleRef: ModuleRef,
   ) {
     super();
-    // Wire AiChatService as the LLM adapter expected by BaseSkill.callLLM
-    // We override doExecute and call aiChatService directly for full type safety
-    // (BaseSkill.callLLM uses a generic ILLMAdapter interface; here we use
-    // AiChatService directly so we can pass modelType + taskProfile).
+  }
+
+  private aiChatLazy: AiChatService | undefined;
+  private ontologyLazy: OntologyService | undefined;
+
+  /** 调用期解析 AiChatService（构造期循环依赖未就绪时用 ModuleRef 兜底，全图已初始化完）。 */
+  private resolveAiChat(): AiChatService | undefined {
+    if (this.aiChatService) return this.aiChatService;
+    if (!this.aiChatLazy) {
+      try {
+        this.aiChatLazy = this.moduleRef.get(AiChatService, { strict: false });
+      } catch {
+        /* 仍不可用 */
+      }
+    }
+    return this.aiChatLazy;
+  }
+
+  /** 调用期解析 OntologyService（同上兜底）。 */
+  private resolveOntology(): OntologyService | undefined {
+    if (this.ontologyService) return this.ontologyService;
+    if (!this.ontologyLazy) {
+      try {
+        this.ontologyLazy = this.moduleRef.get(OntologyService, {
+          strict: false,
+        });
+      } catch {
+        /* 仍不可用 */
+      }
+    }
+    return this.ontologyLazy;
   }
 
   protected async doExecute(
@@ -204,7 +237,7 @@ export class OntologyBuilderSkill extends BaseSkill<
     }
 
     // 安全网：DI 解析不到 AiChatService 时优雅跳过抽取（保证 app 启动不崩）
-    if (!this.aiChatService) {
+    if (!this.resolveAiChat()) {
       this.logger.warn(
         `[${this.id}] AiChatService unavailable — skipping ontology extraction (non-fatal)`,
       );
@@ -385,13 +418,14 @@ export class OntologyBuilderSkill extends BaseSkill<
   private async resolveAllowlists(
     topicId: string | undefined,
   ): Promise<[Set<string>, Set<string>]> {
-    if (!this.ontologyService) {
+    const ontology = this.resolveOntology();
+    if (!ontology) {
       return [ENTITY_TYPE_SEED, LINK_TYPE_SEED];
     }
     try {
       const [objectTypes, linkTypes] = await Promise.all([
-        this.ontologyService.listObjectTypes({ topicId }),
-        this.ontologyService.listLinkTypes({ topicId }),
+        ontology.listObjectTypes({ topicId }),
+        ontology.listLinkTypes({ topicId }),
       ]);
       const entitySet =
         objectTypes.length > 0
@@ -589,7 +623,7 @@ Rules:
     const messages: ChatMessage[] = [{ role: "user", content: userPrompt }];
 
     try {
-      const result = await this.aiChatService!.chat({
+      const result = await this.resolveAiChat()!.chat({
         messages,
         systemPrompt,
         model: "",
