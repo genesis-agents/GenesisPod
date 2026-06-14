@@ -20,6 +20,8 @@ import { EmptyState } from '@/components/ui/states/EmptyState';
 import { LoadingState } from '@/components/ui/states/LoadingState';
 import { PageHeaderHero } from '@/components/ui/page-header-hero/PageHeaderHero';
 import { AssetCard } from '@/components/ui/cards/asset-card/AssetCard';
+import { CreateCard } from '@/components/ui/cards/CreateCard';
+import { Input } from '@/components/ui/form/Input';
 import { confirm } from '@/stores';
 import {
   deleteTopic,
@@ -313,71 +315,83 @@ export function ForesightView() {
     );
   }
 
-  /* ── 主题画廊（落地页，全站卡片惯例） ── */
+  /* ── 主题画廊（落地页）—— 对齐项目公共画廊范式（MissionGalleryView）：
+     sticky 页头 + 搜索内嵌 PageHeaderHero + 列表标题 + 网格末尾 CreateCard。
+     注：外层 page 的 <main> 已是 flex-1 overflow-y-auto 滚动容器，本处不再套
+     overflow，sticky 直接贴 main 顶。 ── */
   if (!topicId) {
+    const q = topicQuery.trim().toLowerCase();
+    const visibleTopics = q
+      ? topics.filter(
+          (t) =>
+            t.name.toLowerCase().includes(q) ||
+            (t.description ?? '').toLowerCase().includes(q)
+        )
+      : topics;
     return (
-      <div className="pb-10">
-        <PageHeaderHero
-          title="AI 前瞻"
-          subtitle="多主题判断资产 — 每个洞察主题是一个独立工作台"
-          icon={<Compass className="h-7 w-7 text-white" />}
-          module="research"
-          actions={
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => void handleSeed()}
-                disabled={seeding}
-                className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
-              >
-                {seeding ? '载入中…' : '载入示例主题'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setCreateTopicOpen(true)}
-                className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800"
-              >
-                <Plus className="h-4 w-4" />
-                新建洞察主题
-              </button>
+      <div>
+        <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
+          <PageHeaderHero
+            title="AI 前瞻"
+            subtitle="多主题判断资产 — 每个洞察主题是一个独立工作台"
+            icon={<Compass className="h-7 w-7 text-white" />}
+            module="research"
+            actions={
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleSeed()}
+                  disabled={seeding}
+                  className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {seeding ? '载入中…' : '载入示例主题'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCreateTopicOpen(true)}
+                  className="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800"
+                >
+                  <Plus className="h-4 w-4" />
+                  新建洞察主题
+                </button>
+              </div>
+            }
+          >
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+              <Input
+                type="text"
+                value={topicQuery}
+                onChange={(e) => setTopicQuery(e.target.value)}
+                placeholder="搜索洞察主题…"
+                className="rounded-xl py-3 pl-12"
+              />
             </div>
-          }
-        />
-        <div className="px-8">
+          </PageHeaderHero>
+        </div>
+
+        <div className="px-8 py-6">
           {error && (
             <p className="mb-3 border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
               {error}
             </p>
           )}
-          <div className="relative mb-4 max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              value={topicQuery}
-              onChange={(e) => setTopicQuery(e.target.value)}
-              placeholder="搜索洞察主题…"
-              className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-700 outline-none transition-colors placeholder:text-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+          {visibleTopics.length === 0 ? (
+            <EmptyState
+              size="sm"
+              title="没有匹配的主题"
+              description={`没有找到包含「${topicQuery.trim()}」的洞察主题，换个关键词试试。`}
             />
-          </div>
-          {(() => {
-            const q = topicQuery.trim().toLowerCase();
-            const visibleTopics = q
-              ? topics.filter(
-                  (t) =>
-                    t.name.toLowerCase().includes(q) ||
-                    (t.description ?? '').toLowerCase().includes(q)
-                )
-              : topics;
-            if (visibleTopics.length === 0) {
-              return (
-                <EmptyState
-                  size="sm"
-                  title="没有匹配的主题"
-                  description={`没有找到包含「${topicQuery.trim()}」的洞察主题，换个关键词试试。`}
-                />
-              );
-            }
-            return (
+          ) : (
+            <>
+              <div className="mb-4 flex items-baseline justify-between">
+                <h2 className="text-base font-semibold text-gray-900">
+                  {q ? '搜索结果' : '我的主题'}
+                </h2>
+                <span className="text-xs text-gray-500">
+                  共 {visibleTopics.length} 个
+                </span>
+              </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {visibleTopics.map((t) => (
                   <AssetCard
@@ -407,9 +421,14 @@ export function ForesightView() {
                     onClick={() => setTopicId(t.id)}
                   />
                 ))}
+                <CreateCard
+                  title="新建洞察主题"
+                  description="自定义层级本体，从空白主题开始"
+                  onClick={() => setCreateTopicOpen(true)}
+                />
               </div>
-            );
-          })()}
+            </>
+          )}
         </div>
         <CreateTopicDialog
           open={createTopicOpen}
