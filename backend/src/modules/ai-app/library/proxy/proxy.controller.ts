@@ -16,6 +16,7 @@ import { PuppeteerFetcherService } from "./puppeteer-fetcher.service";
 import { FlareSolverrService } from "./flaresolverr.service";
 import { APP_CONFIG } from "../../../../common/config/app.config";
 import { Public } from "../../../../common/decorators/public.decorator";
+import { safeProxyGet } from "./safe-proxy-fetch";
 
 /**
  * 代理控制器 - 用于代理外部资源（如 PDF），绕过 CORS 和 X-Frame-Options 限制
@@ -307,10 +308,12 @@ export class ProxyController {
       // 从远程服务器获取 PDF
       // 使用完整的浏览器请求头以绕过学术网站（如 openreview.net）的反爬策略
       const urlObj2 = new URL(url);
-      const response = await axios.get(url, {
+      // safeProxyGet validates the URL (DNS-resolved SSRF gate) and re-validates
+      // every redirect hop. maxRedirects in this config is ignored (the helper
+      // follows redirects manually).
+      const response = await safeProxyGet(url, {
         responseType: "arraybuffer",
         timeout: 30000, // 30 seconds timeout
-        maxRedirects: 5, // 跟随重定向
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0",
@@ -420,10 +423,9 @@ export class ProxyController {
       this.logger.log(`Fetching HTML from allowed domain: ${urlObj.hostname}`);
 
       // 从远程服务器获取 HTML - 使用真实浏览器特征
-      const response = await axios.get(url, {
+      const response = await safeProxyGet(url, {
         responseType: "text",
         timeout: 30000,
-        maxRedirects: 5,
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0",
@@ -599,10 +601,9 @@ export class ProxyController {
 
       // 尝试直接获取 HTML
       try {
-        const response = await axios.get(url, {
+        const response = await safeProxyGet(url, {
           responseType: "text",
           timeout: 30000,
-          maxRedirects: 5,
           headers: {
             "User-Agent":
               "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -870,10 +871,9 @@ export class ProxyController {
 
         // 尝试直接获取 HTML
         try {
-          const response = await axios.get(currentUrl, {
+          const response = await safeProxyGet(currentUrl, {
             responseType: "text",
             timeout: 30000,
-            maxRedirects: 5,
             headers: {
               "User-Agent":
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -1178,7 +1178,7 @@ export class ProxyController {
 
       // 尝试直接获取图片
       try {
-        const response = await axios.get(url, {
+        const response = await safeProxyGet(url, {
           responseType: "arraybuffer",
           timeout: 15000,
           headers: {
@@ -1226,7 +1226,7 @@ export class ProxyController {
                   .map((c) => `${c.name}=${c.value}`)
                   .join("; ");
 
-                const retryResponse = await axios.get(url, {
+                const retryResponse = await safeProxyGet(url, {
                   responseType: "arraybuffer",
                   timeout: 15000,
                   headers: {
