@@ -12,6 +12,7 @@ import {
   ListChecks,
   Plus,
   Search,
+  Sparkles,
   Table2,
 } from 'lucide-react';
 import { Tabs } from '@/components/ui/tabs/Tabs';
@@ -44,6 +45,7 @@ import {
   CreateEdgeDialog,
   CreateTopicDialog,
   ImportInsightDialog,
+  SuggestEdgesDialog,
 } from './ForesightDialogs';
 
 // GraphCanvas measures DOM on mount — SSR causes hydration mismatch. Load client-only.
@@ -72,6 +74,7 @@ export function ForesightView() {
   const [topicQuery, setTopicQuery] = useState('');
   const [createCardOpen, setCreateCardOpen] = useState(false);
   const [createEdgeOpen, setCreateEdgeOpen] = useState(false);
+  const [suggestEdgesOpen, setSuggestEdgesOpen] = useState(false);
   const [createTopicOpen, setCreateTopicOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -437,6 +440,15 @@ export function ForesightView() {
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={() => setSuggestEdgesOpen(true)}
+              disabled={!overview || overview.cards.length < 2}
+              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+            >
+              <Sparkles className="h-4 w-4" />
+              AI 生成影响边
+            </button>
+            <button
+              type="button"
               onClick={() => setCreateEdgeOpen(true)}
               disabled={!overview}
               className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
@@ -622,7 +634,18 @@ export function ForesightView() {
             layers={layers}
             cards={overview.cards}
             onClose={() => setImportOpen(false)}
-            onImported={() => void reload()}
+            onImported={() => {
+              void reload();
+              // 导入只产卡片不产边 —— 入库后自动进入 AI 建边审核，补全连线
+              setSuggestEdgesOpen(true);
+            }}
+          />
+          <SuggestEdgesDialog
+            open={suggestEdgesOpen}
+            topicId={topicId}
+            cards={overview.cards}
+            onClose={() => setSuggestEdgesOpen(false)}
+            onCreated={() => void reload()}
           />
         </>
       )}

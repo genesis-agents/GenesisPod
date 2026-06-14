@@ -31,6 +31,16 @@ export interface DraftCard {
   sources: Array<{ org: string; title: string; type: string; url: string }>;
 }
 
+/** 草稿影响边：LLM 在已有卡片间推断的关系，前端审核后逐条 createEdge 入库。 */
+export interface DraftEdge {
+  fromKey: string;
+  toKey: string;
+  metric: string;
+  type: "flow" | "constrain";
+  weight: number;
+  reason: string;
+}
+
 /**
  * ForesightIntakeService —— 雷达/洞察 → 前瞻的供料通道（P2/P3，2026-06-12）。
  *
@@ -266,6 +276,124 @@ export class ForesightIntakeService {
     }
     const drafts = await this.consolidate(candidates);
     return { drafts, missionTitle: bundle.title };
+  }
+
+  // ── 影响边自动生成 ────────────────────────────────────────────────────
+
+  /**
+   * 在主题现有卡片之间推断影响边（不落库；前端审核勾选后逐条 createEdge）。
+   * 背景：extract/导入是纯卡片管线，从不产边，导入后图谱必然 0 连线。
+   * 本方法补这一环：按层级本体方向（flow 自上而下 / constrain 自下而上）连边，
+   * 严格约束到已存在 cardKey、去重（含与库内既有边去重）、weight/数量封顶。
+   */
+  async suggestEdges(
+    userId: string,
+    topicId: string,
+  ): Promise<{ drafts: DraftEdge[] }> {
+    const topic = await this.requireTopic(userId, topicId);
+    const layers = (topic.layers as TopicLayerDef[] | null) ?? [];
+    const cards = await this.prisma.foresightCard.findMany({
+      where: { topicId },
+      select: {
+        id: true,
+        cardKey: true,
+        layer: true,
+        title: true,
+        claim: true,
+      },
+      orderBy: [{ layer: "asc" }, { cardKey: "asc" }],
+    });
+    if (cards.length < 2) {
+      throw new BadRequestException(
+        "主题卡片不足 2 张，无法生成影响边 —— 先录入更多假设卡",
+      );
+    }
+
+    const keySet = new Set(cards.map((c) => c.cardKey));
+    const idToKey = new Map(cards.map((c) => [c.id, c.cardKey]));
+    const existing = await this.prisma.foresightEdge.findMany({
+      where: { topicId },
+      select: { fromCardId: true, toCardId: true },
+    });
+    const existingPairs = new Set(
+      existing
+        .map((e) => {
+          const f = idToKey.get(e.fromCardId);
+          const t = idToKey.get(e.toCardId);
+          return f && t ? `${f}->${t}` : null;
+        })
+        .filter((x): x is string => x !== null),
+    );
+
+    const cap = Math.min(40, Math.ceil(cards.length * 1.5));
+    const prompt = [
+      `你是战略前瞻系统的影响关系抽取器。下面是「${topic.name}」主题的全部假设卡（按层级本体排列）。推断卡片之间真实存在的影响关系，输出影响边。`,
+      ``,
+      `## 层级本体（从需求侧到物理/约束侧）`,
+      ...layers.map((l) => `- ${l.id}: ${l.name}`),
+      ``,
+      `## 假设卡（fromKey/toKey 只能取下面出现的编号）`,
+      ...cards.map(
+        (c) =>
+          `- [${c.layer}] ${c.cardKey}「${c.title}」: ${c.claim.slice(0, 140)}`,
+      ),
+      ``,
+      `## 影响边纪律`,
+      `- 只在确有因果/传导关系的卡片间连边，宁缺毋滥，不要为连而连`,
+      `- type=flow：需求自上而下传导（上游层→下游层）；type=constrain：物理/工程约束自下而上反压（下游层→上游层）`,
+      `- metric 必填：影响通过什么可量化的量传导（如"HBM 带宽""专家并行通信量""单位算力功耗"），不要泛泛的"影响"`,
+      `- weight 0.05–1：传导强度（强直接=0.7–1，弱间接=0.05–0.4）`,
+      `- fromKey≠toKey，同一对卡片只连一条，最多 ${cap} 条`,
+      ``,
+      `输出严格 JSON（无其他文字）：`,
+      `{"edges":[{"fromKey":"A-L0-01","toKey":"A-L1-02","metric":"专家并行通信量","type":"flow","weight":0.7,"reason":"为何构成传导，一句话"}]}`,
+    ].join("\n");
+
+    const parsed = await this.chatJson<{
+      edges?: Array<{
+        fromKey?: string;
+        toKey?: string;
+        metric?: string;
+        type?: string;
+        weight?: number;
+        reason?: string;
+      }>;
+    }>(prompt, { creativity: "deterministic", outputLength: "long" });
+    if (parsed === null) {
+      throw new BadRequestException(
+        "影响边生成模型返回异常（空输出或非 JSON，已自动重试 1 次）—— 稍后再试",
+      );
+    }
+
+    const seen = new Set<string>();
+    const drafts: DraftEdge[] = [];
+    for (const e of parsed.edges ?? []) {
+      const fromKey = String(e.fromKey ?? "").trim();
+      const toKey = String(e.toKey ?? "").trim();
+      const metric = String(e.metric ?? "").trim();
+      if (!keySet.has(fromKey) || !keySet.has(toKey)) continue;
+      if (fromKey === toKey || !metric) continue;
+      const pairKey = `${fromKey}->${toKey}`;
+      if (existingPairs.has(pairKey) || seen.has(pairKey)) continue;
+      seen.add(pairKey);
+      let weight = Number(e.weight);
+      if (!Number.isFinite(weight)) weight = 0.7;
+      weight = Math.min(1, Math.max(0.05, +weight.toFixed(2)));
+      drafts.push({
+        fromKey,
+        toKey,
+        metric: metric.slice(0, 120),
+        type: e.type === "constrain" ? "constrain" : "flow",
+        weight,
+        reason: String(e.reason ?? "").slice(0, 200),
+      });
+      if (drafts.length >= cap) break;
+    }
+
+    this.logger.log(
+      `foresight suggest-edges: topic=${topicId} cards=${cards.length} raw=${(parsed.edges ?? []).length} drafts=${drafts.length}`,
+    );
+    return { drafts };
   }
 
   /** 单片抽取（0-4 张；空片正常返回 []） */

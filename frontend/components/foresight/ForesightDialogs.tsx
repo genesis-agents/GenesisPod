@@ -11,7 +11,9 @@ import {
   createTopic,
   extractFromMission,
   fetchInsightMissions,
+  suggestEdges,
   type DraftCard,
+  type DraftEdge,
   type ForesightCard,
   type ForesightLayerDef,
   type ForesightTopic,
@@ -848,6 +850,195 @@ export function ImportInsightDialog({
               </button>
             ))}
           </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+interface SuggestEdgesDialogProps {
+  open: boolean;
+  topicId: string;
+  cards: ForesightCard[];
+  onClose: () => void;
+  onCreated: () => void;
+}
+
+/**
+ * AI 生成影响边 —— 在主题现有卡片间推断关系，人工勾选后入库（P3 补「导入只产卡片、不产边」缺口）。
+ * 与导入草稿卡同一审核范式：人是关口。
+ */
+export function SuggestEdgesDialog({
+  open,
+  topicId,
+  cards,
+  onClose,
+  onCreated,
+}: SuggestEdgesDialogProps) {
+  const [loading, setLoading] = useState(false);
+  const [drafts, setDrafts] = useState<DraftEdge[] | null>(null);
+  const [checked, setChecked] = useState<Set<number>>(new Set());
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const titleByKey = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of cards) m.set(c.cardKey, c.title);
+    return m;
+  }, [cards]);
+
+  useEffect(() => {
+    if (!open) return;
+    setDrafts(null);
+    setError(null);
+    setLoading(true);
+    suggestEdges(topicId)
+      .then((res) => {
+        setDrafts(res.drafts);
+        setChecked(new Set(res.drafts.map((_, i) => i)));
+        if (res.drafts.length === 0) {
+          setError('AI 没有推断出可入库的影响边 —— 可手动用「新建影响边」连接');
+        }
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+      .finally(() => setLoading(false));
+  }, [open, topicId]);
+
+  async function handleAdmit() {
+    if (!drafts) return;
+    const selected = drafts.filter((_, i) => checked.has(i));
+    if (selected.length === 0) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      for (const d of selected) {
+        await createEdge({
+          topicId,
+          fromKey: d.fromKey,
+          toKey: d.toKey,
+          metric: d.metric,
+          type: d.type,
+          weight: d.weight,
+        });
+      }
+      onCreated();
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const selectedCount = drafts
+    ? drafts.filter((_, i) => checked.has(i)).length
+    : 0;
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="AI 生成影响边"
+      subtitle="在本主题现有卡片间推断关系 — 审核勾选后入库，连线即出现"
+      footer={
+        drafts && drafts.length > 0 ? (
+          <div className="flex w-full items-center justify-end gap-2">
+            <button
+              onClick={onClose}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+            >
+              取消
+            </button>
+            <button
+              onClick={() => void handleAdmit()}
+              disabled={submitting || selectedCount === 0}
+              className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+            >
+              {submitting ? '入库中…' : `入库选中（${selectedCount} 条）`}
+            </button>
+          </div>
+        ) : undefined
+      }
+    >
+      <div className="space-y-3">
+        {error && (
+          <p className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
+            {error}
+          </p>
+        )}
+
+        {loading ? (
+          <LoadingState
+            text="AI 正在推断卡片间的影响关系…"
+            className="min-h-40"
+          />
+        ) : drafts && drafts.length > 0 ? (
+          <div className="space-y-2">
+            {drafts.map((d, i) => (
+              <label
+                key={`${d.fromKey}-${d.toKey}-${i}`}
+                className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-3 hover:border-gray-400"
+              >
+                <input
+                  type="checkbox"
+                  checked={checked.has(i)}
+                  onChange={(e) => {
+                    setChecked((prev) => {
+                      const next = new Set(prev);
+                      if (e.target.checked) next.add(i);
+                      else next.delete(i);
+                      return next;
+                    });
+                  }}
+                  className="mt-1"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="flex flex-wrap items-center gap-1.5 text-sm">
+                    <span className="font-mono rounded border border-gray-300 px-1.5 text-xs text-gray-600">
+                      {d.fromKey}
+                    </span>
+                    <span className="truncate text-gray-500">
+                      {titleByKey.get(d.fromKey) ?? ''}
+                    </span>
+                    <span className="text-gray-400">→</span>
+                    <span className="font-mono rounded border border-gray-300 px-1.5 text-xs text-gray-600">
+                      {d.toKey}
+                    </span>
+                    <span className="truncate text-gray-500">
+                      {titleByKey.get(d.toKey) ?? ''}
+                    </span>
+                  </span>
+                  <span className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                    <span
+                      className={
+                        d.type === 'constrain'
+                          ? 'rounded bg-amber-50 px-1.5 py-0.5 text-amber-700'
+                          : 'rounded bg-sky-50 px-1.5 py-0.5 text-sky-700'
+                      }
+                    >
+                      {d.type === 'constrain' ? '约束反压' : '影响传导'}
+                    </span>
+                    <span className="font-mono text-gray-500">
+                      {d.metric} · w{d.weight.toFixed(2)}
+                    </span>
+                  </span>
+                  {d.reason && (
+                    <span className="mt-1 block text-xs leading-relaxed text-gray-500">
+                      {d.reason}
+                    </span>
+                  )}
+                </span>
+              </label>
+            ))}
+          </div>
+        ) : (
+          !error && (
+            <EmptyState
+              size="sm"
+              title="暂无可入库的影响边"
+              description="AI 未推断出关系，可用「新建影响边」手动连接"
+            />
+          )
         )}
       </div>
     </Modal>

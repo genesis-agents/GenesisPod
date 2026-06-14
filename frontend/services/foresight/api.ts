@@ -269,6 +269,25 @@ export function createEdge(input: CreateEdgeInput): Promise<ForesightEdge> {
   });
 }
 
+/** AI 在主题现有卡片间推断的草稿影响边（审核后逐条 createEdge 入库）。 */
+export interface DraftEdge {
+  fromKey: string;
+  toKey: string;
+  metric: string;
+  type: 'flow' | 'constrain';
+  weight: number;
+  reason: string;
+}
+
+export function suggestEdges(
+  topicId: string
+): Promise<{ drafts: DraftEdge[] }> {
+  return request<{ drafts: DraftEdge[] }>(
+    `/topics/${encodeURIComponent(topicId)}/edges/suggest`,
+    { method: 'POST' }
+  );
+}
+
 // ── P2/P3 供料：雷达扫描 + 洞察导入 ──────────────────────────────────────
 
 export interface RadarScanResult {

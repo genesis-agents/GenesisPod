@@ -155,6 +155,12 @@ export class ForesightController {
     );
   }
 
+  /** 在主题现有卡片间自动生成草稿影响边（不落库，前端审核后逐条 createEdge） */
+  @Post("topics/:id/edges/suggest")
+  suggestEdges(@Req() req: AuthenticatedRequest, @Param("id") topicId: string) {
+    return this.intake.suggestEdges(this.userId(req), topicId);
+  }
+
   @Post("signals/:id/inject")
   inject(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     return this.propagation.inject(this.userId(req), id);
