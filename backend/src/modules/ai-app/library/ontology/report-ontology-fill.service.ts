@@ -15,7 +15,7 @@
  * Layer: ai-app / library / ontology
  */
 
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import { v4 as uuid } from "uuid";
 import { MissionStatus } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
@@ -50,12 +50,17 @@ export class ReportOntologyFillService {
   /** In-memory task registry (process-scoped; sufficient for manual backfill UX). */
   private readonly tasks = new Map<string, BackfillTaskState>();
 
+  // 注：@Inject(类) 显式钉死注入 token —— 构造参数若写成 `T | undefined`，
+  // TS emitDecoratorMetadata 会把 design:paramtypes 退化成 Object，Nest 解析不到，
+  // @Optional() 便永远注入 undefined（本体回填全程 skip 的真因）。改 `?:` + 显式 @Inject。
   constructor(
     private readonly prisma: PrismaService,
     @Optional()
-    private readonly ontologyBuilderSkill: OntologyBuilderSkill | undefined,
+    @Inject(OntologyBuilderSkill)
+    private readonly ontologyBuilderSkill?: OntologyBuilderSkill,
     @Optional()
-    private readonly toolRegistry: ToolRegistry | undefined,
+    @Inject(ToolRegistry)
+    private readonly toolRegistry?: ToolRegistry,
   ) {}
 
   // ─── Public API ──────────────────────────────────────────────────────────────
