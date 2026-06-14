@@ -270,11 +270,14 @@ export async function refreshAccessToken(): Promise<AuthTokens | null> {
   refreshPromise = (async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      // SECURITY: send the REFRESH token (not the access token). The backend
+      // /auth/refresh endpoint validates it with the jwt-refresh strategy
+      // (REFRESH_TOKEN_SECRET); sending the access token here would be rejected.
       const response = await fetch(`${apiUrl}/api/v1/auth/refresh`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${tokens.accessToken}`,
+          Authorization: `Bearer ${tokens.refreshToken}`,
         },
       });
 

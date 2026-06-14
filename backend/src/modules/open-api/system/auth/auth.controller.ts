@@ -141,11 +141,14 @@ export class AuthController {
   @Post("refresh")
   @HttpCode(200)
   @Throttle(REFRESH_RATE_LIMIT)
-  @UseGuards(AuthGuard("jwt"))
+  // SECURITY: validate the REFRESH token (jwt-refresh strategy, REFRESH_TOKEN_SECRET),
+  // NOT the access token. Using AuthGuard("jwt") here would let a stolen access
+  // token mint fresh 30-day token pairs (double-token model collapse).
+  @UseGuards(AuthGuard("jwt-refresh"))
   @ApiBearerAuth()
   @ApiOperation({
     summary: "刷新访问令牌",
-    description: "使用当前令牌刷新生成新的访问令牌",
+    description: "使用 refresh token 刷新生成新的访问令牌",
   })
   @ApiResponse({
     status: 200,
