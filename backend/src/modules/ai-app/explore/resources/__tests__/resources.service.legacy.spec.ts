@@ -6,6 +6,7 @@ import { SourceWhitelistService } from "../../../explore/ingestion/config/servic
 import { AIEnrichmentService } from "../ai-enrichment.service";
 import { ResourcesRepository } from "../resources.repository";
 import { ResourceLifecycleService } from "../resource-lifecycle.service";
+import { ObjectStorageService } from "../../../../platform/facade";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
 import { ResourceType } from "@prisma/client";
 
@@ -129,6 +130,13 @@ describe("ResourcesService", () => {
         { provide: AIEnrichmentService, useValue: mockAIEnrichmentService },
         { provide: ResourcesRepository, useValue: mockResourcesRepository },
         { provide: ResourceLifecycleService, useValue: mockLifecycle },
+        {
+          provide: ObjectStorageService,
+          useValue: {
+            isPresignedUrlExpiringSoon: jest.fn().mockReturnValue(false),
+            refreshImageUrl: jest.fn(),
+          },
+        },
       ],
     }).compile();
 

@@ -48,16 +48,32 @@ export class DynamicThumbnailService {
         case "NEWS":
           return await this.extractOgImage(sourceUrl);
 
-        case "PAPER":
+        case "PAPER": {
+          // 缺 pdfUrl 但 sourceUrl 是 arxiv 时，推导出 PDF 直链（渲染首页最可靠）
+          let effectivePdfUrl = pdfUrl;
+          if (
+            !effectivePdfUrl &&
+            typeof sourceUrl === "string" &&
+            this.isArxivUrl(sourceUrl)
+          ) {
+            const arxivId = this.extractArxivId(sourceUrl);
+            if (arxivId) {
+              effectivePdfUrl = `https://arxiv.org/pdf/${arxivId}.pdf`;
+              this.logger.log(
+                `Derived arXiv PDF URL for thumbnail: ${effectivePdfUrl}`,
+              );
+            }
+          }
+
           // 策略1: 如果有PDF URL和资源ID，优先生成PDF缩略图（最可靠）
-          if (pdfUrl && resourceId && this.pdfThumbnailService) {
+          if (effectivePdfUrl && resourceId && this.pdfThumbnailService) {
             this.logger.log(
-              `Attempting PDF thumbnail generation for paper ${resourceId} from ${pdfUrl}`,
+              `Attempting PDF thumbnail generation for paper ${resourceId} from ${effectivePdfUrl}`,
             );
             try {
               const pdfThumbnail =
                 await this.pdfThumbnailService.generateThumbnail(
-                  pdfUrl,
+                  effectivePdfUrl,
                   resourceId,
                 );
               if (pdfThumbnail) {
@@ -82,7 +98,7 @@ export class DynamicThumbnailService {
           }
 
           // 策略2: 检查是否是 arXiv，尝试获取预览图
-          if (sourceUrl?.includes("arxiv.org")) {
+          if (this.isArxivUrl(sourceUrl)) {
             const arxivThumbnail = await this.getArxivThumbnail(sourceUrl);
             if (arxivThumbnail) return arxivThumbnail;
           }
@@ -96,6 +112,7 @@ export class DynamicThumbnailService {
             `No thumbnail available for paper ${resourceId || sourceUrl}`,
           );
           return null;
+        }
 
         case "REPORT":
         case "POLICY":
@@ -339,5 +356,19 @@ export class DynamicThumbnailService {
     if (!url) return null;
     const match = url.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/);
     return match ? match[1] : null;
+  }
+
+  /**
+   * 严格判断是否 arXiv 域名——解析 hostname 比对，避免 URL 子串误判
+   * （如 evil.com/arxiv.org）与潜在 SSRF。
+   */
+  private isArxivUrl(url: string): boolean {
+    if (typeof url !== "string") return false;
+    try {
+      const host = new URL(url).hostname.toLowerCase();
+      return host === "arxiv.org" || host.endsWith(".arxiv.org");
+    } catch {
+      return false;
+    }
   }
 }

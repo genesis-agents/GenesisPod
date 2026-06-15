@@ -8,7 +8,9 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { PdfThumbnailService } from "../pdf-thumbnail.service";
+import { ObjectStorageService } from "../../../../platform/facade";
 import * as fs from "fs/promises";
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import axios from "axios";
 
 // Mock heavy dependencies
@@ -33,9 +35,14 @@ jest.mock("sharp", () =>
 
 const mockFs = fs as jest.Mocked<typeof fs>;
 const mockAxios = axios as jest.Mocked<typeof axios>;
+const mockGetDocument = pdfjsLib.getDocument as unknown as jest.Mock;
 
 describe("PdfThumbnailService", () => {
   let service: PdfThumbnailService;
+  let mockObjectStorage: {
+    isEnabled: jest.Mock;
+    uploadBuffer: jest.Mock;
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -46,8 +53,17 @@ describe("PdfThumbnailService", () => {
     mockFs.unlink.mockResolvedValue(undefined);
     mockFs.writeFile.mockResolvedValue(undefined);
 
+    // Default: object storage disabled → local fallback path
+    mockObjectStorage = {
+      isEnabled: jest.fn().mockReturnValue(false),
+      uploadBuffer: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PdfThumbnailService],
+      providers: [
+        PdfThumbnailService,
+        { provide: ObjectStorageService, useValue: mockObjectStorage },
+      ],
     })
       .setLogger({
         log: jest.fn(),
@@ -116,21 +132,78 @@ describe("PdfThumbnailService", () => {
   });
 
   // ============================================================
-  // generateThumbnail - already-exists branch
+  // generateThumbnail - successful render
   // ============================================================
 
-  describe("generateThumbnail - already exists", () => {
-    it("should return cached URL without re-generating when thumbnail exists", async () => {
-      // thumbnailExists returns true
-      mockFs.access.mockResolvedValue(undefined);
+  // Configures the pdfjs/canvas render chain to succeed for a one-page PDF.
+  const setupSuccessfulRender = () => {
+    mockAxios.get.mockResolvedValue({ data: Buffer.from("pdf bytes") });
+    const page = {
+      getViewport: jest.fn().mockReturnValue({ width: 400, height: 566 }),
+      render: jest.fn().mockReturnValue({ promise: Promise.resolve() }),
+    };
+    mockGetDocument.mockReturnValue({
+      promise: Promise.resolve({
+        numPages: 1,
+        getPage: jest.fn().mockResolvedValue(page),
+      }),
+    });
+  };
+
+  describe("generateThumbnail - object storage upload", () => {
+    it("should upload to object storage and return the persistent URL", async () => {
+      setupSuccessfulRender();
+      mockObjectStorage.isEnabled.mockReturnValue(true);
+      mockObjectStorage.uploadBuffer.mockResolvedValue({
+        success: true,
+        url: "https://r2.example/thumbnails/123-abc.jpg",
+      });
 
       const result = await service.generateThumbnail(
         "http://example.com/test.pdf",
-        "resource-cached",
+        "resource-r2",
       );
 
-      expect(result).toBe("/thumbnails/resource-cached.jpg");
-      expect(mockAxios.get).not.toHaveBeenCalled();
+      expect(result).toBe("https://r2.example/thumbnails/123-abc.jpg");
+      expect(mockObjectStorage.uploadBuffer).toHaveBeenCalledWith(
+        expect.any(Buffer),
+        "thumbnails",
+        "resource-r2.jpg",
+        "image/jpeg",
+      );
+      // Should not fall back to local write on successful upload
+      expect(mockFs.writeFile).not.toHaveBeenCalled();
+    });
+
+    it("should fall back to local file when object storage is disabled", async () => {
+      setupSuccessfulRender();
+      mockObjectStorage.isEnabled.mockReturnValue(false);
+
+      const result = await service.generateThumbnail(
+        "http://example.com/test.pdf",
+        "resource-local",
+      );
+
+      expect(result).toBe("/thumbnails/resource-local.jpg");
+      expect(mockObjectStorage.uploadBuffer).not.toHaveBeenCalled();
+      expect(mockFs.writeFile).toHaveBeenCalled();
+    });
+
+    it("should fall back to local file when object storage upload fails", async () => {
+      setupSuccessfulRender();
+      mockObjectStorage.isEnabled.mockReturnValue(true);
+      mockObjectStorage.uploadBuffer.mockResolvedValue({
+        success: false,
+        error: "upload boom",
+      });
+
+      const result = await service.generateThumbnail(
+        "http://example.com/test.pdf",
+        "resource-fallback",
+      );
+
+      expect(result).toBe("/thumbnails/resource-fallback.jpg");
+      expect(mockFs.writeFile).toHaveBeenCalled();
     });
   });
 
