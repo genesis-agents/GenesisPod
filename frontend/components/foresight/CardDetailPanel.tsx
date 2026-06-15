@@ -118,33 +118,54 @@ export function CardDetailPanel({
 
       <SectionTitle>信源 Sources</SectionTitle>
       <div className="space-y-1.5">
-        {card.sources.map((s, i) => (
-          <a
-            key={i}
-            href={s.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 border border-gray-200 bg-gray-50 px-2.5 py-1.5 transition-colors hover:border-sky-400 hover:bg-sky-50"
-          >
-            <span
-              className={cn(
-                'font-mono border px-1.5 text-xs',
-                SOURCE_TYPE_META[s.type]?.cls ?? 'border-gray-300 text-gray-500'
+        {card.sources.map((s, i) => {
+          // 信源 url 为空时渲染成 <a href=""> 会变成指向当前页的自链接（"链接全错"）。
+          // 只有合法外部 http(s) 或内部路由(/开头，如研报回退链接 /agent-playground/...)
+          // 才渲染为可点链接，否则降级为纯文本。
+          const u = typeof s.url === 'string' ? s.url.trim() : '';
+          const validUrl = /^https?:\/\//i.test(u) || u.startsWith('/');
+          const boxCls =
+            'flex items-center gap-2 border border-gray-200 bg-gray-50 px-2.5 py-1.5 transition-colors';
+          const inner = (
+            <>
+              <span
+                className={cn(
+                  'font-mono border px-1.5 text-xs',
+                  SOURCE_TYPE_META[s.type]?.cls ??
+                    'border-gray-300 text-gray-500'
+                )}
+              >
+                {SOURCE_TYPE_META[s.type]?.label ?? s.type}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="font-mono block text-xs text-gray-400">
+                  {s.org}
+                </span>
+                <span className="block truncate text-xs text-gray-700">
+                  {s.title}
+                </span>
+              </span>
+              {validUrl && (
+                <ExternalLink className="h-3 w-3 shrink-0 text-gray-400" />
               )}
+            </>
+          );
+          return validUrl ? (
+            <a
+              key={i}
+              href={s.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(boxCls, 'hover:border-sky-400 hover:bg-sky-50')}
             >
-              {SOURCE_TYPE_META[s.type]?.label ?? s.type}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="font-mono block text-xs text-gray-400">
-                {s.org}
-              </span>
-              <span className="block truncate text-xs text-gray-700">
-                {s.title}
-              </span>
-            </span>
-            <ExternalLink className="h-3 w-3 shrink-0 text-gray-400" />
-          </a>
-        ))}
+              {inner}
+            </a>
+          ) : (
+            <div key={i} className={boxCls}>
+              {inner}
+            </div>
+          );
+        })}
       </div>
 
       <SectionTitle tone="red">证伪信号 Falsifiers</SectionTitle>

@@ -275,7 +275,51 @@ export class ForesightIntakeService {
       );
     }
     const drafts = await this.consolidate(candidates);
-    return { drafts, missionTitle: bundle.title };
+    // 信源补真实链接：保留研报正文里真实出现过的外部 url（剔除 LLM 幻觉），
+    // 一张卡没有任何真实外部链接时回退附上「来源研报」内部链接。
+    const reportUrls = this.collectUrls(bundle.body);
+    const reportLink = {
+      org: "来源研报",
+      title: bundle.title || "深度洞察报告",
+      type: "report",
+      url: `/agent-playground/team/${sourceId}`,
+    };
+    const linked = drafts.map((d) => ({
+      ...d,
+      sources: this.attachRealSourceLinks(d.sources, reportUrls, reportLink),
+    }));
+    return { drafts: linked, missionTitle: bundle.title };
+  }
+
+  /** 收集文本里真实出现的 http(s) URL（用于校验 LLM 信源、剔除幻觉链接）。 */
+  private collectUrls(text: string): Set<string> {
+    const set = new Set<string>();
+    const re = /https?:\/\/[^\s)\]"'<>]+/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      set.add(m[0].replace(/[.,;)]+$/, ""));
+    }
+    return set;
+  }
+
+  /**
+   * 为信源补真实有效链接：
+   *  - 保留 LLM 给的、且确实在研报正文出现过的外部 url（剔除编造/幻觉链接）；
+   *  - 整张卡没有任何真实外部链接时，回退附上「来源研报」内部链接。
+   */
+  private attachRealSourceLinks(
+    sources: DraftCard["sources"],
+    reportUrls: Set<string>,
+    reportLink: DraftCard["sources"][number],
+  ): DraftCard["sources"] {
+    const cleaned = (sources ?? []).map((s) => {
+      const url = typeof s.url === "string" ? s.url.trim() : "";
+      const real =
+        url && reportUrls.has(url.replace(/[.,;)]+$/, "")) ? url : "";
+      return { ...s, url: real };
+    });
+    const hasReal = cleaned.some((s) => s.url);
+    return hasReal ? cleaned : [...cleaned, reportLink];
   }
 
   // ── 影响边自动生成 ────────────────────────────────────────────────────
@@ -415,7 +459,8 @@ export class ForesightIntakeService {
       `- falsifiers 必填 ≥1 条：什么可观测信号出现说明该假设错了（写不出的不要输出这张卡）`,
       `- conf 0-1（基于报告证据强度），sens: high|mid|low（该假设翻了下游影响多大）`,
       `- stage: current(已落地)|evolving(演进中)|exploring(探索验证)|research(研究前沿)`,
-      `- evidence 从报告中提炼 1-3 条要点；sources 引用报告里出现的真实来源（无则空数组）`,
+      `- evidence 从报告中提炼 1-3 条要点`,
+      `- sources：引用报告中真实出现的来源；url 必须逐字复制报告里出现过的真实链接（http/https 开头），报告未给链接就留空 url（系统会自动回退到研报链接），严禁编造 url`,
       ``,
       `## 报告片段（第 ${part}/${total} 部分）`,
       chunk,
