@@ -545,6 +545,29 @@ export class OntologyService {
     return this.prisma.ontologyObject.count({ where });
   }
 
+  /**
+   * True per-typeKey object counts across the whole filtered set (NOT just one
+   * page). Powers the sidebar type facets so counts reflect DB totals rather
+   * than the current paginated page. Respects topicId + labelContains, but
+   * deliberately ignores typeKey/pagination since it groups by type.
+   */
+  async countObjectsByType(
+    filter: { topicId?: string; labelContains?: string } = {},
+  ): Promise<{ typeKey: string; count: number }[]> {
+    const where: Prisma.OntologyObjectWhereInput = {};
+    if (filter.topicId !== undefined) where.topicId = filter.topicId;
+    if (filter.labelContains !== undefined) {
+      where.label = { contains: filter.labelContains, mode: "insensitive" };
+    }
+    const grouped = await this.prisma.ontologyObject.groupBy({
+      by: ["typeKey"],
+      where,
+      _count: { _all: true },
+      orderBy: { typeKey: "asc" },
+    });
+    return grouped.map((g) => ({ typeKey: g.typeKey, count: g._count._all }));
+  }
+
   // ─── Meta-Model: ObjectType ────────────────────────────────────────────────
 
   /**

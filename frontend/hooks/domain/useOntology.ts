@@ -51,6 +51,17 @@ export interface ListEntitiesParams {
   limit?: number;
 }
 
+export interface EntityTypeCount {
+  typeKey: string;
+  count: number;
+}
+
+export interface EntityTypeCountsResult {
+  counts: EntityTypeCount[];
+  /** Sum across all types (true DB total for the current topic/search). */
+  total: number;
+}
+
 // ─── Meta-model types ─────────────────────────────────────────────────────────
 
 export interface ObjectType {
@@ -154,6 +165,31 @@ export function useOntology() {
       setLoading(false);
     }
   }, []);
+
+  const listTypeCounts = useCallback(
+    async (params: { topicId?: string; search?: string } = {}) => {
+      try {
+        const query = new URLSearchParams();
+        if (params.topicId) query.set('topicId', params.topicId);
+        if (params.search) query.set('search', params.search);
+        const qs = query.toString();
+        const data = await apiClient.get<EntityTypeCountsResult>(
+          `/ontology/entity-type-counts${qs ? `?${qs}` : ''}`
+        );
+        return {
+          counts: data?.counts ?? [],
+          total: data?.total ?? 0,
+        };
+      } catch (err) {
+        const e = err instanceof Error ? err : new Error(String(err));
+        logger.error('[useOntology] listTypeCounts failed', {
+          error: e.message,
+        });
+        throw e;
+      }
+    },
+    []
+  );
 
   const getEntity = useCallback(async (id: string) => {
     try {
@@ -377,6 +413,7 @@ export function useOntology() {
     loading,
     error,
     listEntities,
+    listTypeCounts,
     getEntity,
     getRelated,
     listTypes,
