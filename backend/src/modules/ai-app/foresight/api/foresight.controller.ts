@@ -16,6 +16,7 @@ import { ForesightPropagationService } from "../services/foresight-propagation.s
 import { ForesightReviewService } from "../services/foresight-review.service";
 import { ForesightSeedService } from "../services/foresight-seed.service";
 import { ForesightIntakeService } from "../services/foresight-intake.service";
+import { ForesightDerivationService } from "../services/foresight-derivation.service";
 import {
   CreateForesightCardDto,
   CreateForesightEdgeDto,
@@ -39,6 +40,7 @@ export class ForesightController {
     private readonly review: ForesightReviewService,
     private readonly seedService: ForesightSeedService,
     private readonly intake: ForesightIntakeService,
+    private readonly derivation: ForesightDerivationService,
   ) {}
 
   private userId(req: AuthenticatedRequest): string {
@@ -173,6 +175,15 @@ export class ForesightController {
   @Post("signals/:id/inject")
   inject(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     return this.propagation.inject(this.userId(req), id);
+  }
+
+  /** 洞察结论派生：LLM 从当前假设卡合成决策级结论，整体替换库内 conclusions。 */
+  @Post("topics/:id/conclusions/derive")
+  deriveConclusions(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") topicId: string,
+  ) {
+    return this.derivation.deriveConclusions(this.userId(req), topicId);
   }
 
   @Post("review/:id/resolve")

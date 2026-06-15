@@ -18,6 +18,7 @@ import { ForesightPropagationService } from "./services/foresight-propagation.se
 import { ForesightReviewService } from "./services/foresight-review.service";
 import { ForesightSeedService } from "./services/foresight-seed.service";
 import { ForesightIntakeService } from "./services/foresight-intake.service";
+import { ForesightDerivationService } from "./services/foresight-derivation.service";
 import { ForesightAutoScanScheduler } from "./services/foresight-auto-scan.scheduler";
 
 @Module({
@@ -30,6 +31,8 @@ import { ForesightAutoScanScheduler } from "./services/foresight-auto-scan.sched
     ForesightSeedService,
     // P2/P3 供料：雷达扫描 + 洞察抽取（走 ContentSourceRegistry，不跨 app import）
     ForesightIntakeService,
+    // 洞察结论派生（LLM 从当前假设卡合成决策级结论；导入后自动 + 手动重生成）
+    ForesightDerivationService,
     // 每日自动扫描（ENABLE_FORESIGHT_AUTO_SCAN 开关，00:00 UTC = 北京 08:00）
     ForesightAutoScanScheduler,
   ],
