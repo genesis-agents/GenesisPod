@@ -47,6 +47,12 @@ jobs:
 
       - name: Backend ESLint
         run: npm run lint:backend
+        # Type-aware ESLint over the whole backend holds the full TS program in
+        # memory and OOM'd at the global 8 GB ceiling. Give this single-process
+        # step more heap (the runner has the RAM); kept step-local so it does not
+        # multiply across Jest workers in the test jobs.
+        env:
+          NODE_OPTIONS: "--max-old-space-size=12288"
 
       - name: Backend type check
         run: npm run type-check:backend
