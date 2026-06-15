@@ -341,8 +341,8 @@ export function GraphCanvas({
         backgroundSize: 'auto, auto, 30px 30px, 30px 30px',
       }}
     >
-      {/* 图例 —— 单行平铺，不换行不重叠（顶部内容已用 pt 预留安全区） */}
-      <div className="font-mono pointer-events-none absolute right-4 top-3 z-30 flex max-w-[calc(100%-2rem)] flex-nowrap items-center gap-x-2.5 overflow-hidden whitespace-nowrap rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 text-[10px] text-slate-600 shadow-lg backdrop-blur">
+      {/* 图例 —— 平铺，空间不足时换行（不裁切）。含默认边 + 选中后的血缘高亮色。 */}
+      <div className="font-mono pointer-events-none absolute right-4 top-3 z-30 flex max-w-[calc(100%-2rem)] flex-wrap items-center justify-end gap-x-2.5 gap-y-1 whitespace-nowrap rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 text-[10px] text-slate-600 shadow-lg backdrop-blur">
         {Object.entries(STAGE_ACCENT).map(([k, v]) => (
           <span key={k} className="inline-flex items-center gap-1">
             <span
@@ -366,6 +366,24 @@ export function GraphCanvas({
             style={{ borderColor: '#b45309' }}
           />
           约束反压
+        </span>
+        <span className="h-3 w-px shrink-0 bg-slate-200" />
+        <span className="inline-flex items-center gap-1 text-slate-400">
+          选中后
+        </span>
+        <span className="inline-flex items-center gap-1 text-slate-500">
+          <span
+            className="h-px w-4 shrink-0"
+            style={{ background: '#0891b2' }}
+          />
+          上游来源
+        </span>
+        <span className="inline-flex items-center gap-1 text-slate-500">
+          <span
+            className="h-px w-4 shrink-0"
+            style={{ background: '#f59e0b' }}
+          />
+          下游传导
         </span>
       </div>
 
@@ -454,8 +472,8 @@ export function GraphCanvas({
           );
         })}
 
-      {/* 泳道 + 节点（pt-10 为顶部单行图例/提示预留安全区，避免遮挡首行卡片） */}
-      <div className="relative z-10 pb-2 pt-10">
+      {/* 泳道 + 节点（pt-14 为顶部图例/提示预留安全区，图例可能换行，避免遮挡首行卡片） */}
+      <div className="relative z-10 pb-2 pt-14">
         {layers.map((layer, li) => {
           const layerCards = cards.filter((c) => c.layer === layer.id);
           if (layerCards.length === 0) return null;
