@@ -7,6 +7,7 @@ import { SourceWhitelistService } from "../../../explore/ingestion/config/servic
 import { AIEnrichmentService } from "../ai-enrichment.service";
 import { ResourcesRepository } from "../resources.repository";
 import { ResourceLifecycleService } from "../resource-lifecycle.service";
+import { ObjectStorageService } from "../../../../platform/facade";
 
 // Mock global fetch
 const mockFetch = jest.fn();
@@ -127,6 +128,13 @@ describe("ResourcesService", () => {
         { provide: AIEnrichmentService, useValue: mockAIEnrichmentService },
         { provide: ResourcesRepository, useValue: mockRepository },
         { provide: ResourceLifecycleService, useValue: mockLifecycle },
+        {
+          provide: ObjectStorageService,
+          useValue: {
+            isPresignedUrlExpiringSoon: jest.fn().mockReturnValue(false),
+            refreshImageUrl: jest.fn(),
+          },
+        },
       ],
     }).compile();
 

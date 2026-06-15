@@ -257,8 +257,8 @@ describe("DynamicThumbnailService", () => {
       expect(result).toBeNull();
     });
 
-    it("skips PDF thumbnail when pdfUrl is absent", async () => {
-      // No pdfUrl provided, should skip PDF thumbnail service entirely
+    it("skips PDF thumbnail when pdfUrl is absent (non-arXiv source)", async () => {
+      // No pdfUrl and not arXiv → cannot derive a PDF URL, skip PDF thumbnail service
       mockedAxios.get.mockRejectedValueOnce(new Error("fail"));
       const result = await service.getThumbnailUrl(
         "https://example.com/paper",
@@ -266,6 +266,26 @@ describe("DynamicThumbnailService", () => {
       );
       expect(mockPdfThumbnailService.generateThumbnail).not.toHaveBeenCalled();
       expect(result).toBeNull();
+    });
+
+    it("derives arXiv PDF URL and renders when pdfUrl is absent but source is arXiv", async () => {
+      // Reset to drop any leaked *Once queue from prior tests where
+      // generateThumbnail was never invoked (clearAllMocks keeps the queue).
+      mockPdfThumbnailService.generateThumbnail.mockReset();
+      mockPdfThumbnailService.generateThumbnail.mockResolvedValueOnce(
+        "https://r2.example/thumbnails/abc.jpg",
+      );
+      const result = await service.getThumbnailUrl(
+        "https://arxiv.org/abs/2401.00001",
+        "PAPER",
+        undefined, // no pdfUrl
+        "resource-x", // resourceId required for strategy 1
+      );
+      expect(mockPdfThumbnailService.generateThumbnail).toHaveBeenCalledWith(
+        "https://arxiv.org/pdf/2401.00001.pdf",
+        "resource-x",
+      );
+      expect(result).toBe("https://r2.example/thumbnails/abc.jpg");
     });
   });
 

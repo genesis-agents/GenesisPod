@@ -48,16 +48,28 @@ export class DynamicThumbnailService {
         case "NEWS":
           return await this.extractOgImage(sourceUrl);
 
-        case "PAPER":
+        case "PAPER": {
+          // 缺 pdfUrl 但 sourceUrl 是 arxiv 时，推导出 PDF 直链（渲染首页最可靠）
+          let effectivePdfUrl = pdfUrl;
+          if (!effectivePdfUrl && sourceUrl?.includes("arxiv.org")) {
+            const arxivId = this.extractArxivId(sourceUrl);
+            if (arxivId) {
+              effectivePdfUrl = `https://arxiv.org/pdf/${arxivId}.pdf`;
+              this.logger.log(
+                `Derived arXiv PDF URL for thumbnail: ${effectivePdfUrl}`,
+              );
+            }
+          }
+
           // 策略1: 如果有PDF URL和资源ID，优先生成PDF缩略图（最可靠）
-          if (pdfUrl && resourceId && this.pdfThumbnailService) {
+          if (effectivePdfUrl && resourceId && this.pdfThumbnailService) {
             this.logger.log(
-              `Attempting PDF thumbnail generation for paper ${resourceId} from ${pdfUrl}`,
+              `Attempting PDF thumbnail generation for paper ${resourceId} from ${effectivePdfUrl}`,
             );
             try {
               const pdfThumbnail =
                 await this.pdfThumbnailService.generateThumbnail(
-                  pdfUrl,
+                  effectivePdfUrl,
                   resourceId,
                 );
               if (pdfThumbnail) {
@@ -96,6 +108,7 @@ export class DynamicThumbnailService {
             `No thumbnail available for paper ${resourceId || sourceUrl}`,
           );
           return null;
+        }
 
         case "REPORT":
         case "POLICY":

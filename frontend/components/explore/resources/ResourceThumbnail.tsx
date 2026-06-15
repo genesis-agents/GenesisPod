@@ -150,26 +150,10 @@ export default function ResourceThumbnail({
         return;
       }
 
-      // 4. arXiv论文 - 使用alphaXiv的公开CDN缩略图
-      if (
-        resource.type === 'PAPER' &&
-        resource.sourceUrl?.includes('arxiv.org')
-      ) {
-        const match = resource.sourceUrl.match(/(\d+\.\d+)(v\d+)?/);
-        if (match) {
-          const arxivId = match[1];
-          const version = match[2] || 'v1';
-          // 使用alphaXiv的公开CDN (Amazon S3 + CloudFront)
-          const thumbnailUrl = `https://paper-assets.alphaxiv.org/image/${arxivId}${version}.png`;
-          setThumbnailUrl(thumbnailUrl);
-          setIsLoading(false);
-          return;
-        }
-      }
-
-      // 5. PDF 文件 - 不提取缩略图，直接使用默认图标
+      // 4. PDF 文件（非论文）- 不提取缩略图，直接使用默认图标
+      //    论文(PAPER)即使 sourceUrl 是 .pdf，也要走后端渲染首页，故排除
       const isPdfUrl = resource.sourceUrl?.toLowerCase().endsWith('.pdf');
-      if (isPdfUrl) {
+      if (isPdfUrl && resource.type !== 'PAPER') {
         // PDF 文件不提取缩略图，使用 null 触发默认图标显示
         if (isMounted) {
           setThumbnailUrl(null);
@@ -178,9 +162,17 @@ export default function ResourceThumbnail({
         return;
       }
 
-      // 6. 对于 Blogs/News/Reports/Policy，调用后端API动态提取（使用队列和缓存）
+      // 5. PAPER/Blogs/News/Reports/Policy，调用后端API动态提取（使用队列和缓存）
+      //    PAPER: 后端渲染 arXiv/PDF 第一页为真实缩略图并上传对象存储 + 缓存进 DB
+      //    （旧的 alphaXiv 公开 CDN 已对所有人 403，不再使用）
       // 传递 resourceId 以支持服务端缓存，下次请求直接从数据库获取
-      const typesWithThumbnailExtraction = ['BLOG', 'NEWS', 'REPORT', 'POLICY'];
+      const typesWithThumbnailExtraction = [
+        'PAPER',
+        'BLOG',
+        'NEWS',
+        'REPORT',
+        'POLICY',
+      ];
       if (
         typesWithThumbnailExtraction.includes(resource.type) &&
         resource.sourceUrl
@@ -201,7 +193,7 @@ export default function ResourceThumbnail({
         }
       }
 
-      // 7. 没有可用缩略图
+      // 6. 没有可用缩略图
       if (isMounted) {
         setThumbnailUrl(null);
         setIsLoading(false);
@@ -246,6 +238,8 @@ export default function ResourceThumbnail({
       /default-image/i,
       /no-image/i,
       /blank.(png|jpg|gif)/i,
+      // alphaXiv 公开 CDN 已对所有人 403（盗链封禁）；存量缓存视为无效，触发后端重新生成
+      /paper-assets\.alphaxiv\.org/i,
     ];
     return placeholderPatterns.some((pattern) => pattern.test(url));
   };

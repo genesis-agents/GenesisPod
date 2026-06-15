@@ -7,13 +7,20 @@ import axios from "axios";
 // 使用 legacy 版本，兼容 Node.js 环境（无需 DOMMatrix）
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import { createCanvas } from "canvas";
+import { ObjectStorageService } from "../../../platform/facade";
 
 // 动态导入sharp以兼容生产环境
 const sharp = require("sharp");
 
 /**
  * PDF缩略图生成服务
- * 从PDF URL生成缩略图并保存到本地
+ *
+ * 渲染 PDF 第一页为图片。生产环境上传到对象存储（R2，持久化），
+ * 本地未配置对象存储时回退到本地文件系统（仅开发用）。
+ *
+ * ── 为什么走 R2 而非本地文件 ──
+ * 本地 `public/thumbnails/*.jpg` 全项目无人静态服务，且 Railway 文件系统是临时的
+ * （重启即丢）；缓存进 DB 的 URL 会变 404 破图。对象存储返回的 URL 持久可达。
  */
 @Injectable()
 export class PdfThumbnailService {
@@ -22,7 +29,7 @@ export class PdfThumbnailService {
   private readonly thumbnailWidth = 400; // 缩略图宽度
   private readonly thumbnailHeight = 566; // 缩略图高度 (A4比例)
 
-  constructor() {
+  constructor(private readonly objectStorage: ObjectStorageService) {
     void this.ensureThumbnailDirExists();
   }
 
@@ -67,12 +74,6 @@ export class PdfThumbnailService {
       this.logger.log(
         `Generating thumbnail for resource ${resourceId} from ${pdfUrl}`,
       );
-
-      // 检查缩略图是否已存在
-      if (await this.thumbnailExists(resourceId)) {
-        this.logger.log(`Thumbnail already exists for resource ${resourceId}`);
-        return `/thumbnails/${resourceId}.jpg`;
-      }
 
       // 1. 下载PDF
       this.logger.debug(`Step 1: Downloading PDF from ${pdfUrl}`);
@@ -128,16 +129,35 @@ export class PdfThumbnailService {
         .jpeg({ quality: 85 })
         .toBuffer();
 
-      // 9. 保存到文件
       const filename = `${resourceId}.jpg`;
+
+      // 9. 优先上传对象存储（持久、可达）。返回的预签名 URL 由读取层按需续签。
+      if (this.objectStorage.isEnabled()) {
+        const uploadResult = await this.objectStorage.uploadBuffer(
+          optimizedBuffer,
+          "thumbnails",
+          filename,
+          "image/jpeg",
+        );
+        if (uploadResult.success && uploadResult.url) {
+          this.logger.log(
+            `Thumbnail uploaded to object storage for resource ${resourceId}`,
+          );
+          return uploadResult.url;
+        }
+        this.logger.warn(
+          `Object storage upload failed for ${resourceId} (${uploadResult.error}); falling back to local file`,
+        );
+      }
+
+      // 10. 回退：写本地文件（仅开发环境 / 对象存储未配置时）
       const filepath = path.join(this.thumbnailDir, filename);
       await fs.writeFile(filepath, optimizedBuffer);
 
       this.logger.log(
-        `Thumbnail generated successfully for resource ${resourceId}`,
+        `Thumbnail generated (local fallback) for resource ${resourceId}`,
       );
 
-      // 10. 返回相对URL
       return `/thumbnails/${filename}`;
     } catch (error) {
       this.logger.error(

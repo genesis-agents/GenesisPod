@@ -15,6 +15,7 @@ import { ResourcesRepository } from "./resources.repository";
 import { APP_CONFIG } from "../../../../common/config/app.config";
 import { EXCLUDE_DEAD_LINKS } from "./link-health.constants";
 import { ResourceLifecycleService } from "./resource-lifecycle.service";
+import { ObjectStorageService } from "../../../platform/facade";
 
 /**
  * 资源管理服务
@@ -30,7 +31,36 @@ export class ResourcesService {
     private aiEnrichmentService: AIEnrichmentService,
     private repository: ResourcesRepository,
     private lifecycle: ResourceLifecycleService,
+    private objectStorage: ObjectStorageService,
   ) {}
+
+  /**
+   * 对即将过期的对象存储缩略图预签名 URL 续签（读时刷新 + 异步回写 DB）。
+   * 非对象存储 URL（外部 og:image 直链等）原样返回。
+   */
+  private async refreshThumbnailUrlIfExpiring<
+    T extends { id: string; thumbnailUrl?: string | null },
+  >(resource: T): Promise<T> {
+    const url = resource.thumbnailUrl;
+    if (!url || !this.objectStorage.isPresignedUrlExpiringSoon(url)) {
+      return resource;
+    }
+    const newUrl = await this.objectStorage.refreshImageUrl(url);
+    if (!newUrl || newUrl === url) {
+      return resource;
+    }
+    // 异步回写，不阻塞返回
+    this.repository
+      .update(resource.id, { thumbnailUrl: newUrl })
+      .catch((err) =>
+        this.logger.warn(
+          `Failed to persist refreshed thumbnail URL for ${resource.id}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        ),
+      );
+    return { ...resource, thumbnailUrl: newUrl };
+  }
 
   /**
    * 获取资源列表（分页+过滤）
@@ -99,7 +129,9 @@ export class ResourcesService {
     );
 
     return {
-      data: resources,
+      data: await Promise.all(
+        resources.map((r) => this.refreshThumbnailUrlIfExpiring(r)),
+      ),
       pagination: {
         total,
         skip,
@@ -127,8 +159,10 @@ export class ResourcesService {
 
     this.logger.log(`Retrieved resource ${id}`);
 
+    const refreshed = await this.refreshThumbnailUrlIfExpiring(resource);
+
     return {
-      ...resource,
+      ...refreshed,
       rawData: (rawData as { data?: unknown })?.data || null,
     };
   }

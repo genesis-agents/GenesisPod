@@ -204,6 +204,44 @@ export class ObjectStorageService {
     return this.backend.getSignedUrl(key, this.PRESIGN_EXPIRES);
   }
 
+  /**
+   * 判断预签名 URL 是否即将过期（提前 1 天判定，便于读取层续签）。
+   * 非 R2/B2 预签名 URL（如外部 og:image 直链）一律返回 false，不需续签。
+   */
+  isPresignedUrlExpiringSoon(url: string): boolean {
+    try {
+      if (
+        !url.includes("r2.cloudflarestorage.com") &&
+        !url.includes("backblazeb2.com")
+      ) {
+        return false;
+      }
+      const urlObj = new URL(url);
+      const amzDate = urlObj.searchParams.get("X-Amz-Date");
+      const amzExpires = urlObj.searchParams.get("X-Amz-Expires");
+      if (!amzDate || !amzExpires) {
+        return true; // 无法解析有效期，视为需要续签
+      }
+      const signedAt = new Date(
+        Date.UTC(
+          parseInt(amzDate.slice(0, 4)),
+          parseInt(amzDate.slice(4, 6)) - 1,
+          parseInt(amzDate.slice(6, 8)),
+          parseInt(amzDate.slice(9, 11)),
+          parseInt(amzDate.slice(11, 13)),
+          parseInt(amzDate.slice(13, 15)),
+        ),
+      );
+      const expiresAt = new Date(
+        signedAt.getTime() + parseInt(amzExpires) * 1000,
+      );
+      // 提前 1 天续签
+      return expiresAt < new Date(Date.now() + 24 * 60 * 60 * 1000);
+    } catch {
+      return true; // 解析失败，保守续签
+    }
+  }
+
   /** 用旧 URL 解出 key 后重新签名 */
   async refreshImageUrl(oldUrl: string): Promise<string | null> {
     const key = this.extractKeyFromUrl(oldUrl);
