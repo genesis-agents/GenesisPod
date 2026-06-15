@@ -3,6 +3,7 @@
 import { isValidElement } from 'react';
 import { Inbox, Search, FileX, Plus, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
+import { useTranslation } from '@/lib/i18n';
 import { Button } from '../primitives/button';
 
 type EmptyType = 'default' | 'search' | 'noData' | 'error';
@@ -33,27 +34,27 @@ function isActionConfig(a: EmptyStateProps['action']): a is EmptyAction {
 
 const defaultConfig: Record<
   EmptyType,
-  { Icon: LucideIcon; title: string; description: string }
+  { Icon: LucideIcon; titleKey: string; descKey: string }
 > = {
   default: {
     Icon: Inbox,
-    title: '暂无内容',
-    description: '这里还没有任何内容',
+    titleKey: 'common.noContent',
+    descKey: 'common.noContentDesc',
   },
   search: {
     Icon: Search,
-    title: '未找到结果',
-    description: '尝试调整搜索条件或筛选器',
+    titleKey: 'common.noResults',
+    descKey: 'common.noResultsDesc',
   },
   noData: {
     Icon: FileX,
-    title: '暂无数据',
-    description: '开始创建你的第一个项目',
+    titleKey: 'common.noData',
+    descKey: 'common.noDataDesc',
   },
   error: {
     Icon: FileX,
-    title: '加载失败',
-    description: '请稍后重试',
+    titleKey: 'common.loadFailed',
+    descKey: 'common.tryAgainLater',
   },
 };
 
@@ -66,13 +67,14 @@ export function EmptyState({
   size = 'md',
   className,
 }: EmptyStateProps) {
+  const { t } = useTranslation();
   const config = defaultConfig[type];
   const { Icon } = config;
   const sm = size === 'sm';
   // 给了 description 用之；给了自定义 title 但没 description = 有意 title-only；
-  // title/description 都没给（纯 type 用法）才回落 config.description。
+  // title/description 都没给（纯 type 用法）才回落 config 默认描述。
   const effectiveDescription =
-    description ?? (title ? undefined : config.description);
+    description ?? (title ? undefined : t(config.descKey));
 
   return (
     <div
@@ -87,7 +89,7 @@ export function EmptyState({
       </div>
       <div className="space-y-1">
         <h3 className={cn('font-medium text-gray-900', sm && 'text-sm')}>
-          {title || config.title}
+          {title || t(config.titleKey)}
         </h3>
         {/* 自定义 title 但未给 description = 有意 title-only（紧凑空态常见），不补默认描述 */}
         {effectiveDescription && (

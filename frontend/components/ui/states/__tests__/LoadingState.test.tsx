@@ -16,12 +16,17 @@ vi.mock('@/lib/utils/common', () => ({
     classes.filter(Boolean).join(' '),
 }));
 
+// i18n: defaults now route through t() — mock identity so assertions check keys
+vi.mock('@/lib/i18n', () => ({
+  useTranslation: () => ({ t: (k: string) => k }),
+}));
+
 import { LoadingState, LoadingSkeleton, LoadingInline } from '../LoadingState';
 
 describe('LoadingState', () => {
   it('renders the default loading text', () => {
     render(<LoadingState />);
-    expect(screen.getByText('加载中...')).toBeInTheDocument();
+    expect(screen.getByText('common.loading')).toBeInTheDocument();
   });
 
   it('renders custom text when provided', () => {
@@ -87,7 +92,7 @@ describe('LoadingSkeleton', () => {
 describe('LoadingInline', () => {
   it('renders default inline loading text', () => {
     render(<LoadingInline />);
-    expect(screen.getByText('加载中')).toBeInTheDocument();
+    expect(screen.getByText('common.loading')).toBeInTheDocument();
   });
 
   it('renders custom text when provided', () => {

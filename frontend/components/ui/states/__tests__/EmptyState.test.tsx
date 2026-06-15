@@ -41,13 +41,18 @@ vi.mock('../primitives/button', () => ({
   ),
 }));
 
+// i18n: defaults now route through t() — mock identity so assertions check keys
+vi.mock('@/lib/i18n', () => ({
+  useTranslation: () => ({ t: (k: string) => k }),
+}));
+
 import { EmptyState } from '../EmptyState';
 
 describe('EmptyState', () => {
   it('renders default title and description when no props provided', () => {
     render(<EmptyState />);
-    expect(screen.getByText('暂无内容')).toBeInTheDocument();
-    expect(screen.getByText('这里还没有任何内容')).toBeInTheDocument();
+    expect(screen.getByText('common.noContent')).toBeInTheDocument();
+    expect(screen.getByText('common.noContentDesc')).toBeInTheDocument();
   });
 
   it('renders the default Inbox icon for default type', () => {
@@ -58,34 +63,32 @@ describe('EmptyState', () => {
   it('renders Search icon and text for search type', () => {
     render(<EmptyState type="search" />);
     expect(screen.getByTestId('search-icon')).toBeInTheDocument();
-    expect(screen.getByText('未找到结果')).toBeInTheDocument();
-    expect(screen.getByText('尝试调整搜索条件或筛选器')).toBeInTheDocument();
+    expect(screen.getByText('common.noResults')).toBeInTheDocument();
+    expect(screen.getByText('common.noResultsDesc')).toBeInTheDocument();
   });
 
   it('renders FileX icon for noData type', () => {
     render(<EmptyState type="noData" />);
     expect(screen.getByTestId('file-x-icon')).toBeInTheDocument();
-    expect(screen.getByText('暂无数据')).toBeInTheDocument();
+    expect(screen.getByText('common.noData')).toBeInTheDocument();
   });
 
   it('renders error type with correct text', () => {
     render(<EmptyState type="error" />);
-    expect(screen.getByText('加载失败')).toBeInTheDocument();
-    expect(screen.getByText('请稍后重试')).toBeInTheDocument();
+    expect(screen.getByText('common.loadFailed')).toBeInTheDocument();
+    expect(screen.getByText('common.tryAgainLater')).toBeInTheDocument();
   });
 
   it('renders custom title overriding the type default', () => {
     render(<EmptyState type="search" title="No search results found" />);
     expect(screen.getByText('No search results found')).toBeInTheDocument();
-    expect(screen.queryByText('未找到结果')).not.toBeInTheDocument();
+    expect(screen.queryByText('common.noResults')).not.toBeInTheDocument();
   });
 
   it('renders custom description overriding the type default', () => {
     render(<EmptyState type="search" description="Try a different keyword" />);
     expect(screen.getByText('Try a different keyword')).toBeInTheDocument();
-    expect(
-      screen.queryByText('尝试调整搜索条件或筛选器')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('common.noResultsDesc')).not.toBeInTheDocument();
   });
 
   it('renders action button when action prop is provided', () => {

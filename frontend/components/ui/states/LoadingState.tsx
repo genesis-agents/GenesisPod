@@ -2,6 +2,7 @@
 
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
+import { useTranslation } from '@/lib/i18n';
 
 interface LoadingStateProps {
   /** 加载提示文本 */
@@ -23,12 +24,15 @@ const sizeConfig = {
 };
 
 export function LoadingState({
-  text = '加载中...',
+  text,
   size = 'md',
   fullScreen = false,
   overlay = false,
   className,
 }: LoadingStateProps) {
+  const { t } = useTranslation();
+  // nullish-coalesce 保留「text="" 显式隐藏文本」的既有用法（空串非 nullish）
+  const label = text ?? t('common.loading');
   const config = sizeConfig[size];
 
   const content = (
@@ -39,7 +43,7 @@ export function LoadingState({
       )}
     >
       <Loader2 className={cn('animate-spin text-primary', config.icon)} />
-      {text && <p className={cn('text-gray-500', config.text)}>{text}</p>}
+      {label && <p className={cn('text-gray-500', config.text)}>{label}</p>}
     </div>
   );
 
@@ -86,18 +90,19 @@ export function LoadingSkeleton({
 
 // 内联加载变体
 export function LoadingInline({
-  text = '加载中',
+  text,
   className,
 }: {
   text?: string;
   className?: string;
 }) {
+  const { t } = useTranslation();
   return (
     <span
       className={cn('inline-flex items-center gap-2 text-gray-500', className)}
     >
       <Loader2 className="h-4 w-4 animate-spin" />
-      {text}
+      {text ?? t('common.loading')}
     </span>
   );
 }
