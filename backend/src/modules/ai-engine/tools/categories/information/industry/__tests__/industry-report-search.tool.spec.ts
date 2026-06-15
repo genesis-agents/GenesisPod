@@ -323,4 +323,30 @@ describe("IndustryReportSearchTool", () => {
       expect(prismaMock.toolConfig.findUnique).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe("nested web-search timeout (graceful degrade)", () => {
+    it("嵌套 web-search 卡死超过子预算 → 优雅降级为空，不抛硬超时", async () => {
+      jest.useFakeTimers();
+      try {
+        // web-search 永不 resolve（模拟底层 provider HTTP 跑飞）
+        const hang = { execute: jest.fn(() => new Promise(() => {})) };
+        registryMock.tryGet.mockReturnValue(hang);
+
+        const p = tool.execute({ query: "AI infrastructure" }, makeContext());
+        // 推进到子预算（26s）后，race 由超时分支胜出
+        await jest.advanceTimersByTimeAsync(26000);
+        const r = await p;
+        const data = r.data as {
+          success: boolean;
+          items: unknown[];
+          error?: string;
+        };
+        expect(data.success).toBe(false);
+        expect(data.items).toEqual([]);
+        expect(data.error).toContain("超时");
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+  });
 });
