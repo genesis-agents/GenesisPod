@@ -563,7 +563,38 @@ export class OntologyService {
       where,
       orderBy: { createdAt: "asc" },
     });
-    return rows.map((r) => this.mapObjectType(r));
+    if (rows.length > 0) return rows.map((r) => this.mapObjectType(r));
+
+    // Fallback: no declared OntologyObjectType rows. Derive the meta-model from
+    // the distinct typeKeys actually present in ingested objects, so the
+    // meta-model tab reflects imported data instead of showing empty.
+    return this.deriveObjectTypes(filter.topicId);
+  }
+
+  /**
+   * Derive object-type meta-model entries from the distinct typeKeys present in
+   * OntologyObject rows. Used as a read-time fallback when no types are declared.
+   */
+  private async deriveObjectTypes(
+    topicId?: string,
+  ): Promise<OntologyObjectTypeView[]> {
+    const where: Prisma.OntologyObjectWhereInput = topicId
+      ? { OR: [{ topicId }, { topicId: null }] }
+      : {};
+    const grouped = await this.prisma.ontologyObject.groupBy({
+      by: ["typeKey"],
+      where,
+      orderBy: { typeKey: "asc" },
+    });
+    return grouped.map((g) => ({
+      id: `derived:${g.typeKey}`,
+      topicId: topicId ?? null,
+      key: g.typeKey,
+      label: this.humanizeTypeKey(g.typeKey),
+      propertySchema: {},
+      color: null,
+      createdAt: new Date(0),
+    }));
   }
 
   /**
@@ -629,7 +660,62 @@ export class OntologyService {
       where,
       orderBy: { createdAt: "asc" },
     });
-    return rows.map((r) => this.mapLinkType(r));
+    if (rows.length > 0) return rows.map((r) => this.mapLinkType(r));
+
+    // Fallback: derive relation-type meta-model from distinct linkTypeKeys
+    // present in ingested links (same rationale as deriveObjectTypes).
+    return this.deriveLinkTypes(filter.topicId);
+  }
+
+  /**
+   * Derive link-type meta-model entries from the distinct linkTypeKeys present
+   * in OntologyLink rows. Read-time fallback when no link types are declared.
+   */
+  private async deriveLinkTypes(
+    topicId?: string,
+  ): Promise<OntologyLinkTypeView[]> {
+    const where: Prisma.OntologyLinkWhereInput = topicId
+      ? { OR: [{ topicId }, { topicId: null }] }
+      : {};
+    const grouped = await this.prisma.ontologyLink.groupBy({
+      by: ["linkTypeKey"],
+      where,
+      orderBy: { linkTypeKey: "asc" },
+    });
+    return grouped.map((g) => ({
+      id: `derived:${g.linkTypeKey}`,
+      topicId: topicId ?? null,
+      key: g.linkTypeKey,
+      label: this.humanizeTypeKey(g.linkTypeKey),
+      fromTypeKey: "",
+      toTypeKey: "",
+      directed: true,
+      propertySchema: {},
+      createdAt: new Date(0),
+    }));
+  }
+
+  /**
+   * Human-friendly label for a derived typeKey. Known entity/link keys get a
+   * curated Chinese label; everything else is title-cased from snake_case.
+   */
+  private humanizeTypeKey(key: string): string {
+    const known: Record<string, string> = {
+      concept: "概念",
+      company: "组织",
+      organization: "组织",
+      org: "组织",
+      person: "人物",
+      product: "产品",
+      technology: "技术",
+      tech: "技术",
+      event: "事件",
+      location: "地点",
+      place: "地点",
+    };
+    const lower = key.toLowerCase();
+    if (known[lower]) return known[lower];
+    return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
   /**

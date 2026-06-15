@@ -11,7 +11,6 @@ import {
   ToolCategory,
 } from "../../abstractions/tool.interface";
 
-
 // ============================================================================
 // Types
 // ============================================================================
@@ -179,6 +178,9 @@ export class TaskDelegationTool extends BaseTool<
   > = new Map();
 
   readonly id = "task-delegation";
+  // ★ 治理(2026-06-14): 内存 Map 模拟,从不真正派发给 agent 执行,谎称已委派成功 → 禁用
+  readonly enabled = false;
+  readonly maturity = "stub" as const;
   readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "collaboration";
   readonly tags = ["collaboration", "task", "delegation", "assignment"];

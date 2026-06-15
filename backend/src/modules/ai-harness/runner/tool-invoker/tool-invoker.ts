@@ -214,6 +214,21 @@ export class ToolInvoker {
     }
 
     const tool = this.toolRegistry.get(action.toolId);
+
+    // ★ 乙(2026-06-14): 真超时 —— 派生 AbortController，父信号或超时任一触发即 abort。
+    //   配合下方 Promise.race 确保即使工具自身不检查 signal，invoke 也不会无限挂起
+    //   （engine ToolPipeline 的 TimeoutMiddleware 只在另一条路径，agent 走 ToolInvoker
+    //   此前仅透传 timeout 不掐断，属 advisory）。优先 options.timeoutMs，回落工具自带
+    //   defaultTimeout；都没有则不设超时（保持旧行为）。
+    const effectiveTimeoutMs = options.timeoutMs ?? tool.defaultTimeout;
+    const execAbort = new AbortController();
+    const onParentAbort = () => execAbort.abort();
+    if (options.signal) {
+      if (options.signal.aborted) execAbort.abort();
+      else
+        options.signal.addEventListener("abort", onParentAbort, { once: true });
+    }
+
     // 2026-05-13: 把 envelope.metadata（含 mission searchTimeRange / language 等）
     // 透传给 tool，让 search 类 tool 在 LLM 漏传 timeRange 时能用 mission 默认兜底。
     // envelope.metadata 是 Record<string, unknown>；ToolContext.metadata 要求
@@ -226,8 +241,9 @@ export class ToolInvoker {
       userId: envelope.memory.userId,
       callerId: options.agentId,
       callerType: "agent",
-      signal: options.signal,
-      timeout: options.timeoutMs,
+      // ★ 乙: 传派生信号（含超时），well-behaved 工具/HTTP client 可据此真正取消
+      signal: execAbort.signal,
+      timeout: effectiveTimeoutMs,
       metadata: pickJsonScalarMetadata(envelope.metadata),
       createdAt: new Date(),
     };
@@ -243,8 +259,66 @@ export class ToolInvoker {
       },
     });
 
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
     try {
-      const result = await tool.execute(action.input, toolContext);
+      // ★ 乙(2026-06-14): input schema 校验 —— engine ToolPipeline 的 ValidationMiddleware
+      //   不在 agent 路径，这里补。校验失败直接返回 TOOL_INPUT_VALIDATION_FAILED，
+      //   避免把非法 input 喂给工具产生脏错/误导性失败。
+      if (typeof tool.validateInput === "function") {
+        const v = tool.validateInput(action.input);
+        const valid = typeof v === "boolean" ? v : v.valid;
+        if (!valid) {
+          const detail =
+            typeof v === "object" &&
+            Array.isArray(v.errors) &&
+            v.errors.length > 0
+              ? v.errors
+                  .map((e) => (e as { message?: string }).message ?? String(e))
+                  .join("; ")
+              : `Invalid input for tool ${action.toolId}`;
+          const err = new Error(detail);
+          span?.recordException(err);
+          span?.end({ success: false });
+          return {
+            action,
+            output: {
+              success: false,
+              error: detail,
+              toolId: action.toolId,
+              failureCode: "TOOL_INPUT_VALIDATION_FAILED",
+            },
+            error: err,
+            failureCode: "TOOL_INPUT_VALIDATION_FAILED",
+            diagnostic: {
+              toolId: action.toolId,
+              reason: "input_validation_failed",
+              input: action.input,
+            },
+            latencyMs: Date.now() - startMs,
+          };
+        }
+      }
+
+      // ★ 乙(2026-06-14): 真超时 —— race(execute, timeout)。超时触发 execAbort.abort()
+      //   并 reject，落入下方 catch 推断为 TOOL_TIMEOUT（并计入 circuit breaker）。
+      //   无 effectiveTimeoutMs 时退化为普通 await，保持旧行为。
+      const execPromise = tool.execute(action.input, toolContext);
+      const result =
+        effectiveTimeoutMs && effectiveTimeoutMs > 0
+          ? await Promise.race([
+              execPromise,
+              new Promise<never>((_, reject) => {
+                timeoutHandle = setTimeout(() => {
+                  execAbort.abort();
+                  reject(
+                    new Error(
+                      `Tool ${action.toolId} timed out after ${effectiveTimeoutMs}ms`,
+                    ),
+                  );
+                }, effectiveTimeoutMs);
+              }),
+            ])
+          : await execPromise;
 
       if (!result.success) {
         // PR-I: 失败上报到 circuit breaker
@@ -393,6 +467,11 @@ export class ToolInvoker {
         },
         latencyMs: Date.now() - startMs,
       };
+    } finally {
+      // ★ 乙: 清理超时定时器与父信号监听，避免泄漏
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+      if (options.signal)
+        options.signal.removeEventListener("abort", onParentAbort);
     }
   }
 

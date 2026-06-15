@@ -13,6 +13,8 @@ import {
   Cpu,
   Package,
   Calendar,
+  Lightbulb,
+  MapPin,
   HelpCircle,
   Clock,
   RefreshCw,
@@ -58,6 +60,8 @@ const KNOWN_ENTITY_KEYS: EntityKey[] = [
   'technology',
   'product',
   'event',
+  'concept',
+  'location',
 ];
 
 const ENTITY_ICON_MAP: Record<EntityKey, React.ElementType> = {
@@ -66,6 +70,8 @@ const ENTITY_ICON_MAP: Record<EntityKey, React.ElementType> = {
   technology: Cpu,
   product: Package,
   event: Calendar,
+  concept: Lightbulb,
+  location: MapPin,
 };
 
 function normalizeTypeKey(typeKey: string): EntityKey | null {
@@ -76,6 +82,8 @@ function normalizeTypeKey(typeKey: string): EntityKey | null {
   if (lower === 'technology' || lower === 'tech') return 'technology';
   if (lower === 'product') return 'product';
   if (lower === 'event') return 'event';
+  if (lower === 'concept') return 'concept';
+  if (lower === 'location' || lower === 'place') return 'location';
   if ((KNOWN_ENTITY_KEYS as string[]).includes(lower))
     return lower as EntityKey;
   return null;
@@ -925,6 +933,8 @@ function GraphTab({ topicId }: GraphTabProps) {
         technology: '#10b981',
         product: '#8b5cf6',
         event: '#ef4444',
+        concept: '#6366f1',
+        location: '#14b8a6',
       };
       return colorMap[key];
     },
@@ -1129,8 +1139,11 @@ function ObjectsTab({ topicId, onEntityClick }: ObjectsTabProps) {
       header: '名称',
       accessorKey: 'label',
       sortable: true,
+      className: 'max-w-[200px]',
       cell: ({ row }) => (
-        <span className="font-medium text-gray-900">{row.label}</span>
+        <span className="block truncate font-medium text-gray-900">
+          {row.label}
+        </span>
       ),
     },
     {
@@ -1142,10 +1155,12 @@ function ObjectsTab({ topicId, onEntityClick }: ObjectsTabProps) {
     {
       id: 'aliases',
       header: '别名',
+      headerClassName: 'hidden lg:table-cell',
+      className: 'hidden max-w-[180px] lg:table-cell',
       accessorFn: (row) => row.aliases.join(', '),
       cell: ({ row }) =>
         row.aliases.length > 0 ? (
-          <span className="text-sm text-gray-500">
+          <span className="block truncate text-sm text-gray-500">
             {row.aliases.slice(0, 2).join(' · ')}
           </span>
         ) : (
@@ -1179,7 +1194,7 @@ function ObjectsTab({ topicId, onEntityClick }: ObjectsTabProps) {
   return (
     <div className="flex h-full min-h-0 gap-6">
       {/* ── Left sidebar ── */}
-      <aside className="flex min-h-0 w-64 shrink-0 flex-col rounded-xl border border-gray-200 bg-white shadow-sm xl:w-72">
+      <aside className="flex min-h-0 w-56 shrink-0 flex-col rounded-xl border border-gray-200 bg-white shadow-sm xl:w-64">
         {/* Search */}
         <div className="border-b border-gray-100 p-3">
           <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">

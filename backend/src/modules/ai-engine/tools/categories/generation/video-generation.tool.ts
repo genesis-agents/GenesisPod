@@ -180,6 +180,9 @@ export class VideoGenerationTool extends BaseTool<
   VideoGenerationOutput
 > {
   readonly id = "video-generation";
+  // ★ 治理(2026-06-14): 未实现(无真实 video API 集成),退出 catalog 防 agent 召回必败
+  readonly enabled = false;
+  readonly maturity = "stub" as const;
   readonly sideEffect = "destructive" as const;
   readonly category: ToolCategory = "generation";
   readonly tags = ["generation", "video", "ai-video", "synthesis"];

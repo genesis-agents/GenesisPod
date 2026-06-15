@@ -170,9 +170,13 @@ export function useOntology() {
   const getRelated = useCallback(async (id: string, depth?: number) => {
     const qs = depth != null ? `?depth=${depth}` : '';
     try {
-      return await apiClient.get<OntologyObjectView[]>(
+      // Backend returns a SubgraphResult ({ nodes, links }), not a flat array.
+      // Flatten to the related entities (nodes minus the seed) for the drawer.
+      const data = await apiClient.get<OntologySubgraphResult>(
         `/ontology/entities/${id}/related${qs}`
       );
+      const nodes = Array.isArray(data?.nodes) ? data.nodes : [];
+      return nodes.filter((n) => n.id !== id);
     } catch (err) {
       const e = err instanceof Error ? err : new Error(String(err));
       logger.error('[useOntology] getRelated failed', { id, error: e.message });
@@ -184,10 +188,11 @@ export function useOntology() {
 
   const listTypes = useCallback(async () => {
     try {
-      const data = await apiClient.get<{ items: ObjectType[] }>(
+      // Backend returns a bare array; tolerate a legacy { items } wrapper too.
+      const data = await apiClient.get<ObjectType[] | { items: ObjectType[] }>(
         '/ontology/types'
       );
-      return data.items ?? [];
+      return Array.isArray(data) ? data : (data?.items ?? []);
     } catch (err) {
       const e = err instanceof Error ? err : new Error(String(err));
       logger.error('[useOntology] listTypes failed', { error: e.message });
@@ -197,10 +202,11 @@ export function useOntology() {
 
   const listLinkTypes = useCallback(async () => {
     try {
-      const data = await apiClient.get<{ items: LinkType[] }>(
+      // Backend returns a bare array; tolerate a legacy { items } wrapper too.
+      const data = await apiClient.get<LinkType[] | { items: LinkType[] }>(
         '/ontology/link-types'
       );
-      return data.items ?? [];
+      return Array.isArray(data) ? data : (data?.items ?? []);
     } catch (err) {
       const e = err instanceof Error ? err : new Error(String(err));
       logger.error('[useOntology] listLinkTypes failed', { error: e.message });
