@@ -10,9 +10,9 @@
     "frontend/lib/design/tokens.ts"
   ],
   "totals": {
-    "all": 1938,
+    "all": 1941,
     "byLayer": {
-      "engine": 547,
+      "engine": 550,
       "frontend": 249,
       "harness": 1092,
       "platform": 50
@@ -29,7 +29,7 @@
       "engine/routing": 8,
       "engine/safety": 24,
       "engine/skills": 28,
-      "engine/tools": 47,
+      "engine/tools": 50,
       "frontend/animations": 16,
       "frontend/badges": 4,
       "frontend/cards": 31,
@@ -4125,6 +4125,22 @@
       "import": "import { CongressGovTool } from \"@/modules/ai-engine/facade\";"
     },
     {
+      "name": "DEFAULT_RETRIEVAL_TOOL_IDS",
+      "kind": "value",
+      "layer": "engine",
+      "domain": "tools",
+      "source": "backend/src/modules/ai-engine/tools/registry/default-retrieval-tools.ts",
+      "import": "import { DEFAULT_RETRIEVAL_TOOL_IDS } from \"@/modules/ai-engine/facade\";"
+    },
+    {
+      "name": "DefaultRetrievalToolId",
+      "kind": "type",
+      "layer": "engine",
+      "domain": "tools",
+      "source": "backend/src/modules/ai-engine/tools/registry/default-retrieval-tools.ts",
+      "import": "import { DefaultRetrievalToolId } from \"@/modules/ai-engine/facade\";"
+    },
+    {
       "name": "ExecutionPartition",
       "kind": "type",
       "layer": "engine",
@@ -4451,6 +4467,14 @@
       "domain": "tools",
       "source": "backend/src/modules/ai-engine/tools/search-fusion/index.ts",
       "import": "import { normalizeUrl } from \"@/modules/ai-engine/facade\";"
+    },
+    {
+      "name": "resolveDefaultRetrievalTools",
+      "kind": "value",
+      "layer": "engine",
+      "domain": "tools",
+      "source": "backend/src/modules/ai-engine/tools/registry/default-retrieval-tools.ts",
+      "import": "import { resolveDefaultRetrievalTools } from \"@/modules/ai-engine/facade\";"
     },
     {
       "name": "tokenizeQuery",
