@@ -142,6 +142,8 @@ export interface BackfillStatus {
   status: string;
   processed: number;
   total: number;
+  /** 因之前已导入而跳过的报告数（去重）。 */
+  skipped?: number;
   errors: string[];
 }
 
