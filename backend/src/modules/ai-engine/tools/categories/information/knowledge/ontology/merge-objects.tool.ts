@@ -51,11 +51,11 @@ export class OntologyMergeObjectsTool extends BaseTool<
 > {
   private readonly logger = new Logger(OntologyMergeObjectsTool.name);
 
-  readonly id = "ontology.mergeObjects";
+  readonly id = "ontology-merge-objects";
   readonly name = "本体节点合并";
   readonly description =
     "将多个源节点（OntologyObject）合并到指定目标节点：重定向所有入边/出边到目标，合并别名，并将源节点标记为已删除。该操作不可逆（破坏性），需要 ontology.admin 权限。适用于实体去重、消歧后的图谱整理。";
-  readonly category: ToolCategory = "information";
+  readonly category: ToolCategory = "execution";
   readonly tags = [
     "ontology",
     "knowledge",

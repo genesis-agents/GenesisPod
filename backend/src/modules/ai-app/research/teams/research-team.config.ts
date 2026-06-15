@@ -184,8 +184,8 @@ export const RESEARCH_TEAM_CONFIG: TeamConfig = {
     "federal-register",
     "congress-gov",
     // ★ P4 Knowledge Ontology: 写入知识图谱节点/关系
-    "ontology.upsertObject",
-    "ontology.addLink",
+    "ontology-upsert-object",
+    "ontology-add-link",
   ],
   constraintProfile: createConstraintProfile("thorough", {
     quality: {

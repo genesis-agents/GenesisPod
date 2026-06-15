@@ -55,11 +55,11 @@ export class OntologySetConfidenceTool extends BaseTool<
 > {
   private readonly logger = new Logger(OntologySetConfidenceTool.name);
 
-  readonly id = "ontology.setConfidence";
+  readonly id = "ontology-set-confidence";
   readonly name = "本体置信度更新";
   readonly description =
     "更新知识本体节点（OntologyObject）或关系（OntologyLink）的置信度得分（0–1）。操作幂等，会写入审计轨迹。适用于 Agent 推断质量评估后的置信度校正。";
-  readonly category: ToolCategory = "information";
+  readonly category: ToolCategory = "execution";
   readonly tags = ["ontology", "knowledge", "graph", "confidence", "write"];
   readonly sideEffect = "idempotent" as const;
   readonly requiredEntitlements = ["ontology.edit"] as const;

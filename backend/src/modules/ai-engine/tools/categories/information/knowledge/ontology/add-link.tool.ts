@@ -60,11 +60,11 @@ export class OntologyAddLinkTool extends BaseTool<
 > {
   private readonly logger = new Logger(OntologyAddLinkTool.name);
 
-  readonly id = "ontology.addLink";
+  readonly id = "ontology-add-link";
   readonly name = "本体关系写入";
   readonly description =
     "在知识本体图谱中写入两个节点之间的有向关系（OntologyLink）。相同 (fromId, toId, linkTypeKey) 三元组时合并属性与置信度，不重复创建边。适用于从文档或 Agent 推断中积累结构化关系。";
-  readonly category: ToolCategory = "information";
+  readonly category: ToolCategory = "execution";
   readonly tags = ["ontology", "knowledge", "graph", "write", "link", "edge"];
   readonly sideEffect = "idempotent" as const;
   readonly requiredEntitlements = ["ontology.edit"] as const;

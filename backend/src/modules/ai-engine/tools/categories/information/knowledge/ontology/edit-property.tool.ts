@@ -51,11 +51,11 @@ export class OntologyEditPropertyTool extends BaseTool<
 > {
   private readonly logger = new Logger(OntologyEditPropertyTool.name);
 
-  readonly id = "ontology.editProperty";
+  readonly id = "ontology-edit-property";
   readonly name = "本体属性编辑";
   readonly description =
     "更新知识本体节点（OntologyObject）的单个属性键值对。传入 null 值可删除该键。操作幂等，会写入审计轨迹。适用于 Agent 对已有节点的结构化属性补充或修正。";
-  readonly category: ToolCategory = "information";
+  readonly category: ToolCategory = "execution";
   readonly tags = ["ontology", "knowledge", "graph", "property", "write"];
   readonly sideEffect = "idempotent" as const;
   readonly requiredEntitlements = ["ontology.edit"] as const;

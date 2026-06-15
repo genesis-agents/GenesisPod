@@ -3,7 +3,7 @@
  *
  * Extracts typed entities and typed relations from unstructured text (or a
  * referenced document / report) and persists them into the knowledge graph via
- * the ontology.upsertObject / ontology.addLink tools.
+ * the ontology-upsert-object / ontology-add-link tools.
  *
  * Design constraints (CLAUDE.md + P3 task spec):
  *  - Zero agent/mission state.  Input contract is explicit; nothing is read
@@ -148,7 +148,7 @@ export class OntologyBuilderSkill extends BaseSkill<
   readonly id = "knowledge.ontology-builder";
   readonly name = "知识本体构建器";
   readonly description =
-    "从文本 / 文档中抽取 typed 实体与 typed 关系，通过 ontology.upsertObject / ontology.addLink 落入知识图谱。" +
+    "从文本 / 文档中抽取 typed 实体与 typed 关系，通过 ontology-upsert-object / ontology-add-link 落入知识图谱。" +
     "v1 链路：LLM 结构化抽取 → EntityResolution 去重 → 工具写库。";
   readonly layer: SkillLayer = "understanding";
   readonly domain = "knowledge";
@@ -160,7 +160,7 @@ export class OntologyBuilderSkill extends BaseSkill<
     "ner",
     "relation",
   ];
-  readonly requiredTools = ["ontology.upsertObject", "ontology.addLink"];
+  readonly requiredTools = ["ontology-upsert-object", "ontology-add-link"];
 
   // Use BaseSkill's this.logger; no local logger2 needed.
   // Declared here only so TypeScript knows the type in case BaseSkill declares
@@ -286,7 +286,7 @@ export class OntologyBuilderSkill extends BaseSkill<
       const canonical = resolution.canonicalOf[entity.label] ?? entity.label;
       try {
         const node = await this.callTool<OntologyObjectView>(
-          "ontology.upsertObject",
+          "ontology-upsert-object",
           {
             topicId: input.topicId,
             typeKey: entity.typeKey,
@@ -347,7 +347,7 @@ export class OntologyBuilderSkill extends BaseSkill<
 
       try {
         const edge = await this.callTool<OntologyLinkView>(
-          "ontology.addLink",
+          "ontology-add-link",
           {
             topicId: input.topicId,
             linkTypeKey: rel.linkTypeKey,

@@ -189,8 +189,8 @@ export const TOPIC_INSIGHTS_TEAM_CONFIG: TeamConfig = {
     BUILTIN_TOOLS.EXPORT_DOCX,
     BUILTIN_TOOLS.EXPORT_PDF,
     // ★ W-C Knowledge Ontology: 写入知识图谱节点/关系
-    "ontology.upsertObject",
-    "ontology.addLink",
+    "ontology-upsert-object",
+    "ontology-add-link",
   ],
   constraintProfile: createConstraintProfile("thorough", {
     quality: {

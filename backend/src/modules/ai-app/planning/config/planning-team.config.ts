@@ -118,8 +118,8 @@ export const PLANNING_TEAM_CONFIG: TeamConfig = {
     BUILTIN_TOOLS.DATA_ANALYSIS,
     BUILTIN_TOOLS.STRUCTURED_OUTPUT,
     // ★ W-C Knowledge Ontology: 写入知识图谱节点/关系
-    "ontology.upsertObject",
-    "ontology.addLink",
+    "ontology-upsert-object",
+    "ontology-add-link",
   ],
   constraintProfile: createConstraintProfile("balanced", {
     quality: {
