@@ -34,6 +34,9 @@ export class StartupMigrationService implements OnModuleInit {
       // Migration 5: Ensure AI Engine capability models (Evidence/Review/Todo)
       await this.ensureEngineCapabilityModels();
 
+      // Migration 6: Ensure ontology_backfill_records table (backfill dedup)
+      await this.ensureOntologyBackfillRecordsTable();
+
       this.logger.log("[Migration] Startup migrations completed");
     } catch (error) {
       this.logger.error("[Migration] Startup migration failed:", error);
@@ -173,9 +176,7 @@ export class StartupMigrationService implements OnModuleInit {
         WHERE table_name = 'engine_todos'
       `;
       if (Number(exists[0].count) > 0) {
-        this.logger.debug(
-          "[Migration] engine capability models already exist",
-        );
+        this.logger.debug("[Migration] engine capability models already exist");
         return;
       }
 
@@ -303,6 +304,47 @@ export class StartupMigrationService implements OnModuleInit {
     } catch (error) {
       this.logger.warn(
         "[Migration] Failed to ensure engine capability models:",
+        error,
+      );
+    }
+  }
+
+  /**
+   * 兜底创建 ontology_backfill_records 表（本体回填去重标记）。
+   * 记录已处理的 (user_id, source_kind, source_id)，使"导入历史报告"只处理新增报告、
+   * 不再反复重抽已导入的（省 LLM + 不覆盖手工编辑）。与其它 self-heal 同模式。
+   */
+  private async ensureOntologyBackfillRecordsTable() {
+    try {
+      const exists = await this.prisma.$queryRaw<{ count: bigint }[]>`
+        SELECT COUNT(*) as count FROM information_schema.tables
+        WHERE table_name = 'ontology_backfill_records'
+      `;
+      if (Number(exists[0].count) > 0) {
+        this.logger.debug(
+          "[Migration] ontology_backfill_records already exists",
+        );
+        return;
+      }
+
+      await this.prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "ontology_backfill_records" (
+          "id"           TEXT NOT NULL DEFAULT gen_random_uuid()::TEXT,
+          "user_id"      VARCHAR(100) NOT NULL,
+          "source_kind"  VARCHAR(32) NOT NULL,
+          "source_id"    TEXT NOT NULL,
+          "processed_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "ontology_backfill_records_pkey" PRIMARY KEY ("id")
+        )
+      `);
+      await this.prisma.$executeRawUnsafe(`
+        CREATE UNIQUE INDEX IF NOT EXISTS "ontology_backfill_records_uniq"
+          ON "ontology_backfill_records" ("user_id", "source_kind", "source_id")
+      `);
+      this.logger.log("[Migration] Created ontology_backfill_records table");
+    } catch (error) {
+      this.logger.warn(
+        "[Migration] Failed to ensure ontology_backfill_records table:",
         error,
       );
     }

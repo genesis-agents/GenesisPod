@@ -38,6 +38,8 @@ export interface BackfillTaskState {
   status: BackfillStatus;
   processed: number;
   total: number;
+  /** 因之前已回填而跳过的报告数（去重）。 */
+  skipped: number;
   errors: string[];
 }
 
@@ -149,6 +151,7 @@ export class ReportOntologyFillService {
       status: "running",
       processed: 0,
       total: 0,
+      skipped: 0,
       errors: [],
     };
     this.tasks.set(taskId, state);
@@ -199,17 +202,28 @@ export class ReportOntologyFillService {
     opts: { userId: string; topicId?: string; sourceId?: string },
   ): Promise<void> {
     const rows = await this.listSourceRows(kind, opts);
-    state.total += rows.length;
 
-    this.logger.log(`[batch:${taskId}] kind=${kind} count=${rows.length}`);
+    // 去重：跳过此前已回填过的报告，只处理新增的（省 LLM、不覆盖手工编辑）。
+    const processed = await this.getProcessedSourceIds(opts.userId, kind);
+    const pending = rows.filter((r) => !processed.has(r.id));
+    const skipped = rows.length - pending.length;
+    state.skipped += skipped;
+    state.total += pending.length;
 
-    for (const row of rows) {
+    this.logger.log(
+      `[batch:${taskId}] kind=${kind} total=${rows.length} pending=${pending.length} skipped=${skipped}`,
+    );
+
+    for (const row of pending) {
       try {
         const output = await this.fillOne(kind, row.id, row.topicId);
         if (output) {
           this.logger.debug(
             `[batch:${taskId}] ${kind}:${row.id} — created=${output.created} merged=${output.merged} linked=${output.linked}`,
           );
+          // 仅在 skill 实际产出（即真正抽取过）后标记已处理；text 为空/skill
+          // 不可用返回 null 时不标记，留待下次（避免永久误跳过）。
+          await this.markProcessed(opts.userId, kind, row.id);
         }
         state.processed++;
       } catch (err: unknown) {
@@ -219,6 +233,44 @@ export class ReportOntologyFillService {
         this.logger.warn(`[batch:${taskId}] error — ${entry}`);
         state.processed++;
       }
+    }
+  }
+
+  /** 已处理报告的 source_id 集合（去重用）。表缺失/异常时返回空集（降级为不去重）。 */
+  private async getProcessedSourceIds(
+    userId: string,
+    kind: BackfillSourceKind,
+  ): Promise<Set<string>> {
+    try {
+      const rows = await this.prisma.$queryRaw<{ source_id: string }[]>`
+        SELECT "source_id" FROM "ontology_backfill_records"
+        WHERE "user_id" = ${userId} AND "source_kind" = ${kind}
+      `;
+      return new Set(rows.map((r) => r.source_id));
+    } catch (err: unknown) {
+      this.logger.warn(
+        `[getProcessedSourceIds] query failed (no dedup): ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return new Set();
+    }
+  }
+
+  /** 标记一条报告已回填（幂等：ON CONFLICT DO NOTHING）。 */
+  private async markProcessed(
+    userId: string,
+    kind: BackfillSourceKind,
+    sourceId: string,
+  ): Promise<void> {
+    try {
+      await this.prisma.$executeRaw`
+        INSERT INTO "ontology_backfill_records" ("user_id", "source_kind", "source_id")
+        VALUES (${userId}, ${kind}, ${sourceId})
+        ON CONFLICT ("user_id", "source_kind", "source_id") DO NOTHING
+      `;
+    } catch (err: unknown) {
+      this.logger.warn(
+        `[markProcessed] insert failed for ${kind}:${sourceId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 
