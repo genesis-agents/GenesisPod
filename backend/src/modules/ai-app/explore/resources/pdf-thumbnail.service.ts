@@ -6,11 +6,49 @@ import * as os from "os";
 import axios from "axios";
 // 使用 legacy 版本，兼容 Node.js 环境（无需 DOMMatrix）
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
-import { createCanvas } from "canvas";
+// ★ 用 @napi-rs/canvas 而非 node-canvas：node-canvas 无法渲染 pdfjs v5 的字体
+//   （浏览器靠 @font-face，node-canvas 没有 → 正文文字画不出来、含图 PDF 抛
+//   "Image or Canvas expected"）。@napi-rs/canvas 是 pdfjs 官方 Node 示例所用，
+//   自带预编译二进制（无需 cairo/pango 系统库），文字与图片均正常光栅化。
+import { createCanvas } from "@napi-rs/canvas";
 import { ObjectStorageService } from "../../../platform/facade";
 
 // 动态导入sharp以兼容生产环境
 const sharp = require("sharp");
+
+/**
+ * pdfjs 标准字体目录（base-14 等）。pdfjs v5 在 Node 下必须显式提供
+ * standardFontDataUrl，否则正文文字无法渲染。路径需正斜杠 + 末尾 "/"。
+ */
+function resolveStandardFontDataUrl(): string {
+  const pkg = require.resolve("pdfjs-dist/package.json");
+  return (
+    path.join(path.dirname(pkg), "standard_fonts").replace(/\\/g, "/") + "/"
+  );
+}
+
+/**
+ * pdfjs 在 Node 渲染含图片 PDF 时需要 CanvasFactory 创建中间 canvas。
+ * 不提供则抛 "Image or Canvas expected"。
+ */
+class NapiCanvasFactory {
+  create(width: number, height: number) {
+    const canvas = createCanvas(width, height);
+    return { canvas, context: canvas.getContext("2d") };
+  }
+  reset(
+    cc: { canvas: { width: number; height: number } },
+    width: number,
+    height: number,
+  ) {
+    cc.canvas.width = width;
+    cc.canvas.height = height;
+  }
+  destroy(cc: { canvas: unknown; context: unknown }) {
+    cc.canvas = null;
+    cc.context = null;
+  }
+}
 
 /**
  * PDF缩略图生成服务
@@ -84,11 +122,16 @@ export class PdfThumbnailService {
       }
       this.logger.debug(`Step 1: Downloaded ${pdfData.length} bytes`);
 
-      // 2. 加载PDF文档
+      // 2. 加载PDF文档（提供 standardFontDataUrl + canvasFactory，否则文字/图片画不出来）
       this.logger.debug(`Step 2: Loading PDF document`);
       // Convert Buffer to Uint8Array for pdfjs-dist
       const uint8Array = new Uint8Array(pdfData);
-      const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+      // canvasFactory 在运行时受支持，但该版本 pdfjs 的类型未声明 → cast 绕过。
+      const loadingTask = pdfjsLib.getDocument({
+        data: uint8Array,
+        standardFontDataUrl: resolveStandardFontDataUrl(),
+        canvasFactory: new NapiCanvasFactory(),
+      } as unknown as Parameters<typeof pdfjsLib.getDocument>[0]);
       const pdfDocument = await loadingTask.promise;
       this.logger.debug(
         `Step 2: PDF loaded with ${pdfDocument.numPages} pages`,
@@ -109,7 +152,7 @@ export class PdfThumbnailService {
       const canvas = createCanvas(scaledViewport.width, scaledViewport.height);
       const context = canvas.getContext("2d");
 
-      // 6. 渲染PDF页面到canvas
+      // 6. 渲染PDF页面到canvas（canvasFactory 已在 getDocument 提供）
       const renderContext = {
         canvasContext: context as unknown as CanvasRenderingContext2D,
         viewport: scaledViewport,
@@ -174,24 +217,56 @@ export class PdfThumbnailService {
    * @returns PDF数据buffer
    */
   private async downloadPdf(url: string): Promise<Buffer | null> {
+    // arXiv 的 /abs/ 与 /html/ 链接不是 PDF（喂给 pdfjs 会 "Invalid PDF structure"）；
+    // 统一规范化为 /pdf/{id} 直链。
+    const pdfUrl = this.normalizeToPdfUrl(url);
     try {
-      const response = await axios.get(url, {
+      const response = await axios.get(pdfUrl, {
         responseType: "arraybuffer",
         timeout: 30000, // 30秒超时
+        maxRedirects: 5,
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          Accept: "application/pdf,*/*",
         },
       });
 
-      return Buffer.from(response.data);
+      // 校验确实是 PDF：内容类型或魔数 %PDF，避免把 HTML 错误页喂给 pdfjs。
+      const contentType = String(
+        response.headers?.["content-type"] ?? "",
+      ).toLowerCase();
+      const buf = Buffer.from(response.data);
+      const looksPdf =
+        contentType.includes("pdf") ||
+        buf.subarray(0, 5).toString() === "%PDF-";
+      if (!looksPdf) {
+        this.logger.warn(
+          `Downloaded content from ${pdfUrl} is not a PDF (content-type: ${contentType || "unknown"})`,
+        );
+        return null;
+      }
+
+      return buf;
     } catch (error) {
       this.logger.error(
-        `Failed to download PDF from ${url}:`,
+        `Failed to download PDF from ${pdfUrl}:`,
         getErrorMessage(error),
       );
       return null;
     }
+  }
+
+  /**
+   * 把 arXiv 的 abs/html 链接规范化为 PDF 直链；其它 URL 原样返回。
+   * 例：arxiv.org/abs/2606.05389 | arxiv.org/html/2603.00356v1 → arxiv.org/pdf/<id>
+   */
+  private normalizeToPdfUrl(url: string): string {
+    const m = url.match(/arxiv\.org\/(?:abs|html|pdf)\/(\d+\.\d+)(v\d+)?/i);
+    if (m) {
+      return `https://arxiv.org/pdf/${m[1]}${m[2] ?? ""}`;
+    }
+    return url;
   }
 
   /**

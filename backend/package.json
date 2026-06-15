@@ -80,6 +80,7 @@
     "@nestjs/websockets": "^10.4.20",
     "@notionhq/client": "^5.6.0",
     "@octokit/rest": "^22.0.1",
+    "@napi-rs/canvas": "^0.1.100",
     "@prisma/client": "^6.19.3",
     "archiver": "^7.0.1",
     "axios": "^1.13.2",

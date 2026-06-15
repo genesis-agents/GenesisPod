@@ -19,7 +19,7 @@ jest.mock("axios");
 jest.mock("pdfjs-dist/legacy/build/pdf.mjs", () => ({
   getDocument: jest.fn(),
 }));
-jest.mock("canvas", () => ({
+jest.mock("@napi-rs/canvas", () => ({
   createCanvas: jest.fn().mockReturnValue({
     getContext: jest.fn().mockReturnValue({}),
     toBuffer: jest.fn().mockReturnValue(Buffer.from("png data")),
@@ -137,7 +137,11 @@ describe("PdfThumbnailService", () => {
 
   // Configures the pdfjs/canvas render chain to succeed for a one-page PDF.
   const setupSuccessfulRender = () => {
-    mockAxios.get.mockResolvedValue({ data: Buffer.from("pdf bytes") });
+    // downloadPdf now validates PDF magic / content-type → mock a real-looking PDF response
+    mockAxios.get.mockResolvedValue({
+      data: Buffer.from("%PDF-1.4 fake pdf bytes"),
+      headers: { "content-type": "application/pdf" },
+    });
     const page = {
       getViewport: jest.fn().mockReturnValue({ width: 400, height: 566 }),
       render: jest.fn().mockReturnValue({ promise: Promise.resolve() }),
