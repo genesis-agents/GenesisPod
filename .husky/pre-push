@@ -266,6 +266,19 @@ else
 fi
 echo ""
 
+# 5b. 硬编码中文棘轮（2026-06-15）：存量冻结、新增必须走 t()，只能减不能增
+echo "[5b/6] i18n 硬编码中文棘轮..."
+if npx tsx scripts/utils/audit-hardcoded-chinese.ts; then
+    echo "  i18n 硬编码中文未劣化"
+else
+    echo ""
+    echo "  ✘ 硬编码中文劣化（新增/超基线）— 见上方报告"
+    echo "  → 用 useTranslation() 的 t('key') 替换硬编码中文（键加到 en.json+zh.json）"
+    echo "  → 迁移一批后跑 npm run audit:i18n-hardcoded:baseline 锁定新低点"
+    exit 1
+fi
+echo ""
+
 # 6. backend runtime deps 守护（防 handlebars MODULE_NOT_FOUND 类生产故障 2026-05-18）
 # ★ 动态 await import("xxx") tsc 不验包是否真在 deps，本地 workspace hoist 假阳性
 #   通过，Railway prod-only install 才暴露。本守护扫所有 backend imports 比对
