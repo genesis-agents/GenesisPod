@@ -232,7 +232,14 @@ export const roleToken: Record<
 };
 
 // ─── Entity type（知识本体实体类型色）───────────────────────
-export type EntityKey = 'org' | 'person' | 'technology' | 'product' | 'event';
+export type EntityKey =
+  | 'org'
+  | 'person'
+  | 'technology'
+  | 'product'
+  | 'event'
+  | 'concept'
+  | 'location';
 
 export const entityToken: Record<
   EntityKey,
@@ -267,6 +274,18 @@ export const entityToken: Record<
     bg: 'bg-red-50',
     ring: 'ring-red-200',
     label: '事件',
+  },
+  concept: {
+    text: 'text-indigo-700',
+    bg: 'bg-indigo-50',
+    ring: 'ring-indigo-200',
+    label: '概念',
+  },
+  location: {
+    text: 'text-teal-700',
+    bg: 'bg-teal-50',
+    ring: 'ring-teal-200',
+    label: '地点',
   },
 };
 
