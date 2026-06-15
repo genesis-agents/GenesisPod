@@ -5,6 +5,7 @@ import { useState, useCallback } from 'react';
 import { Modal } from './Modal';
 import { Button } from '../primitives/button';
 import { cn } from '@/lib/utils/common';
+import { useTranslation } from '@/lib/i18n';
 
 type ConfirmType = 'danger' | 'warning' | 'info' | 'success';
 
@@ -57,10 +58,11 @@ export function ConfirmDialog({
   title,
   description,
   type = 'warning',
-  confirmText = '确认',
-  cancelText = '取消',
+  confirmText,
+  cancelText,
   loading = false,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation();
   const { Icon, iconColor, confirmVariant } = typeConfig[type];
 
   const handleConfirm = async () => {
@@ -95,7 +97,7 @@ export function ConfirmDialog({
             onClick={onClose}
             disabled={loading}
           >
-            {cancelText}
+            {cancelText ?? t('common.cancel')}
           </Button>
           <Button
             variant={confirmVariant}
@@ -103,7 +105,9 @@ export function ConfirmDialog({
             onClick={handleConfirm}
             disabled={loading}
           >
-            {loading ? '处理中…' : confirmText}
+            {loading
+              ? t('common.processing')
+              : (confirmText ?? t('common.confirm'))}
           </Button>
         </>
       }

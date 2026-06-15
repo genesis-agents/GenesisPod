@@ -3,6 +3,7 @@
 import { AlertCircle, RefreshCw, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils/common';
+import { useTranslation } from '@/lib/i18n';
 import { Button } from '../primitives/button';
 
 interface ErrorStateProps {
@@ -23,12 +24,14 @@ interface ErrorStateProps {
 export function ErrorState({
   error,
   onRetry,
-  title = '加载失败',
+  title,
   showDetails = true,
   fullScreen = false,
   className,
 }: ErrorStateProps) {
+  const { t } = useTranslation();
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const heading = title ?? t('common.loadFailed');
 
   const errorMessage =
     error instanceof Error
@@ -50,7 +53,7 @@ export function ErrorState({
       </div>
 
       <div className="space-y-1">
-        <h3 className="font-semibold text-gray-900">{title}</h3>
+        <h3 className="font-semibold text-gray-900">{heading}</h3>
         {errorMessage && (
           <p className="text-sm text-gray-500">{errorMessage}</p>
         )}
@@ -60,7 +63,7 @@ export function ErrorState({
         {onRetry && (
           <Button onClick={onRetry} variant="outline" size="sm">
             <RefreshCw className="mr-2 h-4 w-4" />
-            重试
+            {t('common.retry')}
           </Button>
         )}
       </div>
@@ -77,7 +80,7 @@ export function ErrorState({
                 detailsOpen && 'rotate-180'
               )}
             />
-            错误详情
+            {t('common.errorDetails')}
           </button>
           {detailsOpen && (
             <pre className="mt-2 max-h-40 overflow-auto rounded bg-gray-100 p-2 text-left text-xs text-gray-600">

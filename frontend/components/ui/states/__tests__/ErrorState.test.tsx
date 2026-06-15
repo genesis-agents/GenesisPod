@@ -38,12 +38,17 @@ vi.mock('../primitives/button', () => ({
   ),
 }));
 
+// i18n: defaults now route through t() — mock identity so assertions check keys
+vi.mock('@/lib/i18n', () => ({
+  useTranslation: () => ({ t: (k: string) => k }),
+}));
+
 import { ErrorState, ErrorInline } from '../ErrorState';
 
 describe('ErrorState', () => {
   it('renders default title when no title prop is provided', () => {
     render(<ErrorState error="Something went wrong" />);
-    expect(screen.getByText('加载失败')).toBeInTheDocument();
+    expect(screen.getByText('common.loadFailed')).toBeInTheDocument();
   });
 
   it('renders custom title when provided', () => {
@@ -79,18 +84,18 @@ describe('ErrorState', () => {
   it('renders retry button when onRetry is provided', () => {
     const onRetry = vi.fn();
     render(<ErrorState error="Error occurred" onRetry={onRetry} />);
-    expect(screen.getByText('重试')).toBeInTheDocument();
+    expect(screen.getByText('common.retry')).toBeInTheDocument();
   });
 
   it('does not render retry button when onRetry is not provided', () => {
     render(<ErrorState error="Error occurred" />);
-    expect(screen.queryByText('重试')).not.toBeInTheDocument();
+    expect(screen.queryByText('common.retry')).not.toBeInTheDocument();
   });
 
   it('calls onRetry callback when retry button is clicked', () => {
     const onRetry = vi.fn();
     render(<ErrorState error="Error occurred" onRetry={onRetry} />);
-    fireEvent.click(screen.getByText('重试'));
+    fireEvent.click(screen.getByText('common.retry'));
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
