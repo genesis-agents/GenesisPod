@@ -97,19 +97,11 @@ export class DynamicThumbnailService {
             );
           }
 
-          // 策略2: 检查是否是 arXiv，尝试获取预览图
-          if (this.isArxivUrl(sourceUrl)) {
-            const arxivThumbnail = await this.getArxivThumbnail(sourceUrl);
-            if (arxivThumbnail) return arxivThumbnail;
-          }
-
-          // 策略3: 尝试从网页提取 og:image
-          const ogImage = await this.extractOgImage(sourceUrl);
-          if (ogImage) return ogImage;
-
-          // 策略4: 如果所有方法都失败，返回null（前端会显示PAPER图标）
+          // 论文只用真实 PDF 首页渲染；失败则返回 null（前端显示干净的 PAPER 图标）。
+          // 不再回退 og:image / arXiv figure —— 论文页的 og:image 是 arxiv logo、
+          // figure 抽取常是破图，回退只会把垃圾 URL 缓存进 DB（前端显示空白/破图）。
           this.logger.debug(
-            `No thumbnail available for paper ${resourceId || sourceUrl}`,
+            `No PDF thumbnail for paper ${resourceId || sourceUrl}; using type icon`,
           );
           return null;
         }
@@ -140,85 +132,6 @@ export class DynamicThumbnailService {
       return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
     }
     return null;
-  }
-
-  /**
-   * 从arXiv URL获取缩略图
-   * 尝试多种方法获取arXiv论文的缩略图
-   */
-  private async getArxivThumbnail(url: string): Promise<string | null> {
-    const arxivId = this.extractArxivId(url);
-    if (!arxivId) return null;
-
-    try {
-      // 策略1: 使用 arXiv labs 的论文预览服务 (如果存在)
-      // arXiv 有一个实验性的预览图服务
-      const previewUrl = `https://browse.arxiv.org/html/${arxivId}/x-png/page_001.png`;
-      try {
-        const previewCheck = await axios.head(previewUrl, {
-          timeout: 3000,
-        });
-        if (previewCheck.status === 200) {
-          this.logger.log(`Found arXiv preview image for ${arxivId}`);
-          return previewUrl;
-        }
-      } catch {
-        // Preview doesn't exist, continue to next strategy
-      }
-
-      // 策略2: 尝试从 arXiv 摘要页面提取图片
-      const absUrl = `https://arxiv.org/abs/${arxivId}`;
-      const response = await axios.get(absUrl, {
-        timeout: this.REQUEST_TIMEOUT,
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          Accept: "text/html",
-        },
-      });
-
-      const $ = cheerio.load(response.data);
-
-      // arXiv 页面可能包含论文的预览图
-      const ogImage = $('meta[property="og:image"]').attr("content");
-      if (ogImage && !ogImage.includes("arxiv-logo")) {
-        return ogImage;
-      }
-
-      // 尝试获取论文中的图片（如果有的话）
-      const firstFigure = $(".ltx_figure img").first().attr("src");
-      if (firstFigure) {
-        return this.normalizeImageUrl(firstFigure, absUrl);
-      }
-
-      // 策略3: 使用 PDF 第一页截图服务 (公共服务)
-      // 注意：这个服务可能不稳定，仅作为最后的fallback
-      const pdfUrl = `https://arxiv.org/pdf/${arxivId}.pdf`;
-      const thumbnailServiceUrl = `https://api.pdf.to/v1/thumbnail?url=${encodeURIComponent(pdfUrl)}&width=400`;
-
-      try {
-        const thumbCheck = await axios.head(thumbnailServiceUrl, {
-          timeout: 3000,
-        });
-        if (thumbCheck.status === 200) {
-          this.logger.log(`Using PDF thumbnail service for ${arxivId}`);
-          return thumbnailServiceUrl;
-        }
-      } catch {
-        // Service not available
-      }
-
-      // 如果都没有，返回 null，前端会显示 PAPER 类型的图标
-      this.logger.debug(
-        `No thumbnail methods succeeded for arXiv paper ${arxivId}`,
-      );
-      return null;
-    } catch (error) {
-      this.logger.debug(
-        `Failed to extract arXiv thumbnail for ${arxivId}: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      return null;
-    }
   }
 
   /**
