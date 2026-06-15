@@ -89,6 +89,14 @@ export async function runLeaderPlanStage(
 
       // ★ Phase 3 (2026-06-15): 从知识本体查询与 topic 相关的背景知识，注入 Leader 规划
       let priorKnowledge: string | undefined;
+      // 可观测性：记录本次规划参考了哪些本体实体（透到前端 LeadJournalPanel）。
+      let ontologyUsage:
+        | {
+            entityCount: number;
+            linkCount: number;
+            entities: { label: string; typeKey: string }[];
+          }
+        | undefined;
       if (deps.ontologyService) {
         try {
           const topic = ctx.input?.topic ?? "";
@@ -97,6 +105,13 @@ export async function runLeaderPlanStage(
               await deps.ontologyService.searchRelevantSubgraph(topic);
             if (subgraph.nodes.length > 0) {
               priorKnowledge = formatSubgraphAsText(subgraph);
+              ontologyUsage = {
+                entityCount: subgraph.nodes.length,
+                linkCount: subgraph.links.length,
+                entities: subgraph.nodes
+                  .slice(0, 20)
+                  .map((n) => ({ label: n.label, typeKey: n.typeKey })),
+              };
               deps.log.log(
                 `[s2 ${missionId}] ontology subgraph: ${subgraph.nodes.length} nodes, ${subgraph.links.length} links → injected as priorKnowledge`,
               );
@@ -124,6 +139,22 @@ export async function runLeaderPlanStage(
         })),
         priorKnowledge,
       });
+
+      // 可观测性：把本体使用情况写入 leader journal（前端 LeadJournalPanel 展示）。
+      if (
+        ontologyUsage &&
+        typeof deps.store?.appendLeaderJournal === "function"
+      ) {
+        void deps.store
+          .appendLeaderJournal(missionId, { ontologyContext: ontologyUsage })
+          .catch((err: unknown) =>
+            deps.log.warn(
+              `[s2 ${missionId}] append ontologyContext to journal failed (non-fatal): ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+            ),
+          );
+      }
 
       // ★ P1-D (2026-04-29): leader 返回空维度时必须 fail-fast
       if (!planResult.dimensions || planResult.dimensions.length === 0) {

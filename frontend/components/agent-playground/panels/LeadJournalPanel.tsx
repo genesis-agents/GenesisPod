@@ -13,25 +13,34 @@
 
 'use client';
 
-import { CheckCircle2, AlertCircle, XCircle, ShieldAlert } from 'lucide-react';
+import {
+  CheckCircle2,
+  AlertCircle,
+  XCircle,
+  ShieldAlert,
+  Network,
+} from 'lucide-react';
 import type { MissionDetail } from '@/services/agent-playground/api';
 import { ExpandableText } from '@/components/agent-playground/ui';
+import { useTranslation } from '@/lib/i18n';
 
 interface Props {
   mission: MissionDetail;
 }
 
 export function LeadJournalPanel({ mission }: Props) {
+  const { t } = useTranslation();
   const journal = mission.leaderJournal;
   const goals = journal?.plan?.goals;
   const risks = journal?.plan?.initialRisks ?? [];
   const foreword = journal?.foreword;
+  const ontologyContext = journal?.ontologyContext;
   const signed = mission.leaderSigned;
   const verdict = mission.leaderVerdict;
   const score = mission.leaderOverallScore;
 
   // 全部为空时不渲染
-  if (!goals && !foreword && score == null) return null;
+  if (!goals && !foreword && score == null && !ontologyContext) return null;
 
   return (
     <section className="space-y-3">
@@ -213,6 +222,37 @@ export function LeadJournalPanel({ mission }: Props) {
                   maxChars={120}
                   className="mt-0.5 block text-[10px] leading-relaxed text-gray-600"
                 />
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
+      {/* ── 知识本体参考（Phase 3：本次规划用到的本体实体）── */}
+      {ontologyContext && ontologyContext.entityCount > 0 && (
+        <details className="group rounded-xl border border-violet-100 bg-violet-50/30 p-3">
+          <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-violet-700 hover:text-violet-900">
+            <Network className="mr-1 inline h-3.5 w-3.5" />
+            {t('playground.ontologyRef.heading')} ·{' '}
+            {t('playground.ontologyRef.desc', {
+              count: ontologyContext.entityCount,
+            })}
+            {ontologyContext.linkCount > 0 &&
+              t('playground.ontologyRef.linksSuffix', {
+                count: ontologyContext.linkCount,
+              })}
+            {' ▾'}
+          </summary>
+          <ul className="mt-2 flex flex-wrap gap-1.5">
+            {ontologyContext.entities.map((e, i) => (
+              <li
+                key={i}
+                className="rounded-md bg-white/80 px-2 py-0.5 text-[10px] text-gray-700 ring-1 ring-violet-100"
+              >
+                {e.label}
+                <span className="ml-1 text-[9px] text-violet-500">
+                  {e.typeKey}
+                </span>
               </li>
             ))}
           </ul>

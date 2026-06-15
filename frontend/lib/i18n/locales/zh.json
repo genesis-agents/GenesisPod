@@ -271,6 +271,12 @@
     "myAgentsManage": "管理 Agent"
   },
   "playground": {
+    "ontologyRef": {
+      "heading": "知识本体参考",
+      "desc": "本次规划参考了知识本体的 {{count}} 个相关实体",
+      "linksSuffix": "（{{count}} 条关系）",
+      "expand": "查看参考实体"
+    },
     "researchTeam": {
       "topicLabel": "研究话题",
       "topicPlaceholder": "例如：2026 Q2 AI Agent 市场分析",
