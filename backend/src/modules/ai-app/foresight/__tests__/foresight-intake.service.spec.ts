@@ -5,9 +5,9 @@ import {
 import { ForesightIntakeService } from "../services/foresight-intake.service";
 
 /**
- * 聚焦 matchSignalsFromSource 共享匹配器（scanRadar / scanExplore 共用）：
- * 验证 explore-scan 走 AI_EXPLORE 源、basis.org=前沿库、命中建信号；
- * 并回归 scanRadar 仍走 AI_RADAR。
+ * scanExplore（2026-06-15 彻底修后）：经 ToolRegistry 调 explore-search 工具
+ * （scope=public + 主题关键词）查公共前沿库，而非旧版 AI_EXPLORE 泛收藏内容源。
+ * 并回归 scanRadar 仍走 AI_RADAR 内容源。
  */
 describe("ForesightIntakeService — scanExplore / scanRadar", () => {
   const findFirst = jest.fn();
@@ -15,7 +15,8 @@ describe("ForesightIntakeService — scanExplore / scanRadar", () => {
   const signalFindMany = jest.fn();
   const signalCreate = jest.fn();
   const chat = jest.fn();
-  const registryGet = jest.fn();
+  const registryGet = jest.fn(); // ContentSourceRegistry.get（radar 用）
+  const toolTryGet = jest.fn(); // ToolRegistry.tryGet（explore 用）
 
   const prisma = {
     foresightTopic: { findFirst },
@@ -24,11 +25,23 @@ describe("ForesightIntakeService — scanExplore / scanRadar", () => {
   } as never;
   const registry = { get: registryGet } as never;
   const aiChat = { chat } as never;
+  const toolRegistry = { tryGet: toolTryGet } as never;
 
-  const service = new ForesightIntakeService(prisma, registry, aiChat);
+  const service = new ForesightIntakeService(
+    prisma,
+    registry,
+    aiChat,
+    toolRegistry,
+  );
 
-  const sourceWithItems = (items: unknown[]) => ({
-    listItems: jest.fn().mockResolvedValue({ items }),
+  const exploreToolReturning = (
+    results: Array<{ title: string; summary?: string | null }>,
+  ) => ({
+    execute: jest.fn().mockResolvedValue({
+      success: true,
+      data: { results, success: true, totalResults: results.length },
+      metadata: {},
+    }),
   });
 
   beforeEach(() => {
@@ -38,6 +51,7 @@ describe("ForesightIntakeService — scanExplore / scanRadar", () => {
     signalCreate.mockReset();
     chat.mockReset();
     registryGet.mockReset();
+    toolTryGet.mockReset();
 
     findFirst.mockResolvedValue({ id: "t1", userId: "u1", name: "下一代算力" });
     cardFindMany.mockResolvedValue([
@@ -53,11 +67,11 @@ describe("ForesightIntakeService — scanExplore / scanRadar", () => {
     signalCreate.mockResolvedValue({});
   });
 
-  it("scanExplore 走 AI_EXPLORE 源；命中建候选信号，basis.org=AI 前沿库", async () => {
-    const src = sourceWithItems([
-      { id: "r1", title: "SK hynix 下修 HBM4 指引", preview: "财报会口径" },
+  it("scanExplore 经 explore-search 工具查公共全量(scope=public)+主题关键词", async () => {
+    const tool = exploreToolReturning([
+      { title: "SK hynix 下修 HBM4 指引", summary: "财报会口径" },
     ]);
-    registryGet.mockReturnValue(src);
+    toolTryGet.mockReturnValue(tool);
     chat.mockResolvedValue({
       content: JSON.stringify({
         matches: [
@@ -75,37 +89,55 @@ describe("ForesightIntakeService — scanExplore / scanRadar", () => {
 
     const res = await service.scanExplore("u1", "t1");
 
-    expect(registryGet).toHaveBeenCalledWith("AI_EXPLORE");
+    expect(toolTryGet).toHaveBeenCalledWith("explore-search");
+    const input = tool.execute.mock.calls[0][0];
+    expect(input.scope).toBe("public");
+    expect(input.query).toContain("下一代算力"); // 主题名进了检索词
+    expect(input.query).toContain("HBM4"); // 假设卡标题也进了检索词
+    // 不应再走 ContentSourceRegistry（不是泛收藏）
+    expect(registryGet).not.toHaveBeenCalled();
+
     expect(res).toEqual({ scanned: 1, matched: 1, created: 1 });
-    const created = signalCreate.mock.calls[0][0].data;
-    expect(created.basis.sources[0].org).toBe("AI 前沿库");
+    expect(signalCreate.mock.calls[0][0].data.basis.sources[0].org).toBe(
+      "AI 前沿库",
+    );
   });
 
-  it("scanExplore 源未注册 → ServiceUnavailable（前沿库文案）", async () => {
-    registryGet.mockReturnValue(undefined);
+  it("scanExplore 工具未注册 → ServiceUnavailable（前沿库检索工具文案）", async () => {
+    toolTryGet.mockReturnValue(undefined);
     await expect(service.scanExplore("u1", "t1")).rejects.toBeInstanceOf(
       ServiceUnavailableException,
     );
-    await expect(service.scanExplore("u1", "t1")).rejects.toThrow("前沿库");
+    await expect(service.scanExplore("u1", "t1")).rejects.toThrow(
+      "前沿库检索工具",
+    );
   });
 
-  it("无 falsifier 假设卡 → BadRequest（不查源、不调 LLM）", async () => {
+  it("scanExplore 工具返回空结果 → 0 计数，不调 LLM", async () => {
+    toolTryGet.mockReturnValue(exploreToolReturning([]));
+    const res = await service.scanExplore("u1", "t1");
+    expect(res).toEqual({ scanned: 0, matched: 0, created: 0 });
+    expect(chat).not.toHaveBeenCalled();
+  });
+
+  it("无 falsifier 假设卡 → BadRequest（不取数、不调工具/LLM）", async () => {
     cardFindMany.mockResolvedValue([
       { id: "c1", cardKey: "A-L0-01", title: "x", conf: 0.6, falsifiers: [] },
     ]);
     await expect(service.scanExplore("u1", "t1")).rejects.toBeInstanceOf(
       BadRequestException,
     );
-    expect(registryGet).not.toHaveBeenCalled();
+    expect(toolTryGet).not.toHaveBeenCalled();
     expect(chat).not.toHaveBeenCalled();
   });
 
-  it("scanRadar 仍走 AI_RADAR 源（回归）", async () => {
-    registryGet.mockReturnValue(sourceWithItems([]));
+  it("scanRadar 仍走 AI_RADAR 内容源（回归）", async () => {
+    registryGet.mockReturnValue({
+      listItems: jest.fn().mockResolvedValue({ items: [] }),
+    });
     const res = await service.scanRadar("u1", "t1");
     expect(registryGet).toHaveBeenCalledWith("AI_RADAR");
-    // 源返回空 → 提前返回零计数，不调用 LLM
+    expect(toolTryGet).not.toHaveBeenCalled();
     expect(res).toEqual({ scanned: 0, matched: 0, created: 0 });
-    expect(chat).not.toHaveBeenCalled();
   });
 });
