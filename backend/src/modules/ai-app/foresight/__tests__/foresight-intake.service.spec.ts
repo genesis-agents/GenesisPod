@@ -67,33 +67,42 @@ describe("ForesightIntakeService — scanExplore / scanRadar", () => {
     signalCreate.mockResolvedValue({});
   });
 
-  it("scanExplore 经 explore-search 工具查公共全量(scope=public)+主题关键词", async () => {
+  it("scanExplore 先抽英文关键词再经 explore-search 查公共全量(scope=public)", async () => {
     const tool = exploreToolReturning([
-      { title: "SK hynix 下修 HBM4 指引", summary: "财报会口径" },
+      {
+        title: "SK hynix cuts HBM4 mass-production guidance",
+        summary: "earnings call",
+      },
     ]);
     toolTryGet.mockReturnValue(tool);
-    chat.mockResolvedValue({
-      content: JSON.stringify({
-        matches: [
-          {
-            index: 0,
-            cardKey: "A-L0-01",
-            falsifier: "量产指引下修",
-            grade: "strong",
-            direction: "down",
-            reason: "官方下修",
-          },
-        ],
-      }),
-    });
+    // 前沿库为英文语料：第 1 次 LLM 抽英文检索词，第 2 次 LLM 做 falsifier 匹配。
+    chat
+      .mockResolvedValueOnce({
+        content: JSON.stringify({ keywords: ["HBM4", "SK hynix", "memory"] }),
+      })
+      .mockResolvedValueOnce({
+        content: JSON.stringify({
+          matches: [
+            {
+              index: 0,
+              cardKey: "A-L0-01",
+              falsifier: "量产指引下修",
+              grade: "strong",
+              direction: "down",
+              reason: "官方下修",
+            },
+          ],
+        }),
+      });
 
     const res = await service.scanExplore("u1", "t1");
 
     expect(toolTryGet).toHaveBeenCalledWith("explore-search");
     const input = tool.execute.mock.calls[0][0];
     expect(input.scope).toBe("public");
-    expect(input.query).toContain("下一代算力"); // 主题名进了检索词
-    expect(input.query).toContain("HBM4"); // 假设卡标题也进了检索词
+    // 检索词来自 LLM 抽的英文关键词（不再是中文主题名/卡标题）
+    expect(input.query).toContain("HBM4");
+    expect(chat).toHaveBeenCalledTimes(2); // 抽词 + 匹配各一次
     // 不应再走 ContentSourceRegistry（不是泛收藏）
     expect(registryGet).not.toHaveBeenCalled();
 
@@ -113,11 +122,13 @@ describe("ForesightIntakeService — scanExplore / scanRadar", () => {
     );
   });
 
-  it("scanExplore 工具返回空结果 → 0 计数，不调 LLM", async () => {
+  it("scanExplore 工具返回空结果 → 0 计数，不调匹配 LLM（仅抽词）", async () => {
     toolTryGet.mockReturnValue(exploreToolReturning([]));
+    chat.mockResolvedValue({ content: JSON.stringify({ keywords: ["HBM"] }) });
     const res = await service.scanExplore("u1", "t1");
     expect(res).toEqual({ scanned: 0, matched: 0, created: 0 });
-    expect(chat).not.toHaveBeenCalled();
+    // 抽英文关键词调 1 次；空召回不再进匹配 LLM
+    expect(chat).toHaveBeenCalledTimes(1);
   });
 
   it("无 falsifier 假设卡 → BadRequest（不取数、不调工具/LLM）", async () => {

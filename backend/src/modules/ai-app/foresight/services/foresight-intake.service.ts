@@ -138,10 +138,12 @@ export class ForesightIntakeService {
       );
     }
 
-    // 主题关键词 = 主题名 + 前几张假设卡标题（explore-search 内部拆词 OR，取前 6 词）
-    const query = [topic.name, ...withFals.slice(0, 3).map((c) => c.title)]
-      .join(" ")
-      .slice(0, 300);
+    // 前沿库是英文语料（北美科技），中文卡标题做子串匹配必然 0 命中 → 先用一次
+    // deterministic LLM 把主题+卡抽成英文检索词，再走 explore-search 的英文 OR 召回。
+    const query = await this.buildEnglishQuery(topic.name, withFals);
+    this.logger.log(
+      `foresight explore-scan: topic=${topicId} enQuery="${query}"`,
+    );
 
     const result = await tool.execute({ query, scope: "public", topK: 20 }, {
       executionId: `explore-scan-${topicId}`,
@@ -167,6 +169,47 @@ export class ForesightIntakeService {
       items,
       { sourceNoun: "前沿库", sourceOrg: "AI 前沿库" },
     );
+  }
+
+  /**
+   * 把中文主题 + 假设卡抽成英文检索词。前沿库为英文语料，中文整句子串匹配必 0 命中
+   * （2026-06-15 实测：中文卡标题逐句 OR → 0 命中 / 12418 条资源）。
+   * 一次 deterministic LLM 调用，输出 ≤6 个最有判别力的英文关键词/实体。
+   * 失败兜底：抽主题名里已有的英文/数字 token；再无则回退主题名本身。
+   */
+  private async buildEnglishQuery(
+    topicName: string,
+    withFals: Array<{ title: string }>,
+  ): Promise<string> {
+    const cardLines = withFals
+      .slice(0, 10)
+      .map((c) => `- ${c.title}`)
+      .join("\n");
+    const prompt = [
+      `主题（中文）：${topicName}`,
+      `该主题的假设卡标题（中文）：`,
+      cardLines,
+      ``,
+      `前沿库是英文语料（北美科技论文 / 文章 / 视频）。请抽取用于英文关键词检索的检索词：`,
+      `- 输出该主题领域最有判别力的英文关键词 / 实体（公司、芯片、技术、架构名词）`,
+      `- 保留卡里已出现的英文专名（如 NVIDIA、HBM、MoE、KV cache、CPO、HVDC）`,
+      `- 单词或短缩写优先；最多 6 个；去重；避免过宽的词（AI、technology、model）`,
+      `输出严格 JSON：{"keywords":["NVIDIA","HBM","inference"]}`,
+    ].join("\n");
+
+    const parsed = await this.chatJson<{ keywords?: string[] }>(prompt, {
+      creativity: "deterministic",
+      outputLength: "medium",
+    });
+    const kws = (parsed?.keywords ?? [])
+      .filter((k) => typeof k === "string" && k.trim().length >= 2)
+      .map((k) => k.trim())
+      .slice(0, 6);
+    if (kws.length > 0) return kws.join(" ").slice(0, 300);
+
+    // 兜底：主题名里的英文/数字 token；再无则主题名本身（至少不报错）
+    const latin = topicName.match(/[A-Za-z0-9][A-Za-z0-9.+-]+/g) ?? [];
+    return (latin.length > 0 ? latin.join(" ") : topicName).slice(0, 300);
   }
 
   /** 取主题 + 带 falsifier 的假设卡（无则 BadRequest —— 扫描无匹配目标）。 */
