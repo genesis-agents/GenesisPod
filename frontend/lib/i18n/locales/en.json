@@ -214,6 +214,9 @@
     "explore": "Explore",
     "aiExplore": "AI Explore",
     "myLibrary": "My Library",
+    "myExplore": "My Explore",
+    "myExperts": "My Experts",
+    "expertMarket": "Expert Marketplace",
     "aiRadar": "AI Radar",
     "aiInsights": "AI Insights",
     "aiResearch": "AI Research",
@@ -251,7 +254,9 @@
       "planningDecision": "Decision Studio",
       "creativeWriting": "Content Studio",
       "collabLab": "AI Lab",
-      "myAgents": "My Agents"
+      "myAgents": "My Agents",
+      "myWorkspace": "My Workspace",
+      "discoverMore": "Discover More"
     },
     "myAgentsViewAll": "View all",
     "myAgentsManage": "Manage Agents"
