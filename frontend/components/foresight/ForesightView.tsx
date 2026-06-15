@@ -33,6 +33,7 @@ import {
   scanRadar,
   scanExplore,
   seedDemo,
+  deriveConclusions,
   type ForesightOverview,
   type ForesightSignal,
   type ForesightTopic,
@@ -82,6 +83,7 @@ export function ForesightView() {
   const [importOpen, setImportOpen] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanningExplore, setScanningExplore] = useState(false);
+  const [deriving, setDeriving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   const loadTopics = useCallback(async (): Promise<ForesightTopic[]> => {
@@ -126,6 +128,26 @@ export function ForesightView() {
   const reload = useCallback(async () => {
     if (topicId) await loadOverview(topicId);
   }, [topicId, loadOverview]);
+
+  /** 从当前假设卡 LLM 派生洞察结论（手动按钮 + 导入后自动调用）。 */
+  const handleDeriveConclusions = useCallback(async () => {
+    if (!topicId || deriving) return;
+    setDeriving(true);
+    setError(null);
+    try {
+      const res = await deriveConclusions(topicId);
+      await reload();
+      setNotice(
+        res.derived > 0
+          ? `已根据当前假设卡生成 ${res.derived} 条洞察结论`
+          : '当前没有假设卡，无法生成结论 —— 先导入或新建假设'
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDeriving(false);
+    }
+  }, [topicId, deriving, reload]);
 
   const pending = useMemo(
     () => pendingByCard(overview?.reviewItems ?? []),
@@ -648,6 +670,8 @@ export function ForesightView() {
                 overview={overview}
                 impactedKeys={impactedKeys}
                 onSelectCardKey={selectCardKey}
+                onRegenerate={() => void handleDeriveConclusions()}
+                deriving={deriving}
               />
             )}
           </>
@@ -681,6 +705,8 @@ export function ForesightView() {
               void reload();
               // 导入只产卡片不产边 —— 入库后自动进入 AI 建边审核，补全连线
               setSuggestEdgesOpen(true);
+              // 导入新增了假设卡 → 后台自动重派生洞察结论（修「图谱更新但结论不刷新」）
+              void handleDeriveConclusions();
             }}
           />
           <SuggestEdgesDialog

@@ -314,6 +314,19 @@ export function scanExplore(topicId: string): Promise<RadarScanResult> {
   );
 }
 
+/**
+ * 洞察结论派生 —— LLM 从当前假设卡合成决策级结论，整体替换库内 conclusions。
+ * 导入后自动调用 + 「重新生成结论」按钮手动调用。
+ */
+export function deriveConclusions(
+  topicId: string
+): Promise<{ derived: number }> {
+  return request<{ derived: number }>(
+    `/topics/${encodeURIComponent(topicId)}/conclusions/derive`,
+    { method: 'POST' }
+  );
+}
+
 export interface InsightMissionItem {
   id: string;
   title: string;
