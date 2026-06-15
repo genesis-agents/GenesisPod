@@ -4,6 +4,24 @@ import { useState, useCallback } from 'react';
 import { apiClient } from '@/lib/api/client';
 import { logger } from '@/lib/utils/logger';
 
+/**
+ * Normalise an unknown thrown value to an Error. The API client throws plain
+ * `ApiError` objects ({ message, code, status }), not Error instances, so a
+ * naive `new Error(String(err))` yields "[object Object]". Extract `.message`.
+ */
+function toError(err: unknown): Error {
+  if (err instanceof Error) return err;
+  if (
+    err &&
+    typeof err === 'object' &&
+    'message' in err &&
+    typeof (err as { message: unknown }).message === 'string'
+  ) {
+    return new Error((err as { message: string }).message);
+  }
+  return new Error(String(err));
+}
+
 // ─── View types (mirrors backend OntologyObjectView / OntologyLinkView) ────────
 
 export interface OntologyObjectView {
@@ -398,7 +416,7 @@ export function useOntology() {
         `/ontology/backfill/status/${taskId}`
       );
     } catch (err) {
-      const e = err instanceof Error ? err : new Error(String(err));
+      const e = toError(err);
       logger.error('[useOntology] getBackfillStatus failed', {
         taskId,
         error: e.message,

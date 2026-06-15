@@ -1536,15 +1536,16 @@ interface BackfillProgressProps {
 function BackfillProgress({ taskId, onDone }: BackfillProgressProps) {
   const { getBackfillStatus } = useOntology();
   const [status, setStatus] = useState<BackfillStatus | null>(null);
-  const [pollError, setPollError] = useState<Error | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    let failures = 0;
 
     const poll = () => {
       getBackfillStatus(taskId)
         .then((s) => {
           if (cancelled) return;
+          failures = 0;
           setStatus(s);
           if (s.status === 'done' || s.status === 'failed') {
             onDone();
@@ -1554,8 +1555,20 @@ function BackfillProgress({ taskId, onDone }: BackfillProgressProps) {
         })
         .catch((e: unknown) => {
           if (cancelled) return;
-          const err = e instanceof Error ? e : new Error(String(e));
-          setPollError(err);
+          failures += 1;
+          logger.error('[BackfillProgress] status poll failed', {
+            taskId,
+            error: e instanceof Error ? e.message : String(e),
+          });
+          // The task registry is in-memory server-side, so after a redeploy a
+          // still-open page polls a dead taskId (404). Retry a few times for
+          // transient blips, then stop and clear the indicator rather than
+          // showing a permanent error.
+          if (failures >= 3) {
+            onDone();
+          } else {
+            setTimeout(poll, 2000);
+          }
         });
     };
 
@@ -1565,14 +1578,6 @@ function BackfillProgress({ taskId, onDone }: BackfillProgressProps) {
       cancelled = true;
     };
   }, [taskId, getBackfillStatus, onDone]);
-
-  if (pollError) {
-    return (
-      <span className="text-xs text-red-600">
-        进度查询失败: {pollError.message}
-      </span>
-    );
-  }
 
   if (!status) {
     return <LoadingState size="sm" text="查询进度..." />;
