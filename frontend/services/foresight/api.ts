@@ -303,6 +303,17 @@ export function scanRadar(topicId: string): Promise<RadarScanResult> {
   );
 }
 
+/**
+ * 前沿库扫描（手动触发）—— 拉前沿库近期资源与本主题 falsifier 匹配。
+ * 与雷达扫描同一返回结构；后端刻意不做每日自动扫描，仅此按钮触发。
+ */
+export function scanExplore(topicId: string): Promise<RadarScanResult> {
+  return request<RadarScanResult>(
+    `/topics/${encodeURIComponent(topicId)}/intake/explore-scan`,
+    { method: 'POST' }
+  );
+}
+
 export interface InsightMissionItem {
   id: string;
   title: string;

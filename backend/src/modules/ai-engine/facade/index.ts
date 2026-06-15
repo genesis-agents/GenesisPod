@@ -149,6 +149,12 @@ export type {
 
 // ★ Registry classes — engine-owned registries only
 export { ToolRegistry } from "../tools/registry/tool.registry";
+// ★ 默认检索工具集（唯一真相源）—— 各 app 工具解析层引用，避免硬编码 web-search
+export {
+  DEFAULT_RETRIEVAL_TOOL_IDS,
+  resolveDefaultRetrievalTools,
+} from "../tools/registry/default-retrieval-tools";
+export type { DefaultRetrievalToolId } from "../tools/registry/default-retrieval-tools";
 export { SkillRegistry } from "../skills/registry/skill.registry";
 // Shared HITL approval DB primitive (HumanApprovalTool + self-driven gate delegate).
 export {
