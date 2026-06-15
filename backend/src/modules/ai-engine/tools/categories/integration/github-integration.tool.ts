@@ -154,6 +154,9 @@ export class GitHubIntegrationTool extends BaseTool<
   private readonly logger = new Logger(GitHubIntegrationTool.name);
 
   readonly id = "github-integration";
+  // ★ 治理(2026-06-14): 返回 Math.random 假数据,从不调真实 GitHub API,谎称写操作成功 → 禁用
+  readonly enabled = false;
+  readonly maturity = "stub" as const;
   readonly sideEffect = "destructive" as const;
   readonly category: ToolCategory = "integration";
   readonly tags = ["integration", "github", "git", "repository", "vcs"];

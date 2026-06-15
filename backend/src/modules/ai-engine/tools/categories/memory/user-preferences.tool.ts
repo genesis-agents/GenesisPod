@@ -107,6 +107,8 @@ export class UserPreferencesTool extends BaseTool<
   private preferencesStore: Map<string, Record<string, unknown>> = new Map();
 
   readonly id = "user-preferences";
+  // ★ 治理(2026-06-14): 仅内存 Map,无持久化(重启/多实例丢失),结果不伪造 → 保留但标 partial
+  readonly maturity = "partial" as const;
   readonly sideEffect = "idempotent" as const;
   readonly category: ToolCategory = "memory";
   readonly tags = ["memory", "preferences", "user", "settings", "profile"];

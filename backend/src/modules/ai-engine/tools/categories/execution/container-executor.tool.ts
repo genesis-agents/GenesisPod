@@ -276,6 +276,9 @@ export class ContainerExecutorTool extends BaseTool<
   private readonly logger = new Logger(ContainerExecutorTool.name);
 
   readonly id = "container-executor";
+  // ★ 治理(2026-06-14): 未实现(executeInContainer 直接 throw),退出 catalog
+  readonly enabled = false;
+  readonly maturity = "stub" as const;
   readonly sideEffect = "destructive" as const;
   readonly category: ToolCategory = "execution";
   readonly tags = ["execution", "container", "docker", "code", "sandbox"];

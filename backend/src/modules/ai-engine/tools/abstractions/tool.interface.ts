@@ -495,6 +495,19 @@ export interface ITool<TInput = unknown, TOutput = unknown> {
   readonly maxResultSizeChars?: number;
 
   /**
+   * ★ 实现成熟度（2026-06-14 工具治理引入）
+   *
+   * 机器可读的工具真实度标记，配合 tool-maturity-guard spec 守护：
+   * - 'real':    真接 service/HTTP/Prisma/Redis，返回真实数据（默认假设）
+   * - 'partial': 功能可用但有限（纯内存态/委托其他工具/可选依赖未绑定时降级）
+   * - 'stub':    未实现（抛 not-implemented）或返回假数据/模拟成功，会误导 agent
+   *
+   * 红线：maturity='stub' 的工具必须同时 enabled=false，不得进入 agent catalog。
+   * 不填 → 默认视为 'real'。
+   */
+  readonly maturity?: "real" | "partial" | "stub";
+
+  /**
    * 执行工具
    */
   execute(input: TInput, context: ToolContext): Promise<ToolResult<TOutput>>;

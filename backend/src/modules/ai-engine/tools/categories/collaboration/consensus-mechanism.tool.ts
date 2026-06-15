@@ -216,6 +216,8 @@ export class ConsensusMechanismTool extends BaseTool<
   > = new Map();
 
   readonly id = "consensus-mechanism";
+  // ★ 治理(2026-06-14): 共识逻辑真实但仅内存态(跨进程/重启提案丢失),结果不伪造 → 保留但标 partial
+  readonly maturity = "partial" as const;
   readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "collaboration";
   readonly tags = ["collaboration", "consensus", "voting", "agreement"];

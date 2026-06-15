@@ -204,6 +204,9 @@ export class CalendarIntegrationTool extends BaseTool<
   private readonly logger = new Logger(CalendarIntegrationTool.name);
 
   readonly id = "calendar-integration";
+  // ★ 治理(2026-06-14): 返回硬编码假事件,从不调真实日历 API,谎称创建/删除成功 → 禁用
+  readonly enabled = false;
+  readonly maturity = "stub" as const;
   readonly sideEffect = "destructive" as const;
   readonly category: ToolCategory = "integration";
   readonly tags = ["integration", "calendar", "scheduling", "meeting"];

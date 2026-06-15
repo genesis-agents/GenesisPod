@@ -279,6 +279,9 @@ export class WorkflowOrchestrationTool extends BaseTool<
   > = new Map();
 
   readonly id = "workflow-orchestration";
+  // ★ 治理(2026-06-14): step 执行用 Math.random 模拟成败,step.executor 从不被调用 → 禁用
+  readonly enabled = false;
+  readonly maturity = "stub" as const;
   readonly sideEffect = "none" as const;
   readonly category: ToolCategory = "collaboration";
   readonly tags = [
