@@ -4,6 +4,24 @@ import { useState, useCallback } from 'react';
 import { apiClient } from '@/lib/api/client';
 import { logger } from '@/lib/utils/logger';
 
+/**
+ * Normalise an unknown thrown value to an Error. The API client throws plain
+ * `ApiError` objects ({ message, code, status }), not Error instances, so a
+ * naive `new Error(String(err))` yields "[object Object]". Extract `.message`.
+ */
+function toError(err: unknown): Error {
+  if (err instanceof Error) return err;
+  if (
+    err &&
+    typeof err === 'object' &&
+    'message' in err &&
+    typeof (err as { message: unknown }).message === 'string'
+  ) {
+    return new Error((err as { message: string }).message);
+  }
+  return new Error(String(err));
+}
+
 // ─── View types (mirrors backend OntologyObjectView / OntologyLinkView) ────────
 
 export interface OntologyObjectView {
@@ -49,6 +67,17 @@ export interface ListEntitiesParams {
   sortBy?: string;
   page?: number;
   limit?: number;
+}
+
+export interface EntityTypeCount {
+  typeKey: string;
+  count: number;
+}
+
+export interface EntityTypeCountsResult {
+  counts: EntityTypeCount[];
+  /** Sum across all types (true DB total for the current topic/search). */
+  total: number;
 }
 
 // ─── Meta-model types ─────────────────────────────────────────────────────────
@@ -154,6 +183,31 @@ export function useOntology() {
       setLoading(false);
     }
   }, []);
+
+  const listTypeCounts = useCallback(
+    async (params: { topicId?: string; search?: string } = {}) => {
+      try {
+        const query = new URLSearchParams();
+        if (params.topicId) query.set('topicId', params.topicId);
+        if (params.search) query.set('search', params.search);
+        const qs = query.toString();
+        const data = await apiClient.get<EntityTypeCountsResult>(
+          `/ontology/entity-type-counts${qs ? `?${qs}` : ''}`
+        );
+        return {
+          counts: data?.counts ?? [],
+          total: data?.total ?? 0,
+        };
+      } catch (err) {
+        const e = err instanceof Error ? err : new Error(String(err));
+        logger.error('[useOntology] listTypeCounts failed', {
+          error: e.message,
+        });
+        throw e;
+      }
+    },
+    []
+  );
 
   const getEntity = useCallback(async (id: string) => {
     try {
@@ -362,7 +416,7 @@ export function useOntology() {
         `/ontology/backfill/status/${taskId}`
       );
     } catch (err) {
-      const e = err instanceof Error ? err : new Error(String(err));
+      const e = toError(err);
       logger.error('[useOntology] getBackfillStatus failed', {
         taskId,
         error: e.message,
@@ -377,6 +431,7 @@ export function useOntology() {
     loading,
     error,
     listEntities,
+    listTypeCounts,
     getEntity,
     getRelated,
     listTypes,

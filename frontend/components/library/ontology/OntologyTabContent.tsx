@@ -33,6 +33,7 @@ import {
   type LinkType,
   type OntologyEdit,
   type ListEntitiesParams,
+  type EntityTypeCount,
   type StartBackfillParams,
   type BackfillStatus,
 } from '@/hooks/domain/useOntology';
@@ -131,20 +132,22 @@ function formatDateTime(value: string | Date): string {
 // ─── Left sidebar ─────────────────────────────────────────────────────────────
 
 interface TypeTreeProps {
-  items: OntologyObjectView[];
+  /** True per-type counts from the backend (not the current page). */
+  counts: EntityTypeCount[];
+  /** True grand total across all types for the current topic/search. */
+  total: number;
   selectedTypeKey: string | null;
   onSelect: (typeKey: string | null) => void;
 }
 
-function TypeTree({ items, selectedTypeKey, onSelect }: TypeTreeProps) {
+function TypeTree({ counts, total, selectedTypeKey, onSelect }: TypeTreeProps) {
   const [open, setOpen] = useState(true);
 
-  const countByType = items.reduce<Record<string, number>>((acc, item) => {
-    acc[item.typeKey] = (acc[item.typeKey] ?? 0) + 1;
-    return acc;
-  }, {});
-
-  const allTypes = Object.keys(countByType).sort();
+  const countByType: Record<string, number> = {};
+  for (const c of counts) countByType[c.typeKey] = c.count;
+  const allTypes = [...counts]
+    .map((c) => c.typeKey)
+    .sort((a, b) => a.localeCompare(b));
 
   return (
     <div>
@@ -174,7 +177,7 @@ function TypeTree({ items, selectedTypeKey, onSelect }: TypeTreeProps) {
               )}
             >
               <span>全部</span>
-              <span className="text-xs text-gray-400">{items.length}</span>
+              <span className="text-xs text-gray-400">{total}</span>
             </button>
           </li>
           {allTypes.map((typeKey) => {
@@ -1089,10 +1092,29 @@ interface ObjectsTabProps {
 }
 
 function ObjectsTab({ topicId, onEntityClick }: ObjectsTabProps) {
-  const { items, loading, error, listEntities } = useOntology();
+  const { items, total, loading, error, listEntities, listTypeCounts } =
+    useOntology();
   const [search, setSearch] = useState('');
   const [selectedTypeKey, setSelectedTypeKey] = useState<string | null>(null);
   const [view, setView] = useState<'table' | 'card'>('table');
+  const [typeCounts, setTypeCounts] = useState<EntityTypeCount[]>([]);
+  const [typeTotal, setTypeTotal] = useState(0);
+
+  // Sidebar facets reflect DB totals (topic/search scoped, type-independent).
+  const loadTypeCounts = useCallback(
+    (searchValue: string) => {
+      const params: { topicId?: string; search?: string } = {};
+      if (topicId) params.topicId = topicId;
+      if (searchValue) params.search = searchValue;
+      void listTypeCounts(params)
+        .then((r) => {
+          setTypeCounts(r.counts);
+          setTypeTotal(r.total);
+        })
+        .catch(() => undefined);
+    },
+    [topicId, listTypeCounts]
+  );
 
   useEffect(() => {
     const params: ListEntitiesParams = {};
@@ -1100,7 +1122,8 @@ function ObjectsTab({ topicId, onEntityClick }: ObjectsTabProps) {
     void listEntities(params).catch((e: unknown) => {
       logger.error('[ObjectsTab] initial load failed', { error: String(e) });
     });
-  }, [topicId, listEntities]);
+    loadTypeCounts('');
+  }, [topicId, listEntities, loadTypeCounts]);
 
   const handleSearch = useCallback(
     (value: string) => {
@@ -1109,8 +1132,9 @@ function ObjectsTab({ topicId, onEntityClick }: ObjectsTabProps) {
       if (topicId) params.topicId = topicId;
       if (selectedTypeKey) params.typeKey = selectedTypeKey;
       void listEntities(params).catch(() => undefined);
+      loadTypeCounts(value);
     },
-    [topicId, selectedTypeKey, listEntities]
+    [topicId, selectedTypeKey, listEntities, loadTypeCounts]
   );
 
   const handleTypeSelect = useCallback(
@@ -1131,7 +1155,8 @@ function ObjectsTab({ topicId, onEntityClick }: ObjectsTabProps) {
     if (selectedTypeKey) params.typeKey = selectedTypeKey;
     if (search) params.search = search;
     void listEntities(params).catch(() => undefined);
-  }, [topicId, selectedTypeKey, search, listEntities]);
+    loadTypeCounts(search);
+  }, [topicId, selectedTypeKey, search, listEntities, loadTypeCounts]);
 
   const columns: ColumnDef<OntologyObjectView>[] = [
     {
@@ -1212,7 +1237,8 @@ function ObjectsTab({ topicId, onEntityClick }: ObjectsTabProps) {
         {/* Type tree + Recent changes */}
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
           <TypeTree
-            items={items}
+            counts={typeCounts}
+            total={typeTotal}
             selectedTypeKey={selectedTypeKey}
             onSelect={handleTypeSelect}
           />
@@ -1225,8 +1251,7 @@ function ObjectsTab({ topicId, onEntityClick }: ObjectsTabProps) {
         {/* Toolbar */}
         <div className="flex items-center justify-between">
           <p className="text-sm text-gray-500">
-            共{' '}
-            <span className="font-semibold text-gray-800">{items.length}</span>{' '}
+            共 <span className="font-semibold text-gray-800">{total}</span>{' '}
             条实体
           </p>
           <div className="flex items-center gap-2">
@@ -1511,15 +1536,16 @@ interface BackfillProgressProps {
 function BackfillProgress({ taskId, onDone }: BackfillProgressProps) {
   const { getBackfillStatus } = useOntology();
   const [status, setStatus] = useState<BackfillStatus | null>(null);
-  const [pollError, setPollError] = useState<Error | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    let failures = 0;
 
     const poll = () => {
       getBackfillStatus(taskId)
         .then((s) => {
           if (cancelled) return;
+          failures = 0;
           setStatus(s);
           if (s.status === 'done' || s.status === 'failed') {
             onDone();
@@ -1529,8 +1555,20 @@ function BackfillProgress({ taskId, onDone }: BackfillProgressProps) {
         })
         .catch((e: unknown) => {
           if (cancelled) return;
-          const err = e instanceof Error ? e : new Error(String(e));
-          setPollError(err);
+          failures += 1;
+          logger.error('[BackfillProgress] status poll failed', {
+            taskId,
+            error: e instanceof Error ? e.message : String(e),
+          });
+          // The task registry is in-memory server-side, so after a redeploy a
+          // still-open page polls a dead taskId (404). Retry a few times for
+          // transient blips, then stop and clear the indicator rather than
+          // showing a permanent error.
+          if (failures >= 3) {
+            onDone();
+          } else {
+            setTimeout(poll, 2000);
+          }
         });
     };
 
@@ -1540,14 +1578,6 @@ function BackfillProgress({ taskId, onDone }: BackfillProgressProps) {
       cancelled = true;
     };
   }, [taskId, getBackfillStatus, onDone]);
-
-  if (pollError) {
-    return (
-      <span className="text-xs text-red-600">
-        进度查询失败: {pollError.message}
-      </span>
-    );
-  }
 
   if (!status) {
     return <LoadingState size="sm" text="查询进度..." />;

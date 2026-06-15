@@ -59,6 +59,26 @@ export class OntologyReadController {
   }
 
   /**
+   * True per-type entity counts for the sidebar facets.
+   * GET /ontology/entity-type-counts?topicId=...&search=...
+   *
+   * Counts reflect the whole filtered set (DB totals), not a single page, so the
+   * sidebar no longer derives misleading counts from the current 50-item page.
+   */
+  @Get("entity-type-counts")
+  async getEntityTypeCounts(
+    @Query("topicId") topicId?: string,
+    @Query("search") search?: string,
+  ) {
+    const counts = await this.ontologyService.countObjectsByType({
+      topicId,
+      labelContains: search,
+    });
+    const total = counts.reduce((sum, c) => sum + c.count, 0);
+    return { counts, total };
+  }
+
+  /**
    * Get a single ontology entity by ID.
    * GET /ontology/entities/:id
    */
