@@ -1,6 +1,6 @@
 # AI 工具系统梳理 + 治理改造方案
 
-> 状态:**P0 止血已执行**(分支 `fix/tools-disable-stub-tools`);P1/P2 待确认
+> 状态:**P0 止血 + P1-1(乙)已执行**(分支 `fix/tools-disable-stub-tools`);其余 P1/P2 待确认
 > 日期:2026-06-14
 > 范围:`ai-engine/tools/` 全部内置工具 + `ai-app` 动态注册工具 + `ai-harness/memory` 工具
 > 方法:逐文件 Read `execute()/doExecute()` 实现核实,非凭命名推断
@@ -26,6 +26,12 @@
 - **标注 partial 保留 2 个**(内存态但结果不伪造):`user-preferences`、`consensus-mechanism`。
 - 新增守护 `tools/__tests__/tool-maturity-guard.spec.ts`:静态扫描断言"`maturity=stub` 必 `enabled=false`",防回潮。
 - 注:catalog 构建(`getEnabled`/`listByCategory`/`getFunctionDefinitions`)均过滤 `enabled!==false`,故禁用工具不再被 agent 召回;`ToolInvoker.invoke` 暂未对 enabled 做二次拦截(已记为 P1 加固项,见 §3)。
+
+**P1-1(乙)已执行** — agent 工具路径补真超时 + input 校验(commit 见分支):
+
+- `tool-invoker.ts`:派生 `AbortController` + `Promise.race`,超时即 abort 派生 signal 并返回 `TOOL_TIMEOUT`(此前仅透传 `context.timeout` 不掐断);`execute` 前跑 `tool.validateInput`,失败返回 `TOOL_INPUT_VALIDATION_FAILED` 不调 execute;`finally` 清理定时器/监听。
+- 新增 7 测试(超时/abort/defaultTimeout 回落/校验/向后兼容)。验证:ToolInvoker 37 + loop 225 测试全过,type-check 0 err。
+- 未做(剩余 P1-1):甲/丙 的全量双路径合并(把 engine ToolPipeline 的限流/权限中间件也接进 agent 路径)仍待评估。
 
 ---
 
