@@ -214,6 +214,12 @@ export interface MissionDetail extends MissionListItem {
       decision: string;
       rationale: string;
     }[];
+    /** Phase 3: 本次规划参考的知识本体（s2 按 topic 相关性注入）。 */
+    ontologyContext?: {
+      entityCount: number;
+      linkCount: number;
+      entities: { label: string; typeKey: string }[];
+    };
   } | null;
   leaderOverallScore?: number | null;
   leaderSigned?: boolean | null;

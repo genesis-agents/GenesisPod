@@ -271,6 +271,12 @@
     "myAgentsManage": "Manage Agents"
   },
   "playground": {
+    "ontologyRef": {
+      "heading": "Knowledge ontology referenced",
+      "desc": "Planning referenced {{count}} related entities from the knowledge ontology",
+      "linksSuffix": " ({{count}} relations)",
+      "expand": "View referenced entities"
+    },
     "researchTeam": {
       "topicLabel": "Topic",
       "topicPlaceholder": "e.g. AI agents market 2026 Q2",
