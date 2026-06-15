@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 import type { MissionContext } from "../context/mission-context";
 import type { MissionDeps } from "../context/mission-deps";
 import { mapStepIdToFrontendStageId } from "../../api/contracts/step-id-mapping.contract";
@@ -43,6 +43,11 @@ import {
   RuntimeEnvironmentService,
 } from "@/modules/ai-harness/facade";
 import { FigureExtractorService } from "@/modules/ai-engine/facade";
+import {
+  OntologyService,
+  OntologyBuilderSkill,
+  ToolRegistry,
+} from "@/modules/ai-engine/facade";
 import { CreditsService } from "../../../../platform/credits/credits.service";
 import { PostmortemClassifierService } from "@/modules/ai-harness/facade";
 // ★ DI 注入 → runtime import（非 import type），见上文 emitDecoratorMetadata 说明。
@@ -104,6 +109,12 @@ export class MissionStageBindingsService extends BusinessTeamStageBindingsFramew
     private readonly postmortemClassifier: PostmortemClassifierService,
     // ★ C0/G1：终态写唯一入口，透进 CommonDeps 让 s11-persist 经 finalize 仲裁。
     private readonly lifecycleManager: MissionLifecycleManager,
+    // ★ Phase 2/3 (2026-06-15): 本体集成——@Optional 保持向后兼容（spec/test 无需提供）。
+    //   AiEngineModule 是 @Global，OntologyService/OntologyBuilderSkill/ToolRegistry
+    //   由 AiEngineKnowledgeModule/AiEngineToolsModule 全局提供，直接注入无需额外 import。
+    @Optional() private readonly ontologyService?: OntologyService,
+    @Optional() private readonly ontologyBuilderSkill?: OntologyBuilderSkill,
+    @Optional() private readonly toolRegistry?: ToolRegistry,
   ) {
     super(MissionStageBindingsService.name);
   }
@@ -161,6 +172,10 @@ export class MissionStageBindingsService extends BusinessTeamStageBindingsFramew
       log: this.log,
       emit: this.invoker.emitEvent.bind(this.invoker),
       lifecycle: this.invoker.emitLifecycle.bind(this.invoker),
+      // ★ Phase 2/3 (2026-06-15): 本体集成（@Optional，AiEngineModule @Global 提供）
+      ontologyService: this.ontologyService,
+      ontologyBuilderSkill: this.ontologyBuilderSkill,
+      toolRegistry: this.toolRegistry,
       // ★ 2026-05-06 (A-6): markStageDegraded — stage 内部软失败上报。
       //   stage 调用方显式传 stepId（PLAYGROUND_PIPELINE.steps[i].id），让前端按
       //   stepId 映射到 SystemStageId 后挂到对应 todo 的 narrativeLog 显示警告。

@@ -144,7 +144,7 @@ export class ReportOntologyFillService {
     const taskId = uuid();
     const kinds: BackfillSourceKind[] = opts.sourceKind
       ? [opts.sourceKind]
-      : ["topic-report", "team-mission", "kb-document"];
+      : ["topic-report", "team-mission", "kb-document", "playground-mission"];
 
     // Initialise task state — total is updated asynchronously once records are fetched
     const state: BackfillTaskState = {
@@ -336,6 +336,22 @@ export class ReportOntologyFillService {
       return rows.map((r) => ({ id: r.id, topicId: undefined }));
     }
 
+    // Agent Playground missions：用户维度（无议题），写入全局本体（topicId=null）。
+    if (kind === "playground-mission") {
+      const where: Record<string, unknown> = {
+        status: "completed",
+        userId: opts.userId,
+      };
+      if (opts.sourceId) where["id"] = opts.sourceId;
+
+      const rows = await this.prisma.agentPlaygroundMission.findMany({
+        where,
+        select: { id: true },
+        orderBy: { startedAt: "desc" },
+      });
+      return rows.map((r) => ({ id: r.id, topicId: undefined }));
+    }
+
     return [];
   }
 
@@ -378,6 +394,25 @@ export class ReportOntologyFillService {
         },
       });
       const text = row?.rawContent?.trim();
+      return text || null;
+    }
+
+    if (kind === "playground-mission") {
+      // 报告正文是结构化 JSON（v1 ResearchReport / v2 ReportArtifact）；本体抽取用
+      // 标题 + 主题概述 + 摘要这三段纯文本即可（含关键实体），避免解析 artifact 结构。
+      const row = await this.prisma.agentPlaygroundMission.findUnique({
+        where: { id },
+        select: {
+          reportTitle: true,
+          themeSummary: true,
+          reportSummary: true,
+        },
+      });
+      if (!row) return null;
+      const text = [row.reportTitle, row.themeSummary, row.reportSummary]
+        .filter((s): s is string => !!s && s.trim().length > 0)
+        .join("\n\n")
+        .trim();
       return text || null;
     }
 

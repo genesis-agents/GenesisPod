@@ -5,7 +5,8 @@ import { ApiPropertyOptional } from "@nestjs/swagger";
 export type BackfillSourceKind =
   | "topic-report"
   | "team-mission"
-  | "kb-document";
+  | "kb-document"
+  | "playground-mission";
 
 export class BackfillOntologyDto {
   /**
@@ -31,10 +32,10 @@ export class BackfillOntologyDto {
    * When omitted all three source kinds are run in sequence.
    */
   @IsOptional()
-  @IsIn(["topic-report", "team-mission", "kb-document"])
+  @IsIn(["topic-report", "team-mission", "kb-document", "playground-mission"])
   @ApiPropertyOptional({
     description: "来源类型（可选，不填则扫全部）",
-    enum: ["topic-report", "team-mission", "kb-document"],
+    enum: ["topic-report", "team-mission", "kb-document", "playground-mission"],
   })
   sourceKind?: BackfillSourceKind;
 }

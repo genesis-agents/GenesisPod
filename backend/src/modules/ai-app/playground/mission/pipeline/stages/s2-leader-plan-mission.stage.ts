@@ -15,6 +15,7 @@ import type {
   PlanPhaseCtx,
 } from "../../context/mission-context";
 import type { MissionDeps } from "../../context/mission-deps";
+import type { SubgraphResult } from "@/modules/ai-engine/facade";
 import { narrate } from "../../artifacts/narrative.util";
 import { runWithStageInstrumentation } from "@/modules/ai-harness/facade";
 
@@ -86,6 +87,30 @@ export async function runLeaderPlanStage(
         );
       }
 
+      // ★ Phase 3 (2026-06-15): 从知识本体查询与 topic 相关的背景知识，注入 Leader 规划
+      let priorKnowledge: string | undefined;
+      if (deps.ontologyService) {
+        try {
+          const topic = ctx.input?.topic ?? "";
+          if (topic) {
+            const subgraph =
+              await deps.ontologyService.searchRelevantSubgraph(topic);
+            if (subgraph.nodes.length > 0) {
+              priorKnowledge = formatSubgraphAsText(subgraph);
+              deps.log.log(
+                `[s2 ${missionId}] ontology subgraph: ${subgraph.nodes.length} nodes, ${subgraph.links.length} links → injected as priorKnowledge`,
+              );
+            }
+          }
+        } catch (err) {
+          deps.log.warn(
+            `[s2 ${missionId}] ontology searchRelevantSubgraph failed (non-fatal): ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        }
+      }
+
       // M0: leader.plan() 内部自动 emit lifecycle / appendLeaderJournal
       const planResult = await leader.plan({
         priorPostmortems: priorPostmortems.map((p) => ({
@@ -97,6 +122,7 @@ export async function runLeaderPlanStage(
           qualityScore: p.qualityScore,
           createdAt: p.createdAt.toISOString(),
         })),
+        priorKnowledge,
       });
 
       // ★ P1-D (2026-04-29): leader 返回空维度时必须 fail-fast
@@ -142,4 +168,45 @@ export async function runLeaderPlanStage(
       return ctx.plan as unknown as PlanResult;
     },
   );
+}
+
+/**
+ * 将本体子图格式化为可读的纯文本背景知识段落，供 Leader 规划时参考。
+ *
+ * 输出格式：
+ *   已知背景知识（来自知识本体）
+ *   实体：
+ *   - {label}（{typeKey}）[{key}: {val}, ...]
+ *   关系：
+ *   - {fromLabel} —[{linkTypeKey}]→ {toLabel}
+ */
+function formatSubgraphAsText(subgraph: SubgraphResult): string {
+  const lines: string[] = ["已知背景知识（来自知识本体）", "实体："];
+
+  const nodeById = new Map(subgraph.nodes.map((n) => [n.id, n]));
+
+  for (const node of subgraph.nodes) {
+    const props = node.properties ?? {};
+    const propStr = Object.entries(props)
+      .filter(([, v]) => v !== null && v !== undefined && v !== "")
+      .slice(0, 3)
+      .map(([k, v]) => `${k}: ${String(v).slice(0, 60)}`)
+      .join(", ");
+    lines.push(
+      `- ${node.label}（${node.typeKey}）${propStr ? `[${propStr}]` : ""}`,
+    );
+  }
+
+  if (subgraph.links.length > 0) {
+    lines.push("关系：");
+    for (const link of subgraph.links) {
+      const fromNode = nodeById.get(link.fromId);
+      const toNode = nodeById.get(link.toId);
+      const fromLabel = fromNode?.label ?? link.fromId;
+      const toLabel = toNode?.label ?? link.toId;
+      lines.push(`- ${fromLabel} —[${link.linkTypeKey}]→ ${toLabel}`);
+    }
+  }
+
+  return lines.join("\n");
 }

@@ -1212,6 +1212,82 @@ export class OntologyService {
     return this.mapTopicSetting(row);
   }
 
+  // ─── Text-Based Subgraph Search ───────────────────────────────────────────
+
+  /**
+   * Search for ontology nodes relevant to a free-text query.
+   *
+   * Flow:
+   *   1. Tokenise query into keywords (split on whitespace/punctuation, drop
+   *      tokens shorter than 2 characters, take top maxSeeds tokens).
+   *   2. Query ontology_objects.label with case-insensitive OR contains match.
+   *   3. Expand each seed node by one hop via findRelated(id, depth).
+   *   4. Merge all results, deduplicating nodes and links by id.
+   *
+   * Never throws — any failure returns an empty subgraph and logs a warning.
+   */
+  async searchRelevantSubgraph(
+    query: string,
+    opts?: { maxSeeds?: number; depth?: number },
+  ): Promise<SubgraphResult> {
+    try {
+      const maxSeeds = opts?.maxSeeds ?? 12;
+      const depth = opts?.depth ?? 1;
+
+      // Step 1: tokenise
+      const keywords = query
+        .split(/[\s\p{P}]+/u)
+        .map((t) => t.trim())
+        .filter((t) => t.length >= 2)
+        .slice(0, maxSeeds);
+
+      if (keywords.length === 0) {
+        return { nodes: [], links: [] };
+      }
+
+      // Step 2: find seed nodes by label (case-insensitive OR)
+      const seeds = await this.prisma.ontologyObject.findMany({
+        where: {
+          OR: keywords.map((kw) => ({
+            label: { contains: kw, mode: "insensitive" as const },
+          })),
+        },
+        orderBy: [{ confidence: "desc" }, { updatedAt: "desc" }],
+        take: maxSeeds,
+      });
+
+      if (seeds.length === 0) {
+        return { nodes: [], links: [] };
+      }
+
+      // Step 3: expand each seed by `depth` hops
+      const nodeMap = new Map<string, SubgraphResult["nodes"][number]>();
+      const linkMap = new Map<string, SubgraphResult["links"][number]>();
+
+      for (const seed of seeds) {
+        const expanded = await this.findRelated(seed.id, depth);
+        for (const n of expanded.nodes) {
+          if (!nodeMap.has(n.id)) nodeMap.set(n.id, n);
+        }
+        for (const l of expanded.links) {
+          if (!linkMap.has(l.id)) linkMap.set(l.id, l);
+        }
+      }
+
+      return {
+        nodes: Array.from(nodeMap.values()),
+        links: Array.from(linkMap.values()),
+      };
+    } catch (err) {
+      this.logger.warn(
+        `[searchRelevantSubgraph] failed (non-fatal), returning empty: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return { nodes: [], links: [] };
+    }
+  }
+
   // ─── Private Helpers ───────────────────────────────────────────────────────
 
   /**

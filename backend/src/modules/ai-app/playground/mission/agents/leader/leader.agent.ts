@@ -130,6 +130,8 @@ const Input = z.discriminatedUnion("phase", [
         }),
       )
       .default([]),
+    /** ★ Phase 3 (2026-06-15): 来自知识本体、与 topic 相关的已沉淀背景知识（s2 注入，预格式化文本）。 */
+    priorKnowledge: z.string().optional(),
   }),
   z.object({
     phase: z.literal("assess-research"),
