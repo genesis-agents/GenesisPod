@@ -23,6 +23,8 @@ import {
 //   防御 LLM 产出的 markdown 含 <script> / onerror / onclick 等 XSS 向量；
 //   KaTeX 渲染所需的 <math>/<semantics>/<mrow>... 元素由 katexAwareSchema 显式放行。
 import { katexAwareSchema } from './artifact-markdown.utils';
+// ★ 2026-06-15: 渲染前把 run-on 散文段切成自然段（治存量；后端 sanitizer 治本）
+import { segmentRunOnParagraphs } from '@/lib/markdown/segmentParagraphs';
 
 interface Props {
   markdown: string;
@@ -424,7 +426,7 @@ function ArtifactMarkdownInner({
   const cleaned = useMemo(
     () =>
       renumberHeadings(
-        stripProseBullets(preprocessLatex(markdown)),
+        stripProseBullets(segmentRunOnParagraphs(preprocessLatex(markdown))),
         dimNames,
         dimStartIndex
       ),
