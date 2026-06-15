@@ -209,10 +209,8 @@ describe("DynamicThumbnailService", () => {
       );
     });
 
-    it("falls back to arXiv preview image when PDF thumbnail returns null", async () => {
+    it("returns null (clean icon) when PDF render fails — no og:image/figure fallback", async () => {
       mockPdfThumbnailService.generateThumbnail.mockResolvedValueOnce(null);
-      // arXiv preview URL HEAD check succeeds
-      mockedAxios.head.mockResolvedValueOnce({ status: 200 });
 
       const result = await service.getThumbnailUrl(
         "https://arxiv.org/abs/2401.00001",
@@ -220,36 +218,17 @@ describe("DynamicThumbnailService", () => {
         "https://arxiv.org/pdf/2401.00001.pdf",
         "resource-456",
       );
-      expect(result).toBe(
-        "https://browse.arxiv.org/html/2401.00001/x-png/page_001.png",
-      );
+
+      // 论文不再回退 og:image / arXiv figure（避免缓存 arxiv-logo / 破图垃圾）
+      expect(result).toBeNull();
+      expect(mockedAxios.head).not.toHaveBeenCalled();
+      expect(mockedAxios.get).not.toHaveBeenCalled();
     });
 
-    it("falls back to og:image from arXiv abs page when preview not available", async () => {
-      mockPdfThumbnailService.generateThumbnail.mockResolvedValueOnce(null);
-      // arXiv preview HEAD fails
-      mockedAxios.head.mockRejectedValueOnce(new Error("not found"));
-      // arXiv abs page GET succeeds with og:image
-      mockedAxios.get.mockResolvedValueOnce({
-        data: buildOgHtml("https://arxiv.org/og-image.jpg"),
-      });
-
-      const result = await service.getThumbnailUrl(
-        "https://arxiv.org/abs/2401.00001",
-        "PAPER",
-        "https://arxiv.org/pdf/2401.00001.pdf",
-        "resource-789",
-      );
-      expect(result).toBe("https://arxiv.org/og-image.jpg");
-    });
-
-    it("returns null when all PAPER strategies fail", async () => {
+    it("returns null when PDF render throws", async () => {
       mockPdfThumbnailService.generateThumbnail.mockRejectedValueOnce(
         new Error("pdf fail"),
       );
-      // No arXiv URL, no og:image
-      mockedAxios.get.mockRejectedValueOnce(new Error("Network error"));
-
       const result = await service.getThumbnailUrl(
         "https://example.com/paper",
         "PAPER",
@@ -257,14 +236,14 @@ describe("DynamicThumbnailService", () => {
       expect(result).toBeNull();
     });
 
-    it("skips PDF thumbnail when pdfUrl is absent (non-arXiv source)", async () => {
-      // No pdfUrl and not arXiv → cannot derive a PDF URL, skip PDF thumbnail service
-      mockedAxios.get.mockRejectedValueOnce(new Error("fail"));
+    it("skips PDF thumbnail and returns null when pdfUrl absent (non-arXiv source)", async () => {
+      // No pdfUrl and not arXiv → cannot derive a PDF URL → null (icon), no HTTP fallback
       const result = await service.getThumbnailUrl(
         "https://example.com/paper",
         "PAPER",
       );
       expect(mockPdfThumbnailService.generateThumbnail).not.toHaveBeenCalled();
+      expect(mockedAxios.get).not.toHaveBeenCalled();
       expect(result).toBeNull();
     });
 
