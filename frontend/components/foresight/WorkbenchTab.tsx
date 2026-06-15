@@ -1,6 +1,6 @@
 'use client';
 
-import { Radar, Zap } from 'lucide-react';
+import { Compass, Radar, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import type {
@@ -23,8 +23,10 @@ interface WorkbenchTabProps {
   impactedConclusions: ForesightConclusion[];
   injecting: string | null;
   scanning: boolean;
+  scanningExplore: boolean;
   onInject: (signal: ForesightSignal) => void;
   onScanRadar: () => void;
+  onScanExplore: () => void;
   onOpenImport: () => void;
   onGoTab: (tab: string) => void;
   onSelectCard: (cardId: string) => void;
@@ -56,8 +58,10 @@ export function WorkbenchTab({
   impactedConclusions,
   injecting,
   scanning,
+  scanningExplore,
   onInject,
   onScanRadar,
+  onScanExplore,
   onOpenImport,
   onGoTab,
   onSelectCard,
@@ -126,6 +130,15 @@ export function WorkbenchTab({
             >
               <Radar className="h-3.5 w-3.5" />
               {scanning ? '扫描中…' : '扫描雷达信号'}
+            </button>
+            <button
+              type="button"
+              onClick={onScanExplore}
+              disabled={scanningExplore}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-violet-300 bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-50"
+            >
+              <Compass className="h-3.5 w-3.5" />
+              {scanningExplore ? '扫描中…' : '扫描前沿库'}
             </button>
             <button
               type="button"

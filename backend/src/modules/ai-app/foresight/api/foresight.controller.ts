@@ -134,6 +134,15 @@ export class ForesightController {
     return this.intake.scanRadar(this.userId(req), topicId);
   }
 
+  /**
+   * P4: 前沿库扫描 — 手动触发（刻意不进每日自动扫描），拉前沿库近期资源与本主题
+   * falsifier 匹配，命中建候选信号。由前端按钮调用，避免每日批量 LLM 浪费资源。
+   */
+  @Post("topics/:id/intake/explore-scan")
+  scanExplore(@Req() req: AuthenticatedRequest, @Param("id") topicId: string) {
+    return this.intake.scanExplore(this.userId(req), topicId);
+  }
+
   /** P3: 可导入的已完成洞察 mission 列表 */
   @Get("intake/missions")
   listInsightMissions(@Req() req: AuthenticatedRequest) {

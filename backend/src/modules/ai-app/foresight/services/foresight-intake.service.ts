@@ -73,6 +73,52 @@ export class ForesightIntakeService {
     /** 只看最近 N 天的雷达信号（手动扫描默认全窗口 30 天；每日自动扫描传 3 减少重复输入） */
     sinceDays?: number,
   ): Promise<{ scanned: number; matched: number; created: number }> {
+    return this.matchSignalsFromSource(userId, topicId, {
+      sourceId: "AI_RADAR",
+      sourceNoun: "雷达",
+      sourceOrg: "AI 雷达",
+      missingMsg: "雷达内容源未注册（后端未启用 RadarModule）",
+      sinceDays,
+    });
+  }
+
+  // ── P4: 前沿库信号扫描（2026-06-14）─────────────────────────────────────
+  //
+  // 与 scanRadar 同一条供料范式（前沿库资源 → 假设卡 falsifier LLM 匹配 → 候选信号），
+  // 但**只手动触发**：刻意不接入每日自动扫描调度器，避免每天对全部主题批量调 LLM
+  // 浪费资源。触发方式 = 前端按钮（controller 的 explore-scan 端点）。
+
+  async scanExplore(
+    userId: string,
+    topicId: string,
+    sinceDays?: number,
+  ): Promise<{ scanned: number; matched: number; created: number }> {
+    return this.matchSignalsFromSource(userId, topicId, {
+      sourceId: "AI_EXPLORE",
+      sourceNoun: "前沿库",
+      sourceOrg: "AI 前沿库",
+      missingMsg: "前沿库内容源未注册（后端未启用 ExploreModule）",
+      sinceDays,
+    });
+  }
+
+  /**
+   * 通用「内容源信号 → 假设卡 falsifier 匹配 → 候选信号」匹配器（radar / explore 共用）。
+   * 走 engine ContentSourceRegistry 取源（不直接 import 兄弟 app）；单次 1 个 deterministic
+   * LLM 调用，命中建候选 ForesightSignal（仍需人过依据档案后注入 —— 人是守门员）。
+   */
+  private async matchSignalsFromSource(
+    userId: string,
+    topicId: string,
+    opts: {
+      sourceId: string;
+      sourceNoun: string;
+      sourceOrg: string;
+      missingMsg: string;
+      sinceDays?: number;
+    },
+  ): Promise<{ scanned: number; matched: number; created: number }> {
+    const { sourceId, sourceNoun, sourceOrg, missingMsg, sinceDays } = opts;
     const topic = await this.requireTopic(userId, topicId);
     const cards = await this.prisma.foresightCard.findMany({
       where: { topicId },
@@ -96,13 +142,11 @@ export class ForesightIntakeService {
       );
     }
 
-    const radar = this.registry.get("AI_RADAR");
-    if (!radar) {
-      throw new ServiceUnavailableException(
-        "雷达内容源未注册（后端未启用 RadarModule）",
-      );
+    const source = this.registry.get(sourceId);
+    if (!source) {
+      throw new ServiceUnavailableException(missingMsg);
     }
-    const { items } = await radar.listItems(userId, {
+    const { items } = await source.listItems(userId, {
       limit: 30,
       ...(sinceDays
         ? {
@@ -120,7 +164,7 @@ export class ForesightIntakeService {
     }
 
     const prompt = [
-      `你是战略洞察系统的信号匹配器。下面是「${topic.name}」主题的假设卡证伪条件清单，以及用户雷达最近采集的资讯信号。`,
+      `你是战略洞察系统的信号匹配器。下面是「${topic.name}」主题的假设卡证伪条件清单，以及用户${sourceNoun}最近采集的资讯信号。`,
       `任务：判断每条资讯是否命中某条预登记的证伪/监测条件。只有语义上确实构成该条件的证据（或强烈迹象）才算命中——主题相关但不构成条件命中的不算。`,
       ``,
       `## 假设卡证伪条件`,
@@ -129,7 +173,7 @@ export class ForesightIntakeService {
           `- ${c.cardKey}「${c.title}」: ${c.falsifiers.map((f, i) => `[${i}] ${f}`).join("； ")}`,
       ),
       ``,
-      `## 雷达信号（index 从 0 开始）`,
+      `## ${sourceNoun}信号（index 从 0 开始）`,
       ...items.map(
         (it, idx) =>
           `[${idx}] ${it.title}${it.preview ? ` — ${it.preview.slice(0, 160)}` : ""}`,
@@ -204,7 +248,7 @@ export class ForesightIntakeService {
             observed: item.preview?.slice(0, 200) ?? item.title,
             sources: [
               {
-                org: "AI 雷达",
+                org: sourceOrg,
                 title: item.title,
                 type: "report",
                 url: "",
@@ -218,7 +262,7 @@ export class ForesightIntakeService {
     }
 
     this.logger.log(
-      `foresight radar-scan: topic=${topicId} scanned=${items.length} matched=${matches.length} created=${created}`,
+      `foresight signal-scan[${sourceId}]: topic=${topicId} scanned=${items.length} matched=${matches.length} created=${created}`,
     );
     return { scanned: items.length, matched: matches.length, created };
   }

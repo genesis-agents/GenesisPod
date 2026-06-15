@@ -31,6 +31,7 @@ import {
   injectSignal,
   resolveReview,
   scanRadar,
+  scanExplore,
   seedDemo,
   type ForesightOverview,
   type ForesightSignal,
@@ -80,6 +81,7 @@ export function ForesightView() {
   const [createTopicOpen, setCreateTopicOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [scanningExplore, setScanningExplore] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   const loadTopics = useCallback(async (): Promise<ForesightTopic[]> => {
@@ -229,6 +231,26 @@ export function ForesightView() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setScanning(false);
+    }
+  }, [topicId, reload]);
+
+  const handleScanExplore = useCallback(async () => {
+    if (!topicId) return;
+    setScanningExplore(true);
+    setNotice(null);
+    setError(null);
+    try {
+      const res = await scanExplore(topicId);
+      await reload();
+      setNotice(
+        res.scanned === 0
+          ? '前沿库没有可扫描的近期资源 — 先在「AI 探索」收藏与主题相关的资料'
+          : `前沿库扫描完成：候选 ${res.scanned} 条 · 命中 falsifier ${res.matched} 条 · 新建信号 ${res.created} 条${res.created === 0 ? '（无新命中或已存在）' : '，见信号收件箱'}`
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setScanningExplore(false);
     }
   }, [topicId, reload]);
 
@@ -548,8 +570,10 @@ export function ForesightView() {
                 impactedConclusions={impactedConclusions}
                 injecting={injecting}
                 scanning={scanning}
+                scanningExplore={scanningExplore}
                 onInject={(s) => void handleInject(s)}
                 onScanRadar={() => void handleScanRadar()}
+                onScanExplore={() => void handleScanExplore()}
                 onOpenImport={() => setImportOpen(true)}
                 onGoTab={setTab}
                 onSelectCard={selectCard}
