@@ -32,6 +32,7 @@ import {
   type SanitizeRule,
   type SanitizeRuleApplied,
 } from "./markdown-sanitizer.types";
+import { segmentRunOnParagraphs } from "./paragraph-segmenter.util";
 
 // Re-export for facade consumers convenience（与 .types.ts 同一常量，单一源）
 export { MARKDOWN_SANITIZER_VERSION } from "./markdown-sanitizer.types";
@@ -143,6 +144,11 @@ export function sanitizeMarkdownBody(
 
   // 6. 状态机扫描 — fence 配对 + 顶级 heading 处理 + blockquote fence 修复 + TOC 移除
   body = scanLines(body, opts, inc);
+
+  // 6.5 run-on 散文段切分（2026-06-15）：把「超长、句末相接、无段落空行」的纯散文
+  //     按句切成自然段，与其他正常分段章节观感一致。fence/列表/表格/标题/图占位/数学块
+  //     已在 segmenter 内保护跳过。放在 \n{3,} 折叠前，让切分产生的空行由步骤 7 规整。
+  body = segmentRunOnParagraphs(body, () => inc("paragraph-segmented"));
 
   // 7. 折叠 ≥3 个 \n 为 \n\n（trailing 空白规整）
   body = body.replace(/\n{3,}/g, "\n\n").replace(/^[ \t]+\n/gm, "\n");
@@ -327,5 +333,7 @@ function severityOf(rule: SanitizeRule): "low" | "medium" | "high" {
     case "figure-references-tag-stripped":
     case "figure-tag-stripped":
       return "medium"; // LLM 写错图引用契约，应被 chapter-writer prompt + reviewer 拦
+    case "paragraph-segmented":
+      return "low"; // 纯排版规整，无内容/安全影响
   }
 }

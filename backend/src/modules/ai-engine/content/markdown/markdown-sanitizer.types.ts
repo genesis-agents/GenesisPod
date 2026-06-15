@@ -17,7 +17,7 @@
  *   - F18 prompt injection redaction
  */
 
-export const MARKDOWN_SANITIZER_VERSION = "1.0.0";
+export const MARKDOWN_SANITIZER_VERSION = "1.1.0";
 
 export interface SanitizeOptions {
   /**
@@ -51,7 +51,9 @@ export type SanitizeRule =
   //   主路径 (StructuralReportAssembler) 此前 0 figure 规则，4 类垃圾透传到 fullMarkdown
   | "inline-fig-image-stripped" // ![FIG-N](xxx)
   | "figure-references-tag-stripped" // <figureReferences>...</figureReferences>
-  | "figure-tag-stripped"; // <figure>...</figure>
+  | "figure-tag-stripped" // <figure>...</figure>
+  // ★ 2026-06-15: run-on 散文段（>240 字、句末相接、无段落空行）按句切成自然段
+  | "paragraph-segmented";
 
 export interface SanitizeRuleApplied {
   rule: SanitizeRule;
