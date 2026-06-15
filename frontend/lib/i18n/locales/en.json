@@ -126,6 +126,8 @@
     "stop": "Stop",
     "filter": "Filter",
     "refresh": "Refresh",
+    "fullscreen": "Fullscreen",
+    "exitFullscreen": "Exit fullscreen",
     "back": "Back",
     "next": "Next",
     "previous": "Previous",

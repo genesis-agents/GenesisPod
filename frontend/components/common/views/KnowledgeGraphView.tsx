@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Maximize2, Minimize2 } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 import * as d3 from 'd3';
 import type { SimulationNodeDatum, SimulationLinkDatum, D3DragEvent } from 'd3';
 
@@ -79,11 +81,68 @@ export default function KnowledgeGraphView({
   onNodeSelect,
   nodeColor,
 }: KnowledgeGraphViewProps) {
+  const { t } = useTranslation();
   const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [layout, setLayout] = useState<
     'force' | 'circular' | 'hierarchical' | 'chain'
   >(defaultLayout);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  // 容器尺寸变化（含进/出全屏）时递增，驱动 d3 effect 按新尺寸重排
+  const [resizeTick, setResizeTick] = useState(0);
+
+  // 全屏切换（浏览器原生 Fullscreen API，真·全屏且无需自写浮层）
+  const toggleFullscreen = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const action = document.fullscreenElement
+      ? document.exitFullscreen?.()
+      : el.requestFullscreen?.();
+    // 浏览器可能拒绝（无用户手势 / 被策略禁用）——吞掉拒绝避免未处理 rejection
+    if (action) void action.catch(() => undefined);
+  }, []);
+
+  // 同步全屏状态（含用户按 ESC 退出）
+  useEffect(() => {
+    const onFsChange = () => {
+      setIsFullscreen(document.fullscreenElement === containerRef.current);
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+
+  // 监听画布尺寸变化（窗口/面板/全屏），debounce 后触发重排
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const lastSize = { w: 0, h: 0 };
+    let first = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const ro = new ResizeObserver((entries) => {
+      const cr = entries[0]?.contentRect;
+      if (!cr) return;
+      const w = Math.round(cr.width);
+      const h = Math.round(cr.height);
+      // 首次回调只记录基线，不触发重排（避免挂载即重跑一次）
+      if (first) {
+        first = false;
+        lastSize.w = w;
+        lastSize.h = h;
+        return;
+      }
+      if (Math.abs(w - lastSize.w) < 2 && Math.abs(h - lastSize.h) < 2) return;
+      lastSize.w = w;
+      lastSize.h = h;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => setResizeTick((v) => v + 1), 250);
+    });
+    ro.observe(el);
+    return () => {
+      if (timer) clearTimeout(timer);
+      ro.disconnect();
+    };
+  }, []);
 
   // ★ 把回调放进 ref，避免它们进 useEffect 依赖：调用方常传内联函数（每次渲染新引用），
   //   若入依赖会导致力导向反复重启 → 持续闪烁、无法选中。
@@ -531,7 +590,7 @@ export default function KnowledgeGraphView({
       cancelAnimationFrame(raf);
       simulation.stop();
     };
-  }, [nodes, edges, layout]);
+  }, [nodes, edges, layout, resizeTick]);
 
   // 详情面板标题：覆盖全部已知类型 + 兜底（含产业链 SEGMENT/COMPANY/PRODUCT，
   // 旧版只列了 7 种 library 类型，产业链节点点开标题为空白）。
@@ -604,7 +663,7 @@ export default function KnowledgeGraphView({
   };
 
   return (
-    <div className="flex h-full flex-col bg-gray-50">
+    <div ref={containerRef} className="flex h-full flex-col bg-gray-50">
       {/* 顶部工具栏 */}
       <div className="border-b border-gray-200 bg-white px-6 py-4 shadow-sm">
         <div className="flex items-center justify-between">
@@ -681,6 +740,29 @@ export default function KnowledgeGraphView({
                 );
               })}
             </div>
+
+            {/* 全屏切换 */}
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              title={
+                isFullscreen
+                  ? t('common.exitFullscreen')
+                  : t('common.fullscreen')
+              }
+              aria-label={
+                isFullscreen
+                  ? t('common.exitFullscreen')
+                  : t('common.fullscreen')
+              }
+              className="rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
+            >
+              {isFullscreen ? (
+                <Minimize2 className="h-4 w-4" />
+              ) : (
+                <Maximize2 className="h-4 w-4" />
+              )}
+            </button>
           </div>
         </div>
 
