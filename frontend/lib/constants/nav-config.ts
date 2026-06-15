@@ -67,23 +67,28 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   // 我的工作台：我的前沿库（前沿信息感知）/ 我的知识库 / 我的专家团（专家花名册 + 专家任务双 Tab）
   {
-    label: '我的工作台',
+    labelKey: 'nav.sections.myWorkspace',
     items: [
       {
         href: '/explore',
-        label: '我的前沿库',
+        labelKey: 'nav.myExplore',
         Icon: Telescope,
         moduleKey: 'explore',
         forceReload: true,
       },
       {
         href: '/library',
-        label: '我的知识库',
+        labelKey: 'nav.myLibrary',
         Icon: BookOpen,
         moduleKey: 'library',
         forceReload: true,
       },
-      { href: '/agents', label: '我的专家团', Icon: Users, matchPrefix: true },
+      {
+        href: '/agents',
+        labelKey: 'nav.myExperts',
+        Icon: Users,
+        matchPrefix: true,
+      },
     ],
   },
   // 深度洞察：雷达（信号流）→ 洞察（深度生成）→ 前瞻（判断资产）
@@ -121,11 +126,11 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   // 发现更多（原「AI 广场」，置底）：去专家市场招募
   {
-    label: '发现更多',
+    labelKey: 'nav.sections.discoverMore',
     items: [
       {
         href: '/marketplace',
-        label: '专家市场',
+        labelKey: 'nav.expertMarket',
         Icon: Store,
         moduleKey: 'market',
         matchPrefix: true,
