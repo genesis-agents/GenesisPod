@@ -162,6 +162,10 @@ export class WebSearchTool extends BaseTool<WebSearchInput, WebSearchOutput> {
   readonly category: ToolCategory = "information";
   readonly tags = ["web", "search", "general"];
   readonly name = "网络搜索";
+  // ★ 2026-06-15: 顶层调用时由 tool-invoker 据此硬超时兜底，防底层 provider HTTP
+  //   (timeout 30s) 跨 provider/key 回退串行累加跑飞。设 25s（< provider 30s，留余量）。
+  //   （此前仅有注释声称"15 秒超时"但无属性 → 顶层 web-search 实际无界。）
+  readonly defaultTimeout = 25000;
   readonly description =
     "搜索互联网获取最新信息。适用于需要实时数据、新闻、或需要验证的信息。返回搜索结果列表，包含标题、URL和摘要。";
 
@@ -255,7 +259,7 @@ export class WebSearchTool extends BaseTool<WebSearchInput, WebSearchOutput> {
 
   constructor(private readonly searchService: SearchService) {
     super();
-    // defaultTimeout set in class property // 15 秒超时
+    // defaultTimeout（25s）见上方类属性
   }
 
   validateInput(input: WebSearchInput) {

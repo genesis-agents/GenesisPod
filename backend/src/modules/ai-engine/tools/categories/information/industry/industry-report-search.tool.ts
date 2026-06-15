@@ -101,7 +101,13 @@ export class IndustryReportSearchTool extends BaseTool<
     "在精选行业研报源（如 a16z / McKinsey / BCG / SemiAnalysis / Brookings 等）检索行业洞察与趋势报告。来源清单与信誉评分由管理员在 tool_configs 中配置。适合商业 / 战略 / 行业分析 / 趋势研究类维度。";
   readonly category: ToolCategory = "information";
   readonly tags = ["industry", "report", "research", "analyst", "business"];
-  readonly defaultTimeout = 20000;
+  // 本工具内部还要嵌套调一次 web-search（其 provider HTTP 超时本身就达 30s），
+  // 故给足预算；嵌套调用另设更短子预算（见 NESTED_WEB_SEARCH_TIMEOUT_MS）并优雅降级，
+  // 确保即便底层搜索慢也能在本预算内返回，而不是被 tool-invoker 硬超时杀掉（"工具故障"）。
+  readonly defaultTimeout = 30000;
+
+  /** 嵌套 web-search 子预算（< defaultTimeout，留处理余量）；超时降级为空，任务继续。 */
+  private static readonly NESTED_WEB_SEARCH_TIMEOUT_MS = 26000;
 
   readonly inputSchema: JSONSchema = {
     type: "object",
@@ -200,10 +206,42 @@ export class IndustryReportSearchTool extends BaseTool<
         };
       }
 
-      const result = await webSearchTool.execute(
-        { query: siteQuery, numResults: maxResults, timeRange },
-        context,
-      );
+      // 嵌套 web-search 走子预算 race：底层 provider HTTP 超时达 30s，且会跨
+      // provider/key 回退串行累加，可能远超本工具预算。这里在 NESTED_WEB_SEARCH_TIMEOUT_MS
+      // 处优雅降级（返回 success:false + 空，任务继续），而非让 tool-invoker 把整个工具
+      // 硬超时杀掉（截图里的"工具故障 timed out after 20000ms"）。
+      const execWrapped = webSearchTool
+        .execute(
+          { query: siteQuery, numResults: maxResults, timeRange },
+          context,
+        )
+        .then((r) => ({ timedOut: false as const, result: r }));
+      // race 由超时胜出后，execWrapped 仍可能后续 reject —— 挂 catch 防 unhandled rejection
+      execWrapped.catch(() => undefined);
+      let nestedTimer: ReturnType<typeof setTimeout> | undefined;
+      const raced = await Promise.race([
+        execWrapped,
+        new Promise<{ timedOut: true }>((resolve) => {
+          nestedTimer = setTimeout(
+            () => resolve({ timedOut: true }),
+            IndustryReportSearchTool.NESTED_WEB_SEARCH_TIMEOUT_MS,
+          );
+        }),
+      ]);
+      if (nestedTimer) clearTimeout(nestedTimer);
+
+      if (raced.timedOut) {
+        this.logger.warn(
+          `[doExecute] nested web-search exceeded ${IndustryReportSearchTool.NESTED_WEB_SEARCH_TIMEOUT_MS}ms; degrading to empty (industry sources slow)`,
+        );
+        return {
+          success: false,
+          items: [],
+          sourcesQueried: top5.length,
+          error: `行业研报检索超时：内部 web-search 超过 ${IndustryReportSearchTool.NESTED_WEB_SEARCH_TIMEOUT_MS}ms 未返回（来源检索慢，已降级为空，任务继续）`,
+        };
+      }
+      const result = raced.result;
 
       if (!result.success || !result.data) {
         return {
