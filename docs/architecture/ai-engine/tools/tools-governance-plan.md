@@ -1,6 +1,6 @@
 # AI 工具系统梳理 + 治理改造方案
 
-> 状态:**P0 止血 + P1-1(乙)已执行**(分支 `fix/tools-disable-stub-tools`);其余 P1/P2 待确认
+> 状态:**P0 止血 + P1-1(乙)+ P1-2(命名/归类)已执行并合入 main**;其余 P1/P2 待确认
 > 日期:2026-06-14
 > 范围:`ai-engine/tools/` 全部内置工具 + `ai-app` 动态注册工具 + `ai-harness/memory` 工具
 > 方法:逐文件 Read `execute()/doExecute()` 实现核实,非凭命名推断
@@ -33,6 +33,13 @@
 - 新增 7 测试(超时/abort/defaultTimeout 回落/校验/向后兼容)。验证:ToolInvoker 37 + loop 225 测试全过,type-check 0 err。
 - 未做(剩余 P1-1):甲/丙 的全量双路径合并(把 engine ToolPipeline 的限流/权限中间件也接进 agent 路径)仍待评估。
 
+**P1-2(命名统一 + 归类修正)已执行** — ontology 5 工具:
+
+- id 由点号驼峰 `ontology-upsert-object` 等 → kebab-case `ontology-upsert-object`/`-add-link`/`-set-confidence`/`-edit-property`/`-merge-objects`(全项目统一,且修掉 OpenAI function name 不允许点号的潜在隐患)。
+- `category` 由 `information` → `execution`(本质是写操作,非信息检索)。
+- 同步更新全部 14 处引用:provider map、4 团队配置(research/planning/topic-insights/debate)、writing-coordinator、ontology-builder.skill(requiredTools + callTool + 注释)、前端 admin tool-categories、roundtrip 测试注释。无需别名(引用全在代码,原子改名)。
+- 验证:type-check 0 · ontology 18/18 · verify:arch 473/473 · 工具单测 2469/2469。
+
 ---
 
 ## 1. 现状台账(76 工具 · 实读核实)
@@ -41,41 +48,41 @@
 
 ### 1.1 Information(信息获取,27 REAL / 5 PARTIAL)
 
-| 工具 id                | 子域      | 状态 | 数据来源                                        |
-| ---------------------- | --------- | ---- | ----------------------------------------------- |
-| web-search             | web       | ✅   | SearchService(Tavily/Serper 等)                 |
-| web-scraper            | web       | ✅   | SearchService.fetchUrlContent(HTTP)             |
-| data-fetch             | web       | ✅   | Prisma(resource/topic 表)                       |
-| rag-search             | knowledge | ✅   | RAGPipelineService(向量+RRF+Cohere rerank)      |
-| database-query         | knowledge | ✅   | Prisma `$queryRawUnsafe`                        |
-| arxiv-search           | academic  | ✅   | OpenAlex/arXiv API                              |
-| semantic-scholar       | academic  | ✅   | semanticscholar.org API(429 重试)               |
-| openalex-search        | academic  | ✅   | OpenAlex API(双通道鉴权+退避)                   |
-| pubmed                 | academic  | ✅   | NCBI esearch/esummary                           |
-| hackernews-search      | community | ✅   | Algolia HN API                                  |
-| github-search          | community | ✅   | GitHub REST API                                 |
-| finance-api            | data      | ✅   | Alpha Vantage API                               |
-| weather-api            | data      | ✅   | OpenWeatherMap API                              |
-| sec-edgar-search       | data      | ✅   | SEC 公共 API(节流)                              |
-| startuphub-startup     | data      | ✅   | StartupHub.ai API                               |
-| federal-register       | policy    | ✅   | FederalRegister.gov API                         |
-| congress-gov           | policy    | ✅   | Congress.gov v3 API                             |
-| bing-image-search      | image     | ✅   | Bing Image API v7                               |
-| google-image-search    | image     | ✅   | Google CSE API                                  |
-| serpapi-image-search   | image     | ✅   | SerpAPI                                         |
-| image-search           | image     | ✅   | 多引擎聚合(递归调上述三者)                      |
-| ontology.upsertObject  | knowledge | ✅   | OntologyService(**写操作**)                     |
-| ontology.addLink       | knowledge | ✅   | OntologyService(**写操作**)                     |
-| ontology.setConfidence | knowledge | ✅   | OntologyService(**写操作**)                     |
-| ontology.editProperty  | knowledge | ✅   | OntologyService(**写操作**)                     |
-| ontology.mergeObjects  | knowledge | ✅   | OntologyService(**写操作**)                     |
-| job-search             | jobs      | ✅   | 委托 web-search + site 过滤                     |
-| wiki-page-read         | knowledge | ⚠️   | 可选 KB_QUERY_AUGMENTOR,未绑定返回空            |
-| wiki-search            | knowledge | ⚠️   | 同上,未绑定返回空                               |
-| social-x-search        | social    | ⚠️   | 委托 web-search(无 X 官方 API)                  |
-| youtube-search         | video     | ⚠️   | 委托 web-search(无 YouTube Data API)            |
-| whitehouse-news        | policy    | ⚠️   | 抓 whitehouse.gov + Federal Register 兜底       |
-| industry-report-search | industry  | ⚠️   | web-search+Prisma,credibility 有硬编码 fallback |
+| 工具 id                 | 子域      | 状态 | 数据来源                                        |
+| ----------------------- | --------- | ---- | ----------------------------------------------- |
+| web-search              | web       | ✅   | SearchService(Tavily/Serper 等)                 |
+| web-scraper             | web       | ✅   | SearchService.fetchUrlContent(HTTP)             |
+| data-fetch              | web       | ✅   | Prisma(resource/topic 表)                       |
+| rag-search              | knowledge | ✅   | RAGPipelineService(向量+RRF+Cohere rerank)      |
+| database-query          | knowledge | ✅   | Prisma `$queryRawUnsafe`                        |
+| arxiv-search            | academic  | ✅   | OpenAlex/arXiv API                              |
+| semantic-scholar        | academic  | ✅   | semanticscholar.org API(429 重试)               |
+| openalex-search         | academic  | ✅   | OpenAlex API(双通道鉴权+退避)                   |
+| pubmed                  | academic  | ✅   | NCBI esearch/esummary                           |
+| hackernews-search       | community | ✅   | Algolia HN API                                  |
+| github-search           | community | ✅   | GitHub REST API                                 |
+| finance-api             | data      | ✅   | Alpha Vantage API                               |
+| weather-api             | data      | ✅   | OpenWeatherMap API                              |
+| sec-edgar-search        | data      | ✅   | SEC 公共 API(节流)                              |
+| startuphub-startup      | data      | ✅   | StartupHub.ai API                               |
+| federal-register        | policy    | ✅   | FederalRegister.gov API                         |
+| congress-gov            | policy    | ✅   | Congress.gov v3 API                             |
+| bing-image-search       | image     | ✅   | Bing Image API v7                               |
+| google-image-search     | image     | ✅   | Google CSE API                                  |
+| serpapi-image-search    | image     | ✅   | SerpAPI                                         |
+| image-search            | image     | ✅   | 多引擎聚合(递归调上述三者)                      |
+| ontology-upsert-object  | knowledge | ✅   | OntologyService(**写操作**)                     |
+| ontology-add-link       | knowledge | ✅   | OntologyService(**写操作**)                     |
+| ontology-set-confidence | knowledge | ✅   | OntologyService(**写操作**)                     |
+| ontology-edit-property  | knowledge | ✅   | OntologyService(**写操作**)                     |
+| ontology-merge-objects  | knowledge | ✅   | OntologyService(**写操作**)                     |
+| job-search              | jobs      | ✅   | 委托 web-search + site 过滤                     |
+| wiki-page-read          | knowledge | ⚠️   | 可选 KB_QUERY_AUGMENTOR,未绑定返回空            |
+| wiki-search             | knowledge | ⚠️   | 同上,未绑定返回空                               |
+| social-x-search         | social    | ⚠️   | 委托 web-search(无 X 官方 API)                  |
+| youtube-search          | video     | ⚠️   | 委托 web-search(无 YouTube Data API)            |
+| whitehouse-news         | policy    | ⚠️   | 抓 whitehouse.gov + Federal Register 兜底       |
+| industry-report-search  | industry  | ⚠️   | web-search+Prisma,credibility 有硬编码 fallback |
 
 ### 1.2 Generation(生成,4 REAL / 1 PARTIAL / 1 STUB)
 
@@ -213,7 +220,7 @@
 
 **C2 · 命名不统一**:
 
-- ontology 用点号驼峰 `ontology.upsertObject`,全项目其余 kebab-case → 无法统一 regex/分组。
+- ontology 用点号驼峰 `ontology-upsert-object`,全项目其余 kebab-case → 无法统一 regex/分组。
 - `pubmed`(缺 `-search`)、`startuphub-startup`(冗余)、`xhs-publish`(2 段)vs `wechat-mp-publish`(3 段)、图片搜索 `image-search`(聚合器)vs `bing-image-search`(provider 前缀)前后缀不一致。
 
 **C3 · 分类语义错位**:5 个 ontology 工具是**写操作**(`sideEffect: idempotent`)却归 `information`(语义=读)。应归 `execution` 或独立 knowledge-write。

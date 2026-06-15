@@ -458,8 +458,8 @@ export class WritingAgentCoordinator {
       availableTools: [
         "text-generation",
         "rag-search",
-        "ontology.upsertObject",
-        "ontology.addLink",
+        "ontology-upsert-object",
+        "ontology-add-link",
       ],
       constraintProfile: {
         cost: {

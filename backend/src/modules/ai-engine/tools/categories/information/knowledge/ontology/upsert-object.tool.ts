@@ -60,11 +60,11 @@ export class OntologyUpsertObjectTool extends BaseTool<
 > {
   private readonly logger = new Logger(OntologyUpsertObjectTool.name);
 
-  readonly id = "ontology.upsertObject";
+  readonly id = "ontology-upsert-object";
   readonly name = "本体节点写入";
   readonly description =
     "在知识本体图谱中幂等写入（创建或更新）一个节点（OntologyObject）。相同 (topicId, typeKey, label) 三元组时合并别名与属性，不重复创建。适用于从文档、报告或 Agent 推断中积累结构化知识节点。";
-  readonly category: ToolCategory = "information";
+  readonly category: ToolCategory = "execution";
   readonly tags = ["ontology", "knowledge", "graph", "write", "upsert"];
   readonly sideEffect = "idempotent" as const;
   readonly requiredEntitlements = ["ontology.edit"] as const;

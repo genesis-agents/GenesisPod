@@ -5,7 +5,7 @@
  *
  * Phase A (Mission A semantic): OntologyBuilderSkill receives a text passage.
  *   Mocked LLM returns 2 entities + 1 relation. Skill writes them via the
- *   ontology.upsertObject / ontology.addLink tools -> OntologyService -> in-memory
+ *   ontology-upsert-object / ontology-add-link tools -> OntologyService -> in-memory
  *   Prisma mock. Asserts: OntologyObject/Link/Edit rows persisted.
  *
  * Phase B (Mission B semantic): OntologyService.querySubgraphByTopic() reads the
