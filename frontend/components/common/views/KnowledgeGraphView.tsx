@@ -240,12 +240,27 @@ export default function KnowledgeGraphView({
     let simulation: d3.Simulation<GraphNode, GraphLink>;
 
     if (layout === 'force') {
+      // ★ 切回力导向前必须清掉 fx/fy：circular/chain/hierarchical 会把节点钉死
+      //   （node.fx/fy = 固定坐标），不清的话力导向模拟动不了 → 切了"没反应"。
+      nodes.forEach((node) => {
+        node.fx = null;
+        node.fy = null;
+      });
+      // 防御：forceLink 遇到指向集合外节点的边会抛 "missing: <id>"（且只有力导向用
+      //   forceLink）。本组件被多处复用（mission 图 / 产业链），调用方未必保证边两端都在
+      //   节点集内 → 只喂两端都存在的边，避免整图崩溃。
+      const validNodeIds = new Set(nodes.map((n) => n.id));
+      const linkEdges = edges.filter((e) => {
+        const s = typeof e.source === 'string' ? e.source : e.source.id;
+        const t = typeof e.target === 'string' ? e.target : e.target.id;
+        return validNodeIds.has(s) && validNodeIds.has(t);
+      });
       simulation = d3
         .forceSimulation(nodes)
         .force(
           'link',
           d3
-            .forceLink<GraphNode, GraphLink>(edges)
+            .forceLink<GraphNode, GraphLink>(linkEdges)
             .id((d) => d.id)
             .distance(100)
         )
