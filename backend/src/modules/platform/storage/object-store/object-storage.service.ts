@@ -210,13 +210,15 @@ export class ObjectStorageService {
    */
   isPresignedUrlExpiringSoon(url: string): boolean {
     try {
+      const urlObj = new URL(url);
+      // 仅对象存储预签名 URL 需要续签；解析 hostname 比对，避免 URL 子串误判。
+      const host = urlObj.hostname.toLowerCase();
       if (
-        !url.includes("r2.cloudflarestorage.com") &&
-        !url.includes("backblazeb2.com")
+        !host.endsWith(".r2.cloudflarestorage.com") &&
+        !host.endsWith(".backblazeb2.com")
       ) {
         return false;
       }
-      const urlObj = new URL(url);
       const amzDate = urlObj.searchParams.get("X-Amz-Date");
       const amzExpires = urlObj.searchParams.get("X-Amz-Expires");
       if (!amzDate || !amzExpires) {
