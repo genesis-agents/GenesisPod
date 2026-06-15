@@ -23,11 +23,15 @@ import type { MissionDeps } from "../../context/mission-deps";
 import { extractSubstantiveSectionText } from "../../artifacts/report-artifact-sections.util";
 import type { MissionTerminalIntent } from "@/modules/ai-harness/facade";
 import type { PlaygroundTerminalExtra } from "../../lifecycle/mission-store.service";
+import type { SkillContext } from "@/modules/ai-engine/facade";
 
 // ★ 假完成防御：chapter content guard 阈值常量
 const MIN_CHAPTER_CHARS = 500; // 单章最小内容长度（字符数）
 const MIN_COVERAGE = 0.5; // 至少 50% chapter 有内容才算完成
 const MIN_NON_EMPTY_SECTION_CHARS = 40; // 所有正式章节都必须至少有可读正文
+
+/** Phase 2 (2026-06-15): 本体回写最大正文长度（与 report-ontology-fill.service 一致）。 */
+const ONTOLOGY_FILL_MAX_CHARS = 24_000;
 
 interface PersistInput {
   missionId: string;
@@ -369,6 +373,10 @@ async function runPersistInner(
                 `[s11 ${missionId}] emit mission:completed failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
               );
             });
+
+          // ★ Phase 2 (2026-06-15): 成功终态 → fire-and-forget 本体回写
+          //   仅在依赖就绪时执行（@Optional 注入），不阻塞、不抛错。
+          void triggerOntologyWriteback(missionId, reportPayload, deps);
         },
       });
     }
@@ -395,4 +403,83 @@ async function runPersistInner(
 function isReferenceSection(title?: string): boolean {
   const normalized = (title ?? "").trim().toLowerCase();
   return normalized === "参考文献" || normalized === "references";
+}
+
+/**
+ * Phase 2 (2026-06-15): fire-and-forget 本体回写。
+ *
+ * 从 reportPayload（title + summary）拼接正文，调 OntologyBuilderSkill 写入全局本体。
+ * 绝不抛错、绝不阻塞持久化主流程。依赖缺失时静默 skip。
+ */
+async function triggerOntologyWriteback(
+  missionId: string,
+  reportPayload: { title?: string; summary?: string } | undefined | null,
+  deps: MissionDeps,
+): Promise<void> {
+  const { ontologyBuilderSkill, toolRegistry, log } = deps;
+  if (!ontologyBuilderSkill) return;
+
+  try {
+    // 取可得正文：title + summary（playground-mission 在 resolveText 中也是这三个字段）
+    const parts = [reportPayload?.title, reportPayload?.summary].filter(
+      (s): s is string => typeof s === "string" && s.trim().length > 0,
+    );
+    if (parts.length === 0) {
+      log.debug(
+        `[s11 ${missionId}] ontology writeback: no text available, skip`,
+      );
+      return;
+    }
+
+    const rawText = parts.join("\n\n");
+    const reportText =
+      rawText.length > ONTOLOGY_FILL_MAX_CHARS
+        ? rawText.slice(0, ONTOLOGY_FILL_MAX_CHARS) + " […truncated]"
+        : rawText;
+
+    if (toolRegistry) {
+      ontologyBuilderSkill.setToolRegistry(toolRegistry);
+    }
+
+    const context: SkillContext = {
+      executionId: `ontology-playground-auto-${missionId}`,
+      skillId: ontologyBuilderSkill.id,
+      createdAt: new Date(),
+    };
+
+    await ontologyBuilderSkill
+      .execute(
+        {
+          text: reportText,
+          topicId: undefined,
+          sourceType: "playground-mission",
+          sourceId: missionId,
+        },
+        context,
+      )
+      .then((result) => {
+        if (result.success && result.data) {
+          log.log(
+            `[s11 ${missionId}] ontology writeback done: created=${result.data.created} merged=${result.data.merged} linked=${result.data.linked}`,
+          );
+        } else if (!result.success) {
+          log.warn(
+            `[s11 ${missionId}] ontology writeback skill error: ${result.error?.message ?? "unknown"}`,
+          );
+        }
+      })
+      .catch((err: unknown) => {
+        log.warn(
+          `[s11 ${missionId}] ontology writeback failed (non-fatal): ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      });
+  } catch (err) {
+    log.warn(
+      `[s11 ${missionId}] ontology writeback unexpected error (non-fatal): ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
 }

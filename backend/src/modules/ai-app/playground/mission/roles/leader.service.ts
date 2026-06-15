@@ -162,8 +162,10 @@ export class SupervisedMission {
       qualityScore: number | null;
       createdAt: string;
     }[];
+    /** 来自知识本体的已知背景知识（由 s2 stage 查图注入）。为空时不注入。 */
+    priorKnowledge?: string;
   }): Promise<LeaderPlanOutput> {
-    const planInput = {
+    const planInput: Record<string, unknown> = {
       phase: "plan" as const,
       topic: this.context.task.topic,
       description: this.context.task.description,
@@ -173,6 +175,11 @@ export class SupervisedMission {
       // ★ P0#2 (2026-04-29): S12 → S2 闭环
       priorPostmortems: opts?.priorPostmortems ?? [],
     };
+
+    // ★ Phase 3 (2026-06-15): 注入本体背景知识到规划上下文
+    if (opts?.priorKnowledge) {
+      planInput["priorKnowledge"] = opts.priorKnowledge;
+    }
 
     let res = await this.runFn<unknown, LeaderPlanOutput>({
       spec: LeaderAgent,

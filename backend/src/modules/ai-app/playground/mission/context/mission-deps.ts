@@ -48,6 +48,11 @@ import type {
   QualityTraceComputeService,
 } from "@/modules/ai-harness/facade";
 import type { FigureExtractorService } from "@/modules/ai-engine/facade";
+import type {
+  OntologyService,
+  OntologyBuilderSkill,
+  ToolRegistry,
+} from "@/modules/ai-engine/facade";
 import type { CreditsService } from "../../../../platform/credits/credits.service";
 import type { RuntimeEnvironmentService } from "@/modules/ai-harness/facade";
 import type { PostmortemClassifierService } from "@/modules/ai-harness/facade";
@@ -162,6 +167,8 @@ export interface PersistDeps extends CommonDeps {
  *
  * PR-7b（W22 主线波次）将逐 stage 改成更窄签名（如 runResearcherDispatchStage(ctx, deps: ResearchDeps)），
  * 让 reader 看签名就知道 stage 调用了哪些下层服务。
+ *
+ * Phase 2/3 (2026-06-15): 可选本体集成依赖（optional 以保持向后兼容，spec/test 无需提供）。
  */
 export interface MissionDeps
   extends
@@ -172,4 +179,11 @@ export interface MissionDeps
     WriterDeps,
     QualityDeps,
     SignoffDeps,
-    PersistDeps {}
+    PersistDeps {
+  /** Phase 3: 本体文本相关性检索（s2 规划前查背景知识）。 */
+  readonly ontologyService?: OntologyService;
+  /** Phase 2: 本体抽取 skill（s11 成功后 fire-and-forget 回写）。 */
+  readonly ontologyBuilderSkill?: OntologyBuilderSkill;
+  /** Phase 2: tool registry（OntologyBuilderSkill.setToolRegistry 必须）。 */
+  readonly toolRegistry?: ToolRegistry;
+}
