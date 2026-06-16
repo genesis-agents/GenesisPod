@@ -26,10 +26,27 @@ import { EntityResolutionService } from "../entity-resolution/entity-resolution.
 /**
  * 软删除约定：OntologyObject 以 properties._deleted=true 标记逻辑删除
  * （与 mergeObjects 合并源标记一致）。所有列表/计数查询用此条件排除。
+ *
+ * ★ 2026-06-16 致命修复：原写法 `NOT: { path:["_deleted"], equals:true }` 命中
+ *   Prisma JSON + 缺失键的 NULL 陷阱 —— 绝大多数实体根本没有 _deleted 键，
+ *   `properties->'_deleted' = true` 求值为 SQL NULL，`NOT NULL` 仍是 NULL → WHERE
+ *   过滤掉**全部**实体（线上 975 个对象列表显示 0，图谱却正常，因图谱不走此过滤）。
+ *   Prisma 的 `not: true` 有同样的缺失键 bug。NULL-safe 写法：显式包含
+ *   「_deleted=false 或 _deleted 缺失(AnyNull)」，排除 _deleted=true（prod 验证 975=全量）。
+ *   调用方只追加 label/topicId 等标量键，不设 OR/AND，故顶层 OR 不冲突。
  */
-const EXCLUDE_DELETED: Prisma.OntologyObjectWhereInput = {
-  NOT: { properties: { path: ["_deleted"], equals: true } },
-};
+// ★ 用函数而非模块级常量：Prisma.AnyNull 是**运行时**哨兵值，模块级 const 会在
+//   import 时求值；mock 了 @prisma/client 的测试里 Prisma 为 undefined → 仅 import
+//   本模块（哪怕传递依赖）就 crash。延迟到调用时求值即可（真实运行时/集成测试 Prisma
+//   齐全；纯 mock 的单测只要不实际调用列表方法就不触发）。
+function excludeDeleted(): Prisma.OntologyObjectWhereInput {
+  return {
+    OR: [
+      { properties: { path: ["_deleted"], equals: false } },
+      { properties: { path: ["_deleted"], equals: Prisma.AnyNull } },
+    ],
+  };
+}
 
 /** 一组重复实体（同 typeKey + 规范化后同 label，可能跨 topicId）。 */
 export interface DuplicateGroup {
@@ -295,7 +312,7 @@ export class OntologyService {
    * List ontology objects with optional filtering.
    */
   async listObjects(filter: ListObjectsFilter): Promise<OntologyObjectView[]> {
-    const where: Prisma.OntologyObjectWhereInput = { ...EXCLUDE_DELETED };
+    const where: Prisma.OntologyObjectWhereInput = { ...excludeDeleted() };
 
     if (filter.topicId !== undefined) where.topicId = filter.topicId;
     if (filter.typeKey !== undefined) where.typeKey = filter.typeKey;
@@ -564,7 +581,7 @@ export class OntologyService {
    * instead of the true DB count.
    */
   async countObjects(filter: ListObjectsFilter): Promise<number> {
-    const where: Prisma.OntologyObjectWhereInput = { ...EXCLUDE_DELETED };
+    const where: Prisma.OntologyObjectWhereInput = { ...excludeDeleted() };
     if (filter.topicId !== undefined) where.topicId = filter.topicId;
     if (filter.typeKey !== undefined) where.typeKey = filter.typeKey;
     if (filter.createdBy !== undefined) where.createdBy = filter.createdBy;
@@ -583,7 +600,7 @@ export class OntologyService {
   async countObjectsByType(
     filter: { topicId?: string; labelContains?: string } = {},
   ): Promise<{ typeKey: string; count: number }[]> {
-    const where: Prisma.OntologyObjectWhereInput = { ...EXCLUDE_DELETED };
+    const where: Prisma.OntologyObjectWhereInput = { ...excludeDeleted() };
     if (filter.topicId !== undefined) where.topicId = filter.topicId;
     if (filter.labelContains !== undefined) {
       where.label = { contains: filter.labelContains, mode: "insensitive" };
@@ -1283,7 +1300,7 @@ export class OntologyService {
   async findDuplicateGroups(
     filter: { topicId?: string } = {},
   ): Promise<DuplicateGroup[]> {
-    const where: Prisma.OntologyObjectWhereInput = { ...EXCLUDE_DELETED };
+    const where: Prisma.OntologyObjectWhereInput = { ...excludeDeleted() };
     if (filter.topicId !== undefined) where.topicId = filter.topicId;
 
     const rows = await this.prisma.ontologyObject.findMany({
