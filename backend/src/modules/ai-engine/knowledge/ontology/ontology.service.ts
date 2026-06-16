@@ -12,10 +12,39 @@
  * - Injected: PrismaService (DB) + EntityResolutionService (alias dedup).
  */
 
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { EntityResolutionService } from "../entity-resolution/entity-resolution.service";
+
+/**
+ * 软删除约定：OntologyObject 以 properties._deleted=true 标记逻辑删除
+ * （与 mergeObjects 合并源标记一致）。所有列表/计数查询用此条件排除。
+ */
+const EXCLUDE_DELETED: Prisma.OntologyObjectWhereInput = {
+  NOT: { properties: { path: ["_deleted"], equals: true } },
+};
+
+/** 一组重复实体（同 typeKey + 规范化后同 label，可能跨 topicId）。 */
+export interface DuplicateGroup {
+  typeKey: string;
+  label: string;
+  count: number;
+  objectIds: string[];
+  members: Array<{
+    id: string;
+    label: string;
+    topicId: string | null;
+    confidence: number;
+    updatedAt: string;
+  }>;
+}
 import type {
   AuditContext,
   UpsertObjectInput,
@@ -266,7 +295,7 @@ export class OntologyService {
    * List ontology objects with optional filtering.
    */
   async listObjects(filter: ListObjectsFilter): Promise<OntologyObjectView[]> {
-    const where: Prisma.OntologyObjectWhereInput = {};
+    const where: Prisma.OntologyObjectWhereInput = { ...EXCLUDE_DELETED };
 
     if (filter.topicId !== undefined) where.topicId = filter.topicId;
     if (filter.typeKey !== undefined) where.typeKey = filter.typeKey;
@@ -535,7 +564,7 @@ export class OntologyService {
    * instead of the true DB count.
    */
   async countObjects(filter: ListObjectsFilter): Promise<number> {
-    const where: Prisma.OntologyObjectWhereInput = {};
+    const where: Prisma.OntologyObjectWhereInput = { ...EXCLUDE_DELETED };
     if (filter.topicId !== undefined) where.topicId = filter.topicId;
     if (filter.typeKey !== undefined) where.typeKey = filter.typeKey;
     if (filter.createdBy !== undefined) where.createdBy = filter.createdBy;
@@ -554,7 +583,7 @@ export class OntologyService {
   async countObjectsByType(
     filter: { topicId?: string; labelContains?: string } = {},
   ): Promise<{ typeKey: string; count: number }[]> {
-    const where: Prisma.OntologyObjectWhereInput = {};
+    const where: Prisma.OntologyObjectWhereInput = { ...EXCLUDE_DELETED };
     if (filter.topicId !== undefined) where.topicId = filter.topicId;
     if (filter.labelContains !== undefined) {
       where.label = { contains: filter.labelContains, mode: "insensitive" };
@@ -1126,6 +1155,196 @@ export class OntologyService {
       `[mergeObjects] targetId=${targetId} absorbed=${sourceIds.join(",")}`,
     );
     return this.mapObject(result);
+  }
+
+  /**
+   * Soft-delete an OntologyObject (mark properties._deleted=true, confidence=0)
+   * and detach all its links. Reversible via audit log; hidden from list/counts.
+   */
+  async softDeleteObject(objectId: string, audit: AuditContext): Promise<void> {
+    const obj = await this.prisma.ontologyObject.findUnique({
+      where: { id: objectId },
+    });
+    if (!obj) {
+      throw new NotFoundException(`OntologyObject not found: ${objectId}`);
+    }
+    await this.prisma.$transaction(async (tx) => {
+      // Detach edges so a deleted node never leaves dangling relations.
+      await tx.ontologyLink.deleteMany({
+        where: { OR: [{ fromId: objectId }, { toId: objectId }] },
+      });
+      const deletedProps = {
+        ...this.parseJsonObject(obj.properties),
+        _deleted: true,
+        _deletedBy: audit.actorId,
+      };
+      await tx.ontologyObject.update({
+        where: { id: objectId },
+        data: {
+          confidence: 0,
+          properties: deletedProps as unknown as Prisma.InputJsonValue,
+          updatedAt: new Date(),
+        },
+      });
+      await tx.ontologyEdit.create({
+        data: {
+          objectId,
+          action: "delete",
+          actorType: audit.actorType,
+          actorId: audit.actorId,
+          before: {
+            label: obj.label,
+            confidence: obj.confidence,
+          } as unknown as Prisma.InputJsonValue,
+          after: { _deleted: true } as unknown as Prisma.InputJsonValue,
+          reason: audit.reason ?? null,
+        },
+      });
+    });
+    this.logger.debug(`[softDeleteObject] objectId=${objectId}`);
+  }
+
+  /**
+   * Rename an OntologyObject's canonical label. The old label is preserved as an
+   * alias. Throws ConflictException when a sibling (same topicId+typeKey) already
+   * carries the new label — caller should merge instead.
+   */
+  async renameObject(
+    objectId: string,
+    newLabel: string,
+    audit: AuditContext,
+  ): Promise<OntologyObjectView> {
+    const label = newLabel.trim();
+    if (!label) {
+      throw new BadRequestException("label must not be empty");
+    }
+    const obj = await this.prisma.ontologyObject.findUnique({
+      where: { id: objectId },
+    });
+    if (!obj) {
+      throw new NotFoundException(`OntologyObject not found: ${objectId}`);
+    }
+    if (label === obj.label) {
+      return this.mapObject(obj);
+    }
+    const clash = await this.prisma.ontologyObject.findFirst({
+      where: {
+        topicId: obj.topicId,
+        typeKey: obj.typeKey,
+        label,
+        NOT: { id: objectId },
+      },
+    });
+    if (clash) {
+      throw new ConflictException(
+        `已存在同名同类型实体「${label}」，请改用合并而非改名`,
+      );
+    }
+    const aliases = Array.from(
+      new Set(
+        [...this.parseJsonArray(obj.aliases), obj.label].filter(
+          (a) => a !== label,
+        ),
+      ),
+    );
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.ontologyObject.update({
+        where: { id: objectId },
+        data: {
+          label,
+          aliases: aliases as unknown as Prisma.InputJsonValue,
+          updatedAt: new Date(),
+        },
+      });
+      await tx.ontologyEdit.create({
+        data: {
+          objectId,
+          action: "rename",
+          actorType: audit.actorType,
+          actorId: audit.actorId,
+          before: { label: obj.label } as unknown as Prisma.InputJsonValue,
+          after: { label } as unknown as Prisma.InputJsonValue,
+          reason: audit.reason ?? null,
+        },
+      });
+      return u;
+    });
+    this.logger.debug(
+      `[renameObject] objectId=${objectId} "${obj.label}" → "${label}"`,
+    );
+    return this.mapObject(updated);
+  }
+
+  /**
+   * Find duplicate entity groups: active objects sharing the same typeKey and
+   * case-insensitive label (possibly across different topicId — the root cause of
+   * the global ontology view showing the same real-world entity multiple times).
+   */
+  async findDuplicateGroups(
+    filter: { topicId?: string } = {},
+  ): Promise<DuplicateGroup[]> {
+    const where: Prisma.OntologyObjectWhereInput = { ...EXCLUDE_DELETED };
+    if (filter.topicId !== undefined) where.topicId = filter.topicId;
+
+    const rows = await this.prisma.ontologyObject.findMany({
+      where,
+      orderBy: { createdAt: "asc" },
+    });
+
+    const groups = new Map<string, typeof rows>();
+    for (const r of rows) {
+      const key = `${r.typeKey}::${r.label.trim().toLowerCase()}`;
+      const bucket = groups.get(key);
+      if (bucket) bucket.push(r);
+      else groups.set(key, [r]);
+    }
+
+    return Array.from(groups.values())
+      .filter((g) => g.length > 1)
+      .map((g) => ({
+        typeKey: g[0].typeKey,
+        label: g[0].label,
+        count: g.length,
+        objectIds: g.map((o) => o.id),
+        members: g.map((o) => ({
+          id: o.id,
+          label: o.label,
+          topicId: o.topicId,
+          confidence: o.confidence,
+          updatedAt: o.updatedAt.toISOString(),
+        })),
+      }))
+      .sort((a, b) => b.count - a.count);
+  }
+
+  /**
+   * Pick the best merge target from a duplicate group (highest confidence, then
+   * oldest / most-linked) and merge the rest into it. Returns the surviving node.
+   */
+  async dedupeMergeGroup(
+    objectIds: string[],
+    audit: AuditContext,
+    preferredTargetId?: string,
+  ): Promise<OntologyObjectView> {
+    if (objectIds.length < 2) {
+      throw new BadRequestException("dedupe needs at least 2 objects");
+    }
+    const objs = await this.prisma.ontologyObject.findMany({
+      where: { id: { in: objectIds } },
+    });
+    if (objs.length < 2) {
+      throw new NotFoundException("duplicate group members not found");
+    }
+    const targetId =
+      preferredTargetId && objs.some((o) => o.id === preferredTargetId)
+        ? preferredTargetId
+        : [...objs].sort(
+            (a, b) =>
+              b.confidence - a.confidence ||
+              a.createdAt.getTime() - b.createdAt.getTime(),
+          )[0].id;
+    const sourceIds = objs.map((o) => o.id).filter((id) => id !== targetId);
+    return this.mergeObjects({ sourceIds, targetId }, audit);
   }
 
   /**

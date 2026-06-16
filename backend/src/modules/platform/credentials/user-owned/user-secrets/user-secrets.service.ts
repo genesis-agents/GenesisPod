@@ -369,7 +369,9 @@ export class UserSecretsService {
         where: { id, userId },
       });
       if (!key) throw new NotFoundException("Key 不存在或无权限");
-      return this.encryption.decryptAny(key);
+      // ★ 必须传 userId：v1 旧行按 per-user HKDF 加密，缺 userId 会走 master CBC
+      //   解密 → 返回 null → 前端"查看秘钥为空"。v2 信封不依赖 userId，传了也无害。
+      return this.encryption.decryptAny(key, { userId });
     }
     const secret = await this.prisma.secret.findFirst({
       where: { id, userId, deletedAt: null },

@@ -251,7 +251,10 @@ describe("UserSecretsService", () => {
       expect(prisma.userApiKey.findFirst).toHaveBeenCalledWith({
         where: { id: "uak-1", userId: "user-1" },
       });
-      expect(encryption.decryptAny).toHaveBeenCalledWith(key);
+      // v1 旧行按 per-user HKDF 加密，必须带 userId 才能解出明文（修"查看秘钥为空"）
+      expect(encryption.decryptAny).toHaveBeenCalledWith(key, {
+        userId: "user-1",
+      });
       expect(val).toBe("sk-plain-1234");
     });
 

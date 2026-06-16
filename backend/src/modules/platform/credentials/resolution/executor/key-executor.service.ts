@@ -8,11 +8,15 @@ import {
   KeyResolverService,
   ResolvedKey,
 } from "../key-resolver/key-resolver.service";
-import { NoAvailableKeyError } from "../key-resolver/key-resolver.errors";
+import {
+  NoAvailableKeyError,
+  QuotaExceededError,
+} from "../key-resolver/key-resolver.errors";
 import {
   AllKeysFailedError,
   ProviderCooldownError,
 } from "./key-executor.errors";
+import type { KeyChain } from "../key-resolver/key-resolver.service";
 
 /**
  * ★ 2026-05-22 per-(user+provider) 并发上限（治 429 源头）：一个 mission 的并行任务
@@ -152,7 +156,7 @@ export class KeyExecutorService {
       normalizedProvider,
     );
     if (chain.size === 0) {
-      throw new NoAvailableKeyError(normalizedProvider);
+      throw this.buildEmptyChainError(normalizedProvider, chain);
     }
 
     // 3. 遍历
@@ -208,7 +212,7 @@ export class KeyExecutorService {
 
     // 4. 全部失败
     if (chain.triedCount === 0) {
-      throw new NoAvailableKeyError(normalizedProvider);
+      throw this.buildEmptyChainError(normalizedProvider, chain);
     }
     // RETHROW 类（5xx / unknown）：直接抛原始 error 以便上层 handler 看到完整 status / stack
     if (lastError?.action === "RETHROW" && lastRawError !== null) {
@@ -219,6 +223,29 @@ export class KeyExecutorService {
       chain.triedCount,
       lastError,
     );
+  }
+
+  /**
+   * 空链路（无可尝试 key）报错语义化：区分两种根因，避免把"key 欠费/冷却中"
+   * 误报成"没配 key"（用户实测：deepseek 欠费 → 提示「No API Key available」，
+   * 误以为没配 key）。
+   *   - candidateCount===0：用户确实没配该 provider 的 key → NoAvailableKeyError
+   *   - candidateCount>0 但全被健康过滤：
+   *       · QUOTA_EXCEEDED（402/余额不足/配额耗尽）→ QuotaExceededError（前端
+   *         ByokErrorCard 会展示"额度/余额"指引，而非"去配置 key"）
+   *       · 其他（近期失败冷却）→ NoAvailableKeyError 带 cooldown 元信息
+   */
+  private buildEmptyChainError(provider: string, chain: KeyChain): Error {
+    if (chain.candidateCount > 0) {
+      if (chain.unusableReason === "QUOTA_EXCEEDED") {
+        return new QuotaExceededError(provider, "PERSONAL", { cooldown: true });
+      }
+      return new NoAvailableKeyError(provider, {
+        cooldown: true,
+        unusableReason: chain.unusableReason ?? "COOLDOWN",
+      });
+    }
+    return new NoAvailableKeyError(provider);
   }
 
   /**

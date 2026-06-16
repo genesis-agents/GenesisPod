@@ -24,6 +24,8 @@ import {
   GitBranch,
   History,
   Link2,
+  Trash2,
+  Combine,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import {
@@ -36,6 +38,7 @@ import {
   type EntityTypeCount,
   type StartBackfillParams,
   type BackfillStatus,
+  type DuplicateGroup,
 } from '@/hooks/domain/useOntology';
 import { Switch } from '@/components/ui/primitives/switch';
 import { LoadingState, EmptyState, ErrorState } from '@/components/ui/states';
@@ -1092,13 +1095,30 @@ interface ObjectsTabProps {
 }
 
 function ObjectsTab({ topicId, onEntityClick }: ObjectsTabProps) {
-  const { items, total, loading, error, listEntities, listTypeCounts } =
-    useOntology();
+  const {
+    items,
+    total,
+    loading,
+    error,
+    listEntities,
+    listTypeCounts,
+    renameObject,
+    deleteObject,
+  } = useOntology();
   const [search, setSearch] = useState('');
   const [selectedTypeKey, setSelectedTypeKey] = useState<string | null>(null);
   const [view, setView] = useState<'table' | 'card'>('table');
   const [typeCounts, setTypeCounts] = useState<EntityTypeCount[]>([]);
   const [typeTotal, setTypeTotal] = useState(0);
+  // 行内操作 + 去重工具
+  const [renameTarget, setRenameTarget] = useState<OntologyObjectView | null>(
+    null
+  );
+  const [deleteTarget, setDeleteTarget] = useState<OntologyObjectView | null>(
+    null
+  );
+  const [deleting, setDeleting] = useState(false);
+  const [dupOpen, setDupOpen] = useState(false);
 
   // Sidebar facets reflect DB totals (topic/search scoped, type-independent).
   const loadTypeCounts = useCallback(
@@ -1158,6 +1178,27 @@ function ObjectsTab({ topicId, onEntityClick }: ObjectsTabProps) {
     loadTypeCounts(search);
   }, [topicId, selectedTypeKey, search, listEntities, loadTypeCounts]);
 
+  const handleRenameSubmit = useCallback(
+    async (id: string, label: string, reason?: string) => {
+      await renameObject(id, label, reason);
+      setRenameTarget(null);
+      handleRefresh();
+    },
+    [renameObject, handleRefresh]
+  );
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteObject(deleteTarget.id);
+      setDeleteTarget(null);
+      handleRefresh();
+    } finally {
+      setDeleting(false);
+    }
+  }, [deleteTarget, deleteObject, handleRefresh]);
+
   const columns: ColumnDef<OntologyObjectView>[] = [
     {
       id: 'label',
@@ -1214,6 +1255,34 @@ function ObjectsTab({ topicId, onEntityClick }: ObjectsTabProps) {
         </span>
       ),
     },
+    {
+      id: 'actions',
+      header: '',
+      className: 'w-[80px]',
+      cell: ({ row }) => (
+        <div
+          className="flex items-center justify-end gap-1"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            title="重命名"
+            onClick={() => setRenameTarget(row)}
+            className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-violet-600"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            title="删除"
+            onClick={() => setDeleteTarget(row)}
+            className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-600"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -1255,6 +1324,14 @@ function ObjectsTab({ topicId, onEntityClick }: ObjectsTabProps) {
             条实体
           </p>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setDupOpen(true)}
+              className="flex items-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+            >
+              <Combine className="h-3.5 w-3.5" />
+              扫描重复
+            </button>
             <button
               type="button"
               title="刷新"
@@ -1330,7 +1407,247 @@ function ObjectsTab({ topicId, onEntityClick }: ObjectsTabProps) {
           </div>
         )}
       </div>
+
+      <RenameModal
+        entity={renameTarget}
+        onClose={() => setRenameTarget(null)}
+        onSubmit={handleRenameSubmit}
+      />
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={`删除实体「${deleteTarget?.label ?? ''}」？`}
+        description="将软删除该实体并断开其所有关系边（可在审计记录中追溯）。"
+        confirmText="删除"
+        type="danger"
+        loading={deleting}
+        onConfirm={() => void handleDeleteConfirm()}
+        onClose={() => setDeleteTarget(null)}
+      />
+      <DuplicatesModal
+        open={dupOpen}
+        onClose={() => setDupOpen(false)}
+        onDone={handleRefresh}
+      />
     </div>
+  );
+}
+
+// ─── Rename modal ─────────────────────────────────────────────────────────────
+
+function RenameModal({
+  entity,
+  onClose,
+  onSubmit,
+}: {
+  entity: OntologyObjectView | null;
+  onClose: () => void;
+  onSubmit: (id: string, label: string, reason?: string) => Promise<void>;
+}) {
+  const [label, setLabel] = useState('');
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLabel(entity?.label ?? '');
+    setReason('');
+    setErr(null);
+  }, [entity]);
+
+  const handle = async () => {
+    if (!entity || !label.trim()) return;
+    setSubmitting(true);
+    setErr(null);
+    try {
+      await onSubmit(entity.id, label.trim(), reason.trim() || undefined);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={entity !== null}
+      onClose={onClose}
+      title="重命名实体"
+      subtitle={entity?.label}
+      size="sm"
+      closeButtonDisabled={submitting}
+      footer={
+        <>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onClose}
+            disabled={submitting}
+          >
+            取消
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => void handle()}
+            disabled={submitting || !label.trim()}
+          >
+            {submitting ? '保存中…' : '保存'}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-600">
+            名称（旧名将转入别名）
+          </label>
+          <input
+            type="text"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-600">
+            备注（可选）
+          </label>
+          <input
+            type="text"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="修改原因"
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+          />
+        </div>
+        {err && <p className="text-xs text-red-600">{err}</p>}
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Duplicates scan modal ────────────────────────────────────────────────────
+
+function DuplicatesModal({
+  open,
+  onClose,
+  onDone,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { listDuplicates, dedupe } = useOntology();
+  const [groups, setGroups] = useState<DuplicateGroup[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    setErr(null);
+    void listDuplicates()
+      .then((r) => setGroups(r.groups))
+      .catch((e: unknown) => setErr(e instanceof Error ? e.message : String(e)))
+      .finally(() => setLoading(false));
+  }, [listDuplicates]);
+
+  useEffect(() => {
+    if (open) load();
+  }, [open, load]);
+
+  const mergeGroup = async (g: DuplicateGroup) => {
+    const key = `${g.typeKey}::${g.label}`;
+    setBusyKey(key);
+    setErr(null);
+    try {
+      await dedupe(g.objectIds);
+      setGroups((prev) =>
+        prev.filter((x) => `${x.typeKey}::${x.label}` !== key)
+      );
+      onDone();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="扫描重复实体"
+      subtitle={
+        loading
+          ? '扫描中…'
+          : `${groups.length} 组重复（同类型 + 同名，含跨议题）`
+      }
+      size="lg"
+      footer={
+        <Button variant="outline" size="sm" onClick={onClose}>
+          关闭
+        </Button>
+      }
+    >
+      {loading ? (
+        <LoadingState size="md" text="扫描中..." />
+      ) : groups.length === 0 ? (
+        <EmptyState
+          icon={<Combine className="h-10 w-10" />}
+          title="没有发现重复实体"
+          description="当前范围内未发现同类型同名的重复项"
+        />
+      ) : (
+        <div className="space-y-3">
+          <p className="text-xs text-gray-500">
+            「合并该组」会把同组实体并为一个（保留置信度最高者，关系边自动改接）。该操作需要管理员权限。
+          </p>
+          {groups.map((g) => {
+            const key = `${g.typeKey}::${g.label}`;
+            return (
+              <div
+                key={key}
+                className="rounded-xl border border-gray-200 bg-white p-3"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <EntityTypeBadge typeKey={g.typeKey} />
+                      <span className="truncate font-medium text-gray-900">
+                        {g.label}
+                      </span>
+                      <span className="shrink-0 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">
+                        {g.count} 条
+                      </span>
+                    </div>
+                    <p className="mt-1 truncate text-xs text-gray-400">
+                      {g.members
+                        .map(
+                          (m) =>
+                            `${m.topicId ? '议题' : '全局'} · ${Math.round(
+                              m.confidence * 100
+                            )}%`
+                        )
+                        .join('  |  ')}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void mergeGroup(g)}
+                    disabled={busyKey === key}
+                    className="shrink-0"
+                  >
+                    {busyKey === key ? '合并中…' : '合并该组'}
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+          {err && <p className="text-xs text-red-600">{err}</p>}
+        </div>
+      )}
+    </Modal>
   );
 }
 

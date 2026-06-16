@@ -58,6 +58,17 @@ export interface KeyChain {
   readonly size: number;
   /** 已尝试的 key 数 */
   readonly triedCount: number;
+  /**
+   * health 过滤**之前**的候选 key 数。size===0 但 candidateCount>0 表示
+   * "用户配了 key，但全被健康过滤（冷却/quota/dead）" —— 调用方据此区分
+   * "没配 key"（NoAvailableKeyError）vs "key 暂不可用"（QuotaExceeded / 冷却）。
+   */
+  readonly candidateCount: number;
+  /**
+   * 当 candidateCount>0 且 size===0 时，候选 key 最近一次失败的分类原因
+   * （取自 user_api_keys.last_error_code，如 "QUOTA_EXCEEDED"）；否则 null。
+   */
+  readonly unusableReason: string | null;
 }
 
 /**
@@ -441,11 +452,34 @@ export class KeyResolverService {
       }
     }
 
+    // ★ 区分"没配 key" vs "key 全被健康过滤（冷却/quota）"：候选>0 但 usable=0 时，
+    //   取最近一次失败原因（如 deepseek 欠费 → QUOTA_EXCEEDED），让上层报精准错误，
+    //   而不是误导性的"No API Key available"。
+    let unusableReason: string | null = null;
+    if (candidates.length > 0 && usable.length === 0) {
+      const lastFailed = await this.prisma.userApiKey
+        .findFirst({
+          where: {
+            userId,
+            provider: normalizedProvider,
+            mode: "PERSONAL",
+            isActive: true,
+            lastErrorCode: { not: null },
+          },
+          orderBy: { lastUsedAt: "desc" },
+          select: { lastErrorCode: true },
+        })
+        .catch(() => null);
+      unusableReason = lastFailed?.lastErrorCode ?? "COOLDOWN";
+    }
+
     return new MaterializedKeyChain(
       usable,
       this.keyHealthStore,
       normalizedProvider,
       this.prisma,
+      candidates.length,
+      unusableReason,
     );
   }
 
@@ -549,10 +583,20 @@ class MaterializedKeyChain implements KeyChain {
     private readonly healthStore: KeyHealthStore | undefined,
     private readonly provider: string,
     private readonly prisma: PrismaService,
+    private readonly _candidateCount: number = keys.length,
+    private readonly _unusableReason: string | null = null,
   ) {}
 
   get size(): number {
     return this.keys.length;
+  }
+
+  get candidateCount(): number {
+    return this._candidateCount;
+  }
+
+  get unusableReason(): string | null {
+    return this._unusableReason;
   }
 
   get triedCount(): number {
