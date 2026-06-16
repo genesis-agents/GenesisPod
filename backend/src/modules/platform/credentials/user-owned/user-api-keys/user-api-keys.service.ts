@@ -23,6 +23,33 @@ import {
 /** Valid provider name pattern */
 const PROVIDER_NAME_PATTERN = /^[a-z0-9-]+$/;
 
+/**
+ * Provider 别名 → 系统 canonical slug。
+ *
+ * 背景（2026-06-15）：BYOK 的 provider 是用户自由文本输入（如手打 "claude"），
+ * 但系统其余各处（inferProvider / ai-chat / model-config / ai_providers 表 slug）
+ * 都以 canonical 名为准（anthropic 等）。不归一会导致存了 "claude" 的 key 在
+ * resolveProviderDefaults 里按 "claude" 查 ai_providers 查不到 → "未配置 endpoint"
+ * → 测试失败、真实调用也取不到该 key（实际按 "anthropic" 解析）。
+ * 在保存与解析入口统一归一，与 ai-chat.service / model-fallback 的同款映射保持一致。
+ */
+const PROVIDER_ALIASES: Record<string, string> = {
+  claude: "anthropic",
+  gpt: "openai",
+  chatgpt: "openai",
+  "azure-openai": "openai",
+  gemini: "google",
+  "google-gemini": "google",
+  grok: "xai",
+  "x-ai": "xai",
+};
+
+/** 把 provider 别名归一到系统 canonical slug（未知名原样返回）。 */
+export function canonicalizeProvider(provider: string): string {
+  const lower = provider.toLowerCase().trim();
+  return PROVIDER_ALIASES[lower] ?? lower;
+}
+
 // 2026-05-11 P2: PROVIDER_DEFAULTS hardcoded 表删除。Provider 配置完全
 // 数据驱动 —— resolveProviderDefaults 只读 DB ai_providers 表，找不到
 // 返回 null + 友好报错，让 admin 在 UI 配置（不再硬编码 fallback）。
@@ -53,7 +80,7 @@ export class UserApiKeysService {
   }
 
   private validateProvider(provider: string): string {
-    const normalized = provider.toLowerCase();
+    const normalized = canonicalizeProvider(provider);
     if (!PROVIDER_NAME_PATTERN.test(normalized) || normalized.length > 50) {
       throw new BadRequestException("Invalid provider name");
     }
@@ -396,7 +423,9 @@ export class UserApiKeysService {
     }
 
     const now = new Date();
-    const decrypted = await this.encryption.decryptAny(key);
+    // v1 旧行按 per-user HKDF 加密，必须带 userId 才能解密（否则回落 master
+    // CBC 解出 null → 误判 DECRYPTION_FAILED）。v2 信封不依赖 userId，传了无害。
+    const decrypted = await this.encryption.decryptAny(key, { userId });
     if (!decrypted) {
       await this.prisma.userApiKey.update({
         where: { id },
@@ -475,7 +504,7 @@ export class UserApiKeysService {
      */
     label: string;
   } | null> {
-    const normalizedProvider = provider.toLowerCase();
+    const normalizedProvider = canonicalizeProvider(provider);
     const cacheKey = `${CachePrefix.USER_API_KEY}${userId}:${normalizedProvider}`;
 
     // 尝试从缓存获取
@@ -521,7 +550,7 @@ export class UserApiKeysService {
       return null;
     }
 
-    const decrypted = await this.encryption.decryptAny(key);
+    const decrypted = await this.encryption.decryptAny(key, { userId });
     if (!decrypted) return null;
 
     const result = {
@@ -565,10 +594,13 @@ export class UserApiKeysService {
       },
     });
     if (!key) return null;
-    if (provider && key.provider.toLowerCase() !== provider.toLowerCase()) {
+    if (
+      provider &&
+      canonicalizeProvider(key.provider) !== canonicalizeProvider(provider)
+    ) {
       return null;
     }
-    const decrypted = await this.encryption.decryptAny(key);
+    const decrypted = await this.encryption.decryptAny(key, { userId });
     if (!decrypted) return null;
     return {
       apiKey: decrypted,
@@ -703,10 +735,13 @@ export class UserApiKeysService {
     apiFormat: string;
     testModel: string;
   } | null> {
+    // 入口归一：兼容历史遗留的别名 slug（如 "claude"，迁移前/外部传入），
+    // 按 canonical（anthropic）查 ai_providers，避免 "未配置 endpoint"。
+    const canonicalSlug = canonicalizeProvider(slug);
     try {
       const dbProvider = await this.prisma.aIProvider.findFirst({
         where: {
-          slug,
+          slug: canonicalSlug,
           isEnabled: true,
           OR: [
             { scope: "system" },
