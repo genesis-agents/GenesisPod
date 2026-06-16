@@ -1,5 +1,5 @@
 {
-  "__total__": 12419,
+  "__total__": 12430,
   "frontend/components/ui/viewers/HTMLViewer.tsx": 2,
   "frontend/components/ui/viewers/MermaidDiagram.tsx": 6,
   "frontend/components/ui/viewers/PDFViewer.tsx": 2,
@@ -118,7 +118,7 @@
   "frontend/components/common/chart-viewer/FigureRenderer.tsx": 1,
   "frontend/components/common/chart-viewer/ReportChartRenderer.tsx": 4,
   "frontend/components/common/byok/ByokErrorCard.tsx": 44,
-  "frontend/components/common/byok/ByokOnboardingBanner.tsx": 12,
+  "frontend/components/common/byok/ByokOnboardingBanner.tsx": 23,
   "frontend/components/common/byok/BYOKRequiredBanner.tsx": 12,
   "frontend/components/common/byok/GlobalByokErrorModal.tsx": 2,
   "frontend/components/common/badges/ModelBadges.tsx": 4,

@@ -11,6 +11,7 @@ import {
   SETTINGS_GROUPS,
   SETTINGS_SECTIONS,
 } from '@/components/me/settings-sections';
+import { ByokOnboardingBanner } from '@/components/common/byok/ByokOnboardingBanner';
 
 /**
  * /me 个人中心外壳：主 sidebar（AppShell）+ 二级导航（分组）+ section 内容。
@@ -108,6 +109,11 @@ export default function MeLayout({ children }: { children: React.ReactNode }) {
               );
             })}
           </nav>
+          {/* 新手三步引导：缺 key / 缺模型时显示进度 + 下一步 CTA；就绪时返回 null
+              （empty:hidden 让空 banner 不占顶部间距） */}
+          <div className="px-4 pt-4 empty:hidden">
+            <ByokOnboardingBanner />
+          </div>
           {children}
         </main>
       </div>
