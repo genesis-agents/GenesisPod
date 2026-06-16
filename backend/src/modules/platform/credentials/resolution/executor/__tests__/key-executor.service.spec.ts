@@ -30,7 +30,10 @@ function buildResolvedKey(
   };
 }
 
-function buildChain(keys: ResolvedKey[]): KeyChain & {
+function buildChain(
+  keys: ResolvedKey[],
+  opts: { candidateCount?: number; unusableReason?: string | null } = {},
+): KeyChain & {
   reportFailure: jest.Mock;
   reportSuccess: jest.Mock;
 } {
@@ -42,6 +45,12 @@ function buildChain(keys: ResolvedKey[]): KeyChain & {
     },
     get triedCount() {
       return tried;
+    },
+    get candidateCount() {
+      return opts.candidateCount ?? keys.length;
+    },
+    get unusableReason() {
+      return opts.unusableReason ?? null;
     },
     next: jest.fn(async () => {
       if (cursor >= keys.length) return null;
@@ -114,14 +123,46 @@ describe("KeyExecutorService", () => {
   });
 
   describe("empty chain", () => {
-    it("throws NoAvailableKeyError when chain.size === 0", async () => {
-      const chain = buildChain([]);
+    it("throws NoAvailableKeyError when chain.size === 0 and no candidates (truly no key)", async () => {
+      const chain = buildChain([]); // candidateCount defaults to 0
       (resolver.resolveKeyChain as jest.Mock).mockResolvedValue(chain);
       const callFn = jest.fn();
 
       await expect(executor.execute("u1", "openai", callFn)).rejects.toThrow(
         NoAvailableKeyError,
       );
+      expect(callFn).not.toHaveBeenCalled();
+    });
+
+    it("throws QuotaExceededError (not NoAvailableKeyError) when key exists but is health-filtered for QUOTA_EXCEEDED (欠费/余额不足)", async () => {
+      // 用户配了 deepseek key，但欠费 → 全被健康过滤 → 链空。应报"额度/余额"而非"没配 key"。
+      const chain = buildChain([], {
+        candidateCount: 1,
+        unusableReason: "QUOTA_EXCEEDED",
+      });
+      (resolver.resolveKeyChain as jest.Mock).mockResolvedValue(chain);
+      const callFn = jest.fn();
+
+      await expect(
+        executor.execute("u1", "deepseek", callFn),
+      ).rejects.toMatchObject({ code: "QUOTA_EXCEEDED" });
+      expect(callFn).not.toHaveBeenCalled();
+    });
+
+    it("throws NoAvailableKeyError with cooldown meta when key exists but is in (non-quota) cooldown", async () => {
+      const chain = buildChain([], {
+        candidateCount: 1,
+        unusableReason: "RATE_LIMIT",
+      });
+      (resolver.resolveKeyChain as jest.Mock).mockResolvedValue(chain);
+      const callFn = jest.fn();
+
+      await expect(
+        executor.execute("u1", "openai", callFn),
+      ).rejects.toMatchObject({
+        code: "NO_AVAILABLE_KEY",
+        meta: expect.objectContaining({ cooldown: true }),
+      });
       expect(callFn).not.toHaveBeenCalled();
     });
   });

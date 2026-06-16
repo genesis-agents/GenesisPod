@@ -1744,12 +1744,25 @@ export class AiChatService {
     // 管理员 / BYOK 直连 / 无 userId 的老路径不过滤。
     const effectiveUserIdForInitial = userId ?? RequestContext.getUserId();
     let userAvailableProviders: Set<string> | null = null;
+    // ★ 2026-06-15 选模型时优先用"当前健康（有可用 key）的 provider"，剔除 quota
+    //   耗尽 / 冷却 / dead 的 provider —— 实现"默认模型 key 欠费/冷却后自动切到其他
+    //   健康 provider"的 failover。getAvailableProviders 是 health-blind，会反复选中
+    //   已坏的 provider 再炸一次（实测：deepseek 欠费仍每 5 秒死磕 deepseek）。
+    let userSelectionProviders: Set<string> | null = null;
     if (effectiveUserIdForInitial && this.keyResolver && !isDirectBYOKPath) {
       try {
-        const list = await this.keyResolver.getAvailableProviders(
-          effectiveUserIdForInitial,
-        );
-        userAvailableProviders = new Set(list.map((p) => p.toLowerCase()));
+        const [availList, healthyList] = await Promise.all([
+          this.keyResolver.getAvailableProviders(effectiveUserIdForInitial),
+          this.keyResolver
+            .getHealthyProviders(effectiveUserIdForInitial)
+            .catch(() => [] as string[]),
+        ]);
+        userAvailableProviders = new Set(availList.map((p) => p.toLowerCase()));
+        const healthy = new Set(healthyList.map((p) => p.toLowerCase()));
+        // 全部 provider 都不健康（如都欠费/冷却）时回落到 available，让调用仍尝试一次
+        // —— 失败时由 KeyExecutor 抛精准的 quota/cooldown 错误，而非这里提前误判。
+        userSelectionProviders =
+          healthy.size > 0 ? healthy : userAvailableProviders;
         // ★ 预检：普通用户一个 provider 都没配（Personal 空 + 无 ACTIVE Assignment）
         // 时，提前抛 NoAvailableKeyError，让前端拿到明确错误码「NO_AVAILABLE_KEY」
         // 并引导到 /settings/api-keys。
@@ -1764,7 +1777,7 @@ export class AiChatService {
       } catch (error) {
         if (error instanceof BYOKError) throw error;
         this.logger.warn(
-          `[chat] getAvailableProviders for initial selection failed: ${(error as Error).message}`,
+          `[chat] provider availability for initial selection failed: ${(error as Error).message}`,
         );
       }
     }
@@ -1800,12 +1813,22 @@ export class AiChatService {
         const userDefault = await this.modelConfigService
           .findUserDefaultByType(effectiveUserIdForInitial, effectiveModelType)
           .catch(() => null);
-        if (userDefault) {
+        if (
+          userDefault &&
+          (!userSelectionProviders ||
+            userSelectionProviders.has(userDefault.provider.toLowerCase()))
+        ) {
           modelConfig = userDefault;
           model = userDefault.modelId;
           userDefaultHit = true;
           this.logger.log(
             `[chat] Using user default for ${effectiveModelType}: ${model} (${userDefault.provider})`,
+          );
+        } else if (userDefault) {
+          // ★ 用户默认模型的 provider 当前不健康（欠费/冷却）→ 跳过它，落到
+          //   全局默认 + 健康 provider 过滤，实现自动 failover 到其他可用 provider。
+          this.logger.warn(
+            `[chat] user default ${userDefault.modelId} (${userDefault.provider}) skipped for ${effectiveModelType} — provider not currently healthy; failing over`,
           );
         }
       }
@@ -1813,23 +1836,24 @@ export class AiChatService {
       // 没有用户自定义默认 → 走全局默认，再用 availableProviders 过滤
       if (!modelConfig) {
         modelConfig = await this.getDefaultModelByType(effectiveModelType);
+        const sel = userSelectionProviders;
         if (
           modelConfig &&
-          userAvailableProviders &&
-          userAvailableProviders.size > 0 &&
-          !userAvailableProviders.has(modelConfig.provider.toLowerCase())
+          sel &&
+          sel.size > 0 &&
+          !sel.has(modelConfig.provider.toLowerCase())
         ) {
           const pool =
             await this.modelConfigService.getAllEnabledModelsByType(
               effectiveModelType,
             );
           const filtered = pool.filter((m) =>
-            userAvailableProviders.has(m.provider.toLowerCase()),
+            sel.has(m.provider.toLowerCase()),
           );
           if (filtered.length > 0) {
             modelConfig = filtered[0];
             this.logger.log(
-              `[chat] Default ${effectiveModelType} model (${(await this.getDefaultModelByType(effectiveModelType))?.provider}) not in user availableProviders; using ${modelConfig.modelId} (${modelConfig.provider}) instead`,
+              `[chat] Default ${effectiveModelType} model (${(await this.getDefaultModelByType(effectiveModelType))?.provider}) not in user healthy providers; using ${modelConfig.modelId} (${modelConfig.provider}) instead`,
             );
           }
         }
