@@ -834,4 +834,52 @@ describe("AutoConfigureService", () => {
     // gpt-image-1 should pass through despite containing "-image-"
     expect(result.items.some((i) => i.modelId === "gpt-image-1")).toBe(true);
   });
+
+  // =========================================================================
+  // handleUserApiKeyChanged — auto-configure on BYOK key change (2026-06-16)
+  // =========================================================================
+
+  const emptyResult = {
+    createdCount: 0,
+    skippedCount: 0,
+    items: [],
+    missingTypes: [],
+  };
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+
+  it("handleUserApiKeyChanged triggers runForUser for the changed user", async () => {
+    const spy = jest
+      .spyOn(service, "runForUser")
+      .mockResolvedValue({ ...emptyResult, createdCount: 1 });
+
+    service.handleUserApiKeyChanged({ userId: "user-9" });
+
+    expect(spy).toHaveBeenCalledWith("user-9");
+    await flush();
+  });
+
+  it("handleUserApiKeyChanged ignores payload without userId", () => {
+    const spy = jest.spyOn(service, "runForUser");
+    service.handleUserApiKeyChanged({ userId: "" });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("handleUserApiKeyChanged guards against concurrent runs for the same user", async () => {
+    let resolveRun!: (v: typeof emptyResult) => void;
+    const spy = jest.spyOn(service, "runForUser").mockReturnValue(
+      new Promise<typeof emptyResult>((res) => {
+        resolveRun = res;
+      }),
+    );
+
+    service.handleUserApiKeyChanged({ userId: "user-x" }); // starts, in-flight
+    service.handleUserApiKeyChanged({ userId: "user-x" }); // skipped (in-flight)
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    resolveRun(emptyResult); // first run completes → in-flight cleared
+    await flush();
+
+    service.handleUserApiKeyChanged({ userId: "user-x" }); // now allowed again
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
 });

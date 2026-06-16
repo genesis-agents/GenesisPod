@@ -65,6 +65,7 @@ import {
   BYOKError,
   InvalidApiKeyError,
   NoAvailableKeyError,
+  NoModelConfiguredError,
   QuotaExceededError,
 } from "@/modules/platform/credentials/resolution/key-resolver/key-resolver.errors";
 
@@ -1893,6 +1894,14 @@ export class AiChatService {
             "",
           );
           if (!envDefault) {
+            // ★ 2026-06-16 面向用户的错误文案：BYOK 终端用户（有 userId）没有可用
+            //   模型时，不要甩运维向的「请在数据库启用模型 / 设 DEFAULT_AI_MODEL」
+            //   （用户看不懂、也无权操作），改抛 NoModelConfiguredError —— 前端
+            //   ByokErrorCard 会渲染「缺少 X 模型配置 + 去配置模型 / 一键 AI 配置」CTA。
+            //   无 userId（系统 / 后台任务）才保留运维向技术报错。
+            if (effectiveUserIdForInitial) {
+              throw new NoModelConfiguredError(effectiveModelType);
+            }
             throw new AiServiceUnavailableError(
               `AI 服务不可用：没有可用的 ${effectiveModelType} 模型。请在数据库中启用至少 1 个该用途的模型，或设置 DEFAULT_AI_MODEL 环境变量。`,
               "",

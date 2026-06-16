@@ -654,6 +654,24 @@ describe("AiChatService", () => {
       ).rejects.toThrow(/DEFAULT_AI_MODEL 未设置|DEFAULT_AI_MODEL is not set/);
     });
 
+    it("BYOK 用户(有 userId)没配 CHAT 模型 → NoModelConfiguredError(用户友好+CTA),而非运维向 AiServiceUnavailableError", async () => {
+      // 2026-06-16: 新用户配了 key 却没建模型时，终端用户应看到「缺少 CHAT 模型 +
+      //   去配置/一键 AI 配置」(ByokErrorCard 渲染 NO_MODEL_CONFIGURED)，而不是
+      //   「请在数据库启用模型/设 DEFAULT_AI_MODEL」这种运维向技术报错。
+      mockConfigService.get.mockReturnValue(""); // 无 DEFAULT_AI_MODEL
+      mockModelConfigService.getModelConfig.mockResolvedValue(null);
+      mockModelConfigService.findUserDefaultByType.mockResolvedValue(null);
+      mockModelConfigService.getDefaultModelByType.mockResolvedValue(null);
+
+      // RequestContext.getUserId() 默认 stub 为 "test-user-id" → 走 BYOK 用户分支
+      await expect(
+        service.chat({
+          messages: [{ role: "user", content: "Hello" }],
+          modelType: AIModelType.CHAT,
+        }),
+      ).rejects.toMatchObject({ code: "NO_MODEL_CONFIGURED" });
+    });
+
     it("EVALUATOR 无配置 → 回落 CHAT 主模型（不再抛错让上层 abstain）", async () => {
       // 2026-06-12: 日志实测 judge:external 因 no EVALUATOR model 直接 abstain。
       // 现在非 CHAT 类型无配置应回落 CHAT，而非抛 AiServiceUnavailableError。

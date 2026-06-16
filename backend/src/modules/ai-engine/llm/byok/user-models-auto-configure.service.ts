@@ -1,4 +1,5 @@
 import { ConflictException, Injectable, Logger } from "@nestjs/common";
+import { OnEvent } from "@nestjs/event-emitter";
 import { AIModelType, UserModelConfig } from "@prisma/client";
 import { EventEmitter } from "events";
 
@@ -58,6 +59,42 @@ export class AutoConfigureService {
     private readonly recommendations: ModelRecommendationsService,
     private readonly connectionTest: AiConnectionTestService,
   ) {}
+
+  /** 防同一用户并发/抖动重复触发（连续保存多把 key、save+delete 连点）。 */
+  private readonly inFlight = new Set<string>();
+
+  /**
+   * BYOK key 变更（保存/删除）→ 后台自动为缺失的 modelType 建默认模型。
+   *
+   * ★ 2026-06-16 修"配了 key 却 CHAT:0、App 根本跑不起来"：此前必须用户手动点
+   *   「一键配置」才会建 UserModelConfig，新用户无引导 → 选模型阶段直接失败
+   *   （日志实测 models=[CHAT:0]）。改为 key 变更后自动补齐，配完 key 即可用。
+   *
+   * - 走事件而非在 saveKey 内直调：saveKey 属 L1(platform/credentials)，本服务属
+   *   L2(ai-engine)，L1→L2 会破坏分层；与 EmbeddingService 同样订阅此事件。
+   * - fire-and-forget：不阻塞保存请求（probe 有网络耗时）；幂等（已配 modelType 跳过）；
+   *   失败仅记日志，不影响 key 保存结果。
+   */
+  @OnEvent("user-api-key.changed")
+  handleUserApiKeyChanged(payload: { userId: string }): void {
+    const userId = payload?.userId;
+    if (!userId || this.inFlight.has(userId)) return;
+    this.inFlight.add(userId);
+    void this.runForUser(userId)
+      .then((r) => {
+        if (r.createdCount > 0) {
+          this.logger.log(
+            `[auto-configure on key-change] user=${userId} created ${r.createdCount} model(s); missing=[${r.missingTypes.join(",")}]`,
+          );
+        }
+      })
+      .catch((err) => {
+        this.logger.warn(
+          `[auto-configure on key-change] user=${userId} failed: ${(err as Error).message}`,
+        );
+      })
+      .finally(() => this.inFlight.delete(userId));
+  }
 
   async runForUser(userId: string): Promise<AutoConfigureResult> {
     const personalKeys = await this.userApiKeys.listUserApiKeys(userId);

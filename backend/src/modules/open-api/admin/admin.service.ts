@@ -508,6 +508,8 @@ export class AdminService {
     defaultTimeoutMs?: number;
     priceInputPerMillion?: number;
     priceOutputPerMillion?: number;
+    /** 成本档位 basic|standard|strong：价格未填时按档位默认价估算，预算护栏才生效 */
+    costTier?: string;
     priority?: number;
   }) {
     // Trim apiKey to remove any whitespace from copy-paste
@@ -645,6 +647,9 @@ export class AdminService {
         defaultTimeoutMs: data.defaultTimeoutMs ?? 120000,
         priceInputPerMillion: data.priceInputPerMillion,
         priceOutputPerMillion: data.priceOutputPerMillion,
+        // ★ 2026-06-16 缺省给 "standard" 档位：保证模型永远有 costTier → 永远被
+        //   预算护栏覆盖（价格未填时 ModelPricingRegistry 用档位默认价估算）。
+        costTier: data.costTier ?? "standard",
         priority: data.priority ?? 50,
       },
     });
@@ -692,6 +697,8 @@ export class AdminService {
       defaultTimeoutMs?: number;
       priceInputPerMillion?: number;
       priceOutputPerMillion?: number;
+      /** 成本档位 basic|standard|strong：价格未填时按档位默认价估算 */
+      costTier?: string;
       priority?: number;
       // ★ Structured Output capability matrix (2026-05-06)
       structuredOutputStrategy?: string | null;
@@ -771,6 +778,7 @@ export class AdminService {
         defaultTimeoutMs: data.defaultTimeoutMs,
         priceInputPerMillion: data.priceInputPerMillion,
         priceOutputPerMillion: data.priceOutputPerMillion,
+        costTier: data.costTier,
         priority: data.priority,
         // ★ Structured Output capability matrix (2026-05-06)
         structuredOutputStrategy: data.structuredOutputStrategy,

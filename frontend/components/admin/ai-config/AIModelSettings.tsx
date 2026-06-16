@@ -24,6 +24,7 @@ import { getProviderBrand } from '@/lib/constants/ai-provider-logos';
 import { logger } from '@/lib/utils/logger';
 import { ClientDate } from '@/components/common/ClientDate';
 import { StructuredOutputCapabilitySection } from './StructuredOutputCapabilitySection';
+import { CostTierField } from './CostTierField';
 import { useAdminAIProviders } from '@/hooks/domain/useAdminAIProviders';
 import { ModelEndpointWarning } from './ModelEndpointWarning';
 import { confirm } from '@/stores';
@@ -137,6 +138,8 @@ interface AIModel {
   defaultTimeoutMs?: number;
   priceInputPerMillion?: number;
   priceOutputPerMillion?: number;
+  /** 成本档位 basic|standard|strong：价格未填时按档位默认价估算，预算护栏才生效 */
+  costTier?: string;
   priority?: number;
   // ★ Structured Output capability matrix (2026-05-06)
   structuredOutputStrategy?: string | null;
@@ -801,6 +804,7 @@ export default function AIModelSettings({
         defaultTimeoutMs: model.defaultTimeoutMs,
         priceInputPerMillion: model.priceInputPerMillion,
         priceOutputPerMillion: model.priceOutputPerMillion,
+        costTier: model.costTier,
         priority: model.priority,
         // ★ 新增：Secret Manager 引用
         secretKey: model.secretKey,
@@ -2221,6 +2225,12 @@ function EditModelModal({
                 </label>
               </div>
 
+              {/* 成本档位：决定预算护栏的默认单价；选档位会预填价格，可手动覆盖 */}
+              <CostTierField
+                costTier={formData.costTier}
+                onChange={(patch) => setFormData({ ...formData, ...patch })}
+              />
+
               {/* 价格配置 */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -2348,6 +2358,7 @@ function AddModelModal({
     defaultTimeoutMs: 120000,
     priceInputPerMillion: undefined as number | undefined,
     priceOutputPerMillion: undefined as number | undefined,
+    costTier: 'standard' as string,
     priority: 50,
   });
   const [showApiKey, setShowApiKey] = useState(false);
@@ -3007,6 +3018,12 @@ function AddModelModal({
                   <span className="text-sm">支持视觉/图像</span>
                 </label>
               </div>
+
+              {/* 成本档位：决定预算护栏的默认单价；选档位会预填价格，可手动覆盖 */}
+              <CostTierField
+                costTier={formData.costTier}
+                onChange={(patch) => setFormData({ ...formData, ...patch })}
+              />
 
               {/* 价格配置 */}
               <div className="grid grid-cols-2 gap-4">
