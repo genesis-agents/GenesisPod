@@ -1,5 +1,5 @@
 {
-  "__total__": 12372,
+  "__total__": 12408,
   "frontend/components/ui/viewers/HTMLViewer.tsx": 2,
   "frontend/components/ui/viewers/MermaidDiagram.tsx": 6,
   "frontend/components/ui/viewers/PDFViewer.tsx": 2,
@@ -44,7 +44,7 @@
   "frontend/components/library/resources/BookmarkSelectPanel.tsx": 19,
   "frontend/components/library/resources/NoteEditor.tsx": 9,
   "frontend/components/library/resources/NoteSelectPanel.tsx": 20,
-  "frontend/components/library/ontology/OntologyTabContent.tsx": 136,
+  "frontend/components/library/ontology/OntologyTabContent.tsx": 172,
   "frontend/components/library/knowledge-base/CreateKnowledgeBaseDialog.tsx": 18,
   "frontend/components/library/knowledge-base/EditKnowledgeBaseDialog.tsx": 16,
   "frontend/components/library/knowledge-base/KnowledgeBaseCard.tsx": 17,
