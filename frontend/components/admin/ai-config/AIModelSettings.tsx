@@ -24,6 +24,7 @@ import { getProviderBrand } from '@/lib/constants/ai-provider-logos';
 import { logger } from '@/lib/utils/logger';
 import { ClientDate } from '@/components/common/ClientDate';
 import { StructuredOutputCapabilitySection } from './StructuredOutputCapabilitySection';
+import { CostTierField } from './CostTierField';
 import { useAdminAIProviders } from '@/hooks/domain/useAdminAIProviders';
 import { ModelEndpointWarning } from './ModelEndpointWarning';
 import { confirm } from '@/stores';
@@ -151,17 +152,6 @@ interface AIModel {
   createdAt: string;
   updatedAt: string;
 }
-
-// 镜像后端 pricing-defaults.const.ts（仅用于 admin 表单预填提示；权威默认在后端）。
-// 选 costTier 时预填这些默认单价，admin 可手动覆盖为 provider 精确价。
-const TIER_DEFAULT_PRICING_UI: Record<
-  string,
-  { inputPerM: number; outputPerM: number }
-> = {
-  basic: { inputPerM: 0.5, outputPerM: 1.5 },
-  standard: { inputPerM: 3, outputPerM: 12 },
-  strong: { inputPerM: 15, outputPerM: 60 },
-};
 
 interface TestResult {
   success: boolean;
@@ -2236,37 +2226,10 @@ function EditModelModal({
               </div>
 
               {/* 成本档位：决定预算护栏的默认单价；选档位会预填价格，可手动覆盖 */}
-              <div className="mb-3">
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  成本档位 (costTier)
-                </label>
-                <select
-                  value={formData.costTier || 'standard'}
-                  onChange={(e) => {
-                    const tier = e.target.value;
-                    const def = TIER_DEFAULT_PRICING_UI[tier];
-                    setFormData({
-                      ...formData,
-                      costTier: tier,
-                      ...(def
-                        ? {
-                            priceInputPerMillion: def.inputPerM,
-                            priceOutputPerMillion: def.outputPerM,
-                          }
-                        : {}),
-                    });
-                  }}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="basic">basic（便宜小模型）</option>
-                  <option value="standard">standard（主力模型）</option>
-                  <option value="strong">strong（旗舰/推理）</option>
-                </select>
-                <p className="mt-1 text-xs text-gray-500">
-                  选档位会预填默认单价；未填精确价时，预算护栏按档位默认价估算（避免按
-                  $0 计、护栏失效）。
-                </p>
-              </div>
+              <CostTierField
+                costTier={formData.costTier}
+                onChange={(patch) => setFormData({ ...formData, ...patch })}
+              />
 
               {/* 价格配置 */}
               <div className="grid grid-cols-2 gap-4">
@@ -3057,37 +3020,10 @@ function AddModelModal({
               </div>
 
               {/* 成本档位：决定预算护栏的默认单价；选档位会预填价格，可手动覆盖 */}
-              <div className="mb-3">
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  成本档位 (costTier)
-                </label>
-                <select
-                  value={formData.costTier || 'standard'}
-                  onChange={(e) => {
-                    const tier = e.target.value;
-                    const def = TIER_DEFAULT_PRICING_UI[tier];
-                    setFormData({
-                      ...formData,
-                      costTier: tier,
-                      ...(def
-                        ? {
-                            priceInputPerMillion: def.inputPerM,
-                            priceOutputPerMillion: def.outputPerM,
-                          }
-                        : {}),
-                    });
-                  }}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="basic">basic（便宜小模型）</option>
-                  <option value="standard">standard（主力模型）</option>
-                  <option value="strong">strong（旗舰/推理）</option>
-                </select>
-                <p className="mt-1 text-xs text-gray-500">
-                  选档位会预填默认单价；未填精确价时，预算护栏按档位默认价估算（避免按
-                  $0 计、护栏失效）。
-                </p>
-              </div>
+              <CostTierField
+                costTier={formData.costTier}
+                onChange={(patch) => setFormData({ ...formData, ...patch })}
+              />
 
               {/* 价格配置 */}
               <div className="grid grid-cols-2 gap-4">
