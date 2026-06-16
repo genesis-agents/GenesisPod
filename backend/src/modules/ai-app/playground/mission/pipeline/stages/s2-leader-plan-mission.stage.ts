@@ -97,7 +97,8 @@ export async function runLeaderPlanStage(
             entities: { label: string; typeKey: string }[];
           }
         | undefined;
-      if (deps.ontologyService) {
+      // ★ 创建时开关：useOntology !== false 才利用本体（DTO 默认 true；显式关闭则跳过）
+      if (deps.ontologyService && ctx.input?.useOntology !== false) {
         try {
           const topic = ctx.input?.topic ?? "";
           if (topic) {

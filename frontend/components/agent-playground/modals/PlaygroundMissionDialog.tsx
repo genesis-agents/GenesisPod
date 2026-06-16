@@ -11,6 +11,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, Radar } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 import {
   runTeam,
   type AudienceProfile,
@@ -89,6 +90,7 @@ export function PlaygroundMissionDialog({
   onCreated,
 }: PlaygroundMissionDialogProps) {
   const router = useRouter();
+  const { t } = useTranslation();
 
   const [topic, setTopic] = useState('');
   const [description, setDescription] = useState('');
@@ -110,6 +112,11 @@ export function PlaygroundMissionDialog({
     typeof window === 'undefined'
       ? true
       : localStorage.getItem('playground:withFigures') !== '0'
+  );
+  const [useOntology, setUseOntology] = useState(() =>
+    typeof window === 'undefined'
+      ? true
+      : localStorage.getItem('playground:useOntology') !== '0'
   );
   const [auditLayers, setAuditLayers] = useState<AuditLayers>(() =>
     loadPref('auditLayers', 'default' as AuditLayers)
@@ -158,6 +165,7 @@ export function PlaygroundMissionDialog({
       lengthProfile !== 'standard' ||
       audienceProfile !== 'domain-expert' ||
       !withFigures ||
+      !useOntology ||
       auditLayers !== 'default' ||
       searchTimeRange !== '365d',
     [
@@ -166,6 +174,7 @@ export function PlaygroundMissionDialog({
       lengthProfile,
       audienceProfile,
       withFigures,
+      useOntology,
       auditLayers,
       searchTimeRange,
     ]
@@ -177,6 +186,7 @@ export function PlaygroundMissionDialog({
     setLengthProfile('standard');
     setAudienceProfile('domain-expert');
     setWithFigures(true);
+    setUseOntology(true);
     setAuditLayers('default');
     setSearchTimeRange('365d');
     // ★ 2026-05-22 单一源：关掉自定义预算覆盖；预算字段清 0（仅覆盖开启时才用，按档位灌入）。
@@ -193,6 +203,7 @@ export function PlaygroundMissionDialog({
         'lengthProfile',
         'audienceProfile',
         'withFigures',
+        'useOntology',
         'auditLayers',
         'searchTimeRange',
         'maxCredits',
@@ -253,6 +264,7 @@ export function PlaygroundMissionDialog({
         lengthProfile,
         audienceProfile,
         withFigures,
+        useOntology,
         auditLayers,
         searchTimeRange,
         // ★ 2026-05-22 单一源：默认不传预算 → 后端按 depth 档位解析；
@@ -566,6 +578,34 @@ export function PlaygroundMissionDialog({
               <span
                 className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
                   withFigures ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-sm font-medium text-gray-700">
+                {t('playground.useOntologyToggle.label')}
+              </span>
+              <p className="text-xs text-gray-400">
+                {t('playground.useOntologyToggle.hint')}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const next = !useOntology;
+                setUseOntology(next);
+                persistPref('useOntology', next ? '1' : '0');
+              }}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                useOntology ? 'bg-blue-600' : 'bg-gray-200'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  useOntology ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />
             </button>

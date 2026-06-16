@@ -113,6 +113,7 @@ export class MissionRuntimeShellService {
             lengthProfile: input.lengthProfile,
             audienceProfile: input.audienceProfile,
             withFigures: input.withFigures,
+            useOntology: input.useOntology,
             auditLayers: input.auditLayers,
             concurrency: input.concurrency,
             viewMode: input.viewMode,

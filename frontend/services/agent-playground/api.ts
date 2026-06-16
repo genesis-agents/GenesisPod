@@ -47,6 +47,8 @@ export interface RunMissionInput {
   audienceProfile?: AudienceProfile;
   /** 图文并茂（默认 true） */
   withFigures?: boolean;
+  /** 利用知识本体（默认 true）：规划时注入相关本体背景知识 */
+  useOntology?: boolean;
   /** 审核层级（默认 default = L0+L3） */
   auditLayers?: AuditLayers;
   /** Researcher 并行度（默认 3） */

@@ -271,6 +271,11 @@
     "myAgentsManage": "管理 Agent"
   },
   "playground": {
+    "useOntologyToggle": {
+      "label": "利用知识本体",
+      "hint": "规划时注入与主题相关的已沉淀实体/关系作背景",
+      "enable": "启用"
+    },
     "ontologyRef": {
       "heading": "知识本体参考",
       "desc": "本次规划参考了知识本体的 {{count}} 个相关实体",

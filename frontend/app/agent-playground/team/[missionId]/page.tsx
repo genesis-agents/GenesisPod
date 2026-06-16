@@ -10,6 +10,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useTranslation } from '@/lib/i18n';
 import { toast, confirm } from '@/stores';
 import {
   Activity,
@@ -1058,6 +1059,7 @@ export default function MissionDetailPage() {
                   | 'thorough'
                   | 'thorough+') ?? 'default',
               withFigures: (up.withFigures as boolean) ?? true,
+              useOntology: (up.useOntology as boolean) ?? true,
               concurrency: (up.concurrency as number) ?? 3,
               searchTimeRange:
                 (up.searchTimeRange as
@@ -1401,6 +1403,7 @@ function MissionSettingsModal({
   const router = useRouter();
   // ★ 2026-05-22 ③J/K 单一源：档位数值来自后端，前端无镜像。
   const { data: budgetTierData } = useBudgetTiers();
+  const { t } = useTranslation();
   const [topic, setTopic] = useState('');
   const [description, setDescription] = useState('');
   const [depth, setDepth] = useState<Depth>('deep');
@@ -1410,6 +1413,7 @@ function MissionSettingsModal({
   const [audienceProfile, setAudienceProfile] = useState<AP>('domain-expert');
   const [auditLayers, setAuditLayers] = useState<AL>('default');
   const [withFigures, setWithFigures] = useState(true);
+  const [useOntology, setUseOntology] = useState(true);
   const [concurrency, setConcurrency] = useState(3);
   const [searchTimeRange, setSearchTimeRange] = useState<STR>('365d');
   const [knowledgeBaseIds, setKnowledgeBaseIds] = useState<string[]>([]);
@@ -1435,6 +1439,7 @@ function MissionSettingsModal({
     setAudienceProfile((userProfile?.audienceProfile as AP) ?? 'domain-expert');
     setAuditLayers((userProfile?.auditLayers as AL) ?? 'default');
     setWithFigures((userProfile?.withFigures as boolean) ?? true);
+    setUseOntology((userProfile?.useOntology as boolean) ?? true);
     setConcurrency((userProfile?.concurrency as number) ?? 3);
     setSearchTimeRange((userProfile?.searchTimeRange as STR) ?? '365d');
     const kbIds = userProfile?.knowledgeBaseIds as string[] | undefined;
@@ -1494,6 +1499,7 @@ function MissionSettingsModal({
         audienceProfile,
         auditLayers,
         withFigures,
+        useOntology,
         concurrency,
         searchTimeRange,
         maxCredits,
@@ -1789,6 +1795,17 @@ function MissionSettingsModal({
                   className="h-4 w-4 rounded"
                 />
                 <span>启用</span>
+              </label>
+            </FormField>
+            <FormField label={t('playground.useOntologyToggle.label')}>
+              <label className="flex h-[38px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] text-slate-900">
+                <input
+                  type="checkbox"
+                  checked={useOntology}
+                  onChange={(e) => setUseOntology(e.target.checked)}
+                  className="h-4 w-4 rounded"
+                />
+                <span>{t('playground.useOntologyToggle.enable')}</span>
               </label>
             </FormField>
           </div>
