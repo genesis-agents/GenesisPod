@@ -1,5 +1,5 @@
 {
-  "__total__": 12408,
+  "__total__": 12419,
   "frontend/components/ui/viewers/HTMLViewer.tsx": 2,
   "frontend/components/ui/viewers/MermaidDiagram.tsx": 6,
   "frontend/components/ui/viewers/PDFViewer.tsx": 2,
@@ -358,6 +358,7 @@
   "frontend/components/admin/ai-config/AITeamMemberEditor.tsx": 92,
   "frontend/components/admin/ai-config/ApiFormatsSettings.tsx": 27,
   "frontend/components/admin/ai-config/BYOKDictionaryModal.tsx": 2,
+  "frontend/components/admin/ai-config/CostTierField.tsx": 11,
   "frontend/components/admin/ai-config/ModelEndpointWarning.tsx": 18,
   "frontend/components/admin/ai-config/ModelTypesSettings.tsx": 36,
   "frontend/components/admin/ai-config/ProviderDiscoverModal.tsx": 37,
