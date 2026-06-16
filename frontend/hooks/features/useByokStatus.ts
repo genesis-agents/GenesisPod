@@ -10,6 +10,22 @@ export interface ByokStatus {
   hasModelConfig: boolean;
 }
 
+/**
+ * 新手三步引导阶段（从 status 推导，无需后端新字段）：
+ *   needs_key   — 还没配 API Key
+ *   needs_model — 配了 Key 但没有可用模型（多为 auto-configure 探测失败；此前 banner
+ *                 在配 key 后就消失，用户卡在这步无引导 → App 跑不起来）
+ *   ready       — 有可用模型，可以开始用
+ */
+export type ByokStage = 'needs_key' | 'needs_model' | 'ready';
+
+export function deriveByokStage(status: ByokStatus | null): ByokStage | null {
+  if (!status) return null;
+  if (!status.configured) return 'needs_key';
+  if (!status.hasModelConfig) return 'needs_model';
+  return 'ready';
+}
+
 // 用于跨组件通知"key 配置完成，请重新拉 status"
 export const BYOK_REFRESH_EVENT = 'byok-status-refresh';
 
@@ -90,15 +106,20 @@ export function useByokStatus() {
     setDismissedAt(now);
   }, []);
 
-  // 显示 banner 条件：已加载完 + 未配置 + 未在 30 天 dismiss 窗口内
+  const stage = deriveByokStage(status);
+
+  // 显示 banner 条件：已加载完 + 尚未就绪（缺 key 或缺模型）+ 未在 30 天 dismiss 窗口内。
+  // ★ 2026-06-16：从「仅未配 key」扩到「未就绪」，覆盖「配了 key 但没模型」这步
+  //   （此前 banner 在配 key 后消失，新用户卡在无模型态没人引导）。
   const shouldShowBanner =
     !loading &&
-    status !== null &&
-    !status.configured &&
+    stage !== null &&
+    stage !== 'ready' &&
     (dismissedAt === null || Date.now() - dismissedAt > DISMISS_TTL_MS);
 
   return {
     status,
+    stage,
     loading,
     error,
     shouldShowBanner,
