@@ -19,6 +19,8 @@ import type { OntologyAuditContext } from "@/modules/ai-engine/facade";
 import { SetConfidenceDto } from "./dto/set-confidence.dto";
 import { EditPropertyDto } from "./dto/edit-property.dto";
 import { MergeObjectsDto } from "./dto/merge-objects.dto";
+import { RenameObjectDto } from "./dto/rename-object.dto";
+import { DedupeDto } from "./dto/dedupe.dto";
 import { ListEditsQueryDto } from "./dto/list-edits-query.dto";
 import { SetAutoIngestDto } from "./dto/set-auto-ingest.dto";
 import { BackfillOntologyDto } from "./dto/backfill.dto";
@@ -104,6 +106,82 @@ export class OntologyWriteController {
     return this.ontologyService.editProperty(
       { objectId: id, key: dto.key, value: dto.value },
       audit,
+    );
+  }
+
+  /**
+   * Rename an OntologyObject's canonical label (old label kept as alias).
+   * POST /ontology/objects/:id/rename
+   *
+   * Body: { label: string, reason?: string }
+   * 409 when a same-type sibling already carries the new label (use merge).
+   */
+  @Post("objects/:id/rename")
+  @ApiOperation({ summary: "重命名本体节点（旧名转入别名）" })
+  async renameObject(
+    @Param("id") id: string,
+    @Body() dto: RenameObjectDto,
+    @Request() req: { user: { id: string } },
+  ) {
+    const audit: OntologyAuditContext = {
+      actorType: "human",
+      actorId: req.user.id,
+      reason: dto.reason,
+    };
+    this.logger.debug(
+      `[renameObject] objectId=${id} label="${dto.label}" actor=${req.user.id}`,
+    );
+    return this.ontologyService.renameObject(id, dto.label, audit);
+  }
+
+  /**
+   * Soft-delete an OntologyObject (logical delete + detach links, reversible).
+   * POST /ontology/objects/:id/delete
+   *
+   * Body: { reason?: string }. Available to any authenticated user.
+   */
+  @Post("objects/:id/delete")
+  @ApiOperation({ summary: "删除本体节点（软删除，断开其关系边）" })
+  async deleteObject(
+    @Param("id") id: string,
+    @Body() body: { reason?: string },
+    @Request() req: { user: { id: string } },
+  ) {
+    const audit: OntologyAuditContext = {
+      actorType: "human",
+      actorId: req.user.id,
+      reason: body?.reason,
+    };
+    this.logger.debug(`[deleteObject] objectId=${id} actor=${req.user.id}`);
+    await this.ontologyService.softDeleteObject(id, audit);
+    return { success: true, objectId: id };
+  }
+
+  /**
+   * Collapse one duplicate group into a single surviving node.
+   * POST /ontology/dedupe  (admin — destructive merge)
+   *
+   * Body: { objectIds: string[], targetId?: string, reason?: string }
+   */
+  @Post("dedupe")
+  @UseGuards(AdminGuard)
+  @ApiOperation({ summary: "合并一组重复实体（破坏性，需要管理员权限）" })
+  async dedupe(
+    @Body() dto: DedupeDto,
+    @Request() req: { user: { id: string } },
+  ) {
+    const audit: OntologyAuditContext = {
+      actorType: "human",
+      actorId: req.user.id,
+      reason: dto.reason ?? "dedupe duplicates",
+    };
+    this.logger.debug(
+      `[dedupe] objectIds=${dto.objectIds.join(",")} target=${dto.targetId ?? "auto"} actor=${req.user.id}`,
+    );
+    return this.ontologyService.dedupeMergeGroup(
+      dto.objectIds,
+      audit,
+      dto.targetId,
     );
   }
 

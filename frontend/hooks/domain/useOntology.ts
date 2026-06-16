@@ -80,6 +80,26 @@ export interface EntityTypeCountsResult {
   total: number;
 }
 
+export interface DuplicateGroup {
+  typeKey: string;
+  label: string;
+  count: number;
+  objectIds: string[];
+  members: Array<{
+    id: string;
+    label: string;
+    topicId: string | null;
+    confidence: number;
+    updatedAt: string;
+  }>;
+}
+
+export interface DuplicatesResult {
+  groups: DuplicateGroup[];
+  totalGroups: number;
+  totalDuplicates: number;
+}
+
 // ─── Meta-model types ─────────────────────────────────────────────────────────
 
 export interface ObjectType {
@@ -357,6 +377,76 @@ export function useOntology() {
     []
   );
 
+  // ── write: rename object ────────────────────────────────────────────────────
+
+  const renameObject = useCallback(
+    async (id: string, label: string, reason?: string) => {
+      try {
+        return await apiClient.post<OntologyObjectView>(
+          `/ontology/objects/${id}/rename`,
+          { label, ...(reason ? { reason } : {}) }
+        );
+      } catch (err) {
+        const e = toError(err);
+        logger.error('[useOntology] renameObject failed', {
+          id,
+          error: e.message,
+        });
+        throw e;
+      }
+    },
+    []
+  );
+
+  // ── write: soft-delete object ───────────────────────────────────────────────
+
+  const deleteObject = useCallback(async (id: string, reason?: string) => {
+    try {
+      await apiClient.post<void>(`/ontology/objects/${id}/delete`, {
+        ...(reason ? { reason } : {}),
+      });
+    } catch (err) {
+      const e = toError(err);
+      logger.error('[useOntology] deleteObject failed', {
+        id,
+        error: e.message,
+      });
+      throw e;
+    }
+  }, []);
+
+  // ── dedupe: list duplicate groups ───────────────────────────────────────────
+
+  const listDuplicates = useCallback(async (topicId?: string) => {
+    try {
+      const qs = topicId ? `?topicId=${encodeURIComponent(topicId)}` : '';
+      return await apiClient.get<DuplicatesResult>(`/ontology/duplicates${qs}`);
+    } catch (err) {
+      const e = toError(err);
+      logger.error('[useOntology] listDuplicates failed', { error: e.message });
+      throw e;
+    }
+  }, []);
+
+  // ── dedupe: merge one duplicate group (admin) ───────────────────────────────
+
+  const dedupe = useCallback(
+    async (objectIds: string[], targetId?: string, reason?: string) => {
+      try {
+        return await apiClient.post<OntologyObjectView>('/ontology/dedupe', {
+          objectIds,
+          ...(targetId ? { targetId } : {}),
+          ...(reason ? { reason } : {}),
+        });
+      } catch (err) {
+        const e = toError(err);
+        logger.error('[useOntology] dedupe failed', { error: e.message });
+        throw e;
+      }
+    },
+    []
+  );
+
   // ── auto-ingest: get ────────────────────────────────────────────────────────
 
   const getAutoIngest = useCallback(async (topicId: string) => {
@@ -442,6 +532,10 @@ export function useOntology() {
     setConfidence,
     editProperty,
     mergeObjects,
+    renameObject,
+    deleteObject,
+    listDuplicates,
+    dedupe,
     getAutoIngest,
     setAutoIngest,
     startBackfill,

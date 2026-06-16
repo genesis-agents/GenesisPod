@@ -79,6 +79,18 @@ export class OntologyReadController {
   }
 
   /**
+   * List duplicate entity groups (same typeKey + case-insensitive label,
+   * possibly across topicId). Powers the「扫描重复」cleanup tool.
+   * GET /ontology/duplicates?topicId=...
+   */
+  @Get("duplicates")
+  async getDuplicates(@Query("topicId") topicId?: string) {
+    const groups = await this.ontologyService.findDuplicateGroups({ topicId });
+    const totalDuplicates = groups.reduce((sum, g) => sum + (g.count - 1), 0);
+    return { groups, totalGroups: groups.length, totalDuplicates };
+  }
+
+  /**
    * Get a single ontology entity by ID.
    * GET /ontology/entities/:id
    */
