@@ -43,6 +43,8 @@ export const RunMissionInputSchema = z
       .enum(["executive", "domain-expert", "general-public"])
       .default("domain-expert"),
     withFigures: z.boolean().default(true),
+    /** ★ 利用知识本体：true 时 s2 leader 规划前注入相关本体子图作背景（默认开）。 */
+    useOntology: z.boolean().default(true),
     auditLayers: z
       .enum(["minimal", "default", "thorough", "thorough+"])
       .default("default"),

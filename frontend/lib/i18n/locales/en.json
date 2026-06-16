@@ -271,6 +271,11 @@
     "myAgentsManage": "Manage Agents"
   },
   "playground": {
+    "useOntologyToggle": {
+      "label": "Use knowledge ontology",
+      "hint": "Inject topic-related accumulated entities/relations as planning context",
+      "enable": "Enable"
+    },
     "ontologyRef": {
       "heading": "Knowledge ontology referenced",
       "desc": "Planning referenced {{count}} related entities from the knowledge ontology",

@@ -71,6 +71,7 @@ function projectUserProfileView(
     lengthProfile: b.lengthProfile,
     audienceProfile: b.audienceProfile,
     withFigures: b.withFigures,
+    useOntology: b.useOntology,
     auditLayers: b.auditLayers,
     concurrency: b.concurrency,
     viewMode: b.viewMode,

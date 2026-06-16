@@ -106,6 +106,7 @@ export class CtxHydratorService extends BusinessTeamCtxHydratorFramework<
       lengthProfile: b.lengthProfile,
       audienceProfile: b.audienceProfile,
       withFigures: b.withFigures,
+      useOntology: b.useOntology ?? true,
       auditLayers: b.auditLayers,
       concurrency: b.concurrency,
       viewMode: b.viewMode,
