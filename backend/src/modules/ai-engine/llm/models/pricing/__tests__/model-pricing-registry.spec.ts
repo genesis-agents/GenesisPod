@@ -265,6 +265,40 @@ describe("ModelPricingRegistry", () => {
       expect(reg.get("bad-tier")).toBeNull();
     });
 
+    it("uses tier-default pricing when DB row has costTier but no explicit price (closes $0 budget hole)", async () => {
+      // 2026-06-16: 价格未配但有 costTier → 用档位默认价估算（护栏先生效），
+      // 不再标 unpriced 落到 $0。
+      const mockPrisma = {
+        aIModel: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              modelId: "deepseek-v4-flash",
+              costTier: "standard",
+              priceInputPerMillion: null,
+              priceOutputPerMillion: null,
+              priceCacheReadPerMillion: null,
+              priceCacheWritePerMillion: null,
+            },
+          ]),
+        },
+      };
+      const reg = new ModelPricingRegistry(mockPrisma as never);
+      await reg.onApplicationBootstrap();
+
+      const entry = reg.get("deepseek-v4-flash");
+      expect(entry).not.toBeNull();
+      // 标记来自档位估算（cost 面板可显示「≈ 档位估算」），且不再是 unpriced
+      expect(entry!.estimatedFromTier).toBe(true);
+      expect(entry!.unpriced).toBeFalsy();
+
+      // estimateCost 现在返回 standard 档位默认价的真实数值，而非 null → 预算可计
+      const cost = reg.estimateCost("deepseek-v4-flash", 1000, 500);
+      expect(cost).not.toBeNull();
+      // standard: input 3 / output 12 per 1M
+      const expected = (1000 / 1e6) * 3 + (500 / 1e6) * 12;
+      expect(cost).toBeCloseTo(expected);
+    });
+
     it("hydrates cacheWrite price from db when set", async () => {
       const mockPrisma = {
         aIModel: {

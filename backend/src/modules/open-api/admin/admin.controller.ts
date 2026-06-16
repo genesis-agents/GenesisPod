@@ -398,6 +398,7 @@ export class AdminController {
       defaultTimeoutMs?: number;
       priceInputPerMillion?: number;
       priceOutputPerMillion?: number;
+      costTier?: string;
       priority?: number;
     },
   ) {
@@ -481,6 +482,7 @@ export class AdminController {
       defaultTimeoutMs?: number;
       priceInputPerMillion?: number;
       priceOutputPerMillion?: number;
+      costTier?: string;
       priority?: number;
       // ★ Structured Output capability matrix (2026-05-06)
       structuredOutputStrategy?: string | null;

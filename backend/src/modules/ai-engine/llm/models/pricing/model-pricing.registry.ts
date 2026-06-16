@@ -25,6 +25,7 @@ import {
   Optional,
 } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
+import { TIER_DEFAULT_PRICING } from "./pricing-defaults.const";
 
 // ★ ModelTier: pricing 层独立定义（符合 L2 不依赖 L2.5 harness）。
 //   harness/guardrails/budget 同名 type 字面一致，互不依赖。
@@ -45,8 +46,16 @@ export interface ModelPricing {
    * DB 行存在（costTier 已配）但 input/output 价格均未配。
    * estimateCost 对此返回 null（与未注册同语义）而非按 0 价算出 $0 假账；
    * cost 面板可经 get() 读此标记显示「未计价」。
+   *
+   * ★ 2026-06-16：tier 默认价上线后，tiered 行不再标 unpriced（改用档位默认价
+   * 估算，见 estimatedFromTier），本字段仅理论保留。
    */
   readonly unpriced?: boolean;
+  /**
+   * 价格来自 costTier 的档位默认值（admin 未填精确单价）。预算护栏照常生效，
+   * 只是数值是近似估计；cost 面板可据此显示「≈ 档位估算」。
+   */
+  readonly estimatedFromTier?: boolean;
 }
 
 const VALID_TIERS: ReadonlySet<ModelTier> = new Set([
@@ -113,19 +122,26 @@ export class ModelPricingRegistry implements OnApplicationBootstrap {
           skipped += 1;
           continue;
         }
+        // null 区分「价格未配」与「显式免费(0)」：Decimal(0) 也是有效价。
+        const explicitInput =
+          row.priceInputPerMillion != null
+            ? Number(row.priceInputPerMillion)
+            : null;
+        const explicitOutput =
+          row.priceOutputPerMillion != null
+            ? Number(row.priceOutputPerMillion)
+            : null;
+        // ★ 2026-06-16：价格未配但有 costTier → 用档位默认价估算（护栏先生效），
+        //   不再标 unpriced 落到 $0。admin 填了精确价则覆盖。
+        const usingTierDefault =
+          explicitInput == null && explicitOutput == null;
+        const tierDefault = TIER_DEFAULT_PRICING[tier];
         this.register({
           modelId: row.modelId,
           tier,
-          inputPricePerM: row.priceInputPerMillion
-            ? Number(row.priceInputPerMillion)
-            : 0,
-          outputPricePerM: row.priceOutputPerMillion
-            ? Number(row.priceOutputPerMillion)
-            : 0,
-          // null 区分「价格未配」与「显式免费(0)」：Decimal(0) 走上方 Number 分支
-          unpriced:
-            row.priceInputPerMillion == null &&
-            row.priceOutputPerMillion == null,
+          inputPricePerM: explicitInput ?? tierDefault.inputPerM,
+          outputPricePerM: explicitOutput ?? tierDefault.outputPerM,
+          estimatedFromTier: usingTierDefault,
           cacheReadPricePerM: row.priceCacheReadPerMillion
             ? Number(row.priceCacheReadPerMillion)
             : undefined,

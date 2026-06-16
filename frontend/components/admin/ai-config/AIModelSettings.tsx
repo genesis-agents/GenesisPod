@@ -137,6 +137,8 @@ interface AIModel {
   defaultTimeoutMs?: number;
   priceInputPerMillion?: number;
   priceOutputPerMillion?: number;
+  /** 成本档位 basic|standard|strong：价格未填时按档位默认价估算，预算护栏才生效 */
+  costTier?: string;
   priority?: number;
   // ★ Structured Output capability matrix (2026-05-06)
   structuredOutputStrategy?: string | null;
@@ -149,6 +151,17 @@ interface AIModel {
   createdAt: string;
   updatedAt: string;
 }
+
+// 镜像后端 pricing-defaults.const.ts（仅用于 admin 表单预填提示；权威默认在后端）。
+// 选 costTier 时预填这些默认单价，admin 可手动覆盖为 provider 精确价。
+const TIER_DEFAULT_PRICING_UI: Record<
+  string,
+  { inputPerM: number; outputPerM: number }
+> = {
+  basic: { inputPerM: 0.5, outputPerM: 1.5 },
+  standard: { inputPerM: 3, outputPerM: 12 },
+  strong: { inputPerM: 15, outputPerM: 60 },
+};
 
 interface TestResult {
   success: boolean;
@@ -801,6 +814,7 @@ export default function AIModelSettings({
         defaultTimeoutMs: model.defaultTimeoutMs,
         priceInputPerMillion: model.priceInputPerMillion,
         priceOutputPerMillion: model.priceOutputPerMillion,
+        costTier: model.costTier,
         priority: model.priority,
         // ★ 新增：Secret Manager 引用
         secretKey: model.secretKey,
@@ -2221,6 +2235,39 @@ function EditModelModal({
                 </label>
               </div>
 
+              {/* 成本档位：决定预算护栏的默认单价；选档位会预填价格，可手动覆盖 */}
+              <div className="mb-3">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  成本档位 (costTier)
+                </label>
+                <select
+                  value={formData.costTier || 'standard'}
+                  onChange={(e) => {
+                    const tier = e.target.value;
+                    const def = TIER_DEFAULT_PRICING_UI[tier];
+                    setFormData({
+                      ...formData,
+                      costTier: tier,
+                      ...(def
+                        ? {
+                            priceInputPerMillion: def.inputPerM,
+                            priceOutputPerMillion: def.outputPerM,
+                          }
+                        : {}),
+                    });
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="basic">basic（便宜小模型）</option>
+                  <option value="standard">standard（主力模型）</option>
+                  <option value="strong">strong（旗舰/推理）</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  选档位会预填默认单价；未填精确价时，预算护栏按档位默认价估算（避免按
+                  $0 计、护栏失效）。
+                </p>
+              </div>
+
               {/* 价格配置 */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -2348,6 +2395,7 @@ function AddModelModal({
     defaultTimeoutMs: 120000,
     priceInputPerMillion: undefined as number | undefined,
     priceOutputPerMillion: undefined as number | undefined,
+    costTier: 'standard' as string,
     priority: 50,
   });
   const [showApiKey, setShowApiKey] = useState(false);
@@ -3006,6 +3054,39 @@ function AddModelModal({
                   />
                   <span className="text-sm">支持视觉/图像</span>
                 </label>
+              </div>
+
+              {/* 成本档位：决定预算护栏的默认单价；选档位会预填价格，可手动覆盖 */}
+              <div className="mb-3">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  成本档位 (costTier)
+                </label>
+                <select
+                  value={formData.costTier || 'standard'}
+                  onChange={(e) => {
+                    const tier = e.target.value;
+                    const def = TIER_DEFAULT_PRICING_UI[tier];
+                    setFormData({
+                      ...formData,
+                      costTier: tier,
+                      ...(def
+                        ? {
+                            priceInputPerMillion: def.inputPerM,
+                            priceOutputPerMillion: def.outputPerM,
+                          }
+                        : {}),
+                    });
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="basic">basic（便宜小模型）</option>
+                  <option value="standard">standard（主力模型）</option>
+                  <option value="strong">strong（旗舰/推理）</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  选档位会预填默认单价；未填精确价时，预算护栏按档位默认价估算（避免按
+                  $0 计、护栏失效）。
+                </p>
               </div>
 
               {/* 价格配置 */}
