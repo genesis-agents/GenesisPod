@@ -4681,6 +4681,33 @@
       "title": "系统架构图",
       "subtitle": "点击可配置的卡片进入管理设置",
       "backToOverview": "返回架构图",
+      "tabs": {
+        "architecture": "系统架构图",
+        "dataflow": "数据流"
+      },
+      "df": {
+        "title": "系统数据流",
+        "subtitle": "前沿库 / 知识库 / 知识本体 ↔ AI Apps · 真实 live + 流量驱动流动",
+        "liveStat": "{{live}} 在线 · {{calls}} 次调用",
+        "pause": "暂停流动",
+        "resume": "开始流动",
+        "loadError": "加载失败：{{msg}}",
+        "loading": "加载系统拓扑…",
+        "online": "运行时在线",
+        "offline": "未注册",
+        "nodeLiveTitle": "真实运行时在线",
+        "metricCalls": "{{calls}} 次 / {{hours}}h",
+        "flowsOut": "流出（产出 / 触发）",
+        "flowsIn": "流入（消费 / 依赖）",
+        "kinds": {
+          "ingest": "采集 / 导入",
+          "process": "处理 / 向量化",
+          "retrieve": "检索消费",
+          "save": "收藏 / 素材",
+          "ofill": "本体回填",
+          "ouse": "本体利用"
+        }
+      },
       "health": {
         "score": "健康度",
         "healthy": "健康",

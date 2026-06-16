@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GenesisPod 系统数据流图 (Demo)</title>
+<style>
+  :root {
+    --bg: #0b0f1a;
+    --panel: #121829;
+    --panel-2: #1a2236;
+    --border: #26304a;
+    --text: #e6eaf2;
+    --muted: #8b96ad;
+    --external: #64748b;
+    --explore: #f59e0b;
+    --library: #10b981;
+    --engine: #06b6d4;
+    --ontology: #a855f7;
+    --apps: #3b82f6;
+    /* edge categories */
+    --ingest: #f59e0b;
+    --process: #14b8a6;
+    --retrieve: #3b82f6;
+    --save: #22c55e;
+    --ofill: #a855f7;
+    --ouse: #c084fc;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", Roboto, sans-serif; }
+  .app { display: grid; grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: 100vh; }
+  header { display: flex; align-items: center; gap: 16px;
+    padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--border); }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; letter-spacing: .3px; }
+  header .sub { color: var(--muted); font-size: 12px; }
+  header .spacer { flex: 1; }
+  .ctrl { display: flex; align-items: center; gap: 8px; }
+  button.btn { background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+  button.btn:hover { border-color: #3a4a6e; background: #202a42; }
+  button.btn.active { border-color: var(--apps); color: #cfe0ff; }
+  input[type=range] { width: 110px; }
+  .stage { position: relative; overflow: hidden; background:
+    radial-gradient(circle at 30% 20%, #131b2e 0%, var(--bg) 60%); }
+  svg { display: block; width: 100%; height: 100%; }
+  .legend { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
+    display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+    background: rgba(18,24,41,.92); border: 1px solid var(--border);
+    border-radius: 10px; padding: 7px 14px; font-size: 12px; }
+  .legend .row { display: flex; align-items: center; gap: 7px; cursor: pointer; user-select: none; }
+  .legend .row.off { opacity: .35; }
+  .legend .swatch { width: 22px; height: 0; border-top: 3px solid #888; border-radius: 2px; }
+  .legend .dash { border-top-style: dashed; }
+  aside { position: absolute; top: 0; right: 0; width: 330px; height: 100%; z-index: 20;
+    background: rgba(18,24,41,.97); border-left: 1px solid var(--border); padding: 18px 16px;
+    overflow: auto; box-shadow: -12px 0 32px rgba(0,0,0,.4);
+    transform: translateX(100%); transition: transform .28s cubic-bezier(.4,0,.2,1); }
+  aside.open { transform: translateX(0); }
+  aside .closeBtn { position: absolute; top: 12px; right: 12px; width: 28px; height: 28px;
+    border: 1px solid var(--border); background: var(--panel-2); color: var(--muted);
+    border-radius: 8px; cursor: pointer; font-size: 16px; line-height: 1; }
+  aside .closeBtn:hover { color: var(--text); border-color: #3a4a6e; }
+  aside h2 { font-size: 14px; margin: 0 0 4px; }
+  aside .tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px;
+    background: var(--panel-2); color: var(--muted); margin-bottom: 10px; }
+  aside .desc { font-size: 13px; color: #c4cce0; line-height: 1.6; }
+  aside .flowlist { margin-top: 14px; }
+  aside .flowlist h3 { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin: 12px 0 6px; }
+  aside .flow { font-size: 12.5px; padding: 6px 8px; border-radius: 8px; background: var(--panel-2);
+    margin-bottom: 6px; border-left: 3px solid var(--border); line-height: 1.5; }
+  aside .flow b { color: #e6eaf2; font-weight: 600; }
+  aside .hint { color: var(--muted); font-size: 12px; line-height: 1.6; }
+  /* svg node */
+  .node rect { cursor: grab; transition: opacity .2s; }
+  .node.dim { opacity: .18; }
+  .node text { pointer-events: none; }
+  .node .ttl { font-size: 12.5px; font-weight: 600; }
+  .node .sub { font-size: 10px; }
+  .edge { fill: none; transition: opacity .2s; }
+  .edge.dim { opacity: .06; }
+  .particle { pointer-events: none; }
+  .particle.dim { opacity: 0; }
+  .grpLabel { fill: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: 2px; opacity: .55; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>GenesisPod 系统数据流图</h1>
+    <span class="sub">以左侧菜单为锚 · 知识库 / 知识本体 / AI 前沿库(EXPLORE) ↔ AI Apps · demo</span>
+    <span class="spacer"></span>
+    <div class="ctrl">
+      <button class="btn active" id="playBtn">⏸ 暂停流动</button>
+      <span class="sub">速度</span>
+      <input type="range" id="speed" min="0.2" max="3" step="0.1" value="1" />
+      <button class="btn" id="resetBtn">重置布局</button>
+    </div>
+  </header>
+
+  <div class="stage" id="stage">
+    <svg id="svg" viewBox="0 0 1720 800" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="2.2" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <g id="grpLabels"></g>
+      <g id="edges"></g>
+      <g id="particles"></g>
+      <g id="nodes"></g>
+    </svg>
+    <div class="legend" id="legend"></div>
+
+    <aside id="aside">
+      <button class="closeBtn" id="closeAside" title="关闭">×</button>
+      <h2 id="aTitle">点击任意节点</h2>
+      <span class="tag" id="aTag">查看其数据流</span>
+      <div class="desc" id="aDesc"></div>
+      <div class="flowlist" id="aFlows"></div>
+      <div class="flowlist">
+        <h3>如何变成"真实数据流过才流动"</h3>
+        <div class="hint">
+          每条边对应一处后端调用（见上方文件/接口）。在这些调用点通过
+          WebSocket / SSE 推一个 <code>{edgeId, ts}</code> 事件，前端收到后给对应边
+          <code>emitBurst(edgeId)</code> 发射一簇粒子即可。空闲的边保持静止，
+          这样图上"亮起来流动"的就是此刻真有数据在走的链路。
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+// ============ 数据：节点（以左侧菜单 + 已核实的后端模块为准） ============
+// group 决定配色；x,y 为左上角；w/h 固定
+const W = 182, H = 50;
+const GROUPS = {
+  external: { color: 'var(--external)', label: '外部源 / 采集' },
+  explore:  { color: 'var(--explore)',  label: 'EXPLORE 前沿库' },
+  library:  { color: 'var(--library)',  label: '知识库 Library' },
+  engine:   { color: 'var(--engine)',   label: 'AI Engine 基元' },
+  ontology: { color: 'var(--ontology)', label: '知识本体' },
+  apps:     { color: 'var(--apps)',     label: 'AI Apps (左侧菜单)' },
+};
+
+// 4 个水平架构带（AI Apps 在最上，外部源在最下；数据自下而上流）
+const LAYERS = [
+  { label: '④ AI Apps · 左侧菜单功能',                     y: 40,  line: 86 },
+  { label: '③ AI Engine 基元 · 检索 / 向量 / 知识本体',     y: 215, line: 261 },
+  { label: '② 内容与组织 · 知识库 Library + 前沿库 EXPLORE', y: 415, line: 461 },
+  { label: '① 外部数据源 / 采集',                         y: 615, line: 661 },
+];
+
+// 各层 y（节点左上角）—— Apps 顶、外部源底
+const Y4 = 110, Y3 = 285, Y2 = 485, Y1 = 690;
+
+const NODES = [
+  // —— ① 外部数据源（3）——
+  { id:'crawlers', g:'external', x:195,  y:Y1, t:'采集爬虫', s:'arXiv/RSS/HN/GitHub',
+    tag:'EXPLORE · ingestion/crawlers', d:'定时(Cron, ~6h)抓取前沿资源，按质量门槛去重后入 Resource 库。' },
+  { id:'youtube',  g:'external', x:768,  y:Y1, t:'YouTube 采集', s:'视频 + 字幕缓存',
+    tag:'EXPLORE · youtube', d:'抓取视频与转录字幕，缓存于 YouTubeTranscriptCache，供前端与 AI 引用。' },
+  { id:'integr',   g:'external', x:1341, y:Y1, t:'外部集成', s:'GDrive / 飞书 / Notion',
+    tag:'Library · integrations', d:'把第三方文档导入知识库，作为 KB Document 进入 RAG 管道。' },
+
+  // —— ② 内容与组织：前沿库 + 知识库内部部件（7）——
+  { id:'resource', g:'explore', x:31,   y:Y2, t:'Resource 前沿资源库', s:'策展 + AI富化 + 质量分',
+    tag:'EXPLORE · resources', d:'全局公共资源实体(无 userId)：aiSummary/keyInsights/qualityScore/trendingScore。' },
+  { id:'feed',     g:'explore', x:276,  y:Y2, t:'Feed / 浏览', s:'/feed · 时间&热度排序',
+    tag:'EXPLORE · feed', d:'前端首页流、搜索、trending、相关推荐。用户浏览 Resource 的入口。' },
+  { id:'kbDocs',   g:'library', x:521,  y:Y2, t:'KB Documents', s:'多源文档导入',
+    tag:'Library · rag/knowledge-base', d:'统一文档容器：GDrive/飞书/平台/URL/内部报告，status PENDING→READY。' },
+  { id:'chunks',   g:'library', x:766,  y:Y2, t:'Parent/Child Chunks', s:'~2000 / ~400 token',
+    tag:'Library · rag/document-processor', d:'Parent-Child 分块：parent 给上下文，child 给向量精度。' },
+  { id:'collections', g:'library', x:1011, y:Y2, t:'Collections 合集', s:'CollectionItem 多态覆盖',
+    tag:'Library · collections', d:'收藏覆盖层：纳入 Resource/Note/Image/Notion/Drive，自动 AI 打标签。' },
+  { id:'notes',    g:'library', x:1256, y:Y2, t:'Notes 笔记', s:'Markdown + 高亮',
+    tag:'Library · notes', d:'用户私有笔记，可关联资源 / 知识图谱节点，可被合集整理。' },
+  { id:'wiki',     g:'library', x:1501, y:Y2, t:'Wiki (BM25)', s:'WikiPage 出链/反链',
+    tag:'Library · wiki', d:'KB 内 wiki 页，BM25 索引；检索置信度够则短路，不走向量。' },
+
+  // —— ③ AI Engine 基元：检索 / 向量 / 本体（5）——
+  { id:'exSearch', g:'engine', x:81,   y:Y3, t:'explore-search 工具', s:'ToolRegistry · public/mine',
+    tag:'engine · tools / explore-search', d:'注册进全局 ToolRegistry，被 AI 洞察 / AI 前瞻等 Agent 调用检索前沿库。' },
+  { id:'websearch',g:'engine', x:425,  y:Y3, t:'Web Search', s:'公网检索 (Serper/Tavily)',
+    tag:'engine · DEFAULT_RETRIEVAL_TOOL_IDS', d:'四层检索之一，提供公网时效性，与 explore-search / rag-search 互补。' },
+  { id:'vector',   g:'engine', x:769,  y:Y3, t:'Vector Store', s:'EmbeddingService 向量',
+    tag:'engine · rag/vector', d:'child chunk 向量化(自适应限速)后入库，供相似度检索。' },
+  { id:'kbQuery',  g:'engine', x:1113, y:Y3, t:'KbQuery 检索门面', s:'Wiki 优先 + RAG 回退',
+    tag:'Library · kb-query', d:'统一检索入口：先 Wiki(BM25)，不够再 RAG 向量+rerank，返回 SearchResult[]。' },
+  { id:'ontology', g:'ontology', x:1457, y:Y3, t:'知识本体 Ontology', s:'OntologyObject + Link',
+    tag:'engine · knowledge/ontology', d:'全局图谱。回填(4源→OntologyBuilderSkill)写入；AI 洞察 S2 读子图作背景知识。' },
+
+  // —— ④ AI Apps（仅可见左侧菜单项，5）——
+  { id:'ask',      g:'apps', x:81,   y:Y4, t:'AI 问答', s:'/ai-ask',
+    tag:'menu · nav.aiAsk', d:'多模型问答，可走 RAG 检索知识库作答。' },
+  { id:'radar',    g:'apps', x:425,  y:Y4, t:'AI 雷达', s:'/ai-radar · 信号流',
+    tag:'menu · nav.aiRadar', d:'订阅话题信号，radar-signal-search 作为四层检索之一供 Agent 取证。' },
+  { id:'insights', g:'apps', x:769,  y:Y4, t:'AI 洞察', s:'/agent-playground · 多Agent mission',
+    tag:'menu · nav.aiInsights', d:'多 Agent mission：S2 Leader 读本体规划，S11 完成回写本体，形成闭环。原 Topic Insights / 研究能力收于此。' },
+  { id:'foresight',g:'apps', x:1113, y:Y4, t:'AI 前瞻', s:'/foresight · 假设图谱',
+    tag:'menu · nav.aiForesight', d:'扫描前沿库验证/证伪假设：scanExplore→explore-search(public)→ForesightSignal。' },
+  { id:'agents',   g:'apps', x:1457, y:Y4, t:'我的专家团', s:'/agents · 任务',
+    tag:'menu · nav.myExperts', d:'专家花名册 + 专家任务，驱动 AI 洞察 mission 执行。' },
+];
+
+// ============ 数据：边（kind 决定配色/动画/类别） ============
+// kind: ingest 采集导入 | process 处理向量化 | retrieve 检索消费 | save 收藏素材 | ofill 本体回填 | ouse 本体利用
+const EDGES = [
+  // ① 采集 / 导入（外部源 → 内容层）
+  { id:'e1', from:'crawlers', to:'resource', kind:'ingest', label:'定时抓取' },
+  { id:'e2', from:'youtube',  to:'resource', kind:'ingest', label:'视频+字幕' },
+  { id:'e3', from:'integr',   to:'kbDocs',   kind:'ingest', label:'导入文档' },
+  // ② 内容层内部：浏览 / 收藏 / 整理
+  { id:'e4', from:'resource', to:'feed',     kind:'save',   label:'浏览/搜索' },
+  { id:'e6', from:'resource', to:'collections', kind:'save',label:'收藏入库' },
+  { id:'e11',from:'notes',    to:'collections', kind:'save',label:'整理' },
+  { id:'e8', from:'kbDocs',   to:'chunks',   kind:'process',label:'Parent-Child 分块' },
+  { id:'e10',from:'collections', to:'kbDocs',kind:'process',label:'纳入语料' },
+  // ② → ③ 内容层 → 引擎基元（向量化 / 索引）
+  { id:'e9', from:'chunks',   to:'vector',   kind:'process',label:'embedding' },
+  { id:'e5', from:'resource', to:'exSearch', kind:'process',label:'索引来源' },
+  { id:'e12',from:'vector',   to:'kbQuery',  kind:'process',label:'向量检索' },
+  { id:'e13',from:'wiki',     to:'kbQuery',  kind:'process',label:'BM25' },
+  // ③ → ④ 引擎基元 → AI Apps（检索消费）
+  { id:'e15',from:'kbQuery',  to:'insights', kind:'retrieve',label:'背景检索' },
+  { id:'e16',from:'kbQuery',  to:'foresight',kind:'retrieve',label:'KB 证据' },
+  { id:'e17',from:'kbQuery',  to:'ask',      kind:'retrieve',label:'RAG 作答' },
+  { id:'e18',from:'exSearch', to:'foresight',kind:'retrieve',label:'前沿扫描(public)' },
+  { id:'e19',from:'exSearch', to:'insights', kind:'retrieve',label:'前沿取证' },
+  { id:'e21',from:'websearch',to:'insights', kind:'retrieve',label:'公网检索' },
+  { id:'e21b',from:'websearch',to:'foresight',kind:'retrieve',label:'公网检索' },
+  // ④ 内部：雷达信号 / 专家团驱动洞察
+  { id:'e22',from:'radar',    to:'insights', kind:'retrieve',label:'信号检索' },
+  { id:'e28',from:'agents',   to:'insights', kind:'retrieve',label:'驱动 mission' },
+  // 本体回填 (ofill)：AI Apps / 内容层 → 知识本体
+  { id:'e23',from:'insights', to:'ontology', kind:'ofill',  label:'S11 回写' },
+  { id:'e24',from:'foresight',to:'ontology', kind:'ofill',  label:'报告回填' },
+  { id:'e26',from:'kbDocs',   to:'ontology', kind:'ofill',  label:'KB Doc 回填' },
+  // 本体利用 (ouse)：知识本体 → AI 洞察
+  { id:'e27',from:'ontology', to:'insights', kind:'ouse',  label:'S2 读子图' },
+];
+
+const KINDS = {
+  ingest:   { color:'var(--ingest)',   label:'采集 / 导入',  dash:false },
+  process:  { color:'var(--process)',  label:'处理 / 向量化',dash:false },
+  retrieve: { color:'var(--retrieve)', label:'检索消费',     dash:false },
+  save:     { color:'var(--save)',     label:'收藏 / 素材',  dash:false },
+  ofill:    { color:'var(--ofill)',    label:'本体回填',     dash:false },
+  ouse:     { color:'var(--ouse)',     label:'本体利用',     dash:true  },
+};
+
+// ============ 渲染 ============
+const SVGNS = 'http://www.w3.org/2000/svg';
+const nodeById = Object.fromEntries(NODES.map(n => [n.id, n]));
+const gEdges = document.getElementById('edges');
+const gParticles = document.getElementById('particles');
+const gNodes = document.getElementById('nodes');
+const gGrp = document.getElementById('grpLabels');
+let selected = null;
+const enabledKinds = new Set(Object.keys(KINDS));
+
+function cssVar(v){ // resolve var(--x) to actual color for canvas-like use; SVG can use var() directly so just return
+  return v;
+}
+function center(n){ return { x:n.x+W/2, y:n.y+H/2 }; }
+function edgePoint(n, tx, ty){
+  const c = center(n), dx = tx-c.x, dy = ty-c.y, hw=W/2, hh=H/2;
+  if(dx===0 && dy===0) return c;
+  const scale = 1/Math.max(Math.abs(dx)/hw, Math.abs(dy)/hh);
+  return { x:c.x+dx*scale, y:c.y+dy*scale };
+}
+function edgePath(e){
+  const a = nodeById[e.from], b = nodeById[e.to];
+  const ca = center(a), cb = center(b);
+  const p1 = edgePoint(a, cb.x, cb.y);
+  const p2 = edgePoint(b, ca.x, ca.y);
+  if (Math.abs(p2.y - p1.y) >= Math.abs(p2.x - p1.x)) {
+    // 纵向为主：控制点沿 y 轴弯（适合上下分层）
+    const my = (p1.y + p2.y) / 2;
+    return `M ${p1.x} ${p1.y} C ${p1.x} ${my}, ${p2.x} ${my}, ${p2.x} ${p2.y}`;
+  }
+  // 横向为主：控制点沿 x 轴弯（同层之间）
+  const mx = (p1.x + p2.x) / 2;
+  return `M ${p1.x} ${p1.y} C ${mx} ${p1.y}, ${mx} ${p2.y}, ${p2.x} ${p2.y}`;
+}
+
+// 水平架构带：分隔线 + 左上角层标签
+const VW = 1720;
+LAYERS.forEach(L => {
+  const ln = document.createElementNS(SVGNS,'line');
+  ln.setAttribute('x1', 14); ln.setAttribute('x2', VW-14);
+  ln.setAttribute('y1', L.line); ln.setAttribute('y2', L.line);
+  ln.setAttribute('stroke', 'var(--border)');
+  ln.setAttribute('stroke-width', '1');
+  ln.setAttribute('stroke-dasharray', '2 6');
+  ln.setAttribute('opacity', '0.6');
+  gGrp.appendChild(ln);
+  const t = document.createElementNS(SVGNS,'text');
+  t.setAttribute('x', 20); t.setAttribute('y', L.y);
+  t.setAttribute('class','grpLabel');
+  t.textContent = L.label;
+  gGrp.appendChild(t);
+});
+
+// edges
+const edgeEls = {};
+EDGES.forEach(e => {
+  const p = document.createElementNS(SVGNS,'path');
+  p.setAttribute('class','edge');
+  p.setAttribute('d', edgePath(e));
+  p.setAttribute('stroke', KINDS[e.kind].color);
+  p.setAttribute('stroke-width', '1.6');
+  p.setAttribute('stroke-opacity', '0.5');
+  if (KINDS[e.kind].dash) p.setAttribute('stroke-dasharray','6 5');
+  gEdges.appendChild(p);
+  // particle pool
+  const len = p.getTotalLength();
+  const count = Math.max(2, Math.round(len/130));
+  const parts = [];
+  for (let i=0;i<count;i++){
+    const c = document.createElementNS(SVGNS,'circle');
+    c.setAttribute('r','3.2');
+    c.setAttribute('fill', KINDS[e.kind].color);
+    c.setAttribute('class','particle');
+    c.setAttribute('filter','url(#glow)');
+    gParticles.appendChild(c);
+    parts.push({ el:c, t: i/count });
+  }
+  edgeEls[e.id] = { el:p, len, parts, edge:e };
+});
+
+// nodes
+NODES.forEach(n => {
+  const g = document.createElementNS(SVGNS,'g');
+  g.setAttribute('class','node');
+  g.setAttribute('data-id', n.id);
+  g.setAttribute('transform', `translate(${n.x},${n.y})`);
+  const rect = document.createElementNS(SVGNS,'rect');
+  rect.setAttribute('width', W); rect.setAttribute('height', H);
+  rect.setAttribute('rx','10');
+  rect.setAttribute('fill', 'var(--panel-2)');
+  rect.setAttribute('stroke', GROUPS[n.g].color);
+  rect.setAttribute('stroke-width','1.8');
+  const bar = document.createElementNS(SVGNS,'rect');
+  bar.setAttribute('width','5'); bar.setAttribute('height',H);
+  bar.setAttribute('rx','2.5'); bar.setAttribute('fill', GROUPS[n.g].color);
+  const ttl = document.createElementNS(SVGNS,'text');
+  ttl.setAttribute('x','14'); ttl.setAttribute('y','22'); ttl.setAttribute('class','ttl');
+  ttl.setAttribute('fill','var(--text)'); ttl.textContent = n.t;
+  const sub = document.createElementNS(SVGNS,'text');
+  sub.setAttribute('x','14'); sub.setAttribute('y','38'); sub.setAttribute('class','sub');
+  sub.setAttribute('fill','var(--muted)'); sub.textContent = n.s;
+  g.append(rect, bar, ttl, sub);
+  gNodes.appendChild(g);
+  n._g = g;
+  // drag + click
+  enableDrag(n, g);
+});
+
+// ============ 交互：拖拽 + 选择 ============
+let dragState = null;
+function enableDrag(n, g){
+  g.addEventListener('mousedown', ev => {
+    const pt = toSvg(ev);
+    dragState = { n, dx: pt.x - n.x, dy: pt.y - n.y, moved:false };
+    g.querySelector('rect').style.cursor = 'grabbing';
+    ev.preventDefault();
+  });
+  g.addEventListener('click', ev => {
+    if (dragState && dragState.moved) return;
+    selectNode(n.id);
+    ev.stopPropagation();
+  });
+}
+window.addEventListener('mousemove', ev => {
+  if (!dragState) return;
+  const pt = toSvg(ev);
+  dragState.n.x = pt.x - dragState.dx;
+  dragState.n.y = pt.y - dragState.dy;
+  dragState.moved = true;
+  dragState.n._g.setAttribute('transform', `translate(${dragState.n.x},${dragState.n.y})`);
+  refreshEdgesFor(dragState.n.id);
+});
+window.addEventListener('mouseup', () => {
+  if (dragState) dragState.n._g.querySelector('rect').style.cursor = 'grab';
+  dragState = null;
+});
+function toSvg(ev){
+  const svg = document.getElementById('svg');
+  const pt = svg.createSVGPoint();
+  pt.x = ev.clientX; pt.y = ev.clientY;
+  const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+  return { x: p.x, y: p.y };
+}
+function refreshEdgesFor(id){
+  EDGES.forEach(e => {
+    if (e.from===id || e.to===id){
+      const ee = edgeEls[e.id];
+      ee.el.setAttribute('d', edgePath(e));
+      ee.len = ee.el.getTotalLength();
+    }
+  });
+}
+const asideEl = document.getElementById('aside');
+document.getElementById('stage').addEventListener('click', () => selectNode(null));
+asideEl.addEventListener('click', ev => ev.stopPropagation());
+document.getElementById('legend').addEventListener('click', ev => ev.stopPropagation());
+document.getElementById('closeAside').addEventListener('click', () => selectNode(null));
+
+function selectNode(id){
+  selected = id;
+  const connected = new Set();
+  if (id){
+    EDGES.forEach(e => { if (e.from===id||e.to===id){ connected.add(e.from); connected.add(e.to); } });
+  }
+  NODES.forEach(n => n._g.classList.toggle('dim', id && !connected.has(n.id)));
+  EDGES.forEach(e => {
+    const on = !id || e.from===id || e.to===id;
+    edgeEls[e.id].el.classList.toggle('dim', !on);
+  });
+  asideEl.classList.toggle('open', !!id);
+  if (id) updatePanel(id);
+}
+
+function updatePanel(id){
+  const aT = document.getElementById('aTitle');
+  const aTag = document.getElementById('aTag');
+  const aD = document.getElementById('aDesc');
+  const aF = document.getElementById('aFlows');
+  const n = nodeById[id];
+  aT.textContent = n.t;
+  aTag.textContent = n.tag;
+  aD.textContent = n.d;
+  const outs = EDGES.filter(e=>e.from===id);
+  const ins = EDGES.filter(e=>e.to===id);
+  const fmt = (e, dir) => {
+    const other = dir==='out' ? nodeById[e.to].t : nodeById[e.from].t;
+    const arrow = dir==='out' ? '→' : '←';
+    return `<div class="flow" style="border-left-color:${KINDS[e.kind].color}">
+      <b>${arrow} ${other}</b><br><span style="color:var(--muted)">${KINDS[e.kind].label} · ${e.label}</span></div>`;
+  };
+  let html = '';
+  if (outs.length){ html += '<h3>流出 (产出 / 触发)</h3>' + outs.map(e=>fmt(e,'out')).join(''); }
+  if (ins.length){ html += '<h3>流入 (消费 / 依赖)</h3>' + ins.map(e=>fmt(e,'in')).join(''); }
+  aF.innerHTML = html || '<div class="hint">该节点暂无连边。</div>';
+}
+
+// ============ 图例 + 类别开关 ============
+const legend = document.getElementById('legend');
+Object.entries(KINDS).forEach(([k, v]) => {
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.dataset.kind = k;
+  row.innerHTML = `<span class="swatch ${v.dash?'dash':''}" style="border-top-color:${v.color}"></span>${v.label}`;
+  row.addEventListener('click', () => {
+    if (enabledKinds.has(k)) enabledKinds.delete(k); else enabledKinds.add(k);
+    row.classList.toggle('off', !enabledKinds.has(k));
+    EDGES.forEach(e => {
+      if (e.kind===k){
+        const on = enabledKinds.has(k);
+        edgeEls[e.id].el.style.display = on ? '' : 'none';
+        edgeEls[e.id].parts.forEach(p => p.el.style.display = on ? '' : 'none');
+      }
+    });
+  });
+  legend.appendChild(row);
+});
+
+// ============ 动画循环 ============
+let playing = true;
+let speedMul = 1;
+document.getElementById('playBtn').addEventListener('click', e => {
+  playing = !playing;
+  e.target.textContent = playing ? '⏸ 暂停流动' : '▶ 开始流动';
+  e.target.classList.toggle('active', playing);
+});
+document.getElementById('speed').addEventListener('input', e => speedMul = parseFloat(e.target.value));
+document.getElementById('resetBtn').addEventListener('click', () => location.reload());
+
+const SPEED_BASE = { ingest:0.0016, process:0.0020, retrieve:0.0024, save:0.0018, ofill:0.0014, ouse:0.0016 };
+function tick(){
+  if (playing){
+    for (const id in edgeEls){
+      const ee = edgeEls[id];
+      if (!enabledKinds.has(ee.edge.kind)) continue;
+      const dimmed = selected && !(ee.edge.from===selected || ee.edge.to===selected);
+      const v = SPEED_BASE[ee.edge.kind] * speedMul;
+      ee.parts.forEach(p => {
+        p.t += v;
+        if (p.t > 1) p.t -= 1;
+        const pt = ee.el.getPointAtLength(p.t * ee.len);
+        p.el.setAttribute('cx', pt.x);
+        p.el.setAttribute('cy', pt.y);
+        p.el.style.opacity = dimmed ? 0.05 : (0.55 + 0.45*Math.sin(p.t*Math.PI));
+      });
+    }
+  }
+  requestAnimationFrame(tick);
+}
+tick();
+</script>
+</body>
+</html>
