@@ -1,5 +1,5 @@
 {
-  "__total__": 12358,
+  "__total__": 12372,
   "frontend/components/ui/viewers/HTMLViewer.tsx": 2,
   "frontend/components/ui/viewers/MermaidDiagram.tsx": 6,
   "frontend/components/ui/viewers/PDFViewer.tsx": 2,
@@ -69,9 +69,9 @@
   "frontend/components/library/data-sources/DataSourcesTab.tsx": 49,
   "frontend/components/layout/UserProfileButton.tsx": 2,
   "frontend/components/foresight/CardDetailPanel.tsx": 13,
-  "frontend/components/foresight/ConclusionsTab.tsx": 9,
+  "frontend/components/foresight/ConclusionsTab.tsx": 18,
   "frontend/components/foresight/ForesightDialogs.tsx": 167,
-  "frontend/components/foresight/ForesightView.tsx": 104,
+  "frontend/components/foresight/ForesightView.tsx": 109,
   "frontend/components/foresight/GraphCanvas.tsx": 23,
   "frontend/components/foresight/LibraryTab.tsx": 27,
   "frontend/components/foresight/ReviewTab.tsx": 34,

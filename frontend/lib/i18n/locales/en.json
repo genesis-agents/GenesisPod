@@ -4685,6 +4685,29 @@
         "architecture": "Architecture",
         "dataflow": "Data Flow"
       },
+      "df": {
+        "title": "System Data Flow",
+        "subtitle": "Explore / Library / Ontology ↔ AI Apps · real live status + traffic-driven flow",
+        "liveStat": "{{live}} online · {{calls}} calls",
+        "pause": "Pause flow",
+        "resume": "Start flow",
+        "loadError": "Load failed: {{msg}}",
+        "loading": "Loading system topology…",
+        "online": "Runtime online",
+        "offline": "Not registered",
+        "nodeLiveTitle": "Runtime online",
+        "metricCalls": "{{calls}} calls / {{hours}}h",
+        "flowsOut": "Outflow (produce / trigger)",
+        "flowsIn": "Inflow (consume / depend)",
+        "kinds": {
+          "ingest": "Ingest / Import",
+          "process": "Process / Embedding",
+          "retrieve": "Retrieval",
+          "save": "Save / Material",
+          "ofill": "Ontology backfill",
+          "ouse": "Ontology usage"
+        }
+      },
       "health": {
         "score": "Health",
         "healthy": "Healthy",

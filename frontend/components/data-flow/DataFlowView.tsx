@@ -15,6 +15,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GitFork, X } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 import { getDataFlowGraph, getDataFlowMetrics } from '@/services/data-flow/api';
 import type {
   DataFlowEdge,
@@ -43,26 +44,17 @@ const GROUP_COLOR: Record<DataFlowGroup, string> = {
   apps: '#3b82f6',
 };
 
+// 类别标签走 i18n（t('admin.architecture.df.kinds.<kind>')），此处只留样式/速度。
 const KIND_META: Record<
   DataFlowEdgeKind,
-  { color: string; label: string; dash: boolean; speed: number }
+  { color: string; dash: boolean; speed: number }
 > = {
-  ingest: {
-    color: '#f59e0b',
-    label: '采集 / 导入',
-    dash: false,
-    speed: 0.0016,
-  },
-  process: {
-    color: '#14b8a6',
-    label: '处理 / 向量化',
-    dash: false,
-    speed: 0.002,
-  },
-  retrieve: { color: '#3b82f6', label: '检索消费', dash: false, speed: 0.0024 },
-  save: { color: '#22c55e', label: '收藏 / 素材', dash: false, speed: 0.0018 },
-  ofill: { color: '#a855f7', label: '本体回填', dash: false, speed: 0.0014 },
-  ouse: { color: '#c084fc', label: '本体利用', dash: true, speed: 0.0016 },
+  ingest: { color: '#f59e0b', dash: false, speed: 0.0016 },
+  process: { color: '#14b8a6', dash: false, speed: 0.002 },
+  retrieve: { color: '#3b82f6', dash: false, speed: 0.0024 },
+  save: { color: '#22c55e', dash: false, speed: 0.0018 },
+  ofill: { color: '#a855f7', dash: false, speed: 0.0014 },
+  ouse: { color: '#c084fc', dash: true, speed: 0.0016 },
 };
 
 const PARTICLES_PER_EDGE = 4;
@@ -121,6 +113,7 @@ function edgePath(a: Pos, b: Pos): string {
 }
 
 export default function DataFlowView() {
+  const { t } = useTranslation();
   const [graph, setGraph] = useState<DataFlowGraph | null>(null);
   const [metrics, setMetrics] = useState<DataFlowMetrics | null>(null);
   const [positions, setPositions] = useState<Record<string, Pos>>({});
@@ -340,9 +333,11 @@ export default function DataFlowView() {
             <GitFork className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-slate-900">系统数据流</h2>
+            <h2 className="text-sm font-semibold text-slate-900">
+              {t('admin.architecture.df.title')}
+            </h2>
             <p className="text-xs text-slate-400">
-              前沿库 / 知识库 / 知识本体 ↔ AI Apps · 真实 live + 流量驱动流动
+              {t('admin.architecture.df.subtitle')}
             </p>
           </div>
         </div>
@@ -352,7 +347,10 @@ export default function DataFlowView() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
             </span>
-            {liveCount} 在线 · {metrics?.totalCalls ?? 0} 次调用
+            {t('admin.architecture.df.liveStat', {
+              live: liveCount,
+              calls: metrics?.totalCalls ?? 0,
+            })}
           </div>
           <div className="flex overflow-hidden rounded-lg ring-1 ring-gray-200">
             {[
@@ -379,7 +377,9 @@ export default function DataFlowView() {
             onClick={() => setPlaying((p) => !p)}
             className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-gray-600 ring-1 ring-gray-200 hover:bg-gray-50"
           >
-            {playing ? '暂停流动' : '开始流动'}
+            {playing
+              ? t('admin.architecture.df.pause')
+              : t('admin.architecture.df.resume')}
           </button>
         </div>
       </div>
@@ -387,12 +387,12 @@ export default function DataFlowView() {
       <div className="relative h-[calc(100vh-220px)] min-h-[520px] overflow-hidden rounded-xl border border-slate-200 bg-gray-50">
         {error && (
           <div className="absolute left-1/2 top-6 z-20 -translate-x-1/2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
-            加载失败：{error}
+            {t('admin.architecture.df.loadError', { msg: error })}
           </div>
         )}
         {!graph && !error && (
           <div className="absolute inset-0 flex items-center justify-center text-sm text-gray-400">
-            加载系统拓扑…
+            {t('admin.architecture.df.loading')}
           </div>
         )}
 
@@ -533,7 +533,7 @@ export default function DataFlowView() {
                   </text>
                   {n.live === true && (
                     <circle cx={W - 12} cy={13} r={4} fill="#10b981">
-                      <title>真实运行时在线</title>
+                      <title>{t('admin.architecture.df.nodeLiveTitle')}</title>
                     </circle>
                   )}
                   {typeof calls === 'number' && calls > 0 && (
@@ -572,7 +572,9 @@ export default function DataFlowView() {
                       borderTop: `3px ${meta.dash ? 'dashed' : 'solid'} ${meta.color}`,
                     }}
                   />
-                  <span className="text-gray-600">{meta.label}</span>
+                  <span className="text-gray-600">
+                    {t(`admin.architecture.df.kinds.${k}`)}
+                  </span>
                 </button>
               );
             })}
@@ -598,17 +600,20 @@ export default function DataFlowView() {
             <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
               {selectedNode.live === true && (
                 <span className="rounded bg-emerald-50 px-1.5 py-0.5 font-medium text-emerald-700 ring-1 ring-emerald-200">
-                  运行时在线
+                  {t('admin.architecture.df.online')}
                 </span>
               )}
               {selectedNode.live === false && (
                 <span className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-500">
-                  未注册
+                  {t('admin.architecture.df.offline')}
                 </span>
               )}
               {metrics?.nodes[selectedNode.id] && (
                 <span className="rounded bg-blue-50 px-1.5 py-0.5 font-medium text-blue-700 ring-1 ring-blue-200">
-                  {metrics.nodes[selectedNode.id].calls} 次 / {windowHours}h
+                  {t('admin.architecture.df.metricCalls', {
+                    calls: metrics.nodes[selectedNode.id].calls,
+                    hours: windowHours,
+                  })}
                   {metrics.nodes[selectedNode.id].avgMs != null
                     ? ` · ${metrics.nodes[selectedNode.id].avgMs}ms`
                     : ''}
@@ -642,6 +647,7 @@ function FlowList({
   edges: DataFlowEdge[];
   nodeById: Record<string, DataFlowNode>;
 }) {
+  const { t } = useTranslation();
   const outs = edges.filter((e) => e.from === node.id);
   const ins = edges.filter((e) => e.to === node.id);
   const row = (e: DataFlowEdge, dir: 'out' | 'in') => {
@@ -658,7 +664,7 @@ function FlowList({
         </b>
         <br />
         <span className="text-gray-500">
-          {KIND_META[e.kind].label} · {e.label}
+          {t(`admin.architecture.df.kinds.${e.kind}`)} · {e.label}
         </span>
       </div>
     );
@@ -668,7 +674,7 @@ function FlowList({
       {outs.length > 0 && (
         <>
           <h3 className="mb-1.5 mt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-            流出（产出 / 触发）
+            {t('admin.architecture.df.flowsOut')}
           </h3>
           {outs.map((e) => row(e, 'out'))}
         </>
@@ -676,7 +682,7 @@ function FlowList({
       {ins.length > 0 && (
         <>
           <h3 className="mb-1.5 mt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-            流入（消费 / 依赖）
+            {t('admin.architecture.df.flowsIn')}
           </h3>
           {ins.map((e) => row(e, 'in'))}
         </>
