@@ -2019,7 +2019,9 @@ describe('MissionDetailPage', () => {
     it('can toggle withFigures checkbox', async () => {
       render(<MissionDetailPage />);
       await openSettings();
-      const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
+      // 设置面板含两个 checkbox：图文并茂(withFigures) 与 知识本体(useOntology，
+      // 2026-06 接入本体时新增)。本用例只验证第一个 withFigures。
+      const checkbox = screen.getAllByRole('checkbox')[0] as HTMLInputElement;
       const initialState = checkbox.checked;
       fireEvent.click(checkbox);
       expect(checkbox.checked).toBe(!initialState);
