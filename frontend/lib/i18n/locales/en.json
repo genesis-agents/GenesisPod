@@ -4681,6 +4681,10 @@
       "title": "System Architecture",
       "subtitle": "Click on configurable cards to manage settings",
       "backToOverview": "Back to Architecture",
+      "tabs": {
+        "architecture": "Architecture",
+        "dataflow": "Data Flow"
+      },
       "health": {
         "score": "Health",
         "healthy": "Healthy",

@@ -4681,6 +4681,10 @@
       "title": "系统架构图",
       "subtitle": "点击可配置的卡片进入管理设置",
       "backToOverview": "返回架构图",
+      "tabs": {
+        "architecture": "系统架构图",
+        "dataflow": "数据流"
+      },
       "health": {
         "score": "健康度",
         "healthy": "健康",

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   MousePointerClick,
   Eye,
@@ -7,6 +8,7 @@ import {
   BarChart3,
   Activity,
   Users,
+  GitFork,
 } from 'lucide-react';
 import Link from 'next/link';
 import { ARCHITECTURE_LAYERS } from '@/lib/features/admin/architecture';
@@ -16,6 +18,9 @@ import { useOverviewStatus } from '@/hooks/domain/useAdminStatus';
 import AdminStatusBadge from '@/components/admin/shared/AdminStatusBadge';
 import type { StatusType } from '@/lib/features/admin/styles';
 import ArchitectureLayer from './ArchitectureLayer';
+import DataFlowView from '@/components/data-flow/DataFlowView';
+
+type OverviewView = 'architecture' | 'dataflow';
 
 // 全局健康状态 → AdminStatusBadge 状态色
 const HEALTH_BADGE: Record<string, StatusType> = {
@@ -26,6 +31,7 @@ const HEALTH_BADGE: Record<string, StatusType> = {
 
 export default function ArchitectureDiagram() {
   const { t } = useTranslation();
+  const [view, setView] = useState<OverviewView>('architecture');
 
   // 静态库存统计（无实时状态的卡片回落用）
   const { data: overviewStats } = useApiGet<Record<string, number>>(
@@ -105,43 +111,82 @@ export default function ArchitectureDiagram() {
         </div>
       </header>
 
-      {/* Architecture Layers */}
-      <main className="flex-1 overflow-auto px-4 py-5">
-        <div className="mx-auto max-w-5xl">
-          <div className="space-y-0">
-            {ARCHITECTURE_LAYERS.map((layer, index) => (
-              <ArchitectureLayer
-                key={layer.id}
-                layer={layer}
-                showArrow={index < ARCHITECTURE_LAYERS.length - 1}
-                overviewStats={overviewStats ?? undefined}
-                cardStatuses={status?.cards}
-              />
-            ))}
-          </div>
-
-          {/* Footer: legend + refresh time */}
-          <div className="mt-5 flex items-center justify-center gap-5 text-xs text-slate-400">
-            <span className="flex items-center gap-1.5">
-              <MousePointerClick className="h-3.5 w-3.5" />
-              {t('admin.architecture.legend.clickable')}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Eye className="h-3.5 w-3.5" />
-              {t('admin.architecture.legend.readOnly')}
-            </span>
-            {lastUpdatedAt && (
-              <>
-                <span className="h-3 w-px bg-slate-200" />
-                <span className="font-mono">
-                  {t('admin.architecture.health.updatedAt')}{' '}
-                  {lastUpdatedAt.toLocaleTimeString()}
-                </span>
-              </>
-            )}
-          </div>
+      {/* View tabs: 架构图 / 数据流 */}
+      <div className="border-b border-slate-200 bg-white px-6">
+        <div className="mx-auto flex max-w-5xl gap-1">
+          {[
+            {
+              k: 'architecture' as const,
+              label: t('admin.architecture.tabs.architecture'),
+              Icon: Layers,
+            },
+            {
+              k: 'dataflow' as const,
+              label: t('admin.architecture.tabs.dataflow'),
+              Icon: GitFork,
+            },
+          ].map((tab) => (
+            <button
+              key={tab.k}
+              type="button"
+              onClick={() => setView(tab.k)}
+              className={`flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
+                view === tab.k
+                  ? 'border-slate-900 text-slate-900'
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <tab.Icon className="h-4 w-4" />
+              {tab.label}
+            </button>
+          ))}
         </div>
-      </main>
+      </div>
+
+      {view === 'architecture' ? (
+        <main className="flex-1 overflow-auto px-4 py-5">
+          <div className="mx-auto max-w-5xl">
+            <div className="space-y-0">
+              {ARCHITECTURE_LAYERS.map((layer, index) => (
+                <ArchitectureLayer
+                  key={layer.id}
+                  layer={layer}
+                  showArrow={index < ARCHITECTURE_LAYERS.length - 1}
+                  overviewStats={overviewStats ?? undefined}
+                  cardStatuses={status?.cards}
+                />
+              ))}
+            </div>
+
+            {/* Footer: legend + refresh time */}
+            <div className="mt-5 flex items-center justify-center gap-5 text-xs text-slate-400">
+              <span className="flex items-center gap-1.5">
+                <MousePointerClick className="h-3.5 w-3.5" />
+                {t('admin.architecture.legend.clickable')}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Eye className="h-3.5 w-3.5" />
+                {t('admin.architecture.legend.readOnly')}
+              </span>
+              {lastUpdatedAt && (
+                <>
+                  <span className="h-3 w-px bg-slate-200" />
+                  <span className="font-mono">
+                    {t('admin.architecture.health.updatedAt')}{' '}
+                    {lastUpdatedAt.toLocaleTimeString()}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+        </main>
+      ) : (
+        <main className="flex-1 overflow-auto px-4 py-5">
+          <div className="mx-auto max-w-6xl">
+            <DataFlowView />
+          </div>
+        </main>
+      )}
     </div>
   );
 }

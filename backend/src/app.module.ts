@@ -99,6 +99,8 @@ import { FeishuModule } from "./modules/ai-app/library/integrations/feishu/feish
 import { NotionModule } from "./modules/ai-app/library/integrations/notion/notion.module";
 import { GoogleDriveModule } from "./modules/ai-app/library/integrations/google-drive/google-drive.module";
 import { AiFileOrganizerModule } from "./modules/ai-app/library/ai-file-organizer/ai-file-organizer.module";
+// System data-flow diagram (左侧菜单「数据流」)
+import { DataFlowModule } from "./modules/ai-app/dataflow/dataflow.module";
 // Export module
 import { ExportModule } from "./common/export";
 // Open API modules (webhooks, public-api, mcp-server, ai-core, agents-api)
@@ -250,6 +252,7 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     WorkspaceModule,
     OntologyModule,
     RecommendationsModule,
+    DataFlowModule, // 系统数据流图（左侧菜单「数据流」）
 
     // Ingestion modules
     CrawlersModule,
