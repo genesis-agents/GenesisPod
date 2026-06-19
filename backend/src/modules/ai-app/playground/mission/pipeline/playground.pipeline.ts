@@ -1265,8 +1265,10 @@ export class PlaygroundPipelineDispatcher
           import("../context/mission-context").MissionContext["plan"]
         >["dimensions"],
         // goals/initialRisks 不从 source DB 反序列化（不在 mission row 持久化里），
-        // 留空数组让下游 stage 走兜底逻辑（S4 leader assess 仅消费 dimensions）
-        goals: [] as unknown as NonNullable<
+        // 下游 stage 走兜底逻辑（S4 leader assess 仅消费 dimensions）。
+        // ★ 2026-06-19：goals 是 object（不是数组）——空对象，否则 leader:goals-set
+        //   事件校验 "goals: Expected object, received array" 被 EventBus 拒收。
+        goals: {} as unknown as NonNullable<
           import("../context/mission-context").MissionContext["plan"]
         >["goals"],
         initialRisks: [] as unknown as NonNullable<
