@@ -281,7 +281,7 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
    * fake leader.plan() —— 默认成功，stub 1 个 dim；spec 可覆盖 mockResolvedValueOnce
    */
   let fakeLeaderPlan: jest.Mock;
-  let fakeSupervisedMission: { plan: jest.Mock };
+  let fakeSupervisedMission: { plan: jest.Mock; hydratePlan: jest.Mock };
   // ★ 2026-05-06: dispatcher 切到 eventBus.emit 后 spec 注入 mock 验证
   let fakeEventBus: {
     emit: jest.Mock;
@@ -303,7 +303,7 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
       goals: { successCriteria: ["..."] },
       initialRisks: [],
     });
-    fakeSupervisedMission = { plan: fakeLeaderPlan };
+    fakeSupervisedMission = { plan: fakeLeaderPlan, hydratePlan: jest.fn() };
     const fakeLeaderService = {
       create: jest.fn().mockReturnValue(fakeSupervisedMission as never),
     } as unknown as LeaderService;
@@ -1642,7 +1642,9 @@ describe("PlaygroundPipelineDispatcher — additional coverage", () => {
     });
     const leaderPlan = opts.fakeLeaderPlan ?? defaultLeaderPlan;
     const fakeLeaderSvc = {
-      create: jest.fn().mockReturnValue({ plan: leaderPlan } as never),
+      create: jest
+        .fn()
+        .mockReturnValue({ plan: leaderPlan, hydratePlan: jest.fn() } as never),
     } as unknown as LeaderService;
 
     const localInvoker = {
@@ -3168,7 +3170,9 @@ describe("PlaygroundPipelineDispatcher — coverage gaps", () => {
       .fn()
       .mockRejectedValue(new Error("leader fail for notify test"));
     const fakeLeaderSvc = {
-      create: jest.fn().mockReturnValue({ plan: leaderPlan } as never),
+      create: jest
+        .fn()
+        .mockReturnValue({ plan: leaderPlan, hydratePlan: jest.fn() } as never),
     } as unknown as LeaderService;
 
     const localInvoker = {

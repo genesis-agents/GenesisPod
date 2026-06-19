@@ -51,6 +51,10 @@ const EXPECTED_CALLERS: ReadonlyArray<readonly [string, number]> = [
   //   隐藏 CoT 吃光小预算 → 按 thinking 给更大 maxOutputTokens）= 2。
   //   OpenAI 走 this.inferIsReasoning（method，不计直接调用）。
   ["modules/ai-engine/llm/byok/ai-connection-test.service.ts", 2],
+  // 2026-06-19：BYOK 一键配置写 isReasoning 时改用同源 inferIsReasoning（原误用
+  //   "广义能推理" isReasoningCapable，gpt-4o 也命中 → DB 存 true，运行时
+  //   model-fallback OR 合并永不纠回 → gpt-4o 被发 reasoning_effort → OpenAI 400）。
+  ["modules/ai-engine/llm/byok/user-models-auto-configure.service.ts", 1],
   // 2026-06-10 reasoning tokenParam 全仓兜底（gpt-5.4 P0）：以下 token 决策点 /
   // 数据层保存点新增直接 inferIsReasoning 兜底——DB isReasoning 列是
   // Boolean @default(false) NOT NULL，漏标的 reasoning 模型会被发 max_tokens

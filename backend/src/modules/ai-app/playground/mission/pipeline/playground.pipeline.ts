@@ -57,7 +57,12 @@ import { MissionCheckpointService } from "@/modules/ai-harness/facade";
 import { MissionFailedPreset } from "@/modules/platform/facade";
 import { MissionEventBuffer } from "../lifecycle/mission-event-buffer.service";
 import { MissionStore } from "../lifecycle/mission-store.service";
-import { AgentInvoker, LeaderService, type SupervisedMission } from "../roles";
+import {
+  AgentInvoker,
+  LeaderService,
+  type SupervisedMission,
+  type LeaderPlanOutput,
+} from "../roles";
 import { LeaderInvocationFactory } from "./leader-invocation.factory";
 // ★ Stage 1 / S1-1 (2026-05-09): 业务编排已抽到独立 service —— dispatcher inject + delegate
 import { PlaygroundBusinessOrchestrator } from "./playground-business-orchestrator.service";
@@ -401,6 +406,26 @@ export class PlaygroundPipelineDispatcher
     afterRowCreated?: () => Promise<void>,
   ): Promise<PipelineMissionSummary> {
     const t0 = Date.now();
+    // ★ FIX (并发护栏, 2026-06-19): 同一 missionId 不允许两个 runMission 重叠执行。
+    //   this.sessions 按 missionId 单键——重叠时一个 run 的 finally{ sessions.delete }
+    //   会删掉另一个 run 还在用的 session，下游 stage hook 撞 "no active session for
+    //   mission" + fireSelfEvolutionPostlude 失败刷屏。触发场景：liveness 停滞自动恢复
+    //   rerunFullMission(同-id) 与原 run 时间重叠（gpt-5.4 等慢推理模型 48min 跑程尤甚）。
+    //   单进程内 sessions.has 准确反映在跑的 run（pod 重启 Map 自然清空，不会误锁僵尸）。
+    if (this.sessions.has(missionId)) {
+      this.log.warn(
+        `[runMission ${missionId}] 已有进行中的 run（session 在场）→ 跳过本次重入，` +
+          `避免 session map 竞态 clobber（防 no-active-session 刷屏）`,
+      );
+      return {
+        missionId,
+        status: "aborted",
+        stageOutputs: {},
+        error: new Error(
+          `[playground-pipeline] concurrent run for mission ${missionId} skipped (already in flight)`,
+        ),
+      };
+    }
     const session = await this.runtimeShell.openSession({
       missionId,
       input,
@@ -509,6 +534,23 @@ export class PlaygroundPipelineDispatcher
         missionId,
         input.inheritFromMissionId,
       );
+    }
+    // ★ FIX (leader plan 回灌, 2026-06-19): crash-resume（从 s2 之后的 stage 续跑）/
+    //   inheritFromMissionId（S2 走 skip-LLM 分支）路径下，s2-leader-plan 的 leader.plan()
+    //   永不被调用 → 本 run 新建的 leader.context.plan 为空 → s4/s10 的 assessResearchers /
+    //   writeForeword / signOff 撞 "must call plan() before X()" → 强制拒签（= 用户侧"洞察失败"，
+    //   生产实证 mission 581157ed：leaderVerdict=failed score=47）。用已 hydrate 的
+    //   crossState.lastPlan 无 LLM 回灌 leader（仅 dimensions 在场即回灌），与
+    //   RerunMissionRuntimeBuilder.buildSession 同款修复。fresh run 时 lastPlan 为空 → 不回灌，
+    //   s2 正常跑 leader.plan()。
+    {
+      const hydratedPlan = this.sessions.get(missionId)?.crossState.lastPlan;
+      if (hydratedPlan?.dimensions?.length) {
+        leader.hydratePlan({
+          phase: "plan",
+          ...hydratedPlan,
+        } as LeaderPlanOutput);
+      }
     }
     // ★ 2026-05-06 (A-8): 终态守门 — 任何 unexpected throw / pod kill / OOM 后
     //   finally 检查 mission 是否走完正常 markCompleted/markFailed 路径，否则

@@ -18,6 +18,7 @@ import {
   EXCLUDED_MODEL_SUBSTRINGS,
   PROVIDER_PREFERENCE_BY_TYPE,
 } from "../models/selection/default-recommendations.config";
+import { inferIsReasoning } from "../types/model.utils";
 
 export interface AutoConfigureResult {
   createdCount: number;
@@ -563,29 +564,21 @@ export class AutoConfigureService {
   } {
     const lower = modelId.toLowerCase();
 
-    // ★ 区分两个概念：
-    //   (A) API 协议层：OpenAI 的 o1/o3/gpt-5 真推理系列走 max_completion_tokens 且不支持 temperature。
-    //   (B) 能力层：LeaderPlanning 选"推理模型"时看的是"能不能做推理任务"（范围更宽）。
-    // 两者都满足时才是 o1 那种特殊协议；只满足 (B) 的（如 gpt-4o、Claude 3.5 Sonnet）
-    // 走普通 chat 协议但被允许承担 Leader 角色。
+    // ★ 区分两个概念（2026-06-19 修：原 isReasoning 错用"广义能力" isReasoningCapable）：
+    //   (A) API 协议层 usesReasoningTokenProtocol：OpenAI 的 o1-5/gpt-5 真推理系列走
+    //       max_completion_tokens 且不支持 temperature。决定 tokenParamName / supportsTemperature。
+    //   (B) isReasoning flag：下游 openai-caller 用它决定**是否发 reasoning_effort**、
+    //       task-profile-mapper 用它做"CoT 吃 token / 推理耗尽"数学。必须是**真推理模型**，
+    //       否则非推理模型（gpt-4o 等）被发 reasoning_effort → OpenAI 400。
+    //   原代码把 (B) 设成了"广义能推理"（gpt-4o/claude-3.5-sonnet 也命中），而运行时
+    //   toAIModelConfig 用 `model.isReasoning || inferIsReasoning(modelId)`（OR，见
+    //   model-fallback.service.ts:777）——一旦 DB 存 true 永远纠不回 false → gpt-4o 必发
+    //   reasoning_effort → 全调用 400。
+    //   正解：DB 的 isReasoning 与运行时同源（inferIsReasoning：o1-5/gpt-5/gemini-2.5+/
+    //   deepseek-r/claude-4/...→true，gpt-4o→false）。漏标的真推理模型仍由运行时 OR 兜底。
+    //   "广义能推理可承担 Leader 角色"是选型层关注点，不该污染驱动 API 参数的 isReasoning。
     const usesReasoningTokenProtocol =
       /^o[1-5]/i.test(lower) || lower.includes("gpt-5");
-
-    const isReasoningCapable =
-      usesReasoningTokenProtocol ||
-      /^gpt-4o(?!-mini)/i.test(lower) ||
-      /^gpt-4-turbo/i.test(lower) ||
-      lower.includes("claude-3-5-sonnet") ||
-      lower.includes("claude-sonnet-4") ||
-      lower.includes("claude-3-opus") ||
-      lower.includes("claude-opus") ||
-      lower.includes("gemini-1.5-pro") ||
-      lower.includes("gemini-2.0-pro") ||
-      lower.includes("gemini-2.5-pro") ||
-      /^grok-3(?!-mini)/i.test(lower) ||
-      /^grok-4/i.test(lower) ||
-      lower.includes("reasoner") ||
-      lower.includes("deepseek-r");
 
     const supportsVision =
       modelType === AIModelType.MULTIMODAL ||
@@ -594,7 +587,7 @@ export class AutoConfigureService {
       ? this.inferProviderDefaults(provider)
       : { apiFormat: "openai", apiEndpoint: undefined as string | undefined };
     return {
-      isReasoning: isReasoningCapable,
+      isReasoning: inferIsReasoning(modelId),
       supportsTemperature: !usesReasoningTokenProtocol,
       tokenParamName: usesReasoningTokenProtocol
         ? "max_completion_tokens"
