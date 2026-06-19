@@ -152,6 +152,7 @@ function makeDispatcherBundle(
   const fakeLeaderService = {
     create: jest.fn().mockReturnValue({
       plan: jest.fn().mockResolvedValue(fakePlan),
+      hydratePlan: jest.fn(),
     }),
   } as unknown as LeaderService;
   const fakeInvoker = {
