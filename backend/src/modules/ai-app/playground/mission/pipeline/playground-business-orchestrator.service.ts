@@ -260,7 +260,10 @@ export class PlaygroundBusinessOrchestrator extends BusinessTeamOrchestratorFram
                     missionId: entry.session.missionId,
                     userId: entry.session.userId,
                     payload: {
-                      goals: out.goals ?? [],
+                      // ★ 2026-06-19 修：goals 是 object（leader:goals-set schema 要求），
+                      //   继承/无 goals 时默认空对象，原 `?? []` 会触发事件校验
+                      //   "goals: Expected object, received array" 被 EventBus 拒收。
+                      goals: out.goals ?? {},
                       initialRisks: out.initialRisks ?? [],
                     },
                   })
@@ -274,7 +277,7 @@ export class PlaygroundBusinessOrchestrator extends BusinessTeamOrchestratorFram
             async () => ({
               themeSummary: inheritedPlan.themeSummary,
               dimensions: inheritedPlan.dimensions,
-              goals: inheritedPlan.goals ?? [],
+              goals: inheritedPlan.goals ?? {},
               initialRisks: inheritedPlan.initialRisks ?? [],
             }),
           );
