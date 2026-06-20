@@ -48,6 +48,14 @@ const nextConfig = {
     missingSuspenseWithCSRBailout: false,
     // ★ rewrite 代理超时：默认 30s 太短，AI 操作（MCP/Research 等）需要更长时间
     proxyTimeout: 300000, // 5 minutes
+    // ★ 2026-06-19 修前端 SSR 崩溃 ENOENT '.next/browser/default-stylesheet.css'：
+    //   isomorphic-dompurify 在服务端依赖 jsdom，jsdom/living/helpers/style-rules.js
+    //   用 readFileSync(__dirname/../../browser/default-stylesheet.css) 读自身 UA 样式表。
+    //   被 webpack 打进 server chunk 后 __dirname 变 .next/server/chunks → 读 .next/browser/
+    //   （该 CSS 资源未被 emit/trace 到那）→ ENOENT → 命中页面整页 500。
+    //   externalize 后 jsdom 不被打包，运行时从 node_modules require，standalone
+    //   outputFileTracing 会把整个 jsdom 包（含 default-stylesheet.css）拷进部署。
+    serverComponentsExternalPackages: ['jsdom', 'isomorphic-dompurify'],
     // /admin/ai-app/[category] 在 server 端用 fs.readFile 读 bundled md,
     // standalone 模式默认 trace 不到这种动态字符串路径,显式 include.
     outputFileTracingIncludes: {
