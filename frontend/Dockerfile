@@ -37,12 +37,6 @@ RUN apk add --no-cache dumb-init
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-# ★ 2026-06-19 修前端 SSR 崩溃 ENOENT '/app/.next/browser/default-stylesheet.css'：
-#   某服务端 CSS/DOM 引擎库会 readFileSync 自身 UA 默认样式表，webpack 把该资源
-#   emit 到构建产物 .next/browser/，但 standalone 既没 trace 进 .next/standalone，
-#   本 Dockerfile 也没拷它 → 运行时 chunk 读 ../../browser/default-stylesheet.css
-#   (= /app/.next/browser/...) ENOENT → 命中该 chunk 的页面整页 500。补拷该目录。
-COPY --from=builder /app/.next/browser ./.next/browser
 
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 RUN chown -R nextjs:nodejs /app
