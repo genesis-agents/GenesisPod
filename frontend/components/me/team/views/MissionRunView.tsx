@@ -202,20 +202,45 @@ export function MissionRunView({
 
   // 运行中打开详情：每 3s 刷新该任务的持久化结果（后端实时落 result.steps/collab），
   // 让任务列表/协作动态逐个推进且持久化（刷新/重开仍在，非事后补）。
+  // 退避护栏：① 终态即停轮询；② 总时长上限（防 mission 卡 running 永久轮询）；
+  // ③ 连续失败熔断（防打爆失败端点，对齐 claude-code 反向洞察 #5 断路器）。
   useEffect(() => {
     if (!reportMissionId) return;
+    const MAX_POLLS = 800; // ~40min @3s，覆盖最深档位 2x 余量后停轮询
+    const MAX_CONSECUTIVE_ERRORS = 3;
+    let polls = 0;
+    let consecutiveErrors = 0;
     const t = setInterval(() => {
-      const m = useCompanyStore
-        .getState()
-        .missions.find((x) => x.id === reportMissionId);
-      if (
-        m &&
-        (m.status === 'running' ||
-          m.status === 'review' ||
-          m.status === 'queued')
-      ) {
-        void loadMissions();
+      const state = useCompanyStore.getState();
+      const m = state.missions.find((x) => x.id === reportMissionId);
+      // 数据尚未就绪：下个 tick 再试（仍受 MAX_POLLS 兜底）。
+      if (!m) {
+        polls += 1;
+        if (polls > MAX_POLLS) clearInterval(t);
+        return;
       }
+      const isRunning =
+        m.status === 'running' ||
+        m.status === 'review' ||
+        m.status === 'queued';
+      if (!isRunning) {
+        clearInterval(t); // 终态：停轮询
+        return;
+      }
+      polls += 1;
+      if (polls > MAX_POLLS) {
+        clearInterval(t);
+        return;
+      }
+      void loadMissions().then(() => {
+        // loadMissions 吞错后写 missionsError；据此做连续失败熔断。
+        if (useCompanyStore.getState().missionsError) {
+          consecutiveErrors += 1;
+          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) clearInterval(t);
+        } else {
+          consecutiveErrors = 0;
+        }
+      });
     }, 3000);
     return () => clearInterval(t);
   }, [reportMissionId, loadMissions]);

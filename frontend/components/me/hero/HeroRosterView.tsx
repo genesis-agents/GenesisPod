@@ -7,6 +7,7 @@ import {
   Cpu,
   Send,
   Store,
+  Search,
   X,
   Brain,
   Rocket,
@@ -20,7 +21,7 @@ import {
   Settings2,
   type LucideIcon,
 } from 'lucide-react';
-import { EmptyState } from '@/components/ui/states';
+import { EmptyState, LoadingState, ErrorState } from '@/components/ui/states';
 import { Modal, ConfirmDialog } from '@/components/ui/dialogs';
 import { Button } from '@/components/ui/primitives/button';
 import { AssetCard } from '@/components/ui/cards/asset-card/AssetCard';
@@ -98,9 +99,13 @@ export function HeroRosterView({
   /** 「下任务」回调（嵌在「我的团队」双 Tab 内时切到「专家任务」Tab）；不传则跳 /missions。 */
   onDispatch?: () => void;
 } = {}) {
-  const { heroes, loadHeroes } = useCompanyStore();
+  const { heroes, loadingHeroes, heroesError, loadHeroes } = useCompanyStore();
   const { catalog } = useMarketplaceCatalog();
   const [configId, setConfigId] = useState<string | null>(null);
+  // roster 检索：搜索（名称/人设/职能）+ 职能筛选 + 排序。
+  const [search, setSearch] = useState('');
+  const [capFilter, setCapFilter] = useState<string>('all');
+  const [sort, setSort] = useState<'newest' | 'name'>('newest');
 
   useEffect(() => {
     void loadHeroes();
@@ -111,10 +116,49 @@ export function HeroRosterView({
     [heroes, configId]
   );
 
+  // 职能筛选选项：从当前专家的 capabilityId 去重，标签取市场职能名。
+  const capOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const h of heroes) {
+      const cap = resolveCapability(h.capabilityId, catalog.workflow);
+      map.set(h.capabilityId, cap.title ?? h.capabilityId);
+    }
+    return Array.from(map, ([id, title]) => ({ id, title }));
+  }, [heroes, catalog.workflow]);
+
+  // 可见专家：搜索 + 职能筛选 + 排序（newest 用 createdAt，name 用本地化排序）。
+  const visibleHeroes = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const list = heroes.filter((h) => {
+      if (capFilter !== 'all' && h.capabilityId !== capFilter) return false;
+      if (!q) return true;
+      const cap = resolveCapability(h.capabilityId, catalog.workflow);
+      return (
+        h.name.toLowerCase().includes(q) ||
+        (h.tagline ?? '').toLowerCase().includes(q) ||
+        (cap.title ?? '').toLowerCase().includes(q)
+      );
+    });
+    return [...list].sort((a, b) =>
+      sort === 'name'
+        ? a.name.localeCompare(b.name)
+        : (b.createdAt ?? '').localeCompare(a.createdAt ?? '')
+    );
+  }, [heroes, search, capFilter, sort, catalog.workflow]);
+
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto w-full max-w-7xl px-8 pb-12 pt-5">
-        {heroes.length === 0 ? (
+        {heroes.length === 0 && loadingHeroes ? (
+          <LoadingState className="py-24" text="正在加载你的专家…" />
+        ) : heroes.length === 0 && heroesError ? (
+          <ErrorState
+            className="py-24"
+            error={heroesError}
+            title="加载专家失败"
+            onRetry={() => void loadHeroes()}
+          />
+        ) : heroes.length === 0 ? (
           <EmptyState
             type="noData"
             icon={<Crown className="h-12 w-12" />}
@@ -130,17 +174,66 @@ export function HeroRosterView({
             }
           />
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {heroes.map((hero) => (
-              <HeroCard
-                key={hero.id}
-                hero={hero}
-                workflows={catalog.workflow}
-                onConfig={() => setConfigId(hero.id)}
-                onDispatch={onDispatch}
+          <>
+            {/* 检索工具条：搜索 + 职能筛选 + 排序（专家 ≤2 时省略，避免空占位）。 */}
+            {heroes.length > 2 && (
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <div className="relative min-w-[200px] flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="搜索专家（名称 / 人设 / 职能）"
+                    className={cn(CONTROL_CLS, 'pl-9')}
+                  />
+                </div>
+                {capOptions.length > 1 && (
+                  <select
+                    value={capFilter}
+                    onChange={(e) => setCapFilter(e.target.value)}
+                    className={cn(CONTROL_CLS, 'w-auto')}
+                    aria-label="按职能筛选"
+                  >
+                    <option value="all">全部职能</option>
+                    {capOptions.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.title}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as 'newest' | 'name')}
+                  className={cn(CONTROL_CLS, 'w-auto')}
+                  aria-label="排序"
+                >
+                  <option value="newest">最近招募</option>
+                  <option value="name">名称</option>
+                </select>
+              </div>
+            )}
+
+            {visibleHeroes.length === 0 ? (
+              <EmptyState
+                type="search"
+                title="没有匹配的专家"
+                description="换个关键词或清空筛选试试"
               />
-            ))}
-          </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {visibleHeroes.map((hero) => (
+                  <HeroCard
+                    key={hero.id}
+                    hero={hero}
+                    workflows={catalog.workflow}
+                    onConfig={() => setConfigId(hero.id)}
+                    onDispatch={onDispatch}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 

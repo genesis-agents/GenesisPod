@@ -916,6 +916,20 @@ export class CompanyMissionService implements OnModuleInit {
       };
     });
 
+    // by-stage 算力明细：从 dimensionPipelines 的 per-dimension tokens/cost 派生，
+    // 落 result.usage.byStage 喂前端 ComputeUsagePanel（此前 adapter byStage 永远空）。
+    // 只收录有真实用量的维度，避免造一堆 0 行。
+    const usageByStage = dimNames
+      .map((d) => {
+        const p = pipelines[d];
+        return {
+          stage: d,
+          tokensUsed: typeof p?.tokensUsed === "number" ? p.tokensUsed : 0,
+          costUsd: typeof p?.costCents === "number" ? p.costCents / 100 : 0,
+        };
+      })
+      .filter((s) => s.tokensUsed > 0 || s.costUsd > 0);
+
     // 协作动态：累积的 agent/stage 事件落库，详情重开可回放。
     const collab = toJson(this.collabBuffers.get(missionId) ?? []);
 
@@ -960,12 +974,19 @@ export class CompanyMissionService implements OnModuleInit {
         return;
       }
 
+      // ★ 富报告：runner 已在 stageOutputs.reportArtifact 产好完整 ReportArtifactV2
+      //   （content/sections/citations/figures/factTable/quality/metadata），此前 company
+      //   只写 summary 字符串把它丢弃 → 前端只能 markdown 兜底、图文不显示。落 result.reportArtifact
+      //   （无 schema 变更），前端 ArtifactReader 自动走富三视图 + 图文 + 引用。
+      const reportArtifact = result.stageOutputs?.reportArtifact ?? null;
+
       // ★ 终态走仲裁：条件写（未取消才写），避免盖掉用户取消。
       const won = await this.finalizeIfNotCancelled(missionId, {
         status: "done",
         progress: 100,
         result: {
           summary: result.report ?? "",
+          ...(reportArtifact ? { reportArtifact: toJson(reportArtifact) } : {}),
           references: toJson(result.references ?? []),
           dimensions: dimNames,
           steps: toJson(dimSteps),
@@ -973,6 +994,9 @@ export class CompanyMissionService implements OnModuleInit {
           usage: {
             totalTokens: result.usage?.totalTokens ?? 0,
             totalCostCents: result.usage?.totalCostCents ?? 0,
+            ...(usageByStage.length > 0
+              ? { byStage: toJson(usageByStage) }
+              : {}),
           },
           // ── 验收结果落 result JSON（无 schema 变更）──
           review: toJson({
