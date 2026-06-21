@@ -56,6 +56,21 @@ export interface MissionLivenessRow {
    * （与重跑 cascade markCompleted 形成 race，前端读到 mission:failed 误以为重跑挂了）。
    */
   readonly lastReopenedAt?: Date | null;
+  /**
+   * 已推进到的 stage 序号（DB 列 last_completed_stage）。用于 no-progress 检测：
+   * stage 长期冻结但 spend 仍在涨 = thrashing（产生活动但不前进）。
+   *
+   * undefined/null = 该 namespace 未提供此信号。**与 spendUnits 同时缺省时
+   * no-progress 检测对该 namespace 为 no-op（完全向后兼容）**。
+   */
+  readonly lastCompletedStage?: number | null;
+  /**
+   * 单调递增的 spend 计数（优先 tokensUsed）。仅用于确认 mission "仍在烧钱"，
+   * 配合 lastCompletedStage 冻结判定 thrashing。
+   *
+   * undefined/null = 未提供。与 lastCompletedStage 同时缺省 = no-progress no-op。
+   */
+  readonly spendUnits?: number | null;
 }
 
 /**
@@ -82,7 +97,7 @@ export interface MissionLivenessAdapter {
   /** 标记 mission 失败：reason 是分类码（machine-readable），errorMessage 是给用户的友好文本 */
   markFailed(
     missionId: string,
-    reason: "no-activity" | "wall-time-exceeded",
+    reason: "no-activity" | "wall-time-exceeded" | "no-progress",
     errorMessage: string,
   ): Promise<void>;
 
@@ -107,6 +122,19 @@ export interface MissionLivenessConfig {
   softWarnThresholdMs?: number;
   /** wall-time 硬上限，default 4h */
   wallTimeCapMs?: number;
+  /**
+   * no-progress 检测武装前的 effective-age 下限，default 20min。
+   * mission 启动不足此值不参与 no-progress 判定。
+   */
+  noProgressGraceMs?: number;
+  /**
+   * lastCompletedStage 可冻结而 spend 仍在涨的最长时长，超过即杀，default 15min。
+   */
+  noProgressKillMs?: number;
+  /**
+   * 绝对 spend 兜底：spendUnits 超过此值直接杀，default Infinity（禁用）。
+   */
+  tokenCapUnits?: number;
   /** scan 间隔，default 60s */
   scanIntervalMs?: number;
   /** boot 之后多久首次扫描，default 60s（让 redeploy 切换稳定 + 旧 pod 自然收尾）*/
@@ -118,6 +146,9 @@ const DEFAULTS: Required<MissionLivenessConfig> = {
   staleThresholdMs: 5 * 60 * 1000,
   softWarnThresholdMs: 10 * 60 * 1000,
   wallTimeCapMs: 4 * 60 * 60 * 1000,
+  noProgressGraceMs: 20 * 60 * 1000,
+  noProgressKillMs: 15 * 60 * 1000,
+  tokenCapUnits: Number.POSITIVE_INFINITY,
   scanIntervalMs: 60_000,
   bootDelayMs: 60_000,
 };
@@ -166,6 +197,17 @@ export class MissionLivenessGuard implements OnModuleDestroy {
    *   key = `${namespace}:${missionId}` 防多 namespace 串扰。
    */
   private readonly lastWarnedAt = new Map<string, number>();
+  /**
+   * ★ no-progress thrash 检测快照（IN-PROCESS，同 lastWarnedAt 不持久化约定）：
+   *   key = `${namespace}:${missionId}` → { stage, spend, sinceTs }。
+   *   stage = 上次观测到的 lastCompletedStage；spend = 上次观测到的 spendUnits；
+   *   sinceTs = 该 stage 冻结的起算时刻。stage 推进时重置（真实进度）。
+   *   pod 重启即丢，kill 计时随之重启 —— 可接受（兜底仍由 wall-time / spend cap 把守）。
+   */
+  private readonly progressSnapshots = new Map<
+    string,
+    { stage: number; spend: number; sinceTs: number }
+  >();
   /**
    * ★ 全覆盖审计修 (2026-05-06): WARN_COOLDOWN_MS 改为动态辅助方法；
    * 此常量仅作全局兜底（无 config 时使用）。
@@ -347,8 +389,69 @@ export class MissionLivenessGuard implements OnModuleDestroy {
               }`,
             );
           });
+        this.progressSnapshots.delete(`${namespace}:${m.id}`);
+        this.lastWarnedAt.delete(`${namespace}:${m.id}`);
         killed++;
         continue;
+      }
+
+      // ★ no-progress thrash 检测（先于双 stale 判定，捕获"事件不旧但阶段不前进"的烧钱）：
+      //   thrashing mission 每几秒 emit 事件 → eventStale 永远 false → 双 stale 路径
+      //   永不触发。此处用 lastCompletedStage 冻结 + spend 仍涨 来识别空转烧钱。
+      if (m.lastCompletedStage != null || m.spendUnits != null) {
+        const stage = m.lastCompletedStage ?? -1;
+        const spend = m.spendUnits ?? 0;
+        const snapKey = `${namespace}:${m.id}`;
+        const snap = this.progressSnapshots.get(snapKey);
+        // 绝对 spend 兜底：与快照计时无关，超 cap 立即杀（含首次观测）。
+        const overTokenCap = spend > config.tokenCapUnits;
+        let noProgressKill = false;
+        if (overTokenCap) {
+          noProgressKill = true;
+        } else if (!snap) {
+          // 首次观测：seed 快照，本轮不判
+          this.progressSnapshots.set(snapKey, { stage, spend, sinceTs: now });
+        } else if (stage > snap.stage) {
+          // 真实进度：重置快照
+          this.progressSnapshots.set(snapKey, { stage, spend, sinceTs: now });
+        } else {
+          const stillBurning = spend > snap.spend;
+          const overGrace = ageMs > config.noProgressGraceMs;
+          const frozenTooLong = now - snap.sinceTs > config.noProgressKillMs;
+          if (overGrace && stillBurning && frozenTooLong) {
+            noProgressKill = true;
+          }
+          // stage 未变但 spend 也未涨（或还在 grace 内）：保留快照不动
+        }
+        if (noProgressKill) {
+          const frozenMin = snap
+            ? Math.round((now - snap.sinceTs) / 60_000)
+            : 0;
+          this.log.warn(
+            `[liveness:${namespace}] no-progress kill mission=${m.id} stage=${stage} ageMin=${Math.round(
+              ageMs / 60_000,
+            )} frozenMin=${frozenMin} spend=${spend}`,
+          );
+          await adapter
+            .markFailed(
+              m.id,
+              "no-progress",
+              "Mission 持续产生活动但 " +
+                `${Math.round(config.noProgressKillMs / 60_000)} 分钟内阶段无推进且仍在消耗预算，` +
+                "已自动停止以止血。建议重跑或调小档位。",
+            )
+            .catch((err: unknown) => {
+              this.log.warn(
+                `[liveness:${namespace}] markFailed ${m.id} (no-progress) threw: ${
+                  err instanceof Error ? err.message : String(err)
+                }`,
+              );
+            });
+          this.progressSnapshots.delete(snapKey);
+          this.lastWarnedAt.delete(snapKey);
+          killed++;
+          continue;
+        }
       }
 
       const heartbeatAgeMs = m.heartbeatAt
@@ -376,8 +479,9 @@ export class MissionLivenessGuard implements OnModuleDestroy {
               }`,
             );
           });
-        // 终态 → 清 dedup 防泄漏
+        // 终态 → 清 dedup + 进度快照 防泄漏
         this.lastWarnedAt.delete(`${namespace}:${m.id}`);
+        this.progressSnapshots.delete(`${namespace}:${m.id}`);
         killed++;
       } else if (
         // soft warn：任一信号超过 soft 阈值（且未杀）→ 提醒用户

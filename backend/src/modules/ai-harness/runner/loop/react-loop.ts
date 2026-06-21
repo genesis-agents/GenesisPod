@@ -850,6 +850,10 @@ export class ReActLoop implements IAgentLoop {
             approachingLimit,
             finalizeOutputJsonSchema,
             delimitedFinalizeShape,
+            // mission-runaway 2026-06-21: once a finalize was rejected, force the
+            // strict finalize schema on subsequent attempts to stop prose-not-JSON
+            // thrash (model finalizing early with a markdown string in action.output).
+            finalizeRejectCount > 0,
           );
           decision = reasoned.decision;
           usage = reasoned.usage;
@@ -1785,6 +1789,13 @@ export class ReActLoop implements IAgentLoop {
      * parses delimited finalize output back into the decision.
      */
     delimitedFinalizeShape?: DelimitedFinalizeShape,
+    /**
+     * mission-runaway 2026-06-21: true once a prior finalize attempt failed
+     * outputSchema validation. Escalates to the strict finalize schema early
+     * (not only at approachingLimit) so the provider enforces the object shape
+     * instead of the model re-emitting a free-text prose string that thrashes.
+     */
+    finalizeAlreadyRejected = false,
   ): Promise<{
     decision: ParsedDecision;
     /** ★ LLM 实际吐回的 raw content（response.content），诊断关键 */
@@ -1865,18 +1876,32 @@ export class ReActLoop implements IAgentLoop {
       // providers that disallow both simultaneously.
       // parseDecision remains the fallback for providers that ignore json_schema.
       //
-      // #35 strict finalize: on final iterations (approachingLimit=true) use the
-      // strict decision-wrapper schema that embeds the business agent's finalize
-      // output schema under action.output. This lets strict providers (json_schema
-      // strict mode) enforce the payload shape at the provider level.
-      // Falls back to permissive REACT_LOOP_DECISION_JSON_SCHEMA when not on
-      // final iterations or when no business schema was provided.
+      // #35 strict finalize: embed the business agent's finalize output schema
+      // under action.output (via buildFinalizeDecisionSchema) so strict providers
+      // (json_schema strict mode) enforce the payload shape at the provider level,
+      // instead of relying on post-hoc extractJson + safeParse on free text.
+      //
+      // Trigger (two conditions, either suffices):
+      //   1. approachingLimit  — last iterations, model is directed to finalize.
+      //   2. finalizeRejectCount > 0 — a prior finalize attempt already failed
+      //      outputSchema validation. This is the prose-not-JSON thrash root
+      //      (mission-runaway 2026-06-21): strong writer models finalize EARLY and
+      //      put a markdown report STRING in action.output ("Expected object,
+      //      received string"); under the permissive schema that string is legal,
+      //      so it is only caught post-parse → reject → retry → thrash for hours.
+      //      Escalating to the strict schema on the *next* attempt forces the
+      //      object shape at the provider. Safe because the finalize-reject critique
+      //      already instructs the model to stop tool-calling and finalize from
+      //      existing results, so the finalize-only schema matches existing intent.
+      // Falls back to permissive REACT_LOOP_DECISION_JSON_SCHEMA otherwise (lets the
+      // model still freely tool_call before any finalize attempt).
       ...(useNativeFCThisCall
         ? {}
         : {
             structuredOutputStrategy: "json_schema" as const,
             outputJsonSchema:
-              approachingLimit && finalizeOutputJsonSchema
+              (approachingLimit || finalizeAlreadyRejected) &&
+              finalizeOutputJsonSchema
                 ? (buildFinalizeDecisionSchema(finalizeOutputJsonSchema) ??
                   REACT_LOOP_DECISION_JSON_SCHEMA)
                 : REACT_LOOP_DECISION_JSON_SCHEMA,

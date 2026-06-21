@@ -75,8 +75,13 @@ import {
 } from "./services";
 // 注意：UrlParserService 和 WebContentExtractionService 由 @Global() ContentProcessingModule 提供
 import { TeamMemberAgent, TeamCollaborationAgent } from "./agents";
-import { TeamRegistry } from "@/modules/ai-harness/facade";
-import { AgentRegistry } from "@/modules/ai-harness/facade";
+import {
+  TeamRegistry,
+  AgentRegistry,
+  MissionLivenessGuard,
+} from "@/modules/ai-harness/facade";
+import { PrismaService } from "../../../common/prisma/prisma.service";
+import { MissionStatus, AgentTaskStatus } from "@prisma/client";
 import { DEBATE_TEAM_CONFIG } from "./teams";
 
 @Module({
@@ -194,11 +199,127 @@ export class AiTeamsModule implements OnModuleInit {
     private readonly teamRegistry: TeamRegistry,
     private readonly agentRegistry: AgentRegistry,
     private readonly teamCollaborationAgent: TeamCollaborationAgent,
+    private readonly livenessGuard: MissionLivenessGuard,
+    private readonly prisma: PrismaService,
   ) {}
 
   onModuleInit() {
     this.teamRegistry.registerConfig(DEBATE_TEAM_CONFIG);
     this.agentRegistry.register(this.teamCollaborationAgent);
     this.logger.log("Registered DEBATE team config and TeamCollaborationAgent");
+
+    // ★ 2026-06-21 runaway 止血：注册 team_missions 的 liveness 适配器。
+    //   此前 Teams 无任何 wall-time cap / kill 路径，thrashing/卡死 mission 可无界运行。
+    //   team_missions 无 heartbeat 列 → 双 stale 路径依赖 mission_logs 事件信号；
+    //   thrashing 持续写 log 时只靠 wall-time(2h) 兜底。
+    this.livenessGuard.registerAdapter(
+      "ai-teams",
+      {
+        fetchRunningMissions: async () => {
+          try {
+            const rows = await this.prisma.teamMission.findMany({
+              where: {
+                status: {
+                  in: [
+                    MissionStatus.PLANNING,
+                    MissionStatus.IN_PROGRESS,
+                    MissionStatus.REVIEW,
+                  ],
+                },
+              },
+              select: {
+                id: true,
+                createdById: true,
+                startedAt: true,
+                createdAt: true,
+              },
+              take: 200,
+            });
+            return rows.map((r) => ({
+              id: r.id,
+              userId: r.createdById,
+              // team_missions 无 heartbeat 列；effective start = startedAt ?? createdAt
+              startedAt: r.startedAt ?? r.createdAt,
+              heartbeatAt: null,
+            }));
+          } catch (err: unknown) {
+            this.logger.warn(
+              `[liveness] teams fetchRunningMissions failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+            return [];
+          }
+        },
+        getMostRecentEventTs: async (missionIds, sinceMs) => {
+          const out = new Map<string, number>();
+          try {
+            const grouped = await this.prisma.missionLog.groupBy({
+              by: ["missionId"],
+              where: {
+                missionId: { in: missionIds as string[] },
+                createdAt: { gte: new Date(sinceMs) },
+              },
+              _max: { createdAt: true },
+            });
+            for (const g of grouped) {
+              const ts = g._max.createdAt;
+              if (ts) out.set(g.missionId, ts.getTime());
+            }
+          } catch (err: unknown) {
+            this.logger.warn(
+              `[liveness] teams getMostRecentEventTs failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+          return out;
+        },
+        markFailed: async (missionId, reason, errorMessage) => {
+          try {
+            // 条件写（WHERE status IN running-set）→ 幂等首写赢，不覆盖他写已终态。
+            const res = await this.prisma.teamMission.updateMany({
+              where: {
+                id: missionId,
+                status: {
+                  in: [
+                    MissionStatus.PLANNING,
+                    MissionStatus.IN_PROGRESS,
+                    MissionStatus.REVIEW,
+                  ],
+                },
+              },
+              data: {
+                status: MissionStatus.FAILED,
+                completedAt: new Date(),
+                summary: errorMessage.slice(0, 4000),
+              },
+            });
+            if (res.count > 0) {
+              // AgentTaskStatus 无 FAILED 值 → 级联 CANCELLED（与 cancelMission 一致）。
+              await this.prisma.agentTask.updateMany({
+                where: {
+                  missionId,
+                  status: {
+                    in: [AgentTaskStatus.PENDING, AgentTaskStatus.IN_PROGRESS],
+                  },
+                },
+                data: { status: AgentTaskStatus.CANCELLED },
+              });
+            }
+            this.logger.warn(
+              `[liveness] teams mission ${missionId} reclaimed (${reason}, won=${res.count > 0})`,
+            );
+          } catch (err: unknown) {
+            this.logger.warn(
+              `[liveness] teams markFailed ${missionId} failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        },
+      },
+      {
+        wallTimeCapMs: 2 * 60 * 60 * 1000,
+        staleThresholdMs: 15 * 60 * 1000,
+        softWarnThresholdMs: 30 * 60 * 1000,
+        startupGraceMs: 5 * 60 * 1000,
+      },
+    );
+    this.logger.log("Registered MissionLivenessGuard adapter (ai-teams)");
   }
 }

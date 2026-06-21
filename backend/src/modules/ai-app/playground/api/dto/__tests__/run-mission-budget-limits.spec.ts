@@ -10,6 +10,7 @@ import {
   BUDGET_FIELD_LIMITS,
   DEPTH_BUDGET_TIERS,
   resolveMissionCredits,
+  listBudgetTiers,
 } from "../run-mission.dto";
 
 const BASE = {
@@ -52,8 +53,43 @@ describe("run-mission.dto maxCredits limit (BYOK 放宽)", () => {
   });
 
   it("per-depth defaults stay conservative (protection preserved, not removed)", () => {
-    // 放宽的是输入上限，不是默认档位 —— 缺省档位仍是保守值
-    expect(DEPTH_BUDGET_TIERS.deep.maxCredits).toBe(20_000);
-    expect(resolveMissionCredits({ ...BASE } as never)).toBe(20_000);
+    // ★ 2026-06-21 runaway 止血：deep cap 20000 → 12000（~$24），输入上限仍 500k。
+    expect(DEPTH_BUDGET_TIERS.deep.maxCredits).toBe(12_000);
+    expect(resolveMissionCredits({ ...BASE } as never)).toBe(12_000);
+  });
+});
+
+describe("run-mission.dto wall-time tier tightening (2026-06-21 runaway 止血)", () => {
+  it("deep wall-time cap is 6h (down from 24h)", () => {
+    expect(DEPTH_BUDGET_TIERS.deep.wallTimeCapMs).toBe(6 * 60 * 60 * 1000);
+  });
+
+  it("standard wall-time cap is 4h, quick is 90min", () => {
+    expect(DEPTH_BUDGET_TIERS.standard.wallTimeCapMs).toBe(4 * 60 * 60 * 1000);
+    expect(DEPTH_BUDGET_TIERS.quick.wallTimeCapMs).toBe(90 * 60_000);
+  });
+
+  it("DTO wallTimeCapMs override cannot exceed 6h", () => {
+    expect(() =>
+      RunMissionInputSchema.parse({
+        ...BASE,
+        wallTimeCapMs: 6 * 60 * 60 * 1000 + 1,
+      }),
+    ).toThrow();
+    const ok = RunMissionInputSchema.parse({
+      ...BASE,
+      wallTimeCapMs: 6 * 60 * 60 * 1000,
+    });
+    expect(ok.wallTimeCapMs).toBe(6 * 60 * 60 * 1000);
+  });
+
+  it("BUDGET_FIELD_LIMITS.wallTimeMinutes.max is 360 (6h)", () => {
+    expect(BUDGET_FIELD_LIMITS.wallTimeMinutes.max).toBe(360);
+  });
+
+  it("listBudgetTiers() deep capUsd reflects 12000 credits", () => {
+    const deep = listBudgetTiers().find((t) => t.depth === "deep");
+    expect(deep?.maxCredits).toBe(12_000);
+    expect(deep?.wallTimeMinutes).toBe(360);
   });
 });

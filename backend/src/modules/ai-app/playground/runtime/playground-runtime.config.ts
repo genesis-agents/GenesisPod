@@ -98,6 +98,19 @@ const DEFAULTS = {
    */
   wallTimeCapMs: 0,
 
+  /**
+   * no-progress thrash 检测：effective-age 达到 graceMin 后才武装（min）。
+   */
+  noProgressGraceMin: 20,
+  /**
+   * no-progress thrash 检测：lastCompletedStage 冻结而 spend 仍涨超过此分钟即杀（min）。
+   */
+  noProgressKillMin: 15,
+  /**
+   * 绝对 spend 兜底（tokens）。0 = 不限（consumer coerce 为 Infinity）。
+   */
+  tokenCapUnits: 0,
+
   // ★ 2026-05-22 follow-up：原 disableBudgetAbort 已删除——同样 config 定义但零消费
   //   (生产代码从不读),profile 设 true 也无效,"防级联 abort"保护实际不存在。删除止误导。
 } as const;
@@ -112,6 +125,9 @@ export const PlaygroundRuntimeConfigSchema = z.object({
   staleThresholdMin: z.number().int().min(1),
   softWarnThresholdMin: z.number().int().min(1),
   wallTimeCapMs: z.number().int().min(0),
+  noProgressGraceMin: z.number().int().min(1),
+  noProgressKillMin: z.number().int().min(1),
+  tokenCapUnits: z.number().int().min(0),
 });
 
 export type PlaygroundRuntimeConfig = z.infer<
@@ -175,6 +191,18 @@ export function loadPlaygroundRuntimeConfig(
     wallTimeCapMs: parseNonNegativeIntEnv(
       env.PLAYGROUND_WALL_TIME_CAP_MS,
       baseline.wallTimeCapMs,
+    ),
+    noProgressGraceMin: parsePositiveIntEnv(
+      env.PLAYGROUND_NO_PROGRESS_GRACE_MIN,
+      baseline.noProgressGraceMin,
+    ),
+    noProgressKillMin: parsePositiveIntEnv(
+      env.PLAYGROUND_NO_PROGRESS_KILL_MIN,
+      baseline.noProgressKillMin,
+    ),
+    tokenCapUnits: parseNonNegativeIntEnv(
+      env.PLAYGROUND_TOKEN_CAP_UNITS,
+      baseline.tokenCapUnits,
     ),
   };
 

@@ -402,6 +402,38 @@ describe("cancelMission", () => {
     });
   });
 
+  it("fires in-memory abort BEFORE the already-cancelled idempotent return", async () => {
+    const ownership = makeOwnership("u1");
+    const store = makeStore({ id: "m1", status: "cancelled" });
+    const abortRegistry = makeAbortRegistry();
+    const ctrl = makeController({ ownership, store, abortRegistry });
+    const result = await ctrl.cancelMission("m1", makeReq("u1"));
+    // abort must fire even on the idempotent terminal-status path
+    expect(abortRegistry.abort).toHaveBeenCalledWith(
+      "m1",
+      MissionAbortReason.user_cancelled,
+    );
+    expect(result).toEqual({
+      ok: true,
+      status: "cancelled",
+      alreadyCancelled: true,
+    });
+  });
+
+  it("fires in-memory abort BEFORE the not-running BadRequestException", async () => {
+    const ownership = makeOwnership("u1");
+    const store = makeStore({ id: "m1", status: "completed" });
+    const abortRegistry = makeAbortRegistry();
+    const ctrl = makeController({ ownership, store, abortRegistry });
+    await expect(
+      ctrl.cancelMission("m1", makeReq("u1")),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(abortRegistry.abort).toHaveBeenCalledWith(
+      "m1",
+      MissionAbortReason.user_cancelled,
+    );
+  });
+
   it("throws BadRequestException when mission not running", async () => {
     const ownership = makeOwnership("u1");
     const store = makeStore({ id: "m1", status: "completed" });

@@ -197,6 +197,16 @@ export class WritingMissionLifecycleService {
    * Cancel an in-progress mission
    */
   async cancelMission(missionId: string, userId: string) {
+    // ★ in-memory abort 无条件先发：DB 状态滞后于真实 worker，先止血再做 DB 收尾。
+    //   cancel 幂等：orchestrator 无该 mission=no-op。
+    try {
+      await this.teamFacade.missionOrchestrator?.cancel(missionId);
+    } catch (err) {
+      this.logger.warn(
+        `Failed to abort orchestrator for mission ${missionId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
     const mission = await this.prisma.writingMission.findUnique({
       where: { id: missionId },
       include: {
@@ -208,11 +218,6 @@ export class WritingMissionLifecycleService {
       this.logger.warn(
         `Mission ${missionId} not found, but treating as successful cancellation`,
       );
-      try {
-        await this.teamFacade.missionOrchestrator?.cancel(missionId);
-      } catch {
-        // ignore
-      }
       return {
         success: true,
         message: "Mission not found but cleanup attempted",
@@ -252,15 +257,6 @@ export class WritingMissionLifecycleService {
       where: { id: projectId },
       data: { status: newStatus },
     });
-
-    // Cancel orchestrator
-    try {
-      await this.teamFacade.missionOrchestrator?.cancel(missionId);
-    } catch (err) {
-      this.logger.warn(
-        `Failed to cancel orchestrator for mission ${missionId}: ${err instanceof Error ? err.message : err}`,
-      );
-    }
 
     this.logger.log(`Mission ${missionId} cancelled by user ${userId}`);
     return {

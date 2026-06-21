@@ -68,13 +68,14 @@ export const RunMissionInputSchema = z
     maxCredits: z.number().int().min(10).max(500_000).optional(),
     /**
      * 用户自定义 wall-time cap（毫秒）覆盖。不传则按 depth 档位（DEPTH_BUDGET_TIERS）解析。
-     * 范围 60s ~ 24h（2026-05-27 上调以应对本地模型深度分析时长需求）。
+     * 范围 60s ~ 6h（2026-06-21 由 24h 收紧：堵住 per-mission 覆盖把 namespace guard
+     * 上限重新撑回 24h 的漏洞）。
      */
     wallTimeCapMs: z
       .number()
       .int()
       .min(60_000)
-      .max(24 * 60 * 60 * 1000)
+      .max(6 * 60 * 60 * 1000)
       .optional(),
     /**
      * ★ 2026-05-22 单一数据源：agent budget 倍率改为**可选覆盖**（scale agent 的
@@ -119,9 +120,13 @@ export type RunMissionInput = z.infer<typeof RunMissionInputSchema>;
  * 用户可在「高级」里显式覆盖 maxCredits / budgetMultiplierOverride / wallTimeCapMs，
  * 覆盖值优先（resolveX 里 input.X ?? tier.X）。
  *
- * cap 标定：cap ≈ 典型花费 2–3×，留足余量。实测 11 维度深度典型 ~$15，
- * 深度档 cap = 20000 credits ≈ $40（maxCredits×0.002），杜绝"$2 预算秒爆"。
+ * cap 标定：cap ≈ 典型花费 1.6–2×，留足余量。实测 11 维度深度典型 ~$15，
+ * 深度档 cap = 12000 credits ≈ $24（maxCredits×0.002）、wall 6h；标准 4h；快速 90min。
  * （1 credit ≈ 1k tokens；cost cap = maxCredits × 0.002 USD。）
+ *
+ * ★ wall-time 是钝器兜底；首要 runaway 防护是 MissionLivenessGuard 的 no-progress
+ *   检测（last_completed_stage 冻结 + spend 仍涨 > noProgressKillMin）。修改档位时
+ *   不要假设 guard 能兜住一切——guard 需要 playground.module 把进度/spend 信号喂进去。
  */
 export const DEPTH_BUDGET_TIERS: Record<
   RunMissionInput["depth"],
@@ -138,9 +143,9 @@ export const DEPTH_BUDGET_TIERS: Record<
   quick: {
     maxCredits: 3000,
     budgetMultiplier: 1.0,
-    // ★ 2026-05-27：本地模型深度分析时长需求大幅放宽
-    //   quick 20min → 3h（180min），standard 1h → 10h（600min），deep 3h → 24h（1440min）
-    wallTimeCapMs: 180 * 60_000,
+    // ★ 2026-06-21 收紧（runaway 止血）：wall-time 是钝器兜底，主防线是
+    //   MissionLivenessGuard no-progress 检测。quick 3h → 90min。
+    wallTimeCapMs: 90 * 60_000,
     label: "快速",
     desc: "快速概览 / 试探",
     dimensionsHint: "~4 维度",
@@ -148,15 +153,19 @@ export const DEPTH_BUDGET_TIERS: Record<
   standard: {
     maxCredits: 8000,
     budgetMultiplier: 2.0,
-    wallTimeCapMs: 600 * 60_000,
+    // ★ 2026-06-21 收紧：standard 10h → 4h。
+    wallTimeCapMs: 4 * 60 * 60 * 1000,
     label: "标准",
     desc: "多数调研场景",
     dimensionsHint: "~7 维度",
   },
   deep: {
-    maxCredits: 20000,
+    // ★ 2026-06-21 收紧：cap 20000(~$40) → 12000(~$24)，wall 24h → 6h。
+    //   thrasher 曾跑 33h/$18，24h/$40 是唯一硬停。新 cap 仍为典型 ~$15 深度跑的
+    //   ~1.6×，不夹正常跑；常态由 no-progress 检测在 ~35min 内止血。
+    maxCredits: 12000,
     budgetMultiplier: 4.0,
-    wallTimeCapMs: 1440 * 60_000,
+    wallTimeCapMs: 6 * 60 * 60 * 1000,
     label: "深度",
     desc: "全面深度报告",
     dimensionsHint: "~11 维度",
@@ -171,8 +180,9 @@ export const DEPTH_BUDGET_TIERS: Record<
 export const BUDGET_FIELD_LIMITS = {
   maxCredits: { min: 10, max: 500_000 },
   budgetMultiplier: { min: 0.3, max: 10 },
-  // ★ 2026-05-27：本地模型深度分析需要更长时间窗
-  wallTimeMinutes: { min: 1, max: 1440 },
+  // ★ 2026-06-21 收紧 1440(24h) → 360(6h)：与 DTO wallTimeCapMs.max 对齐，
+  //   用户覆盖不能再把 wall-time 撑回 24h（堵 namespace guard 上限回灌漏洞）。
+  wallTimeMinutes: { min: 1, max: 360 },
 } as const;
 
 export interface BudgetTierView {
