@@ -916,20 +916,6 @@ export class CompanyMissionService implements OnModuleInit {
       };
     });
 
-    // by-stage 算力明细：从 dimensionPipelines 的 per-dimension tokens/cost 派生，
-    // 落 result.usage.byStage 喂前端 ComputeUsagePanel（此前 adapter byStage 永远空）。
-    // 只收录有真实用量的维度，避免造一堆 0 行。
-    const usageByStage = dimNames
-      .map((d) => {
-        const p = pipelines[d];
-        return {
-          stage: d,
-          tokensUsed: typeof p?.tokensUsed === "number" ? p.tokensUsed : 0,
-          costUsd: typeof p?.costCents === "number" ? p.costCents / 100 : 0,
-        };
-      })
-      .filter((s) => s.tokensUsed > 0 || s.costUsd > 0);
-
     // 协作动态：累积的 agent/stage 事件落库，详情重开可回放。
     const collab = toJson(this.collabBuffers.get(missionId) ?? []);
 
@@ -994,9 +980,6 @@ export class CompanyMissionService implements OnModuleInit {
           usage: {
             totalTokens: result.usage?.totalTokens ?? 0,
             totalCostCents: result.usage?.totalCostCents ?? 0,
-            ...(usageByStage.length > 0
-              ? { byStage: toJson(usageByStage) }
-              : {}),
           },
           // ── 验收结果落 result JSON（无 schema 变更）──
           review: toJson({

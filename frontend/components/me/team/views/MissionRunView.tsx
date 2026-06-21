@@ -202,47 +202,55 @@ export function MissionRunView({
 
   // 运行中打开详情：每 3s 刷新该任务的持久化结果（后端实时落 result.steps/collab），
   // 让任务列表/协作动态逐个推进且持久化（刷新/重开仍在，非事后补）。
-  // 退避护栏：① 终态即停轮询；② 总时长上限（防 mission 卡 running 永久轮询）；
-  // ③ 连续失败熔断（防打爆失败端点，对齐 claude-code 反向洞察 #5 断路器）。
+  // 用递归 setTimeout（非 setInterval）天然串行：上次结算后再排下一次，杜绝慢网络下
+  // 请求重叠。退避护栏：① 终态即停；② 总时长上限（防卡 running 永久轮询）；③ 连续失败
+  // 熔断——据 loadMissions 本次返回值判定（不读会被并发重置的全局 missionsError）。
   useEffect(() => {
     if (!reportMissionId) return;
     const MAX_POLLS = 800; // ~40min @3s，覆盖最深档位 2x 余量后停轮询
     const MAX_CONSECUTIVE_ERRORS = 3;
+    const INTERVAL = 3000;
     let polls = 0;
     let consecutiveErrors = 0;
-    const t = setInterval(() => {
-      const state = useCompanyStore.getState();
-      const m = state.missions.find((x) => x.id === reportMissionId);
-      // 数据尚未就绪：下个 tick 再试（仍受 MAX_POLLS 兜底）。
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const schedule = () => {
+      if (stopped) return;
+      timer = setTimeout(tick, INTERVAL);
+    };
+    const tick = async () => {
+      if (stopped) return;
+      const m = useCompanyStore
+        .getState()
+        .missions.find((x) => x.id === reportMissionId);
+      // 数据尚未就绪：下次再试（仍受 MAX_POLLS 兜底）。
       if (!m) {
-        polls += 1;
-        if (polls > MAX_POLLS) clearInterval(t);
+        if (++polls > MAX_POLLS) return;
+        schedule();
         return;
       }
       const isRunning =
         m.status === 'running' ||
         m.status === 'review' ||
         m.status === 'queued';
-      if (!isRunning) {
-        clearInterval(t); // 终态：停轮询
-        return;
+      if (!isRunning) return; // 终态：停轮询
+      if (++polls > MAX_POLLS) return;
+      const ok = await loadMissions();
+      if (stopped) return;
+      if (ok) {
+        consecutiveErrors = 0;
+      } else if (++consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+        return; // 连续失败熔断：停轮询
       }
-      polls += 1;
-      if (polls > MAX_POLLS) {
-        clearInterval(t);
-        return;
-      }
-      void loadMissions().then(() => {
-        // loadMissions 吞错后写 missionsError；据此做连续失败熔断。
-        if (useCompanyStore.getState().missionsError) {
-          consecutiveErrors += 1;
-          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) clearInterval(t);
-        } else {
-          consecutiveErrors = 0;
-        }
-      });
-    }, 3000);
-    return () => clearInterval(t);
+      schedule();
+    };
+
+    schedule();
+    return () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+    };
   }, [reportMissionId, loadMissions]);
 
   // store missions 变化 → 通知 gallery 重新读取（含 WS 进度 / 新建 / 删除）

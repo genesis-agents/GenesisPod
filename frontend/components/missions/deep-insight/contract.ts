@@ -623,10 +623,7 @@ export interface MissionReportResultLike {
   factTable?: Fact[];
   reconciliationReport?: string;
   steps?: MissionStep[];
-  /** 算力汇总 + by-stage 明细（后端 runViaCapability 从 dimensionPipelines 派生）。 */
-  usage?: ComputeUsage & {
-    byStage?: { stage: string; tokensUsed: number; costUsd: number }[];
-  };
+  usage?: ComputeUsage;
   /**
    * 富报告 ReportArtifactV2（content/sections/citations/figures/factTable/quality）。
    * 后端 runViaCapability 从 runner stageOutputs.reportArtifact 落库；有则前端走 ArtifactReader
@@ -982,14 +979,10 @@ export function fromCompanyMissionResult(
         ]
       : [];
 
-  // cost：终态 byStage 取自 result.usage.byStage（后端从 dimensionPipelines 派生的
-  // per-dimension 明细）；running 态 result.usage 尚未落库 → byStage 暂空。
-  // Fix 4: running 态优先用 liveUsage（来自 company.cost:tick 实时累积）覆盖 result.usage。
+  // cost：company usage 只有汇总（runner 不产 per-dimension 明细）→ byStage 留空，
+  // cost tab 显总条。Fix 4: running 态优先用 liveUsage（company.cost:tick 实时累积）。
   const effectiveUsage =
     !isTerminal && input.liveUsage != null ? input.liveUsage : result.usage;
-  const byStage = Array.isArray(result.usage?.byStage)
-    ? result.usage.byStage
-    : [];
   const cost: DICostState | undefined = effectiveUsage
     ? {
         tokensUsed: effectiveUsage.totalTokens ?? 0,
@@ -997,7 +990,7 @@ export function fromCompanyMissionResult(
           effectiveUsage.totalCostCents != null
             ? effectiveUsage.totalCostCents / 100
             : 0,
-        byStage,
+        byStage: [],
       }
     : undefined;
 

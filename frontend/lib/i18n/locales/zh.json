@@ -7472,6 +7472,19 @@
   },
   "me": {
     "title": "个人中心",
+    "roster": {
+      "searchPlaceholder": "搜索专家（名称 / 人设 / 职能）",
+      "allRoles": "全部职能",
+      "sortNewest": "最近招募",
+      "sortName": "名称",
+      "filterByRole": "按职能筛选",
+      "sort": "排序",
+      "noMatch": "没有匹配的专家",
+      "noMatchDesc": "换个关键词或清空筛选试试",
+      "clearFilters": "清空筛选",
+      "loading": "正在加载你的专家…",
+      "loadFailed": "加载专家失败"
+    },
     "nav": {
       "groupProfile": "个人",
       "groupAi": "API 与模型",

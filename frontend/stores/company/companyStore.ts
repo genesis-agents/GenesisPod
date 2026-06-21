@@ -313,7 +313,8 @@ interface CompanyState {
   setAgentAutoFallback: (instanceId: string, value: boolean) => Promise<void>;
 
   // ―― 任务 ――
-  loadMissions: (teamId?: string) => Promise<void>;
+  /** 返回是否成功（轮询熔断据本次返回值判定，不读会被并发重置的全局 missionsError）。 */
+  loadMissions: (teamId?: string) => Promise<boolean>;
   createMission: (teamId: string, title: string) => Promise<string | null>;
   deleteMission: (missionId: string) => Promise<void>;
   cancelMission: (missionId: string) => Promise<void>;
@@ -782,12 +783,14 @@ export const useCompanyStore = create<CompanyState>((set, get) => ({
         ? raw
         : ((raw as { items?: BackendMission[] }).items ?? []);
       set({ missions: arr.map(adaptMission), loadingMissions: false });
+      return true;
     } catch {
       set({
         loadingMissions: false,
         missionsError: '加载任务列表失败，请稍后重试',
       });
       toast.error('加载任务列表失败，请稍后重试');
+      return false;
     }
   },
 
