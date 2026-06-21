@@ -185,12 +185,16 @@ export class FeedbackEventListener {
     feedbackId: string,
     decision: TriageDecision,
   ): Promise<void> {
+    // ⚠️ 已知 drift（2026-06-21）：feedbacks 表无 `analysis` 列（schema 未声明、无迁移、
+    //    prod 实测缺失），此写入会抛 "column analysis does not exist"。auto-triage 结果
+    //    持久化属独立功能缺口，需先加列迁移（analysis Json?）。此处仅修了 id 的 text=uuid
+    //    cast bug；analysis 列补齐前本写入仍失败（调用方 try/catch 吞掉，不影响主流程）。
     await this.prisma.$executeRaw`
       UPDATE feedbacks
       SET
         analysis = ${JSON.stringify(decision)}::jsonb,
         updated_at = NOW()
-      WHERE id = ${feedbackId}::uuid
+      WHERE id = ${feedbackId}
     `;
   }
 
@@ -276,7 +280,7 @@ export class FeedbackEventListener {
       >`
         SELECT description, page_url, attachments::text
         FROM feedbacks
-        WHERE id = ${feedbackId}::uuid
+        WHERE id = ${feedbackId}
       `;
 
       if (!result[0]) return null;
@@ -312,7 +316,7 @@ export class FeedbackEventListener {
         SET
           admin_notes = COALESCE(admin_notes, '') || E'\nGitHub Issue: ' || ${issueUrl},
           updated_at = NOW()
-        WHERE id = ${feedbackId}::uuid
+        WHERE id = ${feedbackId}
       `;
     } catch (error) {
       this.logger.error(`Failed to update feedback with issue URL: ${error}`);
@@ -436,7 +440,7 @@ export class FeedbackEventListener {
         status = ${status}::"FeedbackStatus",
         admin_notes = ${adminNotes || null},
         updated_at = NOW()
-      WHERE id = ${feedbackId}::uuid
+      WHERE id = ${feedbackId}
     `;
 
     // 发送状态变更事件
