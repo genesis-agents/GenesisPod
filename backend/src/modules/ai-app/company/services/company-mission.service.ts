@@ -960,12 +960,19 @@ export class CompanyMissionService implements OnModuleInit {
         return;
       }
 
+      // ★ 富报告：runner 已在 stageOutputs.reportArtifact 产好完整 ReportArtifactV2
+      //   （content/sections/citations/figures/factTable/quality/metadata），此前 company
+      //   只写 summary 字符串把它丢弃 → 前端只能 markdown 兜底、图文不显示。落 result.reportArtifact
+      //   （无 schema 变更），前端 ArtifactReader 自动走富三视图 + 图文 + 引用。
+      const reportArtifact = result.stageOutputs?.reportArtifact ?? null;
+
       // ★ 终态走仲裁：条件写（未取消才写），避免盖掉用户取消。
       const won = await this.finalizeIfNotCancelled(missionId, {
         status: "done",
         progress: 100,
         result: {
           summary: result.report ?? "",
+          ...(reportArtifact ? { reportArtifact: toJson(reportArtifact) } : {}),
           references: toJson(result.references ?? []),
           dimensions: dimNames,
           steps: toJson(dimSteps),

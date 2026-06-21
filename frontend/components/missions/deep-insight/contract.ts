@@ -624,6 +624,12 @@ export interface MissionReportResultLike {
   reconciliationReport?: string;
   steps?: MissionStep[];
   usage?: ComputeUsage;
+  /**
+   * 富报告 ReportArtifactV2（content/sections/citations/figures/factTable/quality）。
+   * 后端 runViaCapability 从 runner stageOutputs.reportArtifact 落库；有则前端走 ArtifactReader
+   * 富三视图 + 图文，无则回退 summary markdown。形状由前端 isReportArtifact 校验。
+   */
+  reportArtifact?: unknown;
   /** 持久化协作动态事件（终态落库；详情重开时回放，live WS 断开后不丢）。 */
   collab?: unknown[];
   /** 失败时后端写入的真实错误信息（runMission catch → result.error）。 */
@@ -920,11 +926,20 @@ export function fromCompanyMissionResult(
     input.status === 'done' ||
     input.status === 'failed' ||
     input.status === 'cancelled';
-  // 运行中 result.steps 尚未落库 → 用事件派生 live 任务，逐个展示并推进。
-  const steps =
-    persistedSteps.length > 0
+  // 14 阶段优先：从事件流派生带 systemStageId 的 steps → 点亮 14-chip，与 playground
+  // 终态一致。事件源 = live WS（input.events）优先，终态回放 result.collab 兜底
+  // （collab 已持久化 company.stage:* 事件，含 telemetry.systemStageId）。
+  // 无 systemStageId 锚点（runner 未带）→ 回退持久化 dimension steps，行为不变。
+  const stepSourceEvents =
+    input.events && input.events.length > 0
+      ? input.events
+      : (result.collab ?? []);
+  const derivedSteps = deriveLiveSteps(stepSourceEvents);
+  const steps = derivedSteps.some((s) => s.systemStageId)
+    ? derivedSteps
+    : persistedSteps.length > 0
       ? persistedSteps
-      : deriveLiveSteps(input.events ?? []);
+      : derivedSteps;
   const references = result.references ?? [];
   const facts = result.factTable ?? [];
 
@@ -964,8 +979,8 @@ export function fromCompanyMissionResult(
         ]
       : [];
 
-  // cost：company usage 只有汇总 → byStage 留空（cost tab 显总条）。
-  // Fix 4: running 态优先用 liveUsage（来自 company.cost:tick 实时累积）覆盖 result.usage。
+  // cost：company usage 只有汇总（runner 不产 per-dimension 明细）→ byStage 留空，
+  // cost tab 显总条。Fix 4: running 态优先用 liveUsage（company.cost:tick 实时累积）。
   const effectiveUsage =
     !isTerminal && input.liveUsage != null ? input.liveUsage : result.usage;
   const cost: DICostState | undefined = effectiveUsage
@@ -1025,7 +1040,9 @@ export function fromCompanyMissionResult(
     // 右侧 tab
     // live WS 事件优先；无（重开已完成任务）→ 回放持久化的 result.collab。
     events: adapterEvents,
-    reportArtifact: undefined,
+    // 富报告：后端落库的 ReportArtifactV2（runner stageOutputs 产出）。详情页用
+    // isReportArtifact 校验后走 ArtifactReader 富三视图 + 图文；非法/缺失 → report markdown 兜底。
+    reportArtifact: result.reportArtifact ?? undefined,
     report: result.summary,
     dimensionPipelines: [],
     reconciliationReport: result.reconciliationReport,

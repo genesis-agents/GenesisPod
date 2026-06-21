@@ -7,6 +7,7 @@ import {
   Cpu,
   Send,
   Store,
+  Search,
   X,
   Brain,
   Rocket,
@@ -20,11 +21,12 @@ import {
   Settings2,
   type LucideIcon,
 } from 'lucide-react';
-import { EmptyState } from '@/components/ui/states';
+import { EmptyState, LoadingState, ErrorState } from '@/components/ui/states';
 import { Modal, ConfirmDialog } from '@/components/ui/dialogs';
 import { Button } from '@/components/ui/primitives/button';
 import { AssetCard } from '@/components/ui/cards/asset-card/AssetCard';
 import { cn } from '@/lib/utils/common';
+import { useTranslation } from '@/lib/i18n';
 import { AVATAR_GRADIENTS } from '@/lib/design/tokens';
 import { useCompanyStore, type Hero } from '@/stores/company/companyStore';
 import { useAIModels } from '@/hooks/features/useAIModels';
@@ -98,9 +100,14 @@ export function HeroRosterView({
   /** 「下任务」回调（嵌在「我的团队」双 Tab 内时切到「专家任务」Tab）；不传则跳 /missions。 */
   onDispatch?: () => void;
 } = {}) {
-  const { heroes, loadHeroes } = useCompanyStore();
+  const { t } = useTranslation();
+  const { heroes, loadingHeroes, heroesError, loadHeroes } = useCompanyStore();
   const { catalog } = useMarketplaceCatalog();
   const [configId, setConfigId] = useState<string | null>(null);
+  // roster 检索：搜索（名称/人设/职能）+ 职能筛选 + 排序。
+  const [search, setSearch] = useState('');
+  const [capFilter, setCapFilter] = useState<string>('all');
+  const [sort, setSort] = useState<'newest' | 'name'>('newest');
 
   useEffect(() => {
     void loadHeroes();
@@ -111,10 +118,57 @@ export function HeroRosterView({
     [heroes, configId]
   );
 
+  // 职能筛选选项：从当前专家的 capabilityId 去重，标签取市场职能名。
+  const capOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const h of heroes) {
+      const cap = resolveCapability(h.capabilityId, catalog.workflow);
+      map.set(h.capabilityId, cap.title ?? h.capabilityId);
+    }
+    return Array.from(map, ([id, title]) => ({ id, title }));
+  }, [heroes, catalog.workflow]);
+
+  // 复位失效筛选：选中职能的专家被移除后该 option 消失，capFilter 残留旧 id 会让
+  // visibleHeroes 恒空且下拉显示错位 → 自动回落 'all'（避免卡在无出口的空列表）。
+  useEffect(() => {
+    if (capFilter !== 'all' && !capOptions.some((c) => c.id === capFilter)) {
+      setCapFilter('all');
+    }
+  }, [capOptions, capFilter]);
+
+  // 可见专家：搜索 + 职能筛选 + 排序（newest 用 createdAt，name 用本地化排序）。
+  const visibleHeroes = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const list = heroes.filter((h) => {
+      if (capFilter !== 'all' && h.capabilityId !== capFilter) return false;
+      if (!q) return true;
+      const cap = resolveCapability(h.capabilityId, catalog.workflow);
+      return (
+        h.name.toLowerCase().includes(q) ||
+        (h.tagline ?? '').toLowerCase().includes(q) ||
+        (cap.title ?? '').toLowerCase().includes(q)
+      );
+    });
+    return [...list].sort((a, b) =>
+      sort === 'name'
+        ? a.name.localeCompare(b.name)
+        : (b.createdAt ?? '').localeCompare(a.createdAt ?? '')
+    );
+  }, [heroes, search, capFilter, sort, catalog.workflow]);
+
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto w-full max-w-7xl px-8 pb-12 pt-5">
-        {heroes.length === 0 ? (
+        {heroes.length === 0 && loadingHeroes ? (
+          <LoadingState className="py-24" text={t('me.roster.loading')} />
+        ) : heroes.length === 0 && heroesError ? (
+          <ErrorState
+            className="py-24"
+            error={heroesError}
+            title={t('me.roster.loadFailed')}
+            onRetry={() => void loadHeroes()}
+          />
+        ) : heroes.length === 0 ? (
           <EmptyState
             type="noData"
             icon={<Crown className="h-12 w-12" />}
@@ -130,17 +184,80 @@ export function HeroRosterView({
             }
           />
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {heroes.map((hero) => (
-              <HeroCard
-                key={hero.id}
-                hero={hero}
-                workflows={catalog.workflow}
-                onConfig={() => setConfigId(hero.id)}
-                onDispatch={onDispatch}
+          <>
+            {/* 检索工具条：搜索 + 职能筛选 + 排序。专家 ≤2 时省略，但有活跃筛选/搜索时
+                仍渲染——否则用户删到 ≤2 会卡在空列表且无清空入口。 */}
+            {(heroes.length > 2 ||
+              search.trim() !== '' ||
+              capFilter !== 'all') && (
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <div className="relative min-w-[200px] flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder={t('me.roster.searchPlaceholder')}
+                    className={cn(CONTROL_CLS, 'pl-9')}
+                  />
+                </div>
+                {capOptions.length > 1 && (
+                  <select
+                    value={capFilter}
+                    onChange={(e) => setCapFilter(e.target.value)}
+                    className={cn(CONTROL_CLS, 'w-auto')}
+                    aria-label={t('me.roster.filterByRole')}
+                  >
+                    <option value="all">{t('me.roster.allRoles')}</option>
+                    {capOptions.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.title}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as 'newest' | 'name')}
+                  className={cn(CONTROL_CLS, 'w-auto')}
+                  aria-label={t('me.roster.sort')}
+                >
+                  <option value="newest">{t('me.roster.sortNewest')}</option>
+                  <option value="name">{t('me.roster.sortName')}</option>
+                </select>
+              </div>
+            )}
+
+            {visibleHeroes.length === 0 ? (
+              <EmptyState
+                type="search"
+                title={t('me.roster.noMatch')}
+                description={t('me.roster.noMatchDesc')}
+                action={
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSearch('');
+                      setCapFilter('all');
+                    }}
+                  >
+                    {t('me.roster.clearFilters')}
+                  </Button>
+                }
               />
-            ))}
-          </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {visibleHeroes.map((hero) => (
+                  <HeroCard
+                    key={hero.id}
+                    hero={hero}
+                    workflows={catalog.workflow}
+                    onConfig={() => setConfigId(hero.id)}
+                    onDispatch={onDispatch}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 

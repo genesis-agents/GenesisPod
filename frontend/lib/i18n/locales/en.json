@@ -7472,6 +7472,19 @@
   },
   "me": {
     "title": "Personal Center",
+    "roster": {
+      "searchPlaceholder": "Search experts (name / persona / role)",
+      "allRoles": "All roles",
+      "sortNewest": "Recently hired",
+      "sortName": "Name",
+      "filterByRole": "Filter by role",
+      "sort": "Sort",
+      "noMatch": "No matching experts",
+      "noMatchDesc": "Try a different keyword or clear the filters",
+      "clearFilters": "Clear filters",
+      "loading": "Loading your experts…",
+      "loadFailed": "Failed to load experts"
+    },
     "nav": {
       "groupProfile": "Profile",
       "groupAi": "API & Models",

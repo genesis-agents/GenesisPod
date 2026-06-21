@@ -62,6 +62,8 @@ export interface Hero {
   /** 模型 fallback 链（有序，第一个为主模型）；空数组 => 引擎自动择优 */
   models: string[];
   autoFallback: boolean;
+  /** 招募时间 ISO（roster newest 排序用）。 */
+  createdAt?: string;
 }
 
 export interface CompanyTeam {
@@ -226,6 +228,7 @@ function adaptHero(h: BackendHero): Hero {
     tagline: h.tagline ?? undefined,
     models: h.models ?? [],
     autoFallback: h.autoFallback,
+    createdAt: h.createdAt,
   };
 }
 
@@ -266,6 +269,12 @@ interface CompanyState {
   missions: CompanyMission[];
   heroes: Hero[];
 
+  // ―― 细粒度加载/错误态（供 roster / 任务页渲染 loading/error，区分"加载中"与"真空"）――
+  loadingHeroes: boolean;
+  heroesError: string | null;
+  loadingMissions: boolean;
+  missionsError: string | null;
+
   // ―― 快照加载 ――
   loadCompany: () => Promise<void>;
 
@@ -304,7 +313,8 @@ interface CompanyState {
   setAgentAutoFallback: (instanceId: string, value: boolean) => Promise<void>;
 
   // ―― 任务 ――
-  loadMissions: (teamId?: string) => Promise<void>;
+  /** 返回是否成功（轮询熔断据本次返回值判定，不读会被并发重置的全局 missionsError）。 */
+  loadMissions: (teamId?: string) => Promise<boolean>;
   createMission: (teamId: string, title: string) => Promise<string | null>;
   deleteMission: (missionId: string) => Promise<void>;
   cancelMission: (missionId: string) => Promise<void>;
@@ -360,6 +370,10 @@ export const useCompanyStore = create<CompanyState>((set, get) => ({
   teams: [],
   missions: [],
   heroes: [],
+  loadingHeroes: false,
+  heroesError: null,
+  loadingMissions: false,
+  missionsError: null,
 
   // ―― 快照加载 ――
   loadCompany: async () => {
@@ -755,6 +769,7 @@ export const useCompanyStore = create<CompanyState>((set, get) => ({
 
   // ―― 任务 ――
   loadMissions: async (teamId?: string) => {
+    set({ loadingMissions: true, missionsError: null });
     try {
       const path = teamId
         ? `/company/missions?teamId=${encodeURIComponent(teamId)}`
@@ -767,9 +782,15 @@ export const useCompanyStore = create<CompanyState>((set, get) => ({
       const arr: BackendMission[] = Array.isArray(raw)
         ? raw
         : ((raw as { items?: BackendMission[] }).items ?? []);
-      set({ missions: arr.map(adaptMission) });
+      set({ missions: arr.map(adaptMission), loadingMissions: false });
+      return true;
     } catch {
+      set({
+        loadingMissions: false,
+        missionsError: '加载任务列表失败，请稍后重试',
+      });
       toast.error('加载任务列表失败，请稍后重试');
+      return false;
     }
   },
 
@@ -869,6 +890,7 @@ export const useCompanyStore = create<CompanyState>((set, get) => ({
 
   // ―― Hero（一人公司·单能力官）――
   loadHeroes: async () => {
+    set({ loadingHeroes: true, heroesError: null });
     try {
       const raw = await apiClient.get<
         BackendHero[] | { items?: BackendHero[] }
@@ -877,8 +899,12 @@ export const useCompanyStore = create<CompanyState>((set, get) => ({
       const arr: BackendHero[] = Array.isArray(raw)
         ? raw
         : ((raw as { items?: BackendHero[] }).items ?? []);
-      set({ heroes: arr.map(adaptHero) });
+      set({ heroes: arr.map(adaptHero), loadingHeroes: false });
     } catch {
+      set({
+        loadingHeroes: false,
+        heroesError: '加载专家列表失败，请稍后重试',
+      });
       toast.error('加载 Hero 列表失败，请稍后重试');
     }
   },

@@ -258,12 +258,12 @@ export function DeepInsightMissionDetail({
     [data.references]
   );
 
-  // ── canonical view（collab / CapabilityMeters 需要；company 无 → undefined）──
-  // company 侧 fromCompanyMissionResult 不产出 canonical view；playground 侧 adapter
-  // 可在 reportArtifact / events 之外携带原始 view。契约未直接承载 MissionDetailView，
-  // collab/CapabilityMeters 仅在 events 存在（= playground live）时才有意义 → 用 events
-  // 有无作为 live 闸门，无 live 数据时这两处降级隐藏。
-  const canonicalView = data.reportArtifact as MissionDetailView | undefined;
+  // ── canonical view（collab / CapabilityMeters 需要）──
+  // 本组件仅服务 company：data.reportArtifact 要么是 ReportArtifactV2（富报告）要么
+  // undefined，从不是 MissionDetailView。故 canonicalView 恒为 undefined，让
+  // collab/CapabilityMeters 一律回落 capabilityFakeView（含真实 finalScore/status）。
+  // 这样即便后端落入「畸形 artifact」（truthy 但缺字段），也不会被 cast 成 view 读崩。
+  const canonicalView: MissionDetailView | undefined = undefined;
 
   // ── CapabilityMeters 最小 fake view（company 无 canonical view 也能渲染 cost tab）──
   // CapabilityMeters 只读 view.mission.{finalScore/status/startedAt/finishedAt} + view.verdicts
