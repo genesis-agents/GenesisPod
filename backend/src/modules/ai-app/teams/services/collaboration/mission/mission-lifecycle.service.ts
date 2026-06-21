@@ -16,6 +16,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
+import { TeamFacade } from "@/modules/ai-harness/facade";
 import { TopicEventEmitterService } from "../../events";
 import {
   MissionStatus,
@@ -37,6 +38,7 @@ export class MissionLifecycleService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly topicEventEmitter: TopicEventEmitterService,
+    private readonly teamFacade: TeamFacade,
   ) {}
 
   /**
@@ -53,6 +55,16 @@ export class MissionLifecycleService {
 
     if (!mission) {
       throw new NotFoundException("任务不存在");
+    }
+
+    // ★ in-memory abort 无条件先发：哪怕 DB 已 terminal，本 pod 的 orchestrator loop /
+    //   in-flight LLM 仍可能在跑（thrashing 场景），必须先止血。cancel 幂等：无该 mission=no-op。
+    try {
+      await this.teamFacade.missionOrchestrator?.cancel(missionId);
+    } catch (err) {
+      this.logger.warn(
+        `[cancelMission] orchestrator abort failed for ${missionId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
 
     if (

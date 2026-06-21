@@ -160,6 +160,76 @@ describe("ReActLoop — native structured output non-FC branch (R2-#35)", () => 
     expect(callArgs.responseFormat).toBe("json");
   });
 
+  it("escalates to the strict finalize schema after a finalize rejection (mission-runaway 2026-06-21)", async () => {
+    // Business finalize schema: action.output must be an object with a title.
+    const businessSchema = {
+      type: "object",
+      properties: { title: { type: "string" } },
+      required: ["title"],
+      additionalProperties: false,
+    };
+    // Reject a string output (the prose-not-JSON case); accept an object.
+    const outputSchemaValidator = (o: unknown) =>
+      typeof o === "object" && o !== null && !Array.isArray(o)
+        ? { ok: true, issues: "" }
+        : { ok: false, issues: "Expected object, received string" };
+
+    let call = 0;
+    const innerChatFn = jest.fn(async () => {
+      call += 1;
+      // 1st finalize emits a prose STRING (fails validation); 2nd emits a valid object.
+      const output =
+        call === 1 ? "a long markdown report string" : { title: "ok" };
+      return {
+        content: JSON.stringify({
+          thinking: "t",
+          action: { kind: "finalize", output },
+        }),
+        model: "mock",
+        usage: { inputTokens: 5, outputTokens: 5, totalTokens: 10 },
+      };
+    });
+    const reg = mkToolRegistry();
+    const hooks = new HookRegistry();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const invoker = new ToolInvoker(reg as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loop = new ReActLoop({ chat: innerChatFn } as any, invoker, hooks);
+
+    // maxIterations=6 keeps approachingLimit FALSE on the first two calls, so the
+    // escalation is attributable ONLY to the prior finalize rejection.
+    await drain(
+      loop.run(
+        makeEnvelope([]),
+        { maxIterations: 6, terminateOn: ["finalize"] },
+        {
+          agentId: "a1",
+          outputSchemaValidator,
+          finalizeOutputJsonSchema: businessSchema,
+        },
+      ),
+    );
+
+    expect(innerChatFn).toHaveBeenCalledTimes(2);
+    const call1 = innerChatFn.mock.calls[0][0] as Record<string, unknown>;
+    const call2 = innerChatFn.mock.calls[1][0] as Record<string, unknown>;
+    // 1st call (no prior reject, not approachingLimit) → permissive decision schema.
+    expect(call1.outputJsonSchema).toBe(REACT_LOOP_DECISION_JSON_SCHEMA);
+    // 2nd call (after reject) → strict wrapper embedding the business schema.
+    const strict = call2.outputJsonSchema as {
+      properties?: {
+        action?: {
+          properties?: { output?: unknown; kind?: { enum?: string[] } };
+        };
+      };
+    };
+    expect(call2.outputJsonSchema).not.toBe(REACT_LOOP_DECISION_JSON_SCHEMA);
+    expect(strict.properties?.action?.properties?.output).toBe(businessSchema);
+    expect(strict.properties?.action?.properties?.kind?.enum).toEqual([
+      "finalize",
+    ]);
+  });
+
   it("does NOT pass structuredOutputStrategy when native-FC is active (tools present)", async () => {
     // Enable native-FC via env flag so buildFunctionDefinitions returns non-empty.
     const origEnv = process.env.HARNESS_REACT_NATIVE_FC;

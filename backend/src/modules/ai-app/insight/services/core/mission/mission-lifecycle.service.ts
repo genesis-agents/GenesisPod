@@ -43,6 +43,7 @@ import {
 import { AgentActivityType } from "@prisma/client";
 import { MissionQueryService } from "./mission-query.service";
 import { MissionExecutionService } from "./mission-execution.service";
+import { TopicTeamOrchestratorService } from "../topic/topic-team-orchestrator.service";
 import { BillingContext } from "@/modules/platform/facade";
 import {
   USER_EVENT_NAME,
@@ -78,6 +79,8 @@ export class MissionLifecycleService {
     // Lifecycle triggers Execution after planning; Execution updates Mission state managed by Lifecycle
     @Inject(forwardRef(() => MissionExecutionService))
     private readonly executionService: MissionExecutionService,
+    @Optional()
+    private readonly topicTeamOrchestrator?: TopicTeamOrchestratorService,
     @Optional()
     private readonly eventEmitter?: EventEmitter2,
   ) {}
@@ -1347,6 +1350,16 @@ export class MissionLifecycleService {
     if (!hasAccess) {
       throw new ForbiddenException(
         "You do not have permission to cancel this mission",
+      );
+    }
+
+    // ★ in-memory abort 无条件先发：DB 状态可能滞后于真实 in-flight refresh（thrashing/卡死仍烧钱）。
+    //   activeRefreshes 以 topicId 为键，cancelRefresh 幂等：无活跃刷新返回 false，不抛错。
+    try {
+      await this.topicTeamOrchestrator?.cancelRefresh(mission.topic.id);
+    } catch (err) {
+      this.logger.warn(
+        `[cancelMission] cancelRefresh failed for topic ${mission.topic.id}: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
 

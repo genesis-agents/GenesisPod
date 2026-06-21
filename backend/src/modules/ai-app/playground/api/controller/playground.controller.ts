@@ -280,6 +280,9 @@ export class AgentPlaygroundController extends BaseMissionController {
     const persisted = await this.store.getById(missionId, userId);
     if (!persisted)
       throw new ForbiddenException(`mission ${missionId} not found`);
+    // ★ in-memory abort 必须无条件先发：即使 DB 已 terminal，本 pod 仍可能有 in-flight
+    //   LLM/tool call 在烧钱（DB 状态滞后于真实 worker）。abort 幂等：无 controller=no-op。
+    this.abortRegistry.abort(missionId, MissionAbortReason.user_cancelled);
     // 已 cancelled 时幂等返回 200，不抛 400（双击取消场景）
     if (persisted.status === "cancelled") {
       return { ok: true, status: "cancelled", alreadyCancelled: true };
@@ -289,8 +292,6 @@ export class AgentPlaygroundController extends BaseMissionController {
         `mission ${missionId} status is ${persisted.status}, not running`,
       );
     }
-    // 真触发 abort signal，让正在跑的 LLM/tool call 立即中断
-    this.abortRegistry.abort(missionId, MissionAbortReason.user_cancelled);
     // ★ C0/G1：终态写经 finalize 单入口仲裁（条件写 WHERE status='running' 首写赢）
     await this.lifecycleManager.finalize<PlaygroundTerminalExtra>({
       missionId,

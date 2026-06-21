@@ -473,4 +473,131 @@ describe("MissionLivenessGuard", () => {
       expect(adapter.killed).toHaveLength(1);
     });
   });
+
+  // ── no-progress thrash 检测 ───────────────────────────────────────
+  describe("no-progress thrash detector", () => {
+    /**
+     * 构造一个"事件常新、心跳常新"的 mission row（双 stale 路径永不触发），
+     * 携带 lastCompletedStage / spendUnits 进度信号。
+     */
+    function thrashRow(
+      id: string,
+      stage: number | null,
+      spend: number | null,
+    ): MissionLivenessRow {
+      const now = Date.now();
+      return {
+        id,
+        userId: `u-${id}`,
+        // started 30min ago > grace；heartbeat 始终新
+        startedAt: new Date(now - 30 * 60 * 1000),
+        heartbeatAt: new Date(now - 5_000),
+        lastCompletedStage: stage,
+        spendUnits: spend,
+      };
+    }
+
+    // 进度信号在多轮 scan 间变化 → 用可变 row 引用 + getEvents 始终返回新事件 ts
+    function freshEventsAdapter(getRows: () => MissionLivenessRow[]): {
+      adapter: MockAdapter;
+    } {
+      const killed: {
+        id: string;
+        reason: string;
+        errorMessage: string;
+      }[] = [];
+      const warned: { id: string; userId: string; payload: unknown }[] = [];
+      const adapter: MockAdapter = {
+        killed,
+        warned,
+        fetchRunningMissions: async () => getRows(),
+        getMostRecentEventTs: async (ids) => {
+          // 事件始终新鲜（now）→ eventStale 永远 false → 双 stale 路径不触发
+          const out = new Map<string, number>();
+          for (const id of ids) out.set(id, Date.now());
+          return out;
+        },
+        markFailed: async (id, reason, errorMessage) => {
+          killed.push({ id, reason, errorMessage });
+        },
+        emitWarning: async () => {},
+      };
+      return { adapter };
+    }
+
+    it("(1) kills thrashing mission: stage frozen + spend climbing past noProgressKillMs", async () => {
+      let spend = 1000;
+      const stage = 2;
+      const { adapter } = freshEventsAdapter(() => [
+        thrashRow("m-thrash", stage, spend),
+      ]);
+      // grace 0（mission 已 30min > 0），kill 窗口 -1ms：任意非负 elapsed 即超（含同 ms scan）
+      guard.registerAdapter("test", adapter, {
+        noProgressGraceMs: 0,
+        noProgressKillMs: -1,
+      });
+      // 第 1 轮：seed 快照，不杀
+      await guard.forceScan("test");
+      expect(adapter.killed).toEqual([]);
+      // 第 2 轮：stage 不变、spend 增长、frozen 窗口已过 → 杀
+      spend = 2000;
+      const r = await guard.forceScan("test");
+      expect(adapter.killed).toHaveLength(1);
+      expect(adapter.killed[0].id).toBe("m-thrash");
+      expect(adapter.killed[0].reason).toBe("no-progress");
+      expect(r?.killed).toBe(1);
+    });
+
+    it("(2) control: advancing stage resets snapshot → never killed", async () => {
+      let spend = 1000;
+      let stage = 1;
+      const { adapter } = freshEventsAdapter(() => [
+        thrashRow("m-slow", stage, spend),
+      ]);
+      guard.registerAdapter("test", adapter, {
+        noProgressGraceMs: 0,
+        noProgressKillMs: -1,
+      });
+      await guard.forceScan("test"); // seed stage=1
+      // stage 推进 + spend 增长 → 重置快照
+      stage = 2;
+      spend = 2000;
+      await guard.forceScan("test");
+      // 再推进
+      stage = 3;
+      spend = 3000;
+      await guard.forceScan("test");
+      expect(adapter.killed).toEqual([]);
+    });
+
+    it("(3) backward-compat: row with null stage AND null spend never no-progress-killed", async () => {
+      const { adapter } = freshEventsAdapter(() => [
+        thrashRow("m-legacy", null, null),
+      ]);
+      guard.registerAdapter("test", adapter, {
+        noProgressGraceMs: 0,
+        noProgressKillMs: 1,
+      });
+      await guard.forceScan("test");
+      await guard.forceScan("test");
+      await guard.forceScan("test");
+      expect(adapter.killed).toEqual([]);
+    });
+
+    it("(4) spend backstop: spendUnits over tokenCapUnits kills regardless of timers", async () => {
+      const { adapter } = freshEventsAdapter(() => [
+        thrashRow("m-burn", 5, 999_999),
+      ]);
+      guard.registerAdapter("test", adapter, {
+        noProgressGraceMs: 60 * 60 * 1000, // 大 grace（age 未过 → 普通 no-progress 不武装）
+        noProgressKillMs: 60 * 60 * 1000,
+        tokenCapUnits: 500_000, // spend 已超
+      });
+      // 第 1 轮即触发绝对 spend 兜底（不依赖快照计时）
+      const r = await guard.forceScan("test");
+      expect(adapter.killed).toHaveLength(1);
+      expect(adapter.killed[0].reason).toBe("no-progress");
+      expect(r?.killed).toBe(1);
+    });
+  });
 });

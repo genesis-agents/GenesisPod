@@ -21,6 +21,7 @@ import {
 import { MissionLifecycleService } from "../mission-lifecycle.service";
 import { PrismaService } from "../../../../../../../common/prisma/prisma.service";
 import { TopicEventEmitterService } from "../../../events";
+import { TeamFacade } from "@/modules/ai-harness/facade";
 
 // ============================================================================
 // Helpers
@@ -71,6 +72,14 @@ function buildEventEmitterMock() {
   };
 }
 
+function buildTeamFacadeMock() {
+  return {
+    missionOrchestrator: {
+      cancel: jest.fn().mockResolvedValue(undefined),
+    },
+  };
+}
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -79,6 +88,7 @@ describe("MissionLifecycleService", () => {
   let service: MissionLifecycleService;
   let prisma: ReturnType<typeof buildPrismaMock>;
   let topicEventEmitter: ReturnType<typeof buildEventEmitterMock>;
+  let teamFacade: ReturnType<typeof buildTeamFacadeMock>;
 
   // Callback stubs
   const createLog = jest.fn().mockResolvedValue(undefined);
@@ -89,12 +99,14 @@ describe("MissionLifecycleService", () => {
   beforeEach(async () => {
     prisma = buildPrismaMock();
     topicEventEmitter = buildEventEmitterMock();
+    teamFacade = buildTeamFacadeMock();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MissionLifecycleService,
         { provide: PrismaService, useValue: prisma },
         { provide: TopicEventEmitterService, useValue: topicEventEmitter },
+        { provide: TeamFacade, useValue: teamFacade },
       ],
     }).compile();
 
@@ -201,6 +213,37 @@ describe("MissionLifecycleService", () => {
       await expect(
         service.cancelMission("mission-1", "user-1", createLog),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it("should fire in-memory abort BEFORE the terminal-status early-return", async () => {
+      const mission = makeMission({ status: MissionStatus.CANCELLED });
+      prisma.teamMission.findUnique.mockResolvedValue(mission);
+
+      await expect(
+        service.cancelMission("mission-1", "user-1", createLog),
+      ).rejects.toThrow(BadRequestException);
+
+      // abort must still fire even though the DB row is already terminal
+      expect(teamFacade.missionOrchestrator.cancel).toHaveBeenCalledWith(
+        "mission-1",
+      );
+    });
+
+    it("should fire in-memory abort on the normal in-progress cancel path", async () => {
+      const mission = makeMission({ status: MissionStatus.IN_PROGRESS });
+      prisma.teamMission.findUnique.mockResolvedValue(mission);
+      prisma.teamMission.update.mockResolvedValue({
+        ...mission,
+        status: MissionStatus.CANCELLED,
+      });
+      prisma.agentTask.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.cancelMission("mission-1", "user-1", createLog);
+
+      expect(teamFacade.missionOrchestrator.cancel).toHaveBeenCalledTimes(1);
+      expect(teamFacade.missionOrchestrator.cancel).toHaveBeenCalledWith(
+        "mission-1",
+      );
     });
   });
 

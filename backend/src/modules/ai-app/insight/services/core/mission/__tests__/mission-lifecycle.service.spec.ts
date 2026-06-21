@@ -12,6 +12,7 @@ import { TopicCollaboratorService } from "../../../collaboration/topic-collabora
 import { AgentActivityService } from "../../../monitoring/agent-activity.service";
 import { MissionQueryService } from "../mission-query.service";
 import { MissionExecutionService } from "../mission-execution.service";
+import { TopicTeamOrchestratorService } from "../../topic/topic-team-orchestrator.service";
 import { NotFoundException, ForbiddenException } from "@nestjs/common";
 import {
   ResearchMissionStatus,
@@ -186,9 +187,13 @@ describe("MissionLifecycleService", () => {
     typeof buildMocks
   >["mockCollaboratorService"];
   let executionService: ReturnType<typeof buildMocks>["mockExecutionService"];
+  let topicTeamOrchestrator: { cancelRefresh: jest.Mock };
 
   beforeEach(async () => {
     const mocks = buildMocks();
+    topicTeamOrchestrator = {
+      cancelRefresh: jest.fn().mockResolvedValue(true),
+    };
     prisma = mocks.mockPrisma;
     leaderService = mocks.mockLeaderPlanningService;
     leaderIntentService = mocks.mockLeaderIntentService;
@@ -220,6 +225,10 @@ describe("MissionLifecycleService", () => {
         {
           provide: MissionExecutionService,
           useValue: mocks.mockExecutionService,
+        },
+        {
+          provide: TopicTeamOrchestratorService,
+          useValue: topicTeamOrchestrator,
         },
       ],
     }).compile();
@@ -547,6 +556,23 @@ describe("MissionLifecycleService", () => {
 
       const result = await service.cancelMission("user-1", "mission-1");
       expect(result.status).toBe(ResearchMissionStatus.CANCELLED);
+    });
+
+    it("fires in-memory cancelRefresh BEFORE the idempotent already-cancelled branch", async () => {
+      prisma.researchMission.findUnique.mockResolvedValue({
+        ...mockMission,
+        status: ResearchMissionStatus.CANCELLED,
+      });
+      prisma.researchTask.updateMany.mockResolvedValue({ count: 0 });
+      prisma.researchTodo.updateMany.mockResolvedValue({ count: 0 });
+
+      await service.cancelMission("user-1", "mission-1");
+
+      // abort (cancelRefresh keyed by topicId) must fire even on idempotent path
+      expect(topicTeamOrchestrator.cancelRefresh).toHaveBeenCalledTimes(1);
+      expect(topicTeamOrchestrator.cancelRefresh).toHaveBeenCalledWith(
+        "topic-1",
+      );
     });
   });
 

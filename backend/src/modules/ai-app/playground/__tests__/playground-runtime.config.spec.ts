@@ -27,6 +27,10 @@ describe("playground-runtime.config", () => {
         // ★ 2026-06-11：guard 墙钟默认降为 0（不限）——卡死改由进度检测回收，
         //   绝对成本兜底走每-mission 档位墙钟（in-shell wallTimer 3h/10h/24h）。
         wallTimeCapMs: 0,
+        // ★ 2026-06-21：no-progress thrash 检测旋钮（grace 20min / kill 15min / spend 兜底 0=不限）。
+        noProgressGraceMin: 20,
+        noProgressKillMin: 15,
+        tokenCapUnits: 0,
       });
     });
   });

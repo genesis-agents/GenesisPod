@@ -316,6 +316,8 @@ export class PlaygroundModule implements OnModuleInit, OnApplicationBootstrap {
                 userId: true,
                 startedAt: true,
                 heartbeatAt: true,
+                lastCompletedStage: true,
+                tokensUsed: true,
               },
               take: 200,
             })
@@ -328,6 +330,8 @@ export class PlaygroundModule implements OnModuleInit, OnApplicationBootstrap {
                 userId: string;
                 startedAt: Date;
                 heartbeatAt: Date | null;
+                lastCompletedStage: number | null;
+                tokensUsed: bigint | null;
               }>;
             });
           if (rows.length === 0) return [];
@@ -363,6 +367,8 @@ export class PlaygroundModule implements OnModuleInit, OnApplicationBootstrap {
               startedAt: r.startedAt,
               heartbeatAt: r.heartbeatAt,
               lastReopenedAt: reopenedTs != null ? new Date(reopenedTs) : null,
+              lastCompletedStage: r.lastCompletedStage ?? -1,
+              spendUnits: r.tokensUsed != null ? Number(r.tokensUsed) : 0,
             };
           });
         },
@@ -532,6 +538,10 @@ export class PlaygroundModule implements OnModuleInit, OnApplicationBootstrap {
             rt.wallTimeCapMs > 0 ? rt.wallTimeCapMs : Number.POSITIVE_INFINITY,
           staleThresholdMs: rt.staleThresholdMin * 60 * 1000,
           softWarnThresholdMs: rt.softWarnThresholdMin * 60 * 1000,
+          noProgressGraceMs: rt.noProgressGraceMin * 60 * 1000,
+          noProgressKillMs: rt.noProgressKillMin * 60 * 1000,
+          tokenCapUnits:
+            rt.tokenCapUnits > 0 ? rt.tokenCapUnits : Number.POSITIVE_INFINITY,
           startupGraceMs: 5 * 60 * 1000,
           scanIntervalMs: 60_000,
           bootDelayMs: 60_000,

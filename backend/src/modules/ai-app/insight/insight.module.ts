@@ -12,8 +12,11 @@ import {
   TeamRegistry,
   AgentRegistry,
   RoleRegistry,
+  MissionLivenessGuard,
 } from "@/modules/ai-harness/facade";
 import { SkillLoaderService } from "@/modules/ai-engine/facade";
+import { PrismaService } from "../../../common/prisma/prisma.service";
+import { ResearchMissionStatus, ResearchTaskStatus } from "@prisma/client";
 import { RESEARCH_LEAD_ROLE_CONFIG } from "../research/teams";
 import { CreditsModule } from "../../platform/credits/credits.module";
 import { SecretsModule } from "../../platform/credentials/storage/secrets/secrets.module";
@@ -331,6 +334,8 @@ export class InsightModule implements OnModuleInit {
     private readonly roleRegistry: RoleRegistry,
     // R0-A5: 注册 insights skills 目录到 engine SkillLoader
     private readonly skillLoader: SkillLoaderService,
+    private readonly livenessGuard: MissionLivenessGuard,
+    private readonly prisma: PrismaService,
   ) {}
 
   async onModuleInit() {
@@ -367,5 +372,122 @@ export class InsightModule implements OnModuleInit {
     this.roleRegistry.registerFromConfig(RESEARCH_LEAD_ROLE_CONFIG);
     this.teamRegistry.registerConfig(TOPIC_INSIGHTS_TEAM_CONFIG);
     this.logger.log("Registered TOPIC_INSIGHTS team config");
+
+    // ★ 2026-06-21 runaway 止血：注册 research_missions 的 liveness 适配器。
+    //   此前 Insight/Research 无任何 wall-time cap / kill 路径。research_missions 无
+    //   heartbeat 列 → 双 stale 路径依赖 agent_steps 事件信号；thrashing 持续写 step
+    //   时只靠 wall-time(2h) 兜底。仅 DB 回收，不触 abort-registry（独立 AREA）。
+    this.livenessGuard.registerAdapter(
+      "research",
+      {
+        fetchRunningMissions: async () => {
+          try {
+            const rows = await this.prisma.researchMission.findMany({
+              where: {
+                status: {
+                  in: [
+                    ResearchMissionStatus.PLANNING,
+                    ResearchMissionStatus.PLAN_READY,
+                    ResearchMissionStatus.EXECUTING,
+                    ResearchMissionStatus.REVIEWING,
+                  ],
+                },
+              },
+              select: { id: true, startedAt: true, createdAt: true },
+              take: 200,
+            });
+            return rows.map((r) => ({
+              id: r.id,
+              // research_missions topic-scoped；userId 仅用于 emitWarning scope，此处不提供
+              userId: "",
+              startedAt: r.startedAt ?? r.createdAt,
+              heartbeatAt: null,
+            }));
+          } catch (err: unknown) {
+            this.logger.warn(
+              `[liveness] research fetchRunningMissions failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+            return [];
+          }
+        },
+        getMostRecentEventTs: async (missionIds, sinceMs) => {
+          const out = new Map<string, number>();
+          try {
+            const grouped = await this.prisma.agentStep.groupBy({
+              by: ["missionId"],
+              where: {
+                missionId: { in: missionIds as string[] },
+                createdAt: { gte: new Date(sinceMs) },
+              },
+              _max: { createdAt: true },
+            });
+            for (const g of grouped) {
+              const ts = g._max.createdAt;
+              if (ts) out.set(g.missionId, ts.getTime());
+            }
+          } catch (err: unknown) {
+            this.logger.warn(
+              `[liveness] research getMostRecentEventTs failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+          return out;
+        },
+        markFailed: async (missionId, reason, errorMessage) => {
+          try {
+            // 条件写（WHERE status IN running-set）→ 幂等首写赢。
+            const res = await this.prisma.researchMission.updateMany({
+              where: {
+                id: missionId,
+                status: {
+                  in: [
+                    ResearchMissionStatus.PLANNING,
+                    ResearchMissionStatus.PLAN_READY,
+                    ResearchMissionStatus.EXECUTING,
+                    ResearchMissionStatus.REVIEWING,
+                  ],
+                },
+              },
+              data: {
+                status: ResearchMissionStatus.FAILED,
+                completedAt: new Date(),
+              },
+            });
+            if (res.count > 0) {
+              await this.prisma.researchTask.updateMany({
+                where: {
+                  missionId,
+                  status: {
+                    in: [
+                      ResearchTaskStatus.PENDING,
+                      ResearchTaskStatus.ASSIGNED,
+                      ResearchTaskStatus.EXECUTING,
+                    ],
+                  },
+                },
+                data: {
+                  status: ResearchTaskStatus.FAILED,
+                  resultSummary: errorMessage.slice(0, 4000),
+                  completedAt: new Date(),
+                },
+              });
+            }
+            this.logger.warn(
+              `[liveness] research mission ${missionId} reclaimed (${reason}, won=${res.count > 0})`,
+            );
+          } catch (err: unknown) {
+            this.logger.warn(
+              `[liveness] research markFailed ${missionId} failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        },
+      },
+      {
+        wallTimeCapMs: 2 * 60 * 60 * 1000,
+        staleThresholdMs: 15 * 60 * 1000,
+        softWarnThresholdMs: 30 * 60 * 1000,
+        startupGraceMs: 5 * 60 * 1000,
+      },
+    );
+    this.logger.log("Registered MissionLivenessGuard adapter (research)");
   }
 }
