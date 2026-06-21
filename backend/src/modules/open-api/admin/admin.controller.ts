@@ -31,6 +31,8 @@ import { APP_CONFIG } from "../../../common/config/app.config";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { StorageInventoryService } from "../../platform/storage/governance/storage-inventory.service";
 import { StorageOffloadService } from "../../platform/storage/governance/storage-offload.service";
+import { DataRetentionScheduler } from "../../platform/storage/governance/data-retention.scheduler";
+import { EventArchiveService } from "../../platform/storage/governance/event-archive.service";
 
 interface AuthenticatedRequest {
   user?: { id: string };
@@ -61,6 +63,8 @@ export class AdminController {
     private secretsService: SecretsService,
     private storageInventoryService: StorageInventoryService,
     private storageOffloadService: StorageOffloadService,
+    private dataRetentionScheduler: DataRetentionScheduler,
+    private eventArchiveService: EventArchiveService,
     private systemModelInventoryService: SystemModelInventoryService,
     // v3.1 阶段 B 子片 2：capability_overrides 写入面 SSOT（admin override 路径）
     private capabilityOverridesWriter: CapabilityOverridesWriterService,
@@ -121,6 +125,38 @@ export class AdminController {
       triggered: true,
       message: "Off-load scheduler triggered (running in background)",
     };
+  }
+
+  /** retention 状态：开关/各表保留天数/最近执行（这些表不归 R2 offload，靠按龄删除控体积）。 */
+  @Get("storage-inventory/retention")
+  async getRetentionStatus() {
+    return this.dataRetentionScheduler.getStatus();
+  }
+
+  /** 手动老化：默认 dry-run 只统计；仅 dryRun=false 才真删（开 ENABLE_DATA_RETENTION 前量化）。 */
+  @Post("storage-inventory/run-retention")
+  async runRetentionNow(@Query("dryRun") dryRun?: string) {
+    const isDryRun = dryRun !== "false";
+    const results = await this.dataRetentionScheduler.runSweep({
+      dryRun: isDryRun,
+    });
+    return { dryRun: isDryRun, results };
+  }
+
+  /** 事件大表无损归档状态：开关/保留天数/最近归档行数+字节（archive-to-R2-then-delete）。 */
+  @Get("storage-inventory/archive")
+  async getArchiveStatus() {
+    return this.eventArchiveService.getStatus();
+  }
+
+  /** 手动归档：默认 dry-run 只统计；仅 dryRun=false 才真归档+删（开 ENABLE_EVENT_ARCHIVE 前量化）。 */
+  @Post("storage-inventory/run-archive")
+  async runArchiveNow(@Query("dryRun") dryRun?: string) {
+    const isDryRun = dryRun !== "false";
+    const results = await this.eventArchiveService.runOnce({
+      dryRun: isDryRun,
+    });
+    return { dryRun: isDryRun, results };
   }
 
   /**

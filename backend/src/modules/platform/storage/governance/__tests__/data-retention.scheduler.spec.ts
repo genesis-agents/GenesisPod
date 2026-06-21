@@ -13,6 +13,7 @@ describe("DataRetentionScheduler", () => {
       harnessCheckpoint: table(),
       agentPlaygroundMissionEvent: table(),
       aIEngineMetric: table(),
+      researchAgentActivity: table(),
       secretAccessLog: table(),
     } as unknown as PrismaService;
     const config = {
@@ -70,5 +71,54 @@ describe("DataRetentionScheduler", () => {
     p.harnessAgentEvent.deleteMany.mockRejectedValue(new Error("db busy"));
     await expect(svc.sweep()).resolves.toBeUndefined();
     expect(p.secretAccessLog.deleteMany).toHaveBeenCalled();
+  });
+
+  it("runSweep 返回每表结构化命中数；dryRun 显式覆盖配置", async () => {
+    const { svc, prisma } = mk(); // 无 DRY_RUN env，但显式传 dryRun=true
+    const results = await svc.runSweep({ dryRun: true });
+    expect(results).toHaveLength(6);
+    expect(results.map((r) => r.table)).toContain("harness_agent_events");
+    expect(results.map((r) => r.table)).toContain("research_agent_activities");
+    for (const r of results) {
+      expect(r.dryRun).toBe(true);
+      expect(r.affected).toBe(7); // mock count=7
+    }
+    const p = prisma as unknown as Record<string, { deleteMany: jest.Mock }>;
+    expect(p.harnessAgentEvent.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("runSweep 单表失败时该行带 error、affected=0，其余表正常", async () => {
+    const { svc, prisma } = mk();
+    const p = prisma as unknown as Record<string, { count: jest.Mock }>;
+    p.aIEngineMetric.count.mockRejectedValue(new Error("boom"));
+    const results = await svc.runSweep({ dryRun: true });
+    const metric = results.find((r) => r.table === "ai_engine_metrics");
+    expect(metric?.error).toBe("boom");
+    expect(metric?.affected).toBe(0);
+    const ok = results.find((r) => r.table === "secret_access_logs");
+    expect(ok?.error).toBeUndefined();
+    expect(ok?.affected).toBe(7);
+  });
+
+  it("getStatus 反映开关、保留天数与最近一次执行", async () => {
+    const prevEnv = process.env.ENABLE_DATA_RETENTION;
+    process.env.ENABLE_DATA_RETENTION = "true";
+    try {
+      const { svc } = mk({ RETENTION_HARNESS_EVENTS_DAYS: "7" });
+      const before = svc.getStatus();
+      expect(before.enabled).toBe(true);
+      expect(before.lastRun).toBeNull();
+      const harness = before.policies.find(
+        (p) => p.table === "harness_agent_events",
+      );
+      expect(harness?.retentionDays).toBe(7);
+
+      await svc.runSweep({ dryRun: true });
+      const after = svc.getStatus();
+      expect(after.lastRun?.dryRun).toBe(true);
+      expect(after.lastRun?.results).toHaveLength(6);
+    } finally {
+      process.env.ENABLE_DATA_RETENTION = prevEnv;
+    }
   });
 });

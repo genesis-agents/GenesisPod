@@ -8,6 +8,8 @@ import { ConfirmDialog } from '@/components/ui/dialogs/ConfirmDialog';
 import StorageStatsCards from './StorageStatsCards';
 import StorageToolbar from './StorageToolbar';
 import StoragePipelineGrid from './StoragePipelineGrid';
+import StorageArchivePanel from './StorageArchivePanel';
+import StorageRetentionPanel from './StorageRetentionPanel';
 import StorageR2DetailDrawer from './StorageR2DetailDrawer';
 
 interface TableStat {
@@ -330,6 +332,24 @@ export default function StorageInventoryPanel() {
         loading={loading}
         onShowR2Detail={(prefix) => setR2DetailPrefix(prefix)}
       />
+
+      {/* 事件大表无损卸载（归档到 R2 再删）—— 不能列级 offload 的高行数大表的释放方式 */}
+      <div className="pt-2">
+        <h3 className="mb-3 text-sm font-semibold text-gray-700">
+          无损卸载（归档到 R2）—— 高行数事件大表整行归档后释放 DB
+        </h3>
+        <StorageArchivePanel />
+      </div>
+
+      {/* 可选：硬删除（有损）。与归档二选一，默认用上面的无损归档 */}
+      <details className="pt-2">
+        <summary className="mb-3 cursor-pointer text-sm font-semibold text-gray-500 hover:text-gray-700">
+          数据老化（Retention，硬删除·有损）—— 与归档二选一，展开查看
+        </summary>
+        <div className="mt-2">
+          <StorageRetentionPanel />
+        </div>
+      </details>
 
       <StorageR2DetailDrawer
         open={r2DetailPrefix !== null}
