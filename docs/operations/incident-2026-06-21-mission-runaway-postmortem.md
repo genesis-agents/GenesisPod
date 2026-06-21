@@ -1,6 +1,6 @@
 # 事故复盘 + 系统性修复方案：Mission 失控空烧（2026-06-21）
 
-> 状态：**待 review，未动代码**
+> 状态：**P0 + prose-not-JSON 已实现并验证**（commit `ddfdf0a85`，分支 `fix/mission-runaway-systemic`，未 push）；**P1-2（playground 去留）待决策**
 > 触发：用户反馈「洞察失败」（mission `dc0d2aae-2256-4a89-822f-e8de0c01ded4`，topic「AIDC并网标准洞察」，depth=deep）
 > 调查方式：源码端到端追踪 + Railway 生产 DB 实证（`agent_playground_missions` / `agent_playground_mission_events`）+ 四路并行只读审计
 > 维护者：Claude Code
