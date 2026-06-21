@@ -109,8 +109,16 @@ export default function StorageArchivePanel() {
         }
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as { results: ArchiveResult[] };
-      const total = data.results.reduce((s, r) => s + r.rows, 0);
+      const raw = (await res.json()) as
+        | { results?: ArchiveResult[] }
+        | { data?: { results?: ArchiveResult[] } };
+      // 后端响应可能被全局拦截器包一层 { data: ... }，与 load() 同样解包
+      const payload =
+        (raw as { data?: { results?: ArchiveResult[] } }).data !== undefined
+          ? (raw as { data: { results?: ArchiveResult[] } }).data
+          : (raw as { results?: ArchiveResult[] });
+      const results = payload.results ?? [];
+      const total = results.reduce((s, r) => s + (r.rows || 0), 0);
       toast.success(
         '预演完成（未归档、未删除任何数据）',
         `按当前保留策略，共有 ${groupThousands(total)} 行可无损归档到 R2。详见下方表格。`

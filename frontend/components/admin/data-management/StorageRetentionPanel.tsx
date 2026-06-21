@@ -98,8 +98,16 @@ export default function StorageRetentionPanel() {
         }
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as { results: RetentionResult[] };
-      const total = data.results.reduce((s, r) => s + r.affected, 0);
+      const raw = (await res.json()) as
+        | { results?: RetentionResult[] }
+        | { data?: { results?: RetentionResult[] } };
+      // 后端响应可能被全局拦截器包一层 { data: ... }，与 load() 同样解包
+      const payload =
+        (raw as { data?: { results?: RetentionResult[] } }).data !== undefined
+          ? (raw as { data: { results?: RetentionResult[] } }).data
+          : (raw as { results?: RetentionResult[] });
+      const results = payload.results ?? [];
+      const total = results.reduce((s, r) => s + (r.affected || 0), 0);
       toast.success(
         '预演完成（未删除任何数据）',
         `按当前保留策略，共有 ${groupThousands(total)} 行可清理。详见下方"最近一次执行"。`
