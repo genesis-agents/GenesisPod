@@ -428,30 +428,31 @@ describe("resolveMissionWallTimeMs — pure function contracts", () => {
     expect(resolveMissionWallTimeMs(input)).toBe(300_000);
   });
 
-  it("never exceeds 24 hours hard ceiling (86400000 ms)", () => {
-    // ★ 2026-05-27：本地模型深度分析需求上调到 24h（deep=1440min）
-    //   与 DTO wallTimeCapMs.max + BUDGET_FIELD_LIMITS.wallTimeMinutes.max 对齐。
+  it("never exceeds 6 hours hard ceiling (21600000 ms)", () => {
+    // ★ 2026-06-21 收紧：deep 24h → 6h（incident mission-runaway 失控空烧，
+    //   $18/6M token/33h）。与 DTO wallTimeCapMs.max + BUDGET_FIELD_LIMITS
+    //   .wallTimeMinutes.max 对齐，堵住 per-mission 覆盖把 namespace guard 撑大。
     const input = validInput({ depth: "deep" });
     expect(resolveMissionWallTimeMs(input)).toBeLessThanOrEqual(
-      24 * 60 * 60 * 1000,
+      6 * 60 * 60 * 1000,
     );
   });
 
-  // ★ 2026-05-27 单一源：wall-time 由 DEPTH_BUDGET_TIERS 按 depth 解析。
-  //   quick=180min / standard=600min / deep=1440min（应对本地模型深度分析时长）
-  it("standard tier wall-time is 600 min (10h) (DEPTH_BUDGET_TIERS, key regression)", () => {
+  // ★ 单一源：wall-time 由 DEPTH_BUDGET_TIERS 按 depth 解析。
+  //   2026-06-21 收紧：quick=90min / standard=240min(4h) / deep=360min(6h)。
+  it("standard tier wall-time is 240 min (4h) (DEPTH_BUDGET_TIERS, key regression)", () => {
     const input = validInput({ depth: "standard" });
-    expect(resolveMissionWallTimeMs(input)).toBe(600 * 60 * 1000);
+    expect(resolveMissionWallTimeMs(input)).toBe(4 * 60 * 60 * 1000);
   });
 
-  it("quick tier wall-time is 180 min (3h)", () => {
+  it("quick tier wall-time is 90 min", () => {
     const input = validInput({ depth: "quick" });
-    expect(resolveMissionWallTimeMs(input)).toBe(180 * 60 * 1000);
+    expect(resolveMissionWallTimeMs(input)).toBe(90 * 60 * 1000);
   });
 
-  it("deep tier wall-time is 1440 min (24h)", () => {
+  it("deep tier wall-time is 360 min (6h)", () => {
     const input = validInput({ depth: "deep" });
-    expect(resolveMissionWallTimeMs(input)).toBe(1440 * 60 * 1000);
+    expect(resolveMissionWallTimeMs(input)).toBe(6 * 60 * 60 * 1000);
   });
 });
 
