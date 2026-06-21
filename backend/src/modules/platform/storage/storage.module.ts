@@ -4,6 +4,7 @@ import { StorageGovernanceService } from "./governance/storage-governance.servic
 import { DataRetentionScheduler } from "./governance/data-retention.scheduler";
 import { ObjectStorageService } from "./object-store/object-storage.service";
 import { StorageOffloadService } from "./governance/storage-offload.service";
+import { EventArchiveService } from "./governance/event-archive.service";
 import { StorageInventoryService } from "./governance/storage-inventory.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 // W2-A: object storage backend plugin（@Global，提供 OBJECT_STORAGE_BACKEND_TOKEN）
@@ -22,6 +23,8 @@ import { ObjectStorageModule } from "@/plugins/storage/object-storage.module";
     ObjectStorageService,
     // Governance-side storage jobs.
     StorageOffloadService,
+    // 事件大表无损归档（archive-to-R2-then-delete）
+    EventArchiveService,
     StorageInventoryService,
   ],
   exports: [
@@ -29,6 +32,10 @@ import { ObjectStorageModule } from "@/plugins/storage/object-storage.module";
     ObjectStorageService,
     StorageOffloadService,
     StorageInventoryService,
+    // 高增长表老化清理 —— admin 控制器需注入做状态查询 / 手动 dry-run 预演
+    DataRetentionScheduler,
+    // 事件大表无损归档 —— admin 控制器需注入做状态查询 / 手动 dry-run 预演
+    EventArchiveService,
   ],
 })
 export class StorageModule {}

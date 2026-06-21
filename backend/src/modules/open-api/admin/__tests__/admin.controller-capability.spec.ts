@@ -20,6 +20,8 @@ import { CapabilityOverridesWriterService } from "../../../ai-engine/facade";
 import { SecretsService } from "../../../platform/credentials/storage/secrets/secrets.service";
 import { StorageInventoryService } from "../../../platform/storage/governance/storage-inventory.service";
 import { StorageOffloadService } from "../../../platform/storage/governance/storage-offload.service";
+import { DataRetentionScheduler } from "../../../platform/storage/governance/data-retention.scheduler";
+import { EventArchiveService } from "../../../platform/storage/governance/event-archive.service";
 import { SystemModelInventoryService } from "../../../ai-engine/llm/models/catalog/system-model-inventory.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
@@ -75,6 +77,8 @@ describe("AdminController — capability_overrides endpoints (v3.1 §B.3)", () =
         { provide: SecretsService, useValue: {} },
         { provide: StorageInventoryService, useValue: {} },
         { provide: StorageOffloadService, useValue: {} },
+        { provide: DataRetentionScheduler, useValue: {} },
+        { provide: EventArchiveService, useValue: {} },
         { provide: SystemModelInventoryService, useValue: {} },
         {
           provide: CapabilityOverridesWriterService,

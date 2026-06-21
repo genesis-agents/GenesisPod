@@ -20,6 +20,8 @@ import { ChatFacade } from "../../../ai-harness/facade";
 import { SecretsService } from "../../../platform/credentials/storage/secrets/secrets.service";
 import { StorageInventoryService } from "../../../platform/storage/governance/storage-inventory.service";
 import { StorageOffloadService } from "../../../platform/storage/governance/storage-offload.service";
+import { DataRetentionScheduler } from "../../../platform/storage/governance/data-retention.scheduler";
+import { EventArchiveService } from "../../../platform/storage/governance/event-archive.service";
 import { SystemModelInventoryService } from "../../../ai-engine/llm/models/catalog/system-model-inventory.service";
 import { CapabilityOverridesWriterService } from "../../../ai-engine/facade";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
@@ -175,6 +177,14 @@ describe("AdminController (supplemental2)", () => {
           useValue: { getInventory: jest.fn() },
         },
         { provide: StorageOffloadService, useValue: { runOnce: jest.fn() } },
+        {
+          provide: DataRetentionScheduler,
+          useValue: { getStatus: jest.fn(), runSweep: jest.fn() },
+        },
+        {
+          provide: EventArchiveService,
+          useValue: { getStatus: jest.fn(), runOnce: jest.fn() },
+        },
         {
           provide: SystemModelInventoryService,
           useValue: { getInventory: jest.fn() },

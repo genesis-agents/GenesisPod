@@ -324,6 +324,42 @@ export class ObjectStorageService {
     }
   }
 
+  /**
+   * 上传二进制 Buffer 到指定 key（不自动改 key、不返回 signed URL）。
+   * 与 uploadText 互补：uploadText 只接字符串、uploadBuffer 会自动加 hash 前缀；
+   * 本方法保留调用方给定的精确 key，供归档（gzip NDJSON）等需要确定性 key 的场景。
+   */
+  async uploadBufferToKey(
+    buffer: Buffer,
+    key: string,
+    contentType: string,
+    metadata?: Record<string, string>,
+  ): Promise<UploadResult> {
+    if (!this.backend.isAvailable()) {
+      return { success: false, error: "Object Storage not configured" };
+    }
+    try {
+      await this.backend.putObject(key, buffer, {
+        contentType,
+        metadata: {
+          "uploaded-at": new Date().toISOString(),
+          "original-size": buffer.length.toString(),
+          ...metadata,
+        },
+      });
+      this.logger.log(
+        `Uploaded buffer: ${key} (${Math.round(buffer.length / 1024)}KB)`,
+      );
+      return { success: true, key };
+    } catch (error) {
+      this.logger.error(`Failed to upload buffer ${key}:`, error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Upload failed",
+      };
+    }
+  }
+
   async downloadText(key: string): Promise<string | null> {
     if (!this.backend.isAvailable()) return null;
     const buf = await this.backend.getObject(key);

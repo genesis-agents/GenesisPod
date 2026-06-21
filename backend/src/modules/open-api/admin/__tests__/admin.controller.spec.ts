@@ -6,6 +6,8 @@ import { ChatFacade } from "../../../ai-harness/facade";
 import { SecretsService } from "../../../platform/credentials/storage/secrets/secrets.service";
 import { StorageInventoryService } from "../../../platform/storage/governance/storage-inventory.service";
 import { StorageOffloadService } from "../../../platform/storage/governance/storage-offload.service";
+import { DataRetentionScheduler } from "../../../platform/storage/governance/data-retention.scheduler";
+import { EventArchiveService } from "../../../platform/storage/governance/event-archive.service";
 import { SystemModelInventoryService } from "../../../ai-engine/llm/models/catalog/system-model-inventory.service";
 import { CapabilityOverridesWriterService } from "../../../ai-engine/facade";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
@@ -95,6 +97,16 @@ const mockStorageOffloadService = {
   runOnce: jest.fn(),
 };
 
+const mockDataRetentionScheduler = {
+  getStatus: jest.fn(),
+  runSweep: jest.fn(),
+};
+
+const mockEventArchiveService = {
+  getStatus: jest.fn(),
+  runOnce: jest.fn(),
+};
+
 const mockSystemModelInventoryService = {
   getInventory: jest.fn(),
 };
@@ -126,6 +138,14 @@ describe("AdminController", () => {
         {
           provide: StorageOffloadService,
           useValue: mockStorageOffloadService,
+        },
+        {
+          provide: DataRetentionScheduler,
+          useValue: mockDataRetentionScheduler,
+        },
+        {
+          provide: EventArchiveService,
+          useValue: mockEventArchiveService,
         },
         {
           provide: SystemModelInventoryService,
