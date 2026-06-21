@@ -471,8 +471,11 @@ export class FeedbackService {
    * Get feedback by ID
    */
   async getFeedbackById(id: string) {
+    // ★ feedbacks.id 是 text 列（schema: String @id @default(uuid())，无 @db.Uuid）。
+    //   不能 ${id}::uuid —— text = uuid 触发 "operator does not exist"（42883），
+    //   被全局异常过滤器吞成 "Database error occurred"。直接 text = text 比较。
     const result = await this.prisma.$queryRaw<unknown[]>`
-      SELECT * FROM "feedbacks" WHERE "id" = ${id}::uuid
+      SELECT * FROM "feedbacks" WHERE "id" = ${id}
     `;
     return result[0] || null;
   }
@@ -503,7 +506,7 @@ export class FeedbackService {
       SET "status" = ${status}::"FeedbackStatus",
           "admin_notes" = ${adminNotes || null},
           "updated_at" = NOW()
-      WHERE "id" = ${id}::uuid
+      WHERE "id" = ${id}
       RETURNING *
     `;
 
@@ -634,7 +637,7 @@ export class FeedbackService {
     await this.prisma.$queryRaw`
       UPDATE "feedbacks"
       SET "reply_count" = "reply_count" + 1, "updated_at" = NOW()
-      WHERE "id" = ${feedbackId}::uuid
+      WHERE "id" = ${feedbackId}
     `;
 
     // Emit event for notification
@@ -673,7 +676,7 @@ export class FeedbackService {
         u."avatar_url" as user_avatar_url
       FROM "feedback_replies" r
       LEFT JOIN "users" u ON r."user_id" = u."id"
-      WHERE "feedback_id" = ${feedbackId}::uuid
+      WHERE "feedback_id" = ${feedbackId}
       ${internalCondition}
       ORDER BY r."created_at" ASC
       LIMIT ${limit} OFFSET ${offset}
@@ -681,7 +684,7 @@ export class FeedbackService {
 
     const countResult = await this.prisma.$queryRaw<{ count: bigint }[]>`
       SELECT COUNT(*) as count FROM "feedback_replies"
-      WHERE "feedback_id" = ${feedbackId}::uuid
+      WHERE "feedback_id" = ${feedbackId}
       ${internalCondition}
     `;
 
@@ -703,7 +706,7 @@ export class FeedbackService {
     const result = await this.prisma.$queryRaw<unknown[]>`
       UPDATE "feedbacks"
       SET "priority" = ${priority}::"FeedbackPriority", "updated_at" = NOW()
-      WHERE "id" = ${id}::uuid
+      WHERE "id" = ${id}
       RETURNING *
     `;
     return result[0] || null;
@@ -713,13 +716,16 @@ export class FeedbackService {
    * Assign feedback to admin (admin)
    */
   async assignFeedback(id: string, assignedTo: string | null) {
+    // ★ assigned_to / id 都是 text 列，不能 ::uuid（text = uuid 报错）。
+    //   assigned_at 旧写法把字符串 "NOW()" 当参数 ::timestamp 必报错——改为传 Date/null，
+    //   由 Prisma 绑定为 timestamp。
     const result = await this.prisma.$queryRaw<unknown[]>`
       UPDATE "feedbacks"
       SET
-        "assigned_to" = ${assignedTo}::uuid,
-        "assigned_at" = ${assignedTo ? "NOW()" : null}::timestamp,
+        "assigned_to" = ${assignedTo},
+        "assigned_at" = ${assignedTo ? new Date() : null},
         "updated_at" = NOW()
-      WHERE "id" = ${id}::uuid
+      WHERE "id" = ${id}
       RETURNING *
     `;
     return result[0] || null;
@@ -733,7 +739,7 @@ export class FeedbackService {
       WITH updated AS (
         UPDATE "feedbacks"
         SET "status" = ${status}::"FeedbackStatus", "updated_at" = NOW()
-        WHERE "id" = ANY(${ids}::uuid[])
+        WHERE "id" = ANY(${ids}::text[])
         RETURNING 1
       )
       SELECT COUNT(*) as count FROM updated
