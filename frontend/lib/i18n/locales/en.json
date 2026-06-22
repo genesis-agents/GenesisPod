@@ -4139,6 +4139,8 @@
       "urgentCount": "{{count}} urgent items need attention",
       "filesCount": "{{count}} files",
       "submittedAt": "Submitted",
+      "submittedBy": "Submitted by",
+      "anonymous": "Anonymous / not signed in",
       "email": "Email",
       "descriptionLabel": "Description",
       "attachments": "Attachments",

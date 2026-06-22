@@ -437,26 +437,34 @@ export class FeedbackService {
       throw new Error(`Invalid feedback type: ${type}`);
     }
 
-    // Build dynamic WHERE using parameterized Prisma.sql fragments
+    // Build dynamic WHERE using parameterized Prisma.sql fragments.
+    // ★ 列用 f. 限定：JOIN users 后 status/type/created_at 等同名列会歧义。
     const conditions: Prisma.Sql[] = [];
     if (status)
-      conditions.push(Prisma.sql`"status" = ${status}::"FeedbackStatus"`);
-    if (type) conditions.push(Prisma.sql`"type" = ${type}::"FeedbackType"`);
+      conditions.push(Prisma.sql`f."status" = ${status}::"FeedbackStatus"`);
+    if (type) conditions.push(Prisma.sql`f."type" = ${type}::"FeedbackType"`);
 
     const whereClause =
       conditions.length > 0
         ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`
         : Prisma.empty;
 
+    // ★ 2026-06-22：LEFT JOIN users 解析提交人身份（登录用户提交的反馈此前后台看不到是谁）。
+    //   返回 submitter_* 给前端展示；匿名/未登录提交则为 null。
     const feedbacks = await this.prisma.$queryRaw<unknown[]>`
-      SELECT * FROM "feedbacks"
+      SELECT f.*,
+             u."username"  AS submitter_username,
+             u."full_name" AS submitter_full_name,
+             u."email"     AS submitter_email
+      FROM "feedbacks" f
+      LEFT JOIN "users" u ON u."id" = f."user_id"
       ${whereClause}
-      ORDER BY "created_at" DESC
+      ORDER BY f."created_at" DESC
       LIMIT ${limit} OFFSET ${offset}
     `;
 
     const countResult = await this.prisma.$queryRaw<{ count: bigint }[]>`
-      SELECT COUNT(*) as count FROM "feedbacks" ${whereClause}
+      SELECT COUNT(*) as count FROM "feedbacks" f ${whereClause}
     `;
 
     return {
@@ -474,8 +482,16 @@ export class FeedbackService {
     // ★ feedbacks.id 是 text 列（schema: String @id @default(uuid())，无 @db.Uuid）。
     //   不能 ${id}::uuid —— text = uuid 触发 "operator does not exist"（42883），
     //   被全局异常过滤器吞成 "Database error occurred"。直接 text = text 比较。
+    // ★ 2026-06-22：JOIN users 解析提交人（与 getAllFeedback 一致）。f.* 仍含全部
+    //   feedback 列，updateFeedbackStatus 读 status/user_email/title/type 不受影响。
     const result = await this.prisma.$queryRaw<unknown[]>`
-      SELECT * FROM "feedbacks" WHERE "id" = ${id}
+      SELECT f.*,
+             u."username"  AS submitter_username,
+             u."full_name" AS submitter_full_name,
+             u."email"     AS submitter_email
+      FROM "feedbacks" f
+      LEFT JOIN "users" u ON u."id" = f."user_id"
+      WHERE f."id" = ${id}
     `;
     return result[0] || null;
   }
