@@ -4139,6 +4139,8 @@
       "urgentCount": "{{count}} 条紧急事项需要处理",
       "filesCount": "{{count}} 个文件",
       "submittedAt": "提交时间",
+      "submittedBy": "提交人",
+      "anonymous": "匿名/未登录",
       "email": "邮箱",
       "descriptionLabel": "描述",
       "attachments": "附件",

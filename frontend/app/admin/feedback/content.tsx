@@ -23,6 +23,10 @@ interface Feedback {
   user_agent: string | null;
   page_url: string | null;
   user_id: string | null;
+  // 提交人身份（后端 LEFT JOIN users 解析；匿名/未登录提交为 null）
+  submitter_username: string | null;
+  submitter_full_name: string | null;
+  submitter_email: string | null;
   admin_notes: string | null;
   assigned_to: string | null;
   attachments: Array<{
@@ -577,8 +581,16 @@ export default function FeedbackPageContent({
                           format="relative"
                         />
                       </span>
-                      {feedback.user_email && (
-                        <span>{feedback.user_email}</span>
+                      {(feedback.submitter_full_name ||
+                        feedback.submitter_username ||
+                        feedback.submitter_email ||
+                        feedback.user_email) && (
+                        <span>
+                          {feedback.submitter_full_name ||
+                            feedback.submitter_username ||
+                            feedback.submitter_email ||
+                            feedback.user_email}
+                        </span>
                       )}
                       <span className="font-mono">
                         {feedback.id.slice(0, 8)}
@@ -648,17 +660,40 @@ export default function FeedbackPageContent({
                   format="datetime"
                 />
               </div>
-              {selectedFeedback.user_email && (
-                <div>
-                  {t('admin.feedback.email')}:{' '}
+              <div>
+                {t('admin.feedback.submittedBy')}:{' '}
+                {selectedFeedback.submitter_full_name ||
+                selectedFeedback.submitter_username ? (
+                  <span className="text-gray-700">
+                    {selectedFeedback.submitter_full_name ||
+                      selectedFeedback.submitter_username}
+                    {(selectedFeedback.submitter_email ||
+                      selectedFeedback.user_email) && (
+                      <>
+                        {' · '}
+                        <a
+                          href={`mailto:${selectedFeedback.submitter_email || selectedFeedback.user_email}`}
+                          className="text-blue-600 hover:underline"
+                        >
+                          {selectedFeedback.submitter_email ||
+                            selectedFeedback.user_email}
+                        </a>
+                      </>
+                    )}
+                  </span>
+                ) : selectedFeedback.submitter_email ||
+                  selectedFeedback.user_email ? (
                   <a
-                    href={`mailto:${selectedFeedback.user_email}`}
+                    href={`mailto:${selectedFeedback.submitter_email || selectedFeedback.user_email}`}
                     className="text-blue-600 hover:underline"
                   >
-                    {selectedFeedback.user_email}
+                    {selectedFeedback.submitter_email ||
+                      selectedFeedback.user_email}
                   </a>
-                </div>
-              )}
+                ) : (
+                  <span>{t('admin.feedback.anonymous')}</span>
+                )}
+              </div>
               {selectedFeedback.page_url && (
                 <div className="truncate">
                   URL:{' '}
