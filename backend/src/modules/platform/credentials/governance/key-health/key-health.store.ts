@@ -117,8 +117,13 @@ export function buildSystemKeyId(secretName: string): string {
  * 从 cooldown 中的 key 里挑出最早恢复的那个，作为 filterUsable 的 degraded
  * fallback。
  *
- * 排除：DEAD（永久不可用）+ cooldownUntil = MAX_SAFE_INTEGER（QUOTA_EXCEEDED
- * 等永久 cooldown，retry 也是浪费）。
+ * 排除：
+ *  - DEAD（永久不可用）
+ *  - cooldownUntil = MAX_SAFE_INTEGER（AUTH/解密失败等永久 cooldown，retry 也是浪费）
+ *  - lastReason = QUOTA_EXCEEDED（配额/账单熔断现在是有界自愈，cooldownUntil 是
+ *    finite，但在窗口内 retry 必然再次 quota 失败、只会空烧调用。按 reason 排除以
+ *    保留旧的"不 tight-loop"语义；窗口过后该 key 的 cooldownUntil 自然过期，由
+ *    filterUsable 正常放行、re-probe 一次实现自愈）。
  */
 function pickEarliestFiniteCooldown(
   keyIds: string[],
@@ -131,6 +136,7 @@ function pickEarliestFiniteCooldown(
     if (!rec) continue;
     if (rec.state !== "COOLDOWN") continue;
     if (rec.cooldownUntil >= Number.MAX_SAFE_INTEGER) continue;
+    if (rec.lastReason === "QUOTA_EXCEEDED") continue;
     if (rec.cooldownUntil < bestExpiry) {
       bestExpiry = rec.cooldownUntil;
       bestId = keyIds[i];
@@ -156,8 +162,10 @@ export class KeyHealthStore {
    * 任何一次偶发 TIMEOUT（30s cooldown）/ RATE_LIMIT（60s） 都会让整个 cooldown
    * 窗口里所有调用直接 throw NoAvailableKeyError，多个 mission 并发时雪崩。
    *
-   * 排除：DEAD（auth 失败永远不行）和 cooldownUntil = MAX_SAFE_INTEGER（QUOTA_EXCEEDED
-   * 等永久 cooldown，账单恢复才能用，retry 也是浪费）。
+   * degraded fallback 排除：DEAD（auth 失败永远不行）、cooldownUntil = MAX_SAFE_INTEGER
+   * （AUTH/解密失败等永久 cooldown）、以及 lastReason=QUOTA_EXCEEDED（配额/账单熔断已改为
+   * 有界自愈：cooldownUntil finite，但窗口内 retry 必然再失败，故按 reason 排除以保留
+   * "不 tight-loop"语义，窗口过后由主循环的 cooldownUntil 过期判断自然放行、re-probe）。
    */
   async filterUsable(keyIds: string[]): Promise<string[]> {
     if (!this.cache || keyIds.length === 0) return [...keyIds];
@@ -189,8 +197,9 @@ export class KeyHealthStore {
       // ★ 2026-06-02 单 key 用户最后兜底：唯一一把 key 升级为 DEAD（连续 auth 失败）时，
       //   仍作为 last-resort 返回，避免无备用 key 的用户被一串 401 彻底锁死。配合 Fix1
       //   （偶发 401 不立即 DEAD），真正走到这里的多是"反复 401"——给一次重试机会，若仍
-      //   失败上层会再 markFailure，不比硬锁死 30 天更糟。QUOTA/billing 永久熔断（state
-      //   仍是 COOLDOWN，非 DEAD）不在此列：retry 必然再失败、只会空烧调用。
+      //   失败上层会再 markFailure，不比硬锁死 30 天更糟。QUOTA/billing 熔断（有界自愈、
+      //   state 仍是 COOLDOWN 非 DEAD）不在此列：窗口内 retry 必然再失败、只会空烧调用，
+      //   等 cooldown 窗口（QUOTA 档）过期由主循环自然放行即可。
       if (keyIds.length === 1) {
         const only = records[0];
         if (only && only.state === "DEAD") {

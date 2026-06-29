@@ -198,19 +198,35 @@ describe("KeyHealthStore", () => {
       expect(out).toEqual([]);
     });
 
-    it("degraded fallback: permanent cooldown (QUOTA_EXCEEDED) excluded", async () => {
+    it("degraded fallback: QUOTA_EXCEEDED excluded by lastReason (no tight-loop) yet NOT permanently locked", async () => {
+      // 配额/账单熔断现在是【有界自愈】：cooldownMs 是 finite（QUOTA 档），不再是 ∞。
+      // 窗口内：单 key 用户的这把 key 被 degraded fallback 按 lastReason 排除 → filterUsable
+      //         返回 []（fail fast，不 tight-loop 空烧 OpenAI 调用）。
+      // 窗口后：cooldownUntil 自然过期 → filterUsable 主循环正常放行、re-probe 一次（自愈），
+      //         这条由通用的 cooldownUntil>now 逻辑覆盖（见上面 earliest-expiry 用例）。
       const quotaClassified: ClassifiedError = {
         action: "NEXT_KEY",
         reason: "QUOTA_EXCEEDED",
-        cooldownMs: Number.POSITIVE_INFINITY,
+        cooldownMs: 5 * 60 * 1000, // KEY_COOLDOWN_MS.QUOTA —— 有界，非 ∞
         markDead: false,
         shouldStopChain: false,
         originalMessage: "insufficient quota",
         httpStatus: 402,
       };
+      const before = Date.now();
       await store.markFailure("personal:u1:openai:a", quotaClassified);
+
       const out = await store.filterUsable(["personal:u1:openai:a"]);
-      expect(out).toEqual([]);
+      expect(out).toEqual([]); // 窗口内排除，不 tight-loop
+
+      const rec = await store.get("personal:u1:openai:a");
+      expect(rec.state).toBe("COOLDOWN"); // 不是 DEAD
+      expect(rec.lastReason).toBe("QUOTA_EXCEEDED");
+      // ★ 关键：cooldownUntil 是 finite（≈ now+5min），绝不再是 MAX_SAFE_INTEGER 永久锁死
+      expect(rec.cooldownUntil).toBeLessThan(Number.MAX_SAFE_INTEGER);
+      expect(rec.cooldownUntil).toBeGreaterThanOrEqual(
+        before + 5 * 60 * 1000 - 100,
+      );
     });
   });
 

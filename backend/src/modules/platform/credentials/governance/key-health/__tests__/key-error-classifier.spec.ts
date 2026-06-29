@@ -1,4 +1,5 @@
 import { KeyErrorClassifier } from "../key-error-classifier";
+import { KEY_COOLDOWN_MS } from "../key-cooldown-policy";
 
 describe("KeyErrorClassifier", () => {
   let classifier: KeyErrorClassifier;
@@ -64,7 +65,7 @@ describe("KeyErrorClassifier", () => {
   });
 
   describe("QUOTA_EXCEEDED", () => {
-    it("classifies 402 as QUOTA_EXCEEDED + ∞ cooldown + NEXT_KEY but NOT markDead", () => {
+    it("classifies 402 as QUOTA_EXCEEDED + 有界自愈 cooldown + NEXT_KEY but NOT markDead", () => {
       const r = classifier.classify({
         status: 402,
         message: "Payment Required",
@@ -72,7 +73,9 @@ describe("KeyErrorClassifier", () => {
       expect(r.reason).toBe("QUOTA_EXCEEDED");
       expect(r.action).toBe("NEXT_KEY");
       expect(r.markDead).toBe(false);
-      expect(r.cooldownMs).toBe(Number.POSITIVE_INFINITY);
+      // ★ 有界自愈：充值/解限后自动恢复，绝不再是 ∞ 永久锁死
+      expect(r.cooldownMs).toBe(KEY_COOLDOWN_MS.QUOTA);
+      expect(Number.isFinite(r.cooldownMs)).toBe(true);
     });
 
     it("classifies 'insufficient quota' message as QUOTA_EXCEEDED", () => {
@@ -82,29 +85,30 @@ describe("KeyErrorClassifier", () => {
       expect(r.reason).toBe("QUOTA_EXCEEDED");
     });
 
-    it("classifies a daily-limit 429 (tokenmix 'unpaid / add credits') as QUOTA_EXCEEDED + ∞ cooldown, NOT a transient RATE_LIMIT", () => {
-      // Real tokenmix failure: HTTP 429 but the body is daily-quota exhaustion
-      // that won't recover for hours. Must be QUOTA (∞ cooldown) so the single-key
-      // degraded fallback excludes it — otherwise it gets re-served and retried
-      // in a tight loop on every poll/mission tick.
+    it("classifies a daily-limit 429 (tokenmix 'unpaid / add credits') as QUOTA_EXCEEDED + 有界自愈, NOT a transient RATE_LIMIT", () => {
+      // Real tokenmix failure: HTTP 429 but the body is daily-quota exhaustion.
+      // Must be QUOTA (not transient RATE_LIMIT) so the single-key degraded
+      // fallback excludes it by lastReason and we don't tight-loop. The cooldown
+      // is now bounded (QUOTA 档) so it self-heals once the daily window rolls
+      // over / credits are added — no manual Test Connection.
       const r = classifier.classify({
         status: 429,
         message:
           "Daily request limit exceeded: 10 requests per day for unpaid users. Add credits to remove this daily limit. Retry after 33844s.",
       });
       expect(r.reason).toBe("QUOTA_EXCEEDED");
-      expect(r.cooldownMs).toBe(Number.POSITIVE_INFINITY);
+      expect(r.cooldownMs).toBe(KEY_COOLDOWN_MS.QUOTA);
       expect(r.markDead).toBe(false);
     });
 
-    it("escalates a 429 with an hours-long Retry-After to QUOTA_EXCEEDED", () => {
+    it("escalates a 429 with an hours-long Retry-After to QUOTA_EXCEEDED (bounded self-heal)", () => {
       const r = classifier.classify({
         status: 429,
         message: "rate limited",
         response: { headers: { "retry-after": "33844" } },
       });
       expect(r.reason).toBe("QUOTA_EXCEEDED");
-      expect(r.cooldownMs).toBe(Number.POSITIVE_INFINITY);
+      expect(r.cooldownMs).toBe(KEY_COOLDOWN_MS.QUOTA);
     });
 
     it("recovers status from axios' stringified message ('Request failed with status code 402') → QUOTA_EXCEEDED", () => {
@@ -116,7 +120,7 @@ describe("KeyErrorClassifier", () => {
         new Error("Request failed with status code 402"),
       );
       expect(r.reason).toBe("QUOTA_EXCEEDED");
-      expect(r.cooldownMs).toBe(Number.POSITIVE_INFINITY);
+      expect(r.cooldownMs).toBe(KEY_COOLDOWN_MS.QUOTA);
       expect(r.markDead).toBe(false);
     });
 

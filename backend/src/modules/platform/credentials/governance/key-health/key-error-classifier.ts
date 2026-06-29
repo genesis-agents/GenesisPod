@@ -47,6 +47,11 @@ const COOLDOWN_60S = KEY_COOLDOWN_MS.RATE_LIMIT;
 const COOLDOWN_30S = KEY_COOLDOWN_MS.SHORT;
 const COOLDOWN_5MIN = KEY_COOLDOWN_MS.PROVIDER_OR_UNKNOWN;
 const COOLDOWN_INF = KEY_COOLDOWN_MS.INFINITE;
+// Quota/billing exhaustion is recoverable (top-up / raised budget / daily window
+// rolls over) → bounded self-healing cooldown, NOT a permanent lockout. After the
+// window filterUsable re-admits the key and re-probes once; while still in the
+// window the degraded fallback excludes it by lastReason so we never tight-loop.
+const COOLDOWN_QUOTA = KEY_COOLDOWN_MS.QUOTA;
 // A 429 whose retry-after exceeds this is quota/daily-cap exhaustion, not a
 // transient burst limit → escalate to a permanent (quota) cooldown.
 const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -103,10 +108,13 @@ export class KeyErrorClassifier {
 
     // 2. QUOTA / PAYMENT — 402 / "insufficient quota" / "billing" / daily-limit
     // NB: a "daily request limit / unpaid / add credits" failure usually arrives
-    // as HTTP 429, but it is QUOTA exhaustion (won't recover for hours, needs
-    // billing), NOT a transient rate-limit. It must land here (COOLDOWN_INF) so
-    // KeyHealthStore.filterUsable EXCLUDES it — otherwise the single-key degraded
-    // fallback re-serves the dead key and the caller retries it in a tight loop.
+    // as HTTP 429, but it is QUOTA exhaustion (won't recover for minutes/hours,
+    // needs billing), NOT a transient rate-limit. It lands here with a BOUNDED
+    // self-healing cooldown (COOLDOWN_QUOTA, not ∞): the key auto-recovers once the
+    // user tops up / raises the budget / the daily window rolls over, with no manual
+    // Test Connection. While still inside the window the single-key degraded fallback
+    // excludes it by lastReason (KeyHealthStore.pickEarliestFiniteCooldown) so we
+    // fail fast instead of tight-looping a key that won't succeed yet.
     if (
       status === 402 ||
       /insufficient[\s_-]?quota|quota[\s_-]?exceeded|billing|insufficient[\s_-]?(?:credits|balance)|exceeded[\s_-]?your[\s_-]?current[\s_-]?quota|daily[\s_-]?(?:request[\s_-]?)?limit|requests?[\s_-]?per[\s_-]?day|unpaid|add[\s_-]?credits|remove[\s_-]?this[\s_-]?daily[\s_-]?limit/i.test(
@@ -116,7 +124,7 @@ export class KeyErrorClassifier {
       return this.build({
         action: "NEXT_KEY",
         reason: "QUOTA_EXCEEDED",
-        cooldownMs: COOLDOWN_INF, // 等账单恢复才能用，但不标 dead（key 本身没坏）
+        cooldownMs: COOLDOWN_QUOTA, // 有界自愈：账单恢复后自动放行，不标 dead（key 本身没坏）
         markDead: false,
         shouldStopChain: false,
         message,
@@ -131,14 +139,15 @@ export class KeyErrorClassifier {
     ) {
       const retryAfter = this.extractRetryAfter(err);
       // A 429 with an hours-long retry-after is a quota/daily-cap exhaustion in
-      // disguise, not a transient burst limit. Treat it as QUOTA (permanent
-      // cooldown, excluded from the single-key degraded fallback) so we stop
-      // re-serving and retrying a key that won't recover for hours.
+      // disguise, not a transient burst limit. Treat it as QUOTA (bounded
+      // self-healing cooldown, excluded from the single-key degraded fallback by
+      // lastReason) so we stop re-serving a key that won't recover soon, yet still
+      // re-probe once the window elapses instead of locking it forever.
       if (retryAfter != null && retryAfter > ONE_HOUR_MS) {
         return this.build({
           action: "NEXT_KEY",
           reason: "QUOTA_EXCEEDED",
-          cooldownMs: COOLDOWN_INF,
+          cooldownMs: COOLDOWN_QUOTA,
           markDead: false,
           shouldStopChain: false,
           message,

@@ -1115,10 +1115,17 @@ export class AiChatService {
           status === 401 ||
           apiErrorPayload?.code === "invalid_api_key" ||
           apiErrorPayload?.type === "invalid_request_error";
+        // ★ 只把"真·配额/账单耗尽"判为 quota（结构化 code/type 优先，再退到文案）。
+        //   不能把裸 status===429 一律当 quota：纯限流（rate_limit_exceeded）也是 429，
+        //   误判会弹"账户没钱"引导卡 + 触发 key 熔断，把可重试的瞬时限流变成长冷却。
+        //   限流走下面的非-quota 路径（抛原始错误 → KeyErrorClassifier → RATE_LIMIT_KEY，
+        //   60s 短冷却 + 可由 ReActLoop 重试 / model-failover 接管）。
         const isQuotaError =
-          status === 429 ||
           apiErrorPayload?.code === "insufficient_quota" ||
-          /quota|billing|exceeded/i.test(apiErrorMsg);
+          apiErrorPayload?.type === "insufficient_quota" ||
+          /insufficient[\s_-]?quota|quota[\s_-]?exceeded|exceeded[\s_-]?your[\s_-]?current[\s_-]?quota|billing|insufficient[\s_-]?(?:credits|balance)|add[\s_-]?credits/i.test(
+            apiErrorMsg,
+          );
 
         if (isAuthError && !isQuotaError) {
           throw new InvalidApiKeyError(provider, source, {

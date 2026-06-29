@@ -20,7 +20,15 @@ export const KEY_COOLDOWN_MS = {
   RATE_LIMIT: 60 * 1000,
   /** provider 级故障 / 未分类失败：保守中等冷却（保持 secret_keys 旧默认） */
   PROVIDER_OR_UNKNOWN: 5 * 60 * 1000,
-  /** 坏 key / 配额耗尽 / 解密失败：等人工处理（替换 / 充值），不自动重试 */
+  /**
+   * 配额 / 账单类（insufficient_quota / 项目预算上限 / 日限额）：有界自愈熔断。
+   * 这类失败【会】在用户充值 / 调高预算 / 限额窗口过去后自行恢复，所以不能像坏 key 那样
+   * 永久锁死（否则单 key BYOK 用户即便解决了账单也要人工 Test Connection 才能解开）。
+   * 窗口过后由 filterUsable 自然放行、re-probe 一次；仍在窗口内则被 degraded fallback
+   * 按 lastReason 排除，不 tight-loop 空烧调用（见 key-health.store pickEarliestFiniteCooldown）。
+   */
+  QUOTA: 5 * 60 * 1000,
+  /** 坏 key（401/403）/ 解密失败：key 本身坏了，不会自愈，等人工替换 / re-test */
   INFINITE: Number.POSITIVE_INFINITY,
 } as const;
 
@@ -35,12 +43,14 @@ export const KEY_COOLDOWN_MS = {
  */
 export function cooldownMsForCode(code: string | null | undefined): number {
   switch ((code ?? "").toUpperCase()) {
-    // 坏 key / 解密失败 / 配额耗尽 → 永久熔断（等替换或充值）
+    // 坏 key / 解密失败 → 永久熔断（key 本身坏了，不会自愈，等替换 / re-test）
     case "AUTH_FAILED":
     case "DECRYPTION_FAILED":
+      return KEY_COOLDOWN_MS.INFINITE;
+    // 配额 / 账单耗尽 → 有界自愈（充值 / 调高预算 / 限额窗口过去后自动恢复，不永久锁死）
     case "QUOTA_EXCEEDED":
     case "QUOTA_EXHAUSTED":
-      return KEY_COOLDOWN_MS.INFINITE;
+      return KEY_COOLDOWN_MS.QUOTA;
     // 限流（单 key / provider）→ 分钟级
     case "RATE_LIMIT_KEY":
     case "RATE_LIMIT":

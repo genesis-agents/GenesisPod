@@ -6,15 +6,17 @@ import {
 
 describe("key-cooldown-policy (W1 共享熔断策略)", () => {
   describe("cooldownMsForCode", () => {
-    it("AUTH_FAILED / 配额耗尽 / 解密失败 → 永久熔断", () => {
-      for (const code of [
-        "AUTH_FAILED",
-        "QUOTA_EXCEEDED",
-        "QUOTA_EXHAUSTED",
-        "DECRYPTION_FAILED",
-      ]) {
+    it("AUTH_FAILED / 解密失败 → 永久熔断（key 本身坏了，不会自愈）", () => {
+      for (const code of ["AUTH_FAILED", "DECRYPTION_FAILED"]) {
         expect(cooldownMsForCode(code)).toBe(KEY_COOLDOWN_MS.INFINITE);
         expect(isPermanentCooldown(cooldownMsForCode(code))).toBe(true);
+      }
+    });
+
+    it("配额 / 账单耗尽 → 有界自愈（QUOTA 档，非永久；充值/解限后自动恢复）", () => {
+      for (const code of ["QUOTA_EXCEEDED", "QUOTA_EXHAUSTED"]) {
+        expect(cooldownMsForCode(code)).toBe(KEY_COOLDOWN_MS.QUOTA);
+        expect(isPermanentCooldown(cooldownMsForCode(code))).toBe(false);
       }
     });
 
