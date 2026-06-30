@@ -162,19 +162,38 @@ export function zodToJsonSchema(
   schema: import("zod").ZodTypeAny,
   depth = 0,
 ): Record<string, unknown> {
+  const node = zodSchemaToJsonNode(schema, depth);
+  // ★ 2026-06-29 生产事故修复（某 reasoning 模型 mission 25 分钟 474 次 400）：
+  //   OpenAI / OpenAI-兼容 provider 的 structured-output
+  //   response_format.json_schema.schema 根节点必须是 type:"object"
+  //   （root 为 anyOf / 缺 type 一律 400 "schema must be type object, got type None"）。
+  //   Zod 根若是 discriminatedUnion / union / any 等非 object，转换结果根节点缺 type，
+  //   导致整个 mission 反复 400、卡死烧用户 BYOK key。
+  //   仅在根层(depth 0)兜底强制 object 根；嵌套层保持语义正确（anyOf 是合法 JSON Schema）。
+  //   真实 variant 形状仍由 agent 的 Zod schema.safeParse 在 post-parse 阶段强校验。
+  if (depth === 0 && node.type !== "object") {
+    return { type: "object", additionalProperties: true };
+  }
+  return node;
+}
+
+function zodSchemaToJsonNode(
+  schema: import("zod").ZodTypeAny,
+  depth: number,
+): Record<string, unknown> {
   if (depth > 8) return {};
   const def = schema._def as { typeName?: string };
   const typeName = def.typeName;
 
   // Strip wrappers
   if (typeName === "ZodOptional") {
-    return zodToJsonSchema(
+    return zodSchemaToJsonNode(
       (schema as import("zod").ZodOptional<import("zod").ZodTypeAny>).unwrap(),
       depth,
     );
   }
   if (typeName === "ZodNullable") {
-    const inner = zodToJsonSchema(
+    const inner = zodSchemaToJsonNode(
       (schema as import("zod").ZodNullable<import("zod").ZodTypeAny>).unwrap(),
       depth,
     );
@@ -182,7 +201,7 @@ export function zodToJsonSchema(
     return { ...inner, type: t ? [t, "null"] : ["null"] };
   }
   if (typeName === "ZodDefault") {
-    return zodToJsonSchema(
+    return zodSchemaToJsonNode(
       (
         schema as import("zod").ZodDefault<import("zod").ZodTypeAny>
       ).removeDefault(),
@@ -212,14 +231,45 @@ export function zodToJsonSchema(
     ).options;
     return {
       anyOf: opts.map((o: import("zod").ZodTypeAny) =>
-        zodToJsonSchema(o, depth + 1),
+        zodSchemaToJsonNode(o, depth + 1),
       ),
     };
+  }
+  // ★ ZodDiscriminatedUnion：每个 variant 都是 object 且共享一个判别字段。
+  //   OpenAI structured-output 根必须是 object（不支持 root anyOf），所以这里产出
+  //   一个带判别字段 enum 的宽松 object，而不是 anyOf。给 LLM 判别字段提示，
+  //   variant 精确形状由 post-parse safeParse 兜住。
+  if (typeName === "ZodDiscriminatedUnion") {
+    const duDef = schema._def as {
+      discriminator: string;
+      options: import("zod").ZodTypeAny[];
+    };
+    const discriminator = duDef.discriminator;
+    const enumValues: unknown[] = [];
+    for (const opt of duDef.options) {
+      const shape = (opt as import("zod").ZodObject<import("zod").ZodRawShape>)
+        .shape;
+      const litDef = shape?.[discriminator]?._def as
+        | { value?: unknown }
+        | undefined;
+      if (litDef && "value" in litDef) enumValues.push(litDef.value);
+    }
+    const properties: Record<string, unknown> =
+      enumValues.length > 0
+        ? { [discriminator]: { type: "string", enum: enumValues } }
+        : {};
+    const result: Record<string, unknown> = {
+      type: "object",
+      properties,
+      additionalProperties: true,
+    };
+    if (enumValues.length > 0) result.required = [discriminator];
+    return result;
   }
   if (typeName === "ZodArray") {
     const el = (schema as import("zod").ZodArray<import("zod").ZodTypeAny>)
       .element;
-    return { type: "array", items: zodToJsonSchema(el, depth + 1) };
+    return { type: "array", items: zodSchemaToJsonNode(el, depth + 1) };
   }
   if (typeName === "ZodObject") {
     const shape = (schema as import("zod").ZodObject<import("zod").ZodRawShape>)
@@ -230,7 +280,7 @@ export function zodToJsonSchema(
       const childDef = child._def as {
         typeName?: string;
       };
-      properties[key] = zodToJsonSchema(child, depth + 1);
+      properties[key] = zodSchemaToJsonNode(child, depth + 1);
       if (
         childDef.typeName !== "ZodOptional" &&
         childDef.typeName !== "ZodDefault"
@@ -246,8 +296,9 @@ export function zodToJsonSchema(
   if (typeName === "ZodRecord") {
     return { type: "object", additionalProperties: true };
   }
-  // Fallback for unsupported types
-  return {};
+  // Fallback for unsupported types — honor the documented contract (was {} ,
+  // which produced a typeless root and broke OpenAI structured output).
+  return { type: "object", additionalProperties: true };
 }
 
 // ============ 工具：JSON 提取 ============
