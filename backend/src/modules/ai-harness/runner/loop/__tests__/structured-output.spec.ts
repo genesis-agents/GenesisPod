@@ -287,18 +287,17 @@ describe("ReActLoop — native structured output non-FC branch (R2-#35)", () => 
 // ── Schema shape smoke-tests ──────────────────────────────────────────────────
 
 describe("loop-output-schemas shape", () => {
-  it("SIMPLE_LOOP_OUTPUT_JSON_SCHEMA is a permissive schema (object or array)", () => {
-    // P2 fix: removed top-level type:"object" constraint so arrays are not rejected
-    // by strict providers before the manual fallback can handle them.
-    expect(SIMPLE_LOOP_OUTPUT_JSON_SCHEMA).not.toHaveProperty("type");
-    expect(SIMPLE_LOOP_OUTPUT_JSON_SCHEMA).toHaveProperty("oneOf");
-    const oneOf = (SIMPLE_LOOP_OUTPUT_JSON_SCHEMA as { oneOf: unknown[] })
-      .oneOf;
-    expect(oneOf).toContainEqual({
+  it("SIMPLE_LOOP_OUTPUT_JSON_SCHEMA 是合法 object 根（OpenAI 硬约束）", () => {
+    // 2026-06-29 生产事故修复：旧版用 { oneOf: [object, array] }（根无 type），
+    // 想兼容数组输出，但 OpenAI/兼容 provider 的 json_schema 策略要求根必须是
+    // type:"object"，root oneOf/缺 type 一律 400 "must be type object, got None"
+    // → reviewer/verifier 类 simple-loop agent 每轮失败、mission thrash 烧 BYOK key。
+    // 修正：收敛为宽松 object 根；真实形状由各 agent outputSchemaValidator post-parse 校验。
+    expect(SIMPLE_LOOP_OUTPUT_JSON_SCHEMA).toMatchObject({
       type: "object",
       additionalProperties: true,
     });
-    expect(oneOf).toContainEqual({ type: "array" });
+    expect(SIMPLE_LOOP_OUTPUT_JSON_SCHEMA).not.toHaveProperty("oneOf");
   });
 
   it("REACT_LOOP_DECISION_JSON_SCHEMA covers thinking + action.kind", () => {

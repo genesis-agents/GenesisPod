@@ -58,6 +58,30 @@ function extractJson(raw: string): unknown | null {
   }
 }
 
+/**
+ * ★ 2026-06-29 系统级根守卫（生产事故修复）：OpenAI / 兼容 provider 的
+ * `response_format.json_schema.schema` 根节点**必须**是 `type:"object"`。
+ * 根为 oneOf / anyOf / array / 缺 type（如 simple-loop 的 oneOf 根、Zod
+ * discriminatedUnion/union/any 转换结果）一律被以
+ * `Invalid schema ... must be type object, got type None` 400 拒绝 →
+ * 调用方反复重试卡死、空烧 BYOK key。
+ *
+ * 这里是所有 structured-output 上线前的唯一收口，对任何调用方兜底：
+ * 根不是 object 就收敛成宽松 object（真实形状由调用方 post-parse 校验）。
+ * 返回 coerced 标记，让 strict 模式在被收敛时退为非 strict（宽松 object 与
+ * strict 要求的 additionalProperties:false + 全字段 required 冲突）。
+ */
+function ensureOpenAiObjectRoot(schema: Record<string, unknown> | undefined): {
+  schema: Record<string, unknown>;
+  coerced: boolean;
+} {
+  if (schema && schema.type === "object") return { schema, coerced: false };
+  return {
+    schema: { type: "object", additionalProperties: true },
+    coerced: true,
+  };
+}
+
 // ============================================================================
 // OpenAI / Grok / DeepSeek-chat: json_schema strict mode
 // ============================================================================
@@ -65,14 +89,17 @@ export class JsonSchemaStrictAdapter implements IStructuredOutputAdapter {
   readonly strategy: StructuredOutputStrategy = "json_schema_strict";
 
   adapt(input: AdaptInput): AdaptOutput {
+    const { schema, coerced } = ensureOpenAiObjectRoot(input.jsonSchema);
     return {
       requestBodyPatch: {
         response_format: {
           type: "json_schema",
           json_schema: {
             name: input.schemaName,
-            schema: input.jsonSchema,
-            strict: true,
+            schema,
+            // 被收敛成宽松 object 时无法满足 strict 的 additionalProperties:false，
+            // 退为非 strict 以免再次 400。
+            strict: !coerced,
           },
         },
       },
@@ -92,13 +119,14 @@ export class JsonSchemaAdapter implements IStructuredOutputAdapter {
   readonly strategy: StructuredOutputStrategy = "json_schema";
 
   adapt(input: AdaptInput): AdaptOutput {
+    const { schema } = ensureOpenAiObjectRoot(input.jsonSchema);
     return {
       requestBodyPatch: {
         response_format: {
           type: "json_schema",
           json_schema: {
             name: input.schemaName,
-            schema: input.jsonSchema,
+            schema,
             strict: false,
           },
         },

@@ -22,8 +22,17 @@
  * A permissive object schema still signals to the provider that JSON is
  * required, which is better than relying on responseFormat:"json" alone.
  */
+// ★ 2026-06-29 生产事故修复（reviewer/verifier 类 simple-loop agent 在 gpt-5.4
+//   反复 400 烧 BYOK key）：原值是 `{ oneOf: [...] }`，根节点没有 `type` 字段。
+//   OpenAI / 兼容 provider 的 structured-output（json_schema 策略）要求根必须是
+//   `type:"object"`，root oneOf / 缺 type 一律 400 "schema must be type object,
+//   got type None" → reviewer 每轮失败 → mission thrash 永不收敛。
+//   simple-loop agent 实际都返回 JSON object（reviewer/judge/verifier 的 verdict），
+//   故收敛为宽松 object 根即可；真实形状由各 agent 的 outputSchemaValidator
+//   (Zod) 在 post-parse 阶段强校验。providers 不支持时仍按 capability 自动降级。
 export const SIMPLE_LOOP_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
-  oneOf: [{ type: "object", additionalProperties: true }, { type: "array" }],
+  type: "object",
+  additionalProperties: true,
 };
 
 /**
