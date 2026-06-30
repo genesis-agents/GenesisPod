@@ -13,6 +13,7 @@ import {
   ensureOpenAIEmbeddingsPath,
 } from "../types/endpoint.utils";
 import type { StructuredOutputStrategy } from "../output/structured/structured-output-strategy.types";
+import { ensureOpenAiObjectRoot } from "../output/structured/adapters";
 import { ModelCapabilityService } from "../models/capability/model-capability.service";
 import { CapabilitySelfHealService } from "../models/capability/capability-self-heal.service";
 import { ApiCallerSelfHealTriggerService } from "./api-caller-self-heal-trigger.service";
@@ -248,12 +249,17 @@ export class OpenaiCaller extends BaseHttpCaller {
           }
         } else if (outputSchema) {
           // Legacy ad-hoc path: build response_format from nativeMode.
+          // 根守卫（与 adapter 同一收口）：非 object 根收敛 + strict gate，
+          // 防 chatStructured() 等调用方传非 object 根时再 400。
+          const { schema: safeSchema, strictCompatible } =
+            ensureOpenAiObjectRoot(outputSchema.schema);
           requestBody["response_format"] = {
             type: "json_schema",
             json_schema: {
               name: "structured_output",
-              schema: outputSchema.schema,
-              strict: isStrict ? true : (schemaStrict ?? false),
+              schema: safeSchema,
+              strict:
+                (isStrict ? true : (schemaStrict ?? false)) && strictCompatible,
             },
           };
         } else if (responseFormat === "json") {
@@ -300,12 +306,15 @@ export class OpenaiCaller extends BaseHttpCaller {
         }
       } else if (!noResponseFormat && outputSchema) {
         // ★ Legacy ad-hoc path (fallback when new fields not provided)
+        const { schema: safeSchema, strictCompatible } = ensureOpenAiObjectRoot(
+          outputSchema.schema,
+        );
         requestBody["response_format"] = {
           type: "json_schema",
           json_schema: {
             name: "structured_output",
-            schema: outputSchema.schema,
-            strict: schemaStrict ?? false,
+            schema: safeSchema,
+            strict: (schemaStrict ?? false) && strictCompatible,
           },
         };
       } else if (!noResponseFormat && responseFormat === "json") {
@@ -350,12 +359,14 @@ export class OpenaiCaller extends BaseHttpCaller {
         (mode === "json_schema" || mode === "json_schema_strict") &&
         outputJsonSchema
       ) {
+        const { schema: safeSchema, strictCompatible } =
+          ensureOpenAiObjectRoot(outputJsonSchema);
         requestBody["response_format"] = {
           type: "json_schema",
           json_schema: {
             name: schemaName ?? "output",
-            schema: outputJsonSchema,
-            strict: mode === "json_schema_strict",
+            schema: safeSchema,
+            strict: mode === "json_schema_strict" && strictCompatible,
           },
         };
       } else {
@@ -600,8 +611,7 @@ export class OpenaiCaller extends BaseHttpCaller {
                 tokensUsed: ru.total_tokens || 0,
                 inputTokens: ru.prompt_tokens || 0,
                 outputTokens: ru.completion_tokens || 0,
-                cacheReadTokens:
-                  ru.prompt_tokens_details?.cached_tokens || 0,
+                cacheReadTokens: ru.prompt_tokens_details?.cached_tokens || 0,
                 finishReason:
                   retryData.choices?.[0]?.finish_reason || undefined,
                 reasoning: retryReasoning,
@@ -621,8 +631,7 @@ export class OpenaiCaller extends BaseHttpCaller {
                   tokensUsed: ru.total_tokens || 0,
                   inputTokens: ru.prompt_tokens || 0,
                   outputTokens: ru.completion_tokens || 0,
-                  cacheReadTokens:
-                    ru.prompt_tokens_details?.cached_tokens || 0,
+                  cacheReadTokens: ru.prompt_tokens_details?.cached_tokens || 0,
                   finishReason:
                     retryData.choices?.[0]?.finish_reason || undefined,
                   reasoning: retryReasoning,

@@ -44,8 +44,11 @@ const MESSAGES: ChatMessage[] = [
   { role: "user", content: "Return JSON" },
 ];
 
+// 注意 additionalProperties:false + required 覆盖全部 properties —— OpenAI strict
+// 模式的硬约束。缺了它，根守卫的 isStrictSafe 会(正确地)退非 strict 以免 400。
 const JSON_SCHEMA: Record<string, unknown> = {
   type: "object",
+  additionalProperties: false,
   properties: { answer: { type: "string" } },
   required: ["answer"],
 };

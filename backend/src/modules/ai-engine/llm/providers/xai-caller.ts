@@ -5,6 +5,7 @@ import type { ChatMessage } from "../types/task-profile.types";
 import type { FunctionDefinition } from "../../tools/abstractions/tool.interface";
 import { ensureChatCompletionsPath } from "../types/endpoint.utils";
 import type { StructuredOutputStrategy } from "../output/structured/structured-output-strategy.types";
+import { ensureOpenAiObjectRoot } from "../output/structured/adapters";
 import { ModelCapabilityService } from "../models/capability/model-capability.service";
 import { CapabilitySelfHealService } from "../models/capability/capability-self-heal.service";
 import { ApiCallerSelfHealTriggerService } from "./api-caller-self-heal-trigger.service";
@@ -181,12 +182,17 @@ export class XaiCaller extends BaseHttpCaller {
             }
           }
         } else if (outputSchema) {
+          // 根守卫（与 openai-caller / adapter 同一收口）：xAI 走 OpenAI 兼容协议，
+          // 根同样必须 type:object，非 object 根收敛 + strict gate。
+          const { schema: safeSchema, strictCompatible } =
+            ensureOpenAiObjectRoot(outputSchema.schema);
           requestBody["response_format"] = {
             type: "json_schema",
             json_schema: {
               name: "structured_output",
-              schema: outputSchema.schema,
-              strict: isStrict ? true : (schemaStrict ?? false),
+              schema: safeSchema,
+              strict:
+                (isStrict ? true : (schemaStrict ?? false)) && strictCompatible,
             },
           };
         } else if (responseFormat === "json") {
@@ -224,12 +230,15 @@ export class XaiCaller extends BaseHttpCaller {
         // ★ Legacy ad-hoc path
         // xAI reasoning models DO support response_format (unlike temperature)
         // Without it, reasoning models produce interleaved/malformed JSON output
+        const { schema: safeSchema, strictCompatible } = ensureOpenAiObjectRoot(
+          outputSchema.schema,
+        );
         requestBody["response_format"] = {
           type: "json_schema",
           json_schema: {
             name: "structured_output",
-            schema: outputSchema.schema,
-            strict: schemaStrict ?? false,
+            schema: safeSchema,
+            strict: (schemaStrict ?? false) && strictCompatible,
           },
         };
       } else if (responseFormat === "json") {

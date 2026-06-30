@@ -66,20 +66,65 @@ function extractJson(raw: string): unknown | null {
  * `Invalid schema ... must be type object, got type None` 400 拒绝 →
  * 调用方反复重试卡死、空烧 BYOK key。
  *
- * 这里是所有 structured-output 上线前的唯一收口，对任何调用方兜底：
+ * 这里是 structured-output adapter 层的根收口，对任何调用方兜底：
  * 根不是 object 就收敛成宽松 object（真实形状由调用方 post-parse 校验）。
- * 返回 coerced 标记，让 strict 模式在被收敛时退为非 strict（宽松 object 与
- * strict 要求的 additionalProperties:false + 全字段 required 冲突）。
+ * 同时返回 strictCompatible：仅当根 additionalProperties:false 时才满足 OpenAI
+ * strict 的硬约束；宽松 object / 被收敛的根都不兼容 strict，否则会以
+ * "additionalProperties must be false" 再次 400。调用方必须用它 gate strict：
+ * `strict: wantStrict && strictCompatible`。
+ * 已导出供 openai-caller 的 legacy / degrade 内联路径复用（同一收口逻辑）。
  */
-function ensureOpenAiObjectRoot(schema: Record<string, unknown> | undefined): {
+/** 根 type 是否为 object（含 nullable 数组形 type:["object","null"]）。 */
+function isObjectType(t: unknown): boolean {
+  return t === "object" || (Array.isArray(t) && t.includes("object"));
+}
+
+/**
+ * 递归判定 schema 是否满足 OpenAI strict structured output 的**全部**硬约束：
+ *   每一层 object 都 additionalProperties:false 且 required 覆盖 properties 的全部 key；
+ *   array 校验 items；anyOf/oneOf/allOf 校验每个分支；标量叶子恒安全。
+ * 任一层不满足即非 strict-safe → 必须退非 strict，否则 OpenAI 以
+ * "additionalProperties must be false" / "required must include every key" 400。
+ * （仅看根 additionalProperties 是必要非充分条件——见 2026-06-29 workflow 审视 #1/#2。）
+ */
+function isStrictSafe(node: unknown): boolean {
+  if (!node || typeof node !== "object") return false;
+  const s = node as Record<string, unknown>;
+  if (isObjectType(s.type)) {
+    if (s.additionalProperties !== false) return false;
+    const props = (s.properties as Record<string, unknown>) ?? {};
+    const keys = Object.keys(props);
+    const required = Array.isArray(s.required) ? (s.required as string[]) : [];
+    if (keys.some((k) => !required.includes(k))) return false;
+    return keys.every((k) => isStrictSafe(props[k]));
+  }
+  if (s.type === "array") {
+    return s.items ? isStrictSafe(s.items) : true;
+  }
+  for (const comb of ["anyOf", "oneOf", "allOf"] as const) {
+    if (Array.isArray(s[comb])) {
+      return (s[comb] as unknown[]).every(isStrictSafe);
+    }
+  }
+  return true; // 标量叶子 string/number/boolean/null/enum/const
+}
+
+export function ensureOpenAiObjectRoot(
+  schema: Record<string, unknown> | undefined,
+): {
   schema: Record<string, unknown>;
-  coerced: boolean;
+  strictCompatible: boolean;
 } {
-  if (schema && schema.type === "object") return { schema, coerced: false };
-  return {
-    schema: { type: "object", additionalProperties: true },
-    coerced: true,
-  };
+  const isObjectRoot = !!schema && isObjectType(schema.type);
+  const out: Record<string, unknown> = !isObjectRoot
+    ? { type: "object", additionalProperties: true }
+    : Array.isArray(schema.type)
+      ? // OpenAI 根不接受 nullable 根，归一为标量 object 但保留 properties/required
+        { ...schema, type: "object" }
+      : schema;
+  // 仅当整棵树都 strict-safe 才允许 strict（递归校验，非只看根一层）。
+  const strictCompatible = isObjectRoot && isStrictSafe(out);
+  return { schema: out, strictCompatible };
 }
 
 // ============================================================================
@@ -89,7 +134,9 @@ export class JsonSchemaStrictAdapter implements IStructuredOutputAdapter {
   readonly strategy: StructuredOutputStrategy = "json_schema_strict";
 
   adapt(input: AdaptInput): AdaptOutput {
-    const { schema, coerced } = ensureOpenAiObjectRoot(input.jsonSchema);
+    const { schema, strictCompatible } = ensureOpenAiObjectRoot(
+      input.jsonSchema,
+    );
     return {
       requestBodyPatch: {
         response_format: {
@@ -97,9 +144,9 @@ export class JsonSchemaStrictAdapter implements IStructuredOutputAdapter {
           json_schema: {
             name: input.schemaName,
             schema,
-            // 被收敛成宽松 object 时无法满足 strict 的 additionalProperties:false，
-            // 退为非 strict 以免再次 400。
-            strict: !coerced,
+            // 根非 strict-safe（被收敛 / 宽松 object，additionalProperties!==false）
+            // 时退非 strict，否则 OpenAI 以 additionalProperties must be false 再 400。
+            strict: strictCompatible,
           },
         },
       },

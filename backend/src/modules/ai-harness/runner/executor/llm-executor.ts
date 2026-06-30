@@ -171,8 +171,12 @@ export function zodToJsonSchema(
   //   导致整个 mission 反复 400、卡死烧用户 BYOK key。
   //   仅在根层(depth 0)兜底强制 object 根；嵌套层保持语义正确（anyOf 是合法 JSON Schema）。
   //   真实 variant 形状仍由 agent 的 Zod schema.safeParse 在 post-parse 阶段强校验。
-  if (depth === 0 && node.type !== "object") {
-    return { type: "object", additionalProperties: true };
+  //   注意 nullable object 根 → type:["object","null"]（数组形），也算 object 根，
+  //   不能被 `!== "object"` 误判压成空壳（workflow 审视 #4）。
+  if (depth === 0) {
+    const t = node.type;
+    const isObj = t === "object" || (Array.isArray(t) && t.includes("object"));
+    if (!isObj) return { type: "object", additionalProperties: true };
   }
   return node;
 }
